@@ -48,7 +48,12 @@ services:
       retries: 10
 
   app:
-    image: ghcr.io/reqcore-inc/reqcore:latest
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+      args:
+        NUXT_PUBLIC_SITE_URL: http://111.88.253.175/ats
+    image: reqcore-astra:latest
     container_name: reqcore_app
     restart: unless-stopped
     env_file: .env
@@ -57,7 +62,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       S3_ENDPOINT: http://minio:9000
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       db:
         condition: service_healthy
