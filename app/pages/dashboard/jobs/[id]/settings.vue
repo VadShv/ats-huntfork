@@ -2,6 +2,8 @@
 import {
   Save, Trash2, ArrowLeft, ExternalLink, Link2, ClipboardCopy,
 } from 'lucide-vue-next'
+
+const { t } = useI18n()
 import { z } from 'zod'
 
 definePageMeta({
@@ -148,7 +150,7 @@ async function handleSave() {
     setTimeout(() => { saved.value = false }, 2000)
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to save changes', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+    toast.error(t('dashboard.jobs.settings.failedToSave'), { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   } finally {
     isSaving.value = false
   }
@@ -190,7 +192,7 @@ async function handleDelete() {
     await deleteJob()
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to delete job', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+    toast.error(t('dashboard.jobs.settings.failedToDelete'), { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
     isDeleting.value = false
     showDeleteConfirm.value = false
   }
@@ -200,34 +202,34 @@ async function handleDelete() {
 // Options
 // ─────────────────────────────────────────────
 
-const typeOptions = [
-  { value: 'full_time', label: 'Full-time' },
-  { value: 'part_time', label: 'Part-time' },
-  { value: 'contract', label: 'Contract' },
-  { value: 'internship', label: 'Internship' },
-]
+const typeOptions = computed(() => [
+  { value: 'full_time', label: t('dashboard.jobs.settings.typeFullTime') },
+  { value: 'part_time', label: t('dashboard.jobs.settings.typePartTime') },
+  { value: 'contract', label: t('dashboard.jobs.settings.typeContract') },
+  { value: 'internship', label: t('dashboard.jobs.settings.typeInternship') },
+])
 
-const remoteOptions = [
-  { value: '', label: 'Not specified' },
-  { value: 'remote', label: 'Remote' },
-  { value: 'hybrid', label: 'Hybrid' },
-  { value: 'onsite', label: 'On-site' },
-]
+const remoteOptions = computed(() => [
+  { value: '', label: t('dashboard.jobs.settings.notSpecified') },
+  { value: 'remote', label: t('dashboard.jobs.settings.remote') },
+  { value: 'hybrid', label: t('dashboard.jobs.settings.hybrid') },
+  { value: 'onsite', label: t('dashboard.jobs.settings.onsite') },
+])
 
-const experienceLevelOptions = [
-  { value: '', label: 'Not specified' },
-  { value: 'junior', label: 'Junior' },
-  { value: 'mid', label: 'Mid-level' },
-  { value: 'senior', label: 'Senior' },
-  { value: 'lead', label: 'Lead' },
-]
+const experienceLevelOptions = computed(() => [
+  { value: '', label: t('dashboard.jobs.settings.notSpecified') },
+  { value: 'junior', label: t('dashboard.jobs.settings.levelJunior') },
+  { value: 'mid', label: t('dashboard.jobs.settings.levelMid') },
+  { value: 'senior', label: t('dashboard.jobs.settings.levelSenior') },
+  { value: 'lead', label: t('dashboard.jobs.settings.levelLead') },
+])
 
-const salaryUnitOptions = [
-  { value: '', label: 'Not specified' },
-  { value: 'YEAR', label: 'Per year' },
-  { value: 'MONTH', label: 'Per month' },
-  { value: 'HOUR', label: 'Per hour' },
-]
+const salaryUnitOptions = computed(() => [
+  { value: '', label: t('dashboard.jobs.settings.notSpecified') },
+  { value: 'YEAR', label: t('dashboard.jobs.settings.perYear') },
+  { value: 'MONTH', label: t('dashboard.jobs.settings.perMonth') },
+  { value: 'HOUR', label: t('dashboard.jobs.settings.perHour') },
+])
 
 function onSalaryMinChange(e: Event) {
   const input = e.target as HTMLInputElement
@@ -246,7 +248,7 @@ function onSalaryMaxChange(e: Event) {
 
     <!-- Loading -->
     <div v-if="fetchStatus === 'pending'" class="text-center py-12 text-surface-400">
-      Loading…
+      {{ $t('dashboard.jobs.settings.loading') }}
     </div>
 
     <!-- Error -->
@@ -254,14 +256,14 @@ function onSalaryMaxChange(e: Event) {
       v-else-if="fetchError"
       class="rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 p-4 text-sm text-danger-700 dark:text-danger-400"
     >
-      {{ fetchError.statusCode === 404 ? 'Job not found.' : 'Failed to load job.' }}
-      <NuxtLink :to="$localePath('/dashboard/jobs')" class="underline ml-1">Back to Jobs</NuxtLink>
+      {{ fetchError.statusCode === 404 ? $t('dashboard.jobs.settings.jobNotFound') : $t('dashboard.jobs.settings.failedToLoad') }}
+      <NuxtLink :to="$localePath('/dashboard/jobs')" class="underline ml-1">{{ $t('dashboard.jobs.settings.backToJobs') }}</NuxtLink>
     </div>
 
     <template v-else-if="job">
       <!-- Header -->
       <div class="mb-8">
-        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">Job Settings</h1>
+        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">{{ $t('dashboard.jobs.settings.pageTitle') }}</h1>
         <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">
           Edit the details for <strong>{{ job.title }}</strong>.
         </p>
@@ -272,12 +274,12 @@ function onSalaryMaxChange(e: Event) {
         <!-- SECTION: Basic Details                   -->
         <!-- ═══════════════════════════════════════ -->
         <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
-          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-5">Basic Details</h2>
+          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-5">{{ $t('dashboard.jobs.settings.basicDetails') }}</h2>
           <div class="space-y-4">
             <!-- Title -->
             <div>
               <label for="settings-title" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                Title <span class="text-danger-500">*</span>
+                {{ $t('dashboard.jobs.settings.labelTitle') }} <span class="text-danger-500">*</span>
               </label>
               <input
                 id="settings-title"
@@ -292,7 +294,7 @@ function onSalaryMaxChange(e: Event) {
             <!-- Description -->
             <div>
               <label for="settings-description" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                Description
+                {{ $t('dashboard.jobs.settings.labelDescription') }}
               </label>
               <textarea
                 id="settings-description"
@@ -307,7 +309,7 @@ function onSalaryMaxChange(e: Event) {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label for="settings-location" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                  Location
+                  {{ $t('dashboard.jobs.settings.labelLocation') }}
                 </label>
                 <input
                   id="settings-location"
@@ -319,7 +321,7 @@ function onSalaryMaxChange(e: Event) {
               </div>
               <div>
                 <label for="settings-type" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                  Employment Type
+                  {{ $t('dashboard.jobs.settings.labelEmploymentType') }}
                 </label>
                 <select
                   id="settings-type"
@@ -336,7 +338,7 @@ function onSalaryMaxChange(e: Event) {
             <!-- Remote status -->
             <div>
               <label for="settings-remote" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                Work Arrangement
+                {{ $t('dashboard.jobs.settings.labelWorkArrangement') }}
               </label>
               <select
                 id="settings-remote"
@@ -352,7 +354,7 @@ function onSalaryMaxChange(e: Event) {
             <!-- Experience Level -->
             <div>
               <label for="settings-experience-level" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                Experience Level
+                {{ $t('dashboard.jobs.settings.labelExperienceLevel') }}
               </label>
               <select
                 id="settings-experience-level"
@@ -368,7 +370,7 @@ function onSalaryMaxChange(e: Event) {
             <!-- Slug -->
             <div>
               <label for="settings-slug" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                URL Slug
+                {{ $t('dashboard.jobs.settings.labelSlug') }}
               </label>
               <input
                 id="settings-slug"
@@ -388,7 +390,7 @@ function onSalaryMaxChange(e: Event) {
         <!-- SECTION: Salary & Compensation           -->
         <!-- ═══════════════════════════════════════ -->
         <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
-          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">Salary & Compensation</h2>
+          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ $t('dashboard.jobs.settings.salarySection') }}</h2>
           <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">
             Adding salary information improves visibility on Google Jobs.
           </p>
@@ -401,7 +403,7 @@ function onSalaryMaxChange(e: Event) {
                 class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
               />
               <div>
-                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Salary is negotiable</span>
+                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.salaryNegotiable') }}</span>
                 <p class="text-xs text-surface-400 dark:text-surface-500">
                   When checked, "Negotiable" is shown instead of a specific salary range. Salary fields below will be cleared.
                 </p>
@@ -413,7 +415,7 @@ function onSalaryMaxChange(e: Event) {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label for="settings-salary-min" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                    Minimum Salary
+                    {{ $t('dashboard.jobs.settings.salaryMin') }}
                   </label>
                   <input
                     id="settings-salary-min"
@@ -427,7 +429,7 @@ function onSalaryMaxChange(e: Event) {
                 </div>
                 <div>
                   <label for="settings-salary-max" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                    Maximum Salary
+                    {{ $t('dashboard.jobs.settings.salaryMax') }}
                   </label>
                   <input
                     id="settings-salary-max"
@@ -443,7 +445,7 @@ function onSalaryMaxChange(e: Event) {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label for="settings-currency" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                    Currency
+                    {{ $t('dashboard.jobs.settings.salaryCurrency') }}
                   </label>
                   <input
                     id="settings-currency"
@@ -456,7 +458,7 @@ function onSalaryMaxChange(e: Event) {
                 </div>
                 <div>
                   <label for="settings-salary-unit" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                    Pay Period
+                    {{ $t('dashboard.jobs.settings.salaryPeriod') }}
                   </label>
                   <select
                     id="settings-salary-unit"
@@ -477,7 +479,7 @@ function onSalaryMaxChange(e: Event) {
         <!-- SECTION: Application Options             -->
         <!-- ═══════════════════════════════════════ -->
         <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
-          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">Application Options</h2>
+          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ $t('dashboard.jobs.settings.appOptionsSection') }}</h2>
           <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">
             Control what candidates must provide when applying.
           </p>
@@ -489,7 +491,7 @@ function onSalaryMaxChange(e: Event) {
                 class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
               />
               <div>
-                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Require resume/CV</span>
+                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.requireResume') }}</span>
                 <p class="text-xs text-surface-400 dark:text-surface-500">Candidates must upload a resume file.</p>
               </div>
             </label>
@@ -500,7 +502,7 @@ function onSalaryMaxChange(e: Event) {
                 class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
               />
               <div>
-                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Ask for cover letter</span>
+                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.requireCoverLetter') }}</span>
                 <p class="text-xs text-surface-400 dark:text-surface-500">Candidates can write a cover letter.</p>
               </div>
             </label>
@@ -511,7 +513,7 @@ function onSalaryMaxChange(e: Event) {
                 class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
               />
               <div>
-                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Auto-score on apply</span>
+                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.autoScore') }}</span>
                 <p class="text-xs text-surface-400 dark:text-surface-500">Automatically run AI scoring when a candidate applies.</p>
               </div>
             </label>
@@ -522,13 +524,13 @@ function onSalaryMaxChange(e: Event) {
         <!-- SECTION: Listing Expiry                  -->
         <!-- ═══════════════════════════════════════ -->
         <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
-          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">Listing Expiry</h2>
+          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ $t('dashboard.jobs.settings.listingExpiry') }}</h2>
           <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">
             Set when this job posting automatically expires. Required for Google Jobs rich results.
           </p>
           <div>
             <label for="settings-valid-through" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-              Valid Through
+              {{ $t('dashboard.jobs.settings.validThrough') }}
             </label>
             <div class="flex items-center gap-2">
               <input
@@ -543,7 +545,7 @@ function onSalaryMaxChange(e: Event) {
                 class="text-xs text-surface-400 hover:text-danger-500 dark:hover:text-danger-400 transition-colors underline shrink-0"
                 @click="form.validThrough = ''"
               >
-                Clear
+                {{ $t('dashboard.jobs.settings.clear') }}
               </button>
             </div>
             <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">Leave blank if there is no fixed expiry date.</p>
@@ -556,7 +558,7 @@ function onSalaryMaxChange(e: Event) {
         <section v-if="job.status === 'open'" class="rounded-xl border border-brand-200 dark:border-brand-800 bg-brand-50/50 dark:bg-brand-950/30 p-6">
           <div class="flex items-center gap-2 mb-2">
             <Link2 class="size-4 text-brand-600 dark:text-brand-400" />
-            <h2 class="text-base font-semibold text-brand-700 dark:text-brand-300">Application Link</h2>
+            <h2 class="text-base font-semibold text-brand-700 dark:text-brand-300">{{ $t('dashboard.jobs.settings.applicationLink') }}</h2>
           </div>
           <p class="text-xs text-surface-600 dark:text-surface-400 mb-3">
             Share this link with candidates so they can apply to this position.
@@ -574,7 +576,7 @@ function onSalaryMaxChange(e: Event) {
               @click="copyApplicationLink"
             >
               <ClipboardCopy class="size-3.5" />
-              {{ linkCopied ? 'Copied!' : 'Copy' }}
+              {{ linkCopied ? $t('dashboard.jobs.settings.copied') : $t('dashboard.jobs.settings.copy') }}
             </button>
           </div>
         </section>
@@ -589,7 +591,7 @@ function onSalaryMaxChange(e: Event) {
             class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Save class="size-4" />
-            {{ saved ? 'Saved!' : isSaving ? 'Saving…' : 'Save Changes' }}
+            {{ saved ? $t('dashboard.jobs.settings.saved') : isSaving ? $t('dashboard.jobs.settings.saving') : $t('dashboard.jobs.settings.saveChanges') }}
           </button>
         </div>
       </form>
@@ -598,7 +600,7 @@ function onSalaryMaxChange(e: Event) {
       <!-- DANGER ZONE                              -->
       <!-- ═══════════════════════════════════════ -->
       <section class="rounded-xl border border-danger-200 dark:border-danger-800/60 bg-danger-50/50 dark:bg-danger-950/20 p-6 mb-12">
-        <h2 class="text-base font-semibold text-danger-700 dark:text-danger-400 mb-1">Danger Zone</h2>
+        <h2 class="text-base font-semibold text-danger-700 dark:text-danger-400 mb-1">{{ $t('dashboard.jobs.settings.dangerZone') }}</h2>
         <p class="text-xs text-surface-500 dark:text-surface-400 mb-4">
           Permanently delete this job and all associated applications.
         </p>
@@ -610,13 +612,13 @@ function onSalaryMaxChange(e: Event) {
             @click="showDeleteConfirm = true"
           >
             <Trash2 class="size-4" />
-            Delete this Job
+            {{ $t('dashboard.jobs.settings.deleteThisJob') }}
           </button>
         </div>
 
         <div v-else class="rounded-lg border border-danger-300 dark:border-danger-700 bg-white dark:bg-surface-900 p-4">
           <p class="text-sm text-surface-700 dark:text-surface-300 mb-3">
-            Are you sure you want to delete <strong>{{ job.title }}</strong>? This will also delete all associated applications. This action cannot be undone.
+            {{ $t('dashboard.jobs.settings.deleteConfirm') }}
           </p>
           <div class="flex items-center gap-2">
             <button
@@ -625,7 +627,7 @@ function onSalaryMaxChange(e: Event) {
               class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-danger-600 px-4 py-2 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               @click="handleDelete"
             >
-              {{ isDeleting ? 'Deleting…' : 'Yes, Delete' }}
+              {{ isDeleting ? $t('dashboard.jobs.settings.deleting') : $t('dashboard.jobs.settings.confirmDelete') }}
             </button>
             <button
               type="button"
@@ -633,7 +635,7 @@ function onSalaryMaxChange(e: Event) {
               class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
               @click="showDeleteConfirm = false"
             >
-              Cancel
+              {{ $t('dashboard.jobs.settings.cancel') }}
             </button>
           </div>
         </div>

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { MapPin, Briefcase, Building2 } from 'lucide-vue-next'
 
+const { t } = useI18n()
+
 definePageMeta({
   layout: 'public',
 })
@@ -80,29 +82,29 @@ function validate(): boolean {
   errors.value = {}
   const maxSize = 10 * 1024 * 1024
 
-  if (!form.value.firstName.trim()) errors.value.firstName = 'First name is required'
-  if (!form.value.lastName.trim()) errors.value.lastName = 'Last name is required'
+  if (!form.value.firstName.trim()) errors.value.firstName = t('publicApply.firstNameRequired')
+  if (!form.value.lastName.trim()) errors.value.lastName = t('publicApply.lastNameRequired')
   if (!form.value.email.trim()) {
-    errors.value.email = 'Email is required'
+    errors.value.email = t('publicApply.emailRequired')
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.email)) {
-    errors.value.email = 'Invalid email address'
+    errors.value.email = t('publicApply.emailInvalid')
   }
 
   // Validate required resume
   if (job.value?.requireResume && !resumeFile.value) {
-    errors.value.resume = 'Resume/CV is required'
+    errors.value.resume = t('publicApply.resumeRequired')
   }
 
   // Validate required cover letter
   if (job.value?.requireCoverLetter && !coverLetterText.value.trim()) {
-    errors.value.coverLetter = 'Cover letter is required'
+    errors.value.coverLetter = t('publicApply.coverLetterRequired')
   } else if (coverLetterText.value.length > 10_000) {
-    errors.value.coverLetter = 'Cover letter must be 10,000 characters or fewer.'
+    errors.value.coverLetter = t('publicApply.coverLetterTooLong')
   }
 
   // Validate resume file size
   if (resumeFile.value && resumeFile.value.size > maxSize) {
-    errors.value.resume = 'File too large. Maximum 10 MB.'
+    errors.value.resume = t('publicApply.fileTooLarge')
   }
 
   // Validate required custom questions
@@ -112,7 +114,7 @@ function validate(): boolean {
         if (q.type === 'file_upload') {
           // For file uploads, check if a File was selected
           if (!fileUploads.value[q.id]) {
-            errors.value[`q-${q.id}`] = 'This field is required'
+            errors.value[`q-${q.id}`] = t('publicApply.fieldRequired')
           }
         } else {
           const val = responses.value[q.id]
@@ -120,7 +122,7 @@ function validate(): boolean {
             (Array.isArray(val) && val.length === 0)
 
           if (isEmpty) {
-            errors.value[`q-${q.id}`] = 'This field is required'
+            errors.value[`q-${q.id}`] = t('publicApply.fieldRequired')
           }
         }
       }
@@ -130,7 +132,7 @@ function validate(): boolean {
   // Validate custom file upload sizes
   for (const [questionId, file] of Object.entries(fileUploads.value)) {
     if (file.size > maxSize) {
-      errors.value[`q-${questionId}`] = 'File too large. Maximum 10 MB.'
+      errors.value[`q-${questionId}`] = t('publicApply.fileTooLarge')
     }
   }
 
@@ -249,12 +251,12 @@ async function handleSubmit() {
 // Display helpers
 // ─────────────────────────────────────────────
 
-const typeLabels: Record<string, string> = {
-  full_time: 'Full-time',
-  part_time: 'Part-time',
-  contract: 'Contract',
-  internship: 'Internship',
-}
+const typeLabels = computed<Record<string, string>>(() => ({
+  full_time: t('publicJob.fullTime'),
+  part_time: t('publicJob.partTime'),
+  contract: t('publicJob.contract'),
+  internship: t('publicJob.internship'),
+}))
 </script>
 
 <template>
@@ -272,15 +274,15 @@ const typeLabels: Record<string, string> = {
       <div class="mb-5 flex size-16 items-center justify-center rounded-full bg-surface-100 dark:bg-surface-800">
         <Briefcase class="size-7 text-surface-400" />
       </div>
-      <h1 class="text-xl font-bold text-surface-900 dark:text-surface-100 mb-2">Position Not Found</h1>
+      <h1 class="text-xl font-bold text-surface-900 dark:text-surface-100 mb-2">{{ $t('publicApply.positionNotFound') }}</h1>
       <p class="text-sm text-surface-500 mb-6 max-w-xs">
-        This position may have been filled or is no longer accepting applications.
+        {{ $t('publicApply.positionNotFoundDesc') }}
       </p>
       <a
         :href="useRuntimeConfig().public.marketingUrl"
         class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors shadow-sm"
       >
-        Back to Home
+        {{ $t('publicApply.backToHome') }}
       </a>
     </div>
 
@@ -295,7 +297,7 @@ const typeLabels: Record<string, string> = {
         <svg class="size-3.5 transition-transform group-hover:-translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="m15 18-6-6 6-6"/>
         </svg>
-        Back to job details
+        {{ $t('publicApply.backToJobDetails') }}
       </NuxtLink>
 
       <!-- Job hero card -->
@@ -340,8 +342,8 @@ const typeLabels: Record<string, string> = {
       <div class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-sm overflow-hidden">
         <!-- Card header -->
         <div class="border-b border-surface-100 dark:border-surface-800 px-6 sm:px-8 py-5">
-          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Your application</h2>
-          <p class="mt-0.5 text-sm text-surface-500">Fields marked with <span class="text-danger-500">*</span> are required.</p>
+          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">{{ $t('publicApply.yourApplication') }}</h2>
+          <p class="mt-0.5 text-sm text-surface-500">{{ $t('publicApply.fieldsRequired') }}</p>
         </div>
 
         <div class="px-6 sm:px-8 py-6 sm:py-8">
@@ -369,7 +371,7 @@ const typeLabels: Record<string, string> = {
               <!-- First Name -->
               <div>
                 <label for="firstName" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                  First Name <span class="text-danger-500">*</span>
+                  {{ $t('publicApply.firstName') }} <span class="text-danger-500">*</span>
                 </label>
                 <input
                   id="firstName"
@@ -389,7 +391,7 @@ const typeLabels: Record<string, string> = {
               <!-- Last Name -->
               <div>
                 <label for="lastName" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                  Last Name <span class="text-danger-500">*</span>
+                  {{ $t('publicApply.lastName') }} <span class="text-danger-500">*</span>
                 </label>
                 <input
                   id="lastName"
@@ -410,7 +412,7 @@ const typeLabels: Record<string, string> = {
             <!-- Email -->
             <div>
               <label for="email" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                Email <span class="text-danger-500">*</span>
+                {{ $t('publicApply.email') }} <span class="text-danger-500">*</span>
               </label>
               <input
                 id="email"
@@ -430,7 +432,7 @@ const typeLabels: Record<string, string> = {
             <!-- Phone -->
             <div>
               <label for="phone" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                Phone <span class="text-surface-400 font-normal text-xs">(optional)</span>
+                {{ $t('publicApply.phone') }} <span class="text-surface-400 font-normal text-xs">({{ $t('publicApply.optional') }})</span>
               </label>
               <input
                 id="phone"
@@ -448,7 +450,7 @@ const typeLabels: Record<string, string> = {
                 <!-- Resume -->
                 <div v-if="job.requireResume">
                   <label for="resume" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                    Resume / CV <span class="text-danger-500">*</span>
+                    {{ $t('publicApply.resumeCV') }} <span class="text-danger-500">*</span>
                   </label>
                   <div
                     class="relative flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-colors"
@@ -469,7 +471,7 @@ const typeLabels: Record<string, string> = {
                       for="resume"
                       class="shrink-0 cursor-pointer rounded-lg bg-white dark:bg-surface-700 border border-surface-200 dark:border-surface-600 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-600 transition-colors"
                     >
-                      {{ resumeFile ? 'Change' : 'Choose file' }}
+                      {{ resumeFile ? $t('publicApply.change') : $t('publicApply.chooseFile') }}
                     </label>
                     <input
                       id="resume"
@@ -488,7 +490,7 @@ const typeLabels: Record<string, string> = {
                 <!-- Cover Letter -->
                 <div v-if="job.requireCoverLetter">
                   <label for="coverLetterText" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                    Cover Letter <span class="text-danger-500">*</span>
+                    {{ $t('publicApply.coverLetter') }} <span class="text-danger-500">*</span>
                   </label>
                   <textarea
                     id="coverLetterText"
@@ -512,7 +514,7 @@ const typeLabels: Record<string, string> = {
             <!-- Custom questions -->
             <template v-if="job.questions && job.questions.length > 0">
               <div class="border-t border-surface-100 dark:border-surface-800 pt-5">
-                <p class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-4">Additional questions</p>
+                <p class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-4">{{ $t('publicApply.additionalQuestions') }}</p>
                 <div class="space-y-5">
                   <DynamicField
                     v-for="q in job.questions"
@@ -544,9 +546,9 @@ const typeLabels: Record<string, string> = {
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                {{ isSubmitting ? 'Submitting…' : 'Submit Application' }}
+                {{ isSubmitting ? $t('publicApply.submitting') : $t('publicApply.submitApplication') }}
               </button>
-              <p class="text-xs text-surface-400">Your information is kept confidential.</p>
+              <p class="text-xs text-surface-400">{{ $t('publicApply.confidential') }}</p>
             </div>
           </form>
         </div>

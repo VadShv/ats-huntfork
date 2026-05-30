@@ -78,22 +78,22 @@ const totalPages = computed(() => Math.ceil(total.value / 20))
 // ─────────────────────────────────────────────
 // i18n-aware display helpers
 // ─────────────────────────────────────────────
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 
-const typeLabels: Record<string, string> = {
-  full_time: 'Full-time',
-  part_time: 'Part-time',
-  contract: 'Contract',
-  internship: 'Internship',
-}
+const typeLabels = computed<Record<string, string>>(() => ({
+  full_time: t('publicJob.fullTime'),
+  part_time: t('publicJob.partTime'),
+  contract: t('publicJob.contract'),
+  internship: t('publicJob.internship'),
+}))
 
-const typeOptions = [
-  { label: 'All types', value: undefined },
-  { label: 'Full-time', value: 'full_time' },
-  { label: 'Part-time', value: 'part_time' },
-  { label: 'Contract', value: 'contract' },
-  { label: 'Internship', value: 'internship' },
-] as const
+const typeOptions = computed(() => [
+  { label: t('publicJob.allTypes'), value: undefined },
+  { label: t('publicJob.fullTime'), value: 'full_time' },
+  { label: t('publicJob.partTime'), value: 'part_time' },
+  { label: t('publicJob.contract'), value: 'contract' },
+  { label: t('publicJob.internship'), value: 'internship' },
+])
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString(locale.value, {
@@ -108,9 +108,9 @@ function formatDate(dateStr: string) {
   <div>
     <!-- Page header -->
     <div class="mb-8">
-      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-100">Open Positions</h1>
+      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-100">{{ $t('publicJob.pageTitle') }}</h1>
       <p class="text-sm text-surface-500 mt-1">
-        Browse our current openings and find your next opportunity.
+        {{ $t('publicJob.pageSubtitle') }}
       </p>
     </div>
 
@@ -122,7 +122,7 @@ function formatDate(dateStr: string) {
         <input
           v-model="searchInput"
           type="text"
-          placeholder="Search jobs by title or location…"
+          :placeholder="$t('publicJob.searchPlaceholder')"
           class="w-full rounded-lg border border-surface-300 dark:border-surface-700 pl-9 pr-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
         />
       </div>
@@ -141,7 +141,7 @@ function formatDate(dateStr: string) {
 
     <!-- Loading state -->
     <div v-if="fetchStatus === 'pending'" class="text-center py-16 text-surface-400">
-      Loading positions…
+      {{ $t('publicJob.loadingPositions') }}
     </div>
 
     <!-- Error state -->
@@ -149,8 +149,8 @@ function formatDate(dateStr: string) {
       v-else-if="error"
       class="rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 p-4 text-sm text-danger-700 dark:text-danger-400"
     >
-      Failed to load jobs. Please try again.
-      <button class="underline ml-1 cursor-pointer" @click="refresh()">Retry</button>
+      {{ $t('publicJob.failedToLoad') }}
+      <button class="underline ml-1 cursor-pointer" @click="refresh()">{{ $t('publicJob.retry') }}</button>
     </div>
 
     <!-- Empty state -->
@@ -159,13 +159,13 @@ function formatDate(dateStr: string) {
       class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-12 text-center"
     >
       <Briefcase class="size-10 text-surface-300 mx-auto mb-3" />
-      <h3 class="text-base font-semibold text-surface-700 dark:text-surface-300 mb-1">No open positions</h3>
+      <h3 class="text-base font-semibold text-surface-700 dark:text-surface-300 mb-1">{{ $t('publicJob.noOpenPositions') }}</h3>
       <p class="text-sm text-surface-500">
         <template v-if="searchQuery || typeFilter">
-          No jobs match your current filters. Try adjusting your search.
+          {{ $t('publicJob.noMatchFilters') }}
         </template>
         <template v-else>
-          There are no open positions right now. Check back soon!
+          {{ $t('publicJob.checkBackSoon') }}
         </template>
       </p>
     </div>
@@ -196,7 +196,7 @@ function formatDate(dateStr: string) {
                 {{ j.location }}
               </span>
               <span class="text-surface-400">
-                Posted {{ formatDate(j.createdAt) }}
+                {{ $t('publicJob.posted') }} {{ formatDate(j.createdAt) }}
               </span>
             </div>
 
@@ -219,11 +219,11 @@ function formatDate(dateStr: string) {
           @click="page--"
         >
           <ChevronLeft class="size-4" />
-          Previous
+          {{ $t('publicJob.previous') }}
         </button>
 
         <span class="text-sm text-surface-500">
-          Page {{ page }} of {{ totalPages }}
+          {{ $t('publicJob.pageOf', { page, totalPages }) }}
         </span>
 
         <button
@@ -231,14 +231,14 @@ function formatDate(dateStr: string) {
           class="inline-flex items-center gap-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
           @click="page++"
         >
-          Next
+          {{ $t('publicJob.next') }}
           <ChevronRight class="size-4" />
         </button>
       </div>
 
       <!-- Total count -->
       <p class="text-xs text-surface-400 pt-1">
-        {{ total }} open position{{ total === 1 ? '' : 's' }}
+        {{ $t('publicJob.totalPositions', { n: total }) }}
       </p>
     </div>
   </div>

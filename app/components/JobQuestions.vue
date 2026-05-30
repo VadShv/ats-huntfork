@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, GripVertical } from 'lucide-vue-next'
 
+const { t } = useI18n()
+
 const props = defineProps<{
   jobId: string
 }>()
@@ -42,7 +44,7 @@ async function handleAdd(data: {
     })
     showAddForm.value = false
   } catch (err: any) {
-    actionError.value = err.data?.statusMessage ?? 'Failed to add question'
+    actionError.value = err.data?.statusMessage ?? t('components.jobQuestions.failedToAdd')
   } finally {
     isSubmitting.value = false
   }
@@ -62,7 +64,7 @@ async function handleUpdate(data: {
     await updateQuestion(editingQuestion.value.id, data)
     editingQuestion.value = null
   } catch (err: any) {
-    actionError.value = err.data?.statusMessage ?? 'Failed to update question'
+    actionError.value = err.data?.statusMessage ?? t('components.jobQuestions.failedToUpdate')
   } finally {
     isSubmitting.value = false
   }
@@ -80,7 +82,7 @@ async function handleDelete(questionId: string) {
   try {
     await deleteQuestion(questionId)
   } catch (err: any) {
-    actionError.value = err.data?.statusMessage ?? 'Failed to delete question'
+    actionError.value = err.data?.statusMessage ?? t('components.jobQuestions.failedToDelete')
   } finally {
     deletingId.value = null
   }
@@ -106,7 +108,7 @@ async function moveQuestion(index: number, direction: 'up' | 'down') {
   try {
     await reorderQuestions(order)
   } catch (err: any) {
-    actionError.value = err.data?.statusMessage ?? 'Failed to reorder questions'
+    actionError.value = err.data?.statusMessage ?? t('components.jobQuestions.failedToReorder')
   }
 }
 
@@ -114,17 +116,17 @@ async function moveQuestion(index: number, direction: 'up' | 'down') {
 // Display helpers
 // ─────────────────────────────────────────────
 
-const typeLabels: Record<string, string> = {
-  short_text: 'Short Text',
-  long_text: 'Long Text',
-  single_select: 'Single Select',
-  multi_select: 'Multi Select',
-  number: 'Number',
-  date: 'Date',
-  url: 'URL',
-  checkbox: 'Checkbox',
-  file_upload: 'File Upload',
-}
+const typeLabels = computed<Record<string, string>>(() => ({
+  short_text: t('components.jobQuestions.typeShortText'),
+  long_text: t('components.jobQuestions.typeLongText'),
+  single_select: t('components.jobQuestions.typeSingleSelect'),
+  multi_select: t('components.jobQuestions.typeMultiSelect'),
+  number: t('components.jobQuestions.typeNumber'),
+  date: t('components.jobQuestions.typeDate'),
+  url: t('components.jobQuestions.typeUrl'),
+  checkbox: t('components.jobQuestions.typeCheckbox'),
+  file_upload: t('components.jobQuestions.typeFileUpload'),
+}))
 </script>
 
 <template>
@@ -135,12 +137,12 @@ const typeLabels: Record<string, string> = {
       class="rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 p-3 text-sm text-danger-700 dark:text-danger-400 mb-4"
     >
       {{ actionError }}
-      <button class="ml-2 underline" @click="actionError = null">Dismiss</button>
+      <button class="ml-2 underline" @click="actionError = null">{{ $t('components.jobQuestions.dismiss') }}</button>
     </div>
 
     <!-- Loading -->
     <div v-if="status === 'pending'" class="text-sm text-surface-400 py-4">
-      Loading questions…
+      {{ $t('components.jobQuestions.loadingQuestions') }}
     </div>
 
     <!-- Question list -->
@@ -159,7 +161,7 @@ const typeLabels: Record<string, string> = {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
             <span class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{{ q.label }}</span>
-            <span v-if="q.required" class="text-xs text-danger-500 font-medium">Required</span>
+            <span v-if="q.required" class="text-xs text-danger-500 font-medium">{{ $t('components.jobQuestions.required') }}</span>
           </div>
           <div class="flex items-center gap-2 mt-0.5">
             <span class="text-xs text-surface-400">{{ typeLabels[q.type] ?? q.type }}</span>
@@ -180,7 +182,7 @@ const typeLabels: Record<string, string> = {
           <button
             :disabled="index === 0"
             class="rounded p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors disabled:opacity-30"
-            title="Move up"
+            :title="$t('components.jobQuestions.moveUp')"
             @click="moveQuestion(index, 'up')"
           >
             <ChevronUp class="size-4" />
@@ -188,14 +190,14 @@ const typeLabels: Record<string, string> = {
           <button
             :disabled="index === questions.length - 1"
             class="rounded p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors disabled:opacity-30"
-            title="Move down"
+            :title="$t('components.jobQuestions.moveDown')"
             @click="moveQuestion(index, 'down')"
           >
             <ChevronDown class="size-4" />
           </button>
           <button
             class="rounded p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-            title="Edit"
+            :title="$t('components.jobQuestions.edit')"
             @click="editingQuestion = q; showAddForm = false"
           >
             <Pencil class="size-4" />
@@ -203,7 +205,7 @@ const typeLabels: Record<string, string> = {
           <button
             :disabled="deletingId === q.id"
             class="rounded p-1 text-surface-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors disabled:opacity-50"
-            title="Delete"
+            :title="$t('components.jobQuestions.delete')"
             @click="handleDelete(q.id)"
           >
             <Trash2 class="size-4" />
@@ -214,7 +216,7 @@ const typeLabels: Record<string, string> = {
 
     <!-- Empty state -->
     <p v-else class="text-sm text-surface-400 py-4">
-      No custom questions yet. Applicants will see only the standard fields (name, email, phone).
+      {{ $t('components.jobQuestions.noQuestions') }}
     </p>
 
     <!-- Edit form (inline) -->
@@ -241,7 +243,7 @@ const typeLabels: Record<string, string> = {
       @click="showAddForm = true"
     >
       <Plus class="size-4" />
-      Add Question
+      {{ $t('components.jobQuestions.addQuestion') }}
     </button>
   </div>
 </template>

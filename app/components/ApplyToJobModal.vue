@@ -2,6 +2,8 @@
 import { X, Briefcase } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
+const { t } = useI18n()
+
 const props = defineProps<{
   candidateId: string
 }>()
@@ -36,7 +38,7 @@ async function applyToJob(jobId: string) {
     emit('created')
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    applyError.value = err.data?.statusMessage ?? 'Failed to apply to job'
+    applyError.value = err.data?.statusMessage ?? t('components.applyToJobModal.failedToApply')
   } finally {
     isApplying.value = false
   }
@@ -52,7 +54,7 @@ async function applyToJob(jobId: string) {
         <div class="flex items-center justify-between px-5 py-4 border-b border-surface-200 dark:border-surface-800">
           <div class="flex items-center gap-2">
             <Briefcase class="size-5 text-brand-600 dark:text-brand-400" />
-            <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50">Apply to Job</h3>
+            <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50">{{ $t('components.applyToJobModal.title') }}</h3>
           </div>
           <button
             class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 transition-colors"
@@ -70,11 +72,11 @@ async function applyToJob(jobId: string) {
         <!-- Job list -->
         <div class="flex-1 overflow-y-auto px-5 py-3">
           <div v-if="jobFetchStatus === 'pending'" class="text-center py-6 text-surface-400 text-sm">
-            Loading jobs…
+            {{ $t('components.applyToJobModal.loadingJobs') }}
           </div>
 
           <div v-else-if="jobs.length === 0" class="text-center py-6 text-surface-400 text-sm">
-            No open jobs available.
+            {{ $t('components.applyToJobModal.noOpenJobs') }}
           </div>
 
           <div v-else class="space-y-1">
@@ -92,7 +94,7 @@ async function applyToJob(jobId: string) {
                 <p v-if="j.location" class="text-xs text-surface-400 truncate">{{ j.location }}</p>
               </div>
               <span class="text-xs text-brand-600 dark:text-brand-400 font-medium shrink-0 ml-2">
-                Apply
+                {{ $t('components.applyToJobModal.apply') }}
               </span>
             </button>
           </div>

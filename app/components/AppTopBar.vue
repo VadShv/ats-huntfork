@@ -149,7 +149,7 @@ const flaggedNav = computed(() => {
 })
 
 const navItems = computed(() => {
-  const merged = [...mainNav]
+  const merged = [...mainNav.value]
   for (const item of flaggedNav.value) {
     const idx = merged.findIndex((n) => n.label === item.afterLabel)
     const insertAt = idx >= 0 ? idx + 1 : merged.length

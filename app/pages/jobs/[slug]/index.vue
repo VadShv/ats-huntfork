@@ -173,14 +173,14 @@ watchEffect(() => {
   })
 })
 
-const typeLabels: Record<string, string> = {
-  full_time: 'Full-time',
-  part_time: 'Part-time',
-  contract: 'Contract',
-  internship: 'Internship',
-}
+const { locale, t } = useI18n()
 
-const { locale } = useI18n()
+const typeLabels = computed<Record<string, string>>(() => ({
+  full_time: t('publicJob.fullTime'),
+  part_time: t('publicJob.partTime'),
+  contract: t('publicJob.contract'),
+  internship: t('publicJob.internship'),
+}))
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString(locale.value, {
@@ -229,16 +229,16 @@ function formatSalary(min?: number | null, max?: number | null, currency?: strin
       <div class="mb-5 flex size-16 items-center justify-center rounded-full bg-surface-100 dark:bg-surface-800">
         <Briefcase class="size-7 text-surface-400" />
       </div>
-      <h1 class="text-xl font-bold text-surface-900 dark:text-surface-100 mb-2">Job Not Found</h1>
+      <h1 class="text-xl font-bold text-surface-900 dark:text-surface-100 mb-2">{{ $t('publicJob.jobNotFound') }}</h1>
       <p class="text-sm text-surface-500 mb-6 max-w-xs">
-        This position may no longer be available or is not currently accepting applications.
+        {{ $t('publicJob.jobNotFoundDesc') }}
       </p>
       <NuxtLink
         :to="$localePath('/jobs')"
         class="inline-flex items-center gap-1.5 rounded-xl border border-surface-300 dark:border-surface-700 px-5 py-2.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors shadow-sm"
       >
         <ArrowLeft class="size-4" />
-        Browse all positions
+        {{ $t('publicJob.browseAllPositions') }}
       </NuxtLink>
     </div>
 
@@ -250,7 +250,7 @@ function formatSalary(min?: number | null, max?: number | null, currency?: strin
         class="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-800 dark:hover:text-surface-200 transition-colors mb-6 group"
       >
         <ArrowLeft class="size-3.5 transition-transform group-hover:-translate-x-0.5" />
-        All positions
+        {{ $t('publicJob.allPositions') }}
       </NuxtLink>
 
       <!-- Job hero card -->
@@ -283,7 +283,7 @@ function formatSalary(min?: number | null, max?: number | null, currency?: strin
               v-if="job.salaryNegotiable || formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency, job.salaryUnit)"
               class="inline-flex items-center gap-1.5 rounded-full border border-success-200 dark:border-success-800 bg-success-50 dark:bg-success-950 px-3 py-1 text-xs font-semibold text-success-700 dark:text-success-300"
             >
-              {{ job.salaryNegotiable ? 'Negotiable' : formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency, job.salaryUnit) }}
+              {{ job.salaryNegotiable ? $t('publicJob.negotiable') : formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency, job.salaryUnit) }}
             </span>
           </div>
 
@@ -293,7 +293,7 @@ function formatSalary(min?: number | null, max?: number | null, currency?: strin
 
           <p class="inline-flex items-center gap-1.5 text-xs text-surface-400">
             <Calendar class="size-3.5" />
-            Posted {{ formatDate(job.createdAt) }}
+            {{ $t('publicJob.posted') }} {{ formatDate(job.createdAt) }}
           </p>
 
           <!-- Apply CTA inline -->
@@ -302,10 +302,10 @@ function formatSalary(min?: number | null, max?: number | null, currency?: strin
               :to="{ path: $localePath(`/jobs/${job.slug}/apply`), query: applyQuery }"
               class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-700 active:scale-[0.98] transition-all shadow-sm"
             >
-              Apply Now
+              {{ $t('publicJob.applyNow') }}
               <ExternalLink class="size-3.5" />
             </NuxtLink>
-            <p class="text-xs text-surface-400">Takes a few minutes · No account required</p>
+            <p class="text-xs text-surface-400">{{ $t('publicJob.takesAFewMinutes') }}</p>
           </div>
         </div>
       </div>
@@ -313,7 +313,7 @@ function formatSalary(min?: number | null, max?: number | null, currency?: strin
       <!-- Description card -->
       <div v-if="job.description" class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-sm overflow-hidden mb-5">
         <div class="border-b border-surface-100 dark:border-surface-800 px-6 sm:px-8 py-4">
-          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">About this role</h2>
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ $t('publicJob.aboutThisRole') }}</h2>
         </div>
         <div class="px-6 sm:px-8 py-6">
           <MarkdownDescription :value="job.description" />
@@ -323,15 +323,14 @@ function formatSalary(min?: number | null, max?: number | null, currency?: strin
       <!-- Questions preview card -->
       <div v-if="job.questions && job.questions.length > 0" class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-sm overflow-hidden mb-5">
         <div class="border-b border-surface-100 dark:border-surface-800 px-6 sm:px-8 py-4 flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Application questions</h2>
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ $t('publicJob.applicationQuestions') }}</h2>
           <span class="rounded-full bg-surface-100 dark:bg-surface-800 px-2.5 py-0.5 text-xs font-medium text-surface-600 dark:text-surface-400">
             {{ job.questions.length }}
           </span>
         </div>
         <div class="px-6 sm:px-8 py-5">
           <p class="text-sm text-surface-500 mb-4">
-            You'll be asked to answer {{ job.questions.length }}
-            additional question{{ job.questions.length === 1 ? '' : 's' }} when you apply.
+            {{ $t('publicJob.additionalQuestions', { n: job.questions.length }) }}
           </p>
           <ul class="divide-y divide-surface-100 dark:divide-surface-800">
             <li
@@ -344,7 +343,7 @@ function formatSalary(min?: number | null, max?: number | null, currency?: strin
                 v-if="q.required"
                 class="shrink-0 rounded-full bg-danger-50 dark:bg-danger-950 border border-danger-100 dark:border-danger-900 px-2 py-0.5 text-xs font-medium text-danger-600 dark:text-danger-400"
               >
-                Required
+                {{ $t('components.jobQuestions.required') }}
               </span>
             </li>
           </ul>
@@ -354,14 +353,14 @@ function formatSalary(min?: number | null, max?: number | null, currency?: strin
       <!-- Bottom Apply CTA -->
       <div class="rounded-2xl border border-brand-100 dark:border-brand-900 bg-brand-50 dark:bg-brand-950/50 px-6 sm:px-8 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <p class="text-sm font-semibold text-surface-900 dark:text-surface-100">Ready to apply?</p>
-          <p class="text-sm text-surface-500 mt-0.5">Submit your application in just a few minutes.</p>
+          <p class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ $t('publicJob.readyToApply') }}</p>
+          <p class="text-sm text-surface-500 mt-0.5">{{ $t('publicJob.submitInMinutes') }}</p>
         </div>
         <NuxtLink
           :to="{ path: $localePath(`/jobs/${job.slug}/apply`), query: applyQuery }"
           class="shrink-0 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-700 active:scale-[0.98] transition-all shadow-sm"
         >
-          Apply for this position
+          {{ $t('publicJob.applyForPosition') }}
           <ExternalLink class="size-3.5" />
         </NuxtLink>
       </div>

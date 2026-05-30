@@ -15,13 +15,15 @@ const props = defineProps<{
   }
 }>()
 
-const stages = [
-  { key: 'new', label: 'New', dotClass: 'bg-blue-500', barClass: 'bg-blue-500', textClass: 'text-blue-700 dark:text-blue-400' },
-  { key: 'screening', label: 'Screen', dotClass: 'bg-violet-500', barClass: 'bg-violet-500', textClass: 'text-violet-700 dark:text-violet-400' },
-  { key: 'interview', label: 'Interview', dotClass: 'bg-amber-500', barClass: 'bg-amber-500', textClass: 'text-amber-700 dark:text-amber-400' },
-  { key: 'offer', label: 'Offer', dotClass: 'bg-teal-500', barClass: 'bg-teal-500', textClass: 'text-teal-700 dark:text-teal-400' },
-  { key: 'hired', label: 'Hired', dotClass: 'bg-green-600', barClass: 'bg-green-600', textClass: 'text-green-700 dark:text-green-400' },
-] as const
+const { t } = useI18n()
+
+const stages = computed(() => [
+  { key: 'new' as const, label: t('components.jobPipelineMini.stageNew'), dotClass: 'bg-blue-500', barClass: 'bg-blue-500', textClass: 'text-blue-700 dark:text-blue-400' },
+  { key: 'screening' as const, label: t('components.jobPipelineMini.stageScreen'), dotClass: 'bg-violet-500', barClass: 'bg-violet-500', textClass: 'text-violet-700 dark:text-violet-400' },
+  { key: 'interview' as const, label: t('components.jobPipelineMini.stageInterview'), dotClass: 'bg-amber-500', barClass: 'bg-amber-500', textClass: 'text-amber-700 dark:text-amber-400' },
+  { key: 'offer' as const, label: t('components.jobPipelineMini.stageOffer'), dotClass: 'bg-teal-500', barClass: 'bg-teal-500', textClass: 'text-teal-700 dark:text-teal-400' },
+  { key: 'hired' as const, label: t('components.jobPipelineMini.stageHired'), dotClass: 'bg-green-600', barClass: 'bg-green-600', textClass: 'text-green-700 dark:text-green-400' },
+])
 
 const totalActive = computed(() => {
   return props.pipeline.new
@@ -36,7 +38,7 @@ const totalAll = computed(() => totalActive.value + props.pipeline.rejected)
 /** Segments for the stacked bar (only active stages, no rejected) */
 const barSegments = computed(() => {
   if (totalActive.value === 0) return []
-  return stages
+  return stages.value
     .map((s) => ({
       ...s,
       count: props.pipeline[s.key],
@@ -87,7 +89,7 @@ const barSegments = computed(() => {
       <div
         v-if="pipeline.rejected > 0"
         class="flex items-center gap-1 ml-auto"
-        title="Rejected"
+        :title="$t('components.jobPipelineMini.stageRejected')"
       >
         <span class="size-1.5 rounded-full shrink-0 bg-surface-300 dark:bg-surface-600" />
         <span class="text-[10px] font-medium tabular-nums leading-none text-surface-400 dark:text-surface-500">

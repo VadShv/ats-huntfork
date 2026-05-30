@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { CheckCircle } from 'lucide-vue-next'
 
+const { t } = useI18n()
+
 definePageMeta({
   layout: 'public',
 })
@@ -29,18 +31,18 @@ useSeoMeta({
     </div>
 
     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-100 mb-2">
-      Application Submitted!
+      {{ $t('publicConfirmation.title') }}
     </h1>
 
     <p class="text-surface-600 dark:text-surface-400 max-w-md mx-auto mb-2">
-      Thank you for applying
+      {{ $t('publicConfirmation.thankYou') }}
       <template v-if="job">
-        for the <strong>{{ job.title }}</strong> position
+        {{ $t('publicConfirmation.forPosition') }} <strong>{{ job.title }}</strong>
       </template>.
     </p>
 
     <p class="text-sm text-surface-400 max-w-md mx-auto mb-8">
-      Your application has been received. The hiring team will review it and get back to you if there&rsquo;s a match.
+      {{ $t('publicConfirmation.received') }}
     </p>
 
     <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -48,13 +50,13 @@ useSeoMeta({
         :to="$localePath('/jobs')"
         class="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
       >
-        Browse more positions
+        {{ $t('publicConfirmation.browseMore') }}
       </NuxtLink>
       <a
         :href="useRuntimeConfig().public.marketingUrl"
         class="inline-flex items-center rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
       >
-        Back to Home
+        {{ $t('publicConfirmation.backToHome') }}
       </a>
     </div>
   </div>

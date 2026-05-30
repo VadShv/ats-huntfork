@@ -9,6 +9,8 @@ import {
 } from 'lucide-vue-next'
 import type { PropertyEntry, PropertyFilter } from '~~/shared/properties'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+
+const { t } = useI18n()
 import { APPLICATION_STATUS_TRANSITIONS, INTERVIEW_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 
 definePageMeta({
@@ -93,33 +95,33 @@ function clearFilters() {
   propertyFilters.value = []
 }
 
-const sortOptions: { value: SortOption; label: string }[] = [
-  { value: 'date-desc', label: 'Newest first' },
-  { value: 'date-asc', label: 'Oldest first' },
-  { value: 'name-asc', label: 'Name A \u2192 Z' },
-  { value: 'name-desc', label: 'Name Z \u2192 A' },
-  { value: 'score-desc', label: 'Highest score' },
-  { value: 'score-asc', label: 'Lowest score' },
-  { value: 'updated-desc', label: 'Recently updated' },
-]
+const sortOptions = computed<{ value: SortOption; label: string }[]>(() => [
+  { value: 'date-desc', label: t('dashboard.jobs.detail.sortNewest') },
+  { value: 'date-asc', label: t('dashboard.jobs.detail.sortOldest') },
+  { value: 'name-asc', label: t('dashboard.jobs.detail.sortNameAZ') },
+  { value: 'name-desc', label: t('dashboard.jobs.detail.sortNameZA') },
+  { value: 'score-desc', label: t('dashboard.jobs.detail.sortScoreHigh') },
+  { value: 'score-asc', label: t('dashboard.jobs.detail.sortScoreLow') },
+  { value: 'updated-desc', label: t('dashboard.jobs.detail.sortUpdated') },
+])
 
 const currentSortLabel = computed(() =>
-  sortOptions.find(o => o.value === sortBy.value)?.label ?? 'Sort',
+  sortOptions.value.find(o => o.value === sortBy.value)?.label ?? t('dashboard.jobs.detail.sort'),
 )
 
-const scoreFilterOptions: { value: ScoreFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
+const scoreFilterOptions = computed<{ value: ScoreFilter; label: string }[]>(() => [
+  { value: 'all', label: t('dashboard.jobs.detail.filterAll') },
   { value: 'high', label: '75+' },
-  { value: 'medium', label: '40\u201374' },
+  { value: 'medium', label: '40–74' },
   { value: 'low', label: '< 40' },
-  { value: 'none', label: 'No score' },
-]
+  { value: 'none', label: t('dashboard.jobs.detail.filterNoScore') },
+])
 
-const interviewFilterOptions: { value: InterviewFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'has-interview', label: 'Scheduled' },
-  { value: 'no-interview', label: 'None' },
-]
+const interviewFilterOptions = computed<{ value: InterviewFilter; label: string }[]>(() => [
+  { value: 'all', label: t('dashboard.jobs.detail.filterAll') },
+  { value: 'has-interview', label: t('dashboard.jobs.detail.filterScheduled') },
+  { value: 'no-interview', label: t('dashboard.jobs.detail.filterNone') },
+])
 
 function selectSort(option: SortOption) {
   sortBy.value = option
@@ -341,15 +343,15 @@ const timelineLoading = ref(false)
 const timelineError = ref<string | null>(null)
 const timelineLoaded = ref(false)
 
-const timelineActionLabels: Record<string, string> = {
-  created: 'Created',
-  updated: 'Updated',
-  deleted: 'Deleted',
-  status_changed: 'Status changed',
-  comment_added: 'Comment added',
-  scored: 'Scored',
-  scheduled: 'Scheduled',
-}
+const timelineActionLabels = computed<Record<string, string>>(() => ({
+  created: t('dashboard.jobs.detail.tlCreated'),
+  updated: t('dashboard.jobs.detail.tlUpdated'),
+  deleted: t('dashboard.jobs.detail.tlDeleted'),
+  status_changed: t('dashboard.jobs.detail.tlStatusChanged'),
+  comment_added: t('dashboard.jobs.detail.tlCommentAdded'),
+  scored: t('dashboard.jobs.detail.tlScored'),
+  scheduled: t('dashboard.jobs.detail.tlScheduled'),
+}))
 
 function formatTimelineDate(dateStr: string) {
   const d = new Date(dateStr)
@@ -514,7 +516,7 @@ async function loadTimeline() {
     timelineItems.value = result.items
     timelineLoaded.value = true
   } catch (err: any) {
-    timelineError.value = err?.data?.statusMessage ?? 'Failed to load timeline'
+    timelineError.value = err?.data?.statusMessage ?? t('dashboard.jobs.detail.failedToLoadTimeline')
   } finally {
     timelineLoading.value = false
   }
@@ -530,7 +532,7 @@ watch([detailTab, timelineCandidateId], () => {
 
 useSeoMeta({
   title: computed(() =>
-    jobData.value ? `Pipeline — ${jobData.value.title} — Reqcore` : 'Pipeline — Reqcore',
+    jobData.value ? `${t('dashboard.jobs.detail.pipeline')} — ${jobData.value.title} — Reqcore` : `${t('dashboard.jobs.detail.pipeline')} — Reqcore`,
   ),
   robots: 'noindex, nofollow',
 })
@@ -548,14 +550,14 @@ const statusBadgeClasses: Record<string, string> = {
   rejected: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
 }
 
-const transitionLabels: Record<string, string> = {
-  new: 'Re-open',
-  screening: 'Screening',
-  interview: 'Interview',
-  offer: 'Offer',
-  hired: 'Hired',
-  rejected: 'Reject',
-}
+const transitionLabels = computed<Record<string, string>>(() => ({
+  new: t('dashboard.jobs.detail.transitionReopen'),
+  screening: t('dashboard.jobs.detail.transitionScreening'),
+  interview: t('dashboard.jobs.detail.transitionInterview'),
+  offer: t('dashboard.jobs.detail.transitionOffer'),
+  hired: t('dashboard.jobs.detail.transitionHired'),
+  rejected: t('dashboard.jobs.detail.transitionReject'),
+}))
 
 const transitionClasses: Record<string, string> = {
   new: 'border border-surface-300 dark:border-surface-600 text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800',
@@ -572,14 +574,14 @@ function formatStatusLabel(status: string) {
 
 function formatResponseValue(value: unknown): string {
   if (Array.isArray(value)) return value.join(', ')
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'boolean') return value ? t('dashboard.jobs.detail.yes') : t('dashboard.jobs.detail.no')
   return String(value ?? '—')
 }
 
 function formatDocumentType(value: SwipeDocument['type']) {
-  if (value === 'cover_letter') return 'Cover Letter'
-  if (value === 'resume') return 'Resume'
-  return 'Other'
+  if (value === 'cover_letter') return t('dashboard.jobs.detail.docCoverLetter')
+  if (value === 'resume') return t('dashboard.jobs.detail.docResume')
+  return t('dashboard.jobs.detail.docOther')
 }
 
 function getCandidateInitials(firstName?: string, lastName?: string) {
@@ -707,14 +709,14 @@ const interviewTypeIcons: Record<string, any> = {
   take_home: FileText,
 }
 
-const interviewTypeLabels: Record<string, string> = {
-  video: 'Video',
-  phone: 'Phone',
-  in_person: 'In Person',
-  technical: 'Technical',
-  panel: 'Panel',
-  take_home: 'Take Home',
-}
+const interviewTypeLabels = computed<Record<string, string>>(() => ({
+  video: t('dashboard.jobs.detail.typeVideo'),
+  phone: t('dashboard.jobs.detail.typePhone'),
+  in_person: t('dashboard.jobs.detail.typeInPerson'),
+  technical: t('dashboard.jobs.detail.typeTechnical'),
+  panel: t('dashboard.jobs.detail.typePanel'),
+  take_home: t('dashboard.jobs.detail.typeTakeHome'),
+}))
 
 const interviewStatusClasses: Record<string, string> = {
   scheduled: 'bg-brand-50 text-brand-700 ring-brand-200 dark:bg-brand-950/50 dark:text-brand-300 dark:ring-brand-800',
@@ -763,12 +765,12 @@ const interviewTransitionClasses: Record<InterviewStatus, string> = {
   no_show: 'bg-danger-600 text-white hover:bg-danger-700',
 }
 
-const interviewTransitionLabels: Record<InterviewStatus, string> = {
-  scheduled: 'Re-schedule',
-  completed: 'Completed',
-  cancelled: 'Cancel',
-  no_show: 'No Show',
-}
+const interviewTransitionLabels = computed<Record<InterviewStatus, string>>(() => ({
+  scheduled: t('dashboard.jobs.detail.interviewReschedule'),
+  completed: t('dashboard.jobs.detail.interviewCompleted'),
+  cancelled: t('dashboard.jobs.detail.interviewCancel'),
+  no_show: t('dashboard.jobs.detail.interviewNoShow'),
+}))
 
 const interviewStatusIcons: Record<InterviewStatus, any> = {
   scheduled: Calendar,
@@ -838,7 +840,7 @@ function removeEditInterviewer(idx: number) {
 async function saveInterviewEdit() {
   interviewEditErrors.value = {}
   if (!interviewEditForm.title.trim()) {
-    interviewEditErrors.value.title = 'Title is required'
+    interviewEditErrors.value.title = t('dashboard.jobs.detail.titleRequired')
     return
   }
 
@@ -859,7 +861,7 @@ async function saveInterviewEdit() {
     await refreshJobInterviews()
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    interviewEditErrors.value.submit = err?.data?.statusMessage ?? 'Failed to save changes'
+    interviewEditErrors.value.submit = err?.data?.statusMessage ?? t('dashboard.jobs.detail.failedToSaveChanges')
   } finally {
     isInterviewSaving.value = false
   }
@@ -875,7 +877,7 @@ async function handleInterviewTransition(interviewId: string, newStatus: Intervi
     await refreshJobInterviews()
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to update status', { message: err?.data?.statusMessage, statusCode: err?.data?.statusCode })
+    toast.error(t('dashboard.jobs.detail.failedToUpdateStatus'), { message: err?.data?.statusMessage, statusCode: err?.data?.statusCode })
   } finally {
     isInterviewTransitioning.value = false
   }
@@ -898,7 +900,7 @@ function cancelReschedule() {
 async function handleReschedule() {
   rescheduleError.value = ''
   if (!rescheduleForm.date || !rescheduleForm.time) {
-    rescheduleError.value = 'Date and time are required'
+    rescheduleError.value = t('dashboard.jobs.detail.dateTimeRequired')
     return
   }
 
@@ -917,7 +919,7 @@ async function handleReschedule() {
     await refreshJobInterviews()
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    rescheduleError.value = err?.data?.statusMessage ?? 'Failed to reschedule'
+    rescheduleError.value = err?.data?.statusMessage ?? t('dashboard.jobs.detail.failedToReschedule')
   } finally {
     isRescheduling.value = false
   }
@@ -952,7 +954,7 @@ async function changeStatus(status: string) {
     }
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to update status', { message: err?.data?.statusMessage, statusCode: err?.data?.statusCode })
+    toast.error(t('dashboard.jobs.detail.failedToUpdateStatus'), { message: err?.data?.statusMessage, statusCode: err?.data?.statusCode })
   } finally {
     isMutating.value = false
   }
@@ -1086,21 +1088,21 @@ async function scoreIndividualCandidate(applicationId: string) {
       await executeDetailFetch()
     }
     track('individual_scoring_completed', { application_id: applicationId })
-    toast.success('Candidate scored', 'AI analysis complete.')
+    toast.success(t('dashboard.jobs.detail.candidateScored'), t('dashboard.jobs.detail.aiAnalysisComplete'))
   } catch (err: any) {
     const statusMessage = err?.data?.statusMessage ?? ''
     if (statusMessage.includes('AI provider not configured')) {
       toast.add({
         type: 'warning',
-        title: 'AI provider not configured',
-        message: 'Set up your AI provider in Settings first.',
-        link: { label: 'Go to AI Settings', href: '/dashboard/settings/ai' },
+        title: t('dashboard.jobs.aiAnalysis.aiNotConfigured'),
+        message: t('dashboard.jobs.detail.setupAiFirst'),
+        link: { label: t('dashboard.jobs.aiAnalysis.goToAiSettings'), href: '/dashboard/settings/ai' },
         duration: 8000,
       })
     } else if (statusMessage.includes('No scoring criteria')) {
-      toast.warning('No scoring criteria', 'Add scoring criteria to this job first.')
+      toast.warning(t('dashboard.jobs.detail.noScoringCriteria'), t('dashboard.jobs.detail.addScoringCriteria'))
     } else {
-      toast.error('Scoring failed', { message: statusMessage || 'An unexpected error occurred.', statusCode: err?.data?.statusCode })
+      toast.error(t('dashboard.jobs.detail.scoringFailed'), { message: statusMessage || t('dashboard.jobs.detail.unexpectedError'), statusCode: err?.data?.statusCode })
     }
   } finally {
     isScoringIndividual.value = false
@@ -1162,7 +1164,7 @@ function closeDocPreview() {
     <!-- Loading -->
     <div v-if="isLoading" class="flex flex-1 flex-col items-center justify-center gap-3">
       <div class="size-8 rounded-full border-2 border-brand-200 border-t-brand-600 dark:border-brand-800 dark:border-t-brand-400 animate-spin" />
-      <p class="text-sm font-medium text-surface-400 dark:text-surface-500">Loading pipeline…</p>
+      <p class="text-sm font-medium text-surface-400 dark:text-surface-500">{{ t('dashboard.jobs.detail.loadingPipeline') }}</p>
     </div>
 
     <!-- Error -->
@@ -1170,8 +1172,8 @@ function closeDocPreview() {
       v-else-if="jobError || appError"
       class="m-6 rounded-xl border border-danger-200/80 bg-danger-50 p-5 text-sm text-danger-700 dark:border-danger-800/60 dark:bg-danger-950/40 dark:text-danger-300"
     >
-      {{ jobError ? 'Job not found or failed to load.' : 'Failed to load applications.' }}
-      <NuxtLink :to="$localePath('/dashboard')" class="ml-1 font-medium underline hover:no-underline">Back to Jobs</NuxtLink>
+      {{ jobError ? t('dashboard.jobs.detail.jobNotFound') : t('dashboard.jobs.detail.failedToLoadApps') }}
+      <NuxtLink :to="$localePath('/dashboard')" class="ml-1 font-medium underline hover:no-underline">{{ t('dashboard.jobs.detail.backToJobs') }}</NuxtLink>
     </div>
 
     <template v-else-if="jobData">
@@ -1183,15 +1185,15 @@ function closeDocPreview() {
         <div class="hidden sm:flex items-center gap-2 text-[10px] font-medium text-surface-400 dark:text-surface-500">
           <div class="flex items-center gap-1 rounded-md bg-surface-100/80 px-2 py-0.5 dark:bg-surface-800/60">
             <span class="font-mono text-[10px]">↑↓</span>
-            <span>candidates</span>
+            <span>{{ t('dashboard.jobs.detail.kbCandidates') }}</span>
           </div>
           <div class="flex items-center gap-1 rounded-md bg-surface-100/80 px-2 py-0.5 dark:bg-surface-800/60">
             <span class="font-mono text-[10px]">←→</span>
-            <span>stages</span>
+            <span>{{ t('dashboard.jobs.detail.kbStages') }}</span>
           </div>
           <div class="flex items-center gap-1 rounded-md bg-surface-100/80 px-2 py-0.5 dark:bg-surface-800/60">
             <span class="font-mono text-[10px]">1-9</span>
-            <span>actions</span>
+            <span>{{ t('dashboard.jobs.detail.kbActions') }}</span>
           </div>
         </div>
       </Teleport>
@@ -1232,7 +1234,7 @@ function closeDocPreview() {
           <!-- Fullscreen toggle -->
           <button
             class="ml-auto flex shrink-0 cursor-pointer items-center justify-center rounded-lg p-2 text-surface-400 hover:bg-surface-100 hover:text-surface-600 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300 transition-all duration-200 focus:outline-none"
-            :title="isFullscreen ? 'Exit focus mode (Esc)' : 'Focus mode'"
+            :title="isFullscreen ? t('dashboard.jobs.detail.exitFocusMode') : t('dashboard.jobs.detail.focusMode')"
             @click="toggleFullscreen"
           >
             <Minimize2 v-if="isFullscreen" class="size-4" />
@@ -1258,7 +1260,7 @@ function closeDocPreview() {
               <input
                 v-model="searchTerm"
                 type="text"
-                placeholder="Search candidates…"
+:placeholder="t('dashboard.jobs.detail.searchCandidates')"
                 class="w-full rounded-lg border border-surface-200/80 bg-surface-50/80 py-2 pl-8 pr-3 text-sm text-surface-900 placeholder:text-surface-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700/80 dark:bg-surface-800/60 dark:text-surface-100 dark:placeholder:text-surface-500 dark:focus:border-brand-500 dark:focus:ring-brand-500/20 transition-all duration-150"
                 @focus="closePanels"
               />
@@ -1343,7 +1345,7 @@ function closeDocPreview() {
               >
                 <!-- Score filter -->
                 <div>
-                  <p class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-1">Score</p>
+                  <p class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-1">{{ t('dashboard.jobs.detail.filterScore') }}</p>
                   <div class="flex flex-wrap gap-1">
                     <button
                       v-for="opt in scoreFilterOptions"
@@ -1361,7 +1363,7 @@ function closeDocPreview() {
 
                 <!-- Interview filter -->
                 <div>
-                  <p class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-1">Interview</p>
+                  <p class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-1">{{ t('dashboard.jobs.detail.filterInterview') }}</p>
                   <div class="flex flex-wrap gap-1">
                     <button
                       v-for="opt in interviewFilterOptions"
@@ -1379,7 +1381,7 @@ function closeDocPreview() {
 
                 <!-- Property filters -->
                 <div>
-                  <p class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-1.5">Properties</p>
+                  <p class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-1.5">{{ t('dashboard.jobs.detail.filterProperties') }}</p>
                   <PropertyFilterBar
                     v-model="propertyFilters"
                     entity-type="application"
@@ -1394,7 +1396,7 @@ function closeDocPreview() {
                   @click="clearFilters"
                 >
                   <X class="size-3" />
-                  Clear filters
+                  {{ t('dashboard.jobs.detail.clearFilters') }}
                 </button>
               </div>
             </Transition>
@@ -1403,9 +1405,9 @@ function closeDocPreview() {
           <!-- Count bar -->
           <div class="shrink-0 px-3.5 pb-2 flex items-center justify-between">
             <span class="text-xs font-medium text-surface-500 dark:text-surface-400">
-              {{ filteredApplications.length }} candidate{{ filteredApplications.length === 1 ? '' : 's' }}
+              {{ filteredApplications.length }} {{ filteredApplications.length === 1 ? t('dashboard.jobs.detail.candidateSingular') : t('dashboard.jobs.detail.candidatePlural') }}
               <span v-if="searchTerm.trim() || hasActiveFilters" class="text-surface-400 dark:text-surface-500">
-                {{ hasActiveFilters ? ' filtered' : ' matching' }}
+                {{ hasActiveFilters ? t('dashboard.jobs.detail.filtered') : t('dashboard.jobs.detail.matching') }}
               </span>
             </span>
             <span v-if="hasActiveFilters && filteredApplications.length !== focusedApplications.length" class="text-[10px] text-surface-400 dark:text-surface-500">
@@ -1420,17 +1422,17 @@ function closeDocPreview() {
                 <UserRound class="size-5 text-surface-400 dark:text-surface-500" />
               </div>
               <p class="text-sm font-medium text-surface-600 dark:text-surface-300">
-                {{ (searchTerm.trim() || hasActiveFilters) ? 'No matching candidates' : `No candidates yet` }}
+                {{ (searchTerm.trim() || hasActiveFilters) ? t('dashboard.jobs.detail.noMatchingCandidates') : t('dashboard.jobs.detail.noCandidatesYet') }}
               </p>
               <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">
-                {{ (searchTerm.trim() || hasActiveFilters) ? 'Try adjusting your search or filters.' : `No one in ${formatStatusLabel(focusStatus)} stage.` }}
+                {{ (searchTerm.trim() || hasActiveFilters) ? t('dashboard.jobs.detail.tryAdjusting') : t('dashboard.jobs.detail.noOneInStage', { stage: formatStatusLabel(focusStatus) }) }}
               </p>
               <button
                 v-if="hasActiveFilters"
                 class="mt-2 cursor-pointer text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
                 @click="clearFilters"
               >
-                Clear filters
+                {{ t('dashboard.jobs.detail.clearFilters') }}
               </button>
             </div>
 
@@ -1469,7 +1471,7 @@ function closeDocPreview() {
                     {{ app.score }} pts
                   </span>
                   <span class="text-[11px] text-surface-400 dark:text-surface-500">{{ timeAgo(app.createdAt) }}</span>
-                  <span v-if="applicationsWithInterviews.has(app.id)" class="inline-flex items-center text-warning-500 dark:text-warning-400" title="Interview scheduled">
+                  <span v-if="applicationsWithInterviews.has(app.id)" class="inline-flex items-center text-warning-500 dark:text-warning-400" :title="t('dashboard.jobs.detail.interviewScheduledHint')">
                     <Calendar class="size-3" />
                   </span>
                 </div>
@@ -1492,10 +1494,10 @@ function closeDocPreview() {
               <UserRound class="size-7 text-surface-400 dark:text-surface-500" />
             </div>
             <p class="text-base font-semibold text-surface-700 dark:text-surface-200">
-              No candidates in {{ formatStatusLabel(focusStatus) }}
+              {{ t('dashboard.jobs.detail.noCandidatesIn', { stage: formatStatusLabel(focusStatus) }) }}
             </p>
             <p class="mt-1.5 text-sm text-surface-500 dark:text-surface-400 max-w-xs">
-              Switch to another pipeline stage to review candidates.
+              {{ t('dashboard.jobs.detail.switchStage') }}
             </p>
           </div>
 
@@ -1583,14 +1585,14 @@ function closeDocPreview() {
                       >
                         <Loader2 v-if="isScoringIndividual" class="size-3 animate-spin" />
                         <Brain v-else class="size-3" />
-                        {{ isScoringIndividual ? 'Scoring…' : (currentSummary.score != null ? 'Re-score' : 'Score Candidate') }}
+                        {{ isScoringIndividual ? t('dashboard.jobs.detail.scoring') : (currentSummary.score != null ? t('dashboard.jobs.detail.rescore') : t('dashboard.jobs.detail.scoreCandidate')) }}
                       </button>
                       <TimelineDateLink :date="currentSummary.createdAt" class="inline-flex items-center gap-1 text-[11px] text-surface-400 dark:text-surface-500">
                         <Clock class="size-3" />
-                        Applied {{ new Date(currentSummary.createdAt).toLocaleDateString() }}
+                        {{ t('dashboard.jobs.detail.applied') }} {{ new Date(currentSummary.createdAt).toLocaleDateString() }}
                       </TimelineDateLink>
                       <span v-if="currentSummary.updatedAt !== currentSummary.createdAt" class="inline-flex items-center gap-1 text-[11px] text-surface-400 dark:text-surface-500">
-                        · <TimelineDateLink :date="currentSummary.updatedAt">Updated {{ new Date(currentSummary.updatedAt).toLocaleDateString() }}</TimelineDateLink>
+                        · <TimelineDateLink :date="currentSummary.updatedAt">{{ t('dashboard.jobs.detail.updated') }} {{ new Date(currentSummary.updatedAt).toLocaleDateString() }}</TimelineDateLink>
                       </span>
                     </div>
                   </div>
@@ -1618,7 +1620,7 @@ function closeDocPreview() {
                   <NuxtLink
                     :to="$localePath(`/dashboard/applications/${currentSummary.id}`)"
                     class="flex items-center justify-center rounded-lg border border-surface-200 p-1.5 text-surface-500 transition-all duration-150 hover:bg-white hover:border-surface-300 hover:text-surface-700 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-800 dark:hover:border-surface-600 dark:hover:text-surface-300"
-                    title="Full application page"
+:title="t('dashboard.jobs.detail.fullApplicationPage')"
                   >
                     <ExternalLink class="size-4" />
                   </NuxtLink>
@@ -1641,7 +1643,7 @@ function closeDocPreview() {
                         : 'text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-300'"
                       @click="detailTab = 'overview'"
                     >
-                      Overview
+                      {{ t('dashboard.jobs.detail.tabOverview') }}
                     </button>
                     <button
                       v-if="detailTab === 'overview'"
@@ -1665,26 +1667,26 @@ function closeDocPreview() {
                       v-if="showOverviewDropdown"
                       class="absolute left-0 top-full z-50 mt-1 w-44 rounded-xl border border-surface-200 dark:border-surface-700/80 bg-white dark:bg-surface-900 shadow-xl shadow-surface-900/5 dark:shadow-black/20 py-1.5 origin-top-left"
                     >
-                      <span class="block px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Sections</span>
+                      <span class="block px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">{{ t('dashboard.jobs.detail.sections') }}</span>
                       <label class="flex items-center gap-2.5 px-3.5 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/80 cursor-pointer select-none transition-colors">
                         <input v-model="overviewSections.aiAnalysis" type="checkbox" class="size-3.5 rounded border-surface-300 text-brand-600 focus:ring-brand-500 dark:border-surface-600 dark:bg-surface-800" />
-                        AI Analysis
+                        {{ t('dashboard.jobs.detail.tabAiAnalysis') }}
                       </label>
                       <label class="flex items-center gap-2.5 px-3.5 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/80 cursor-pointer select-none transition-colors">
                         <input v-model="overviewSections.interviews" type="checkbox" class="size-3.5 rounded border-surface-300 text-brand-600 focus:ring-brand-500 dark:border-surface-600 dark:bg-surface-800" />
-                        Interviews
+                        {{ t('dashboard.jobs.detail.tabInterviews') }}
                       </label>
                       <label class="flex items-center gap-2.5 px-3.5 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/80 cursor-pointer select-none transition-colors">
                         <input v-model="overviewSections.documents" type="checkbox" class="size-3.5 rounded border-surface-300 text-brand-600 focus:ring-brand-500 dark:border-surface-600 dark:bg-surface-800" />
-                        Documents
+                        {{ t('dashboard.jobs.detail.tabDocuments') }}
                       </label>
                       <label class="flex items-center gap-2.5 px-3.5 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/80 cursor-pointer select-none transition-colors">
                         <input v-model="overviewSections.responses" type="checkbox" class="size-3.5 rounded border-surface-300 text-brand-600 focus:ring-brand-500 dark:border-surface-600 dark:bg-surface-800" />
-                        Responses
+                        {{ t('dashboard.jobs.detail.tabResponses') }}
                       </label>
                       <label class="flex items-center gap-2.5 px-3.5 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/80 cursor-pointer select-none transition-colors">
                         <input v-model="overviewSections.properties" type="checkbox" class="size-3.5 rounded border-surface-300 text-brand-600 focus:ring-brand-500 dark:border-surface-600 dark:bg-surface-800" />
-                        Properties
+                        {{ t('dashboard.jobs.detail.tabProperties') }}
                       </label>
                     </div>
                   </Transition>
@@ -1705,7 +1707,7 @@ function closeDocPreview() {
                     : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:text-surface-400 dark:hover:text-surface-300 dark:hover:border-surface-600'"
                   @click="detailTab = 'interviews'"
                 >
-                  Interviews
+                  {{ t('dashboard.jobs.detail.tabInterviews') }}
                   <span
                     v-if="currentApplicationInterviews.length > 0"
                     class="ml-1 text-xs text-surface-400"
@@ -1720,7 +1722,7 @@ function closeDocPreview() {
                     : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:text-surface-400 dark:hover:text-surface-300 dark:hover:border-surface-600'"
                   @click="detailTab = 'documents'"
                 >
-                  Documents
+                  {{ t('dashboard.jobs.detail.tabDocuments') }}
                   <span
                     v-if="resolvedCurrentApplication?.candidate.documents?.length"
                     class="ml-1 text-xs text-surface-400"
@@ -1735,7 +1737,7 @@ function closeDocPreview() {
                     : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:text-surface-400 dark:hover:text-surface-300 dark:hover:border-surface-600'"
                   @click="detailTab = 'responses'"
                 >
-                  Responses
+                  {{ t('dashboard.jobs.detail.tabResponses') }}
                   <span
                     v-if="resolvedCurrentApplication?.responses?.length"
                     class="ml-1 text-xs text-surface-400"
@@ -1751,7 +1753,7 @@ function closeDocPreview() {
                   @click="detailTab = 'timeline'"
                 >
                   <History class="size-3.5" />
-                  Timeline
+                  {{ t('dashboard.jobs.detail.tabTimeline') }}
                 </button>
                 <button
                   class="cursor-pointer px-3.5 py-2.5 text-sm font-medium transition-all duration-150 border-b-2 -mb-px flex items-center gap-1.5"
@@ -1761,7 +1763,7 @@ function closeDocPreview() {
                   @click="detailTab = 'properties'"
                 >
                   <SlidersHorizontal class="size-3.5" />
-                  Properties
+                  {{ t('dashboard.jobs.detail.tabProperties') }}
                 </button>
               </div>
             </div>
@@ -1770,7 +1772,7 @@ function closeDocPreview() {
             <div class="bg-surface-50/80 dark:bg-surface-950/80 px-4 sm:px-6 py-5 sm:py-8">
               <div v-if="detailFetchStatus === 'pending' && !resolvedCurrentApplication" class="flex flex-col items-center justify-center py-12">
                 <div class="size-8 rounded-full border-2 border-brand-200 border-t-brand-600 dark:border-brand-800 dark:border-t-brand-400 animate-spin" />
-                <p class="mt-3 text-sm text-surface-400">Loading details…</p>
+                <p class="mt-3 text-sm text-surface-400">{{ t('dashboard.jobs.detail.loadingDetails') }}</p>
               </div>
 
               <template v-else>
@@ -1785,10 +1787,10 @@ function closeDocPreview() {
                     <div class="flex size-7 items-center justify-center rounded-lg bg-warning-50 dark:bg-warning-950/40">
                       <MessageSquare class="size-3.5 text-warning-600 dark:text-warning-400" />
                     </div>
-                    <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Notes</h3>
+                    <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t('dashboard.jobs.detail.notes') }}</h3>
                   </div>
                   <p class="text-sm leading-relaxed text-surface-600 dark:text-surface-300 whitespace-pre-wrap">
-                    {{ currentSummary.notes || 'No notes yet.' }}
+                    {{ currentSummary.notes || t('dashboard.jobs.detail.noNotes') }}
                   </p>
                 </div>
 
@@ -1799,7 +1801,7 @@ function closeDocPreview() {
                     class="inline-flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors group"
                   >
                     <ExternalLink class="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                    Full application page
+                    {{ t('dashboard.jobs.detail.fullApplicationPage') }}
                   </NuxtLink>
                 </div>
               </div>
@@ -1818,14 +1820,14 @@ function closeDocPreview() {
                 <div class="flex items-center justify-between mb-3">
                   <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200 flex items-center gap-2">
                     <Calendar class="size-4 text-surface-400 dark:text-surface-500" />
-                    Interviews
+                    {{ t('dashboard.jobs.detail.tabInterviews') }}
                   </h2>
                   <button
                     class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700/80 px-2.5 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-white hover:border-surface-300 dark:hover:bg-surface-800 dark:hover:border-surface-600 transition-all duration-150"
                     @click="openInterviewScheduler"
                   >
                     <Plus class="size-3.5" />
-                    Schedule Interview
+                    {{ t('dashboard.jobs.detail.scheduleInterview') }}
                   </button>
                 </div>
 
@@ -1880,7 +1882,7 @@ function closeDocPreview() {
                           :class="interviewStatusClasses[iv.status] ?? 'bg-surface-100 text-surface-500 ring-surface-200'"
                         >
                           <component :is="interviewStatusIcons[iv.status as InterviewStatus] ?? Calendar" class="size-3" />
-                          {{ iv.status === 'no_show' ? 'No Show' : iv.status }}
+                          {{ iv.status === 'no_show' ? t('dashboard.jobs.detail.interviewNoShow') : iv.status }}
                         </span>
                         <ChevronDown
                           class="size-4 text-surface-400 transition-transform duration-200"
@@ -1894,7 +1896,7 @@ function closeDocPreview() {
                       <!-- Status transition buttons -->
                       <div v-if="getAllowedInterviewTransitions(iv.status).length > 0" class="px-5 pt-4 pb-2">
                         <div class="flex flex-wrap items-center gap-2">
-                          <span class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mr-1">Actions:</span>
+                          <span class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mr-1">{{ t('dashboard.jobs.detail.actions') }}:</span>
                           <button
                             v-for="nextStatus in getAllowedInterviewTransitions(iv.status)"
                             :key="nextStatus"
@@ -1912,11 +1914,11 @@ function closeDocPreview() {
                       <div v-if="rescheduleInterviewId === iv.id" class="px-5 py-4 border-t border-surface-100 dark:border-surface-800/60">
                         <h4 class="text-xs font-semibold text-surface-700 dark:text-surface-300 mb-3 flex items-center gap-1.5">
                           <Calendar class="size-3.5" />
-                          Reschedule Interview
+                          {{ t('dashboard.jobs.detail.interviewReschedule') }}
                         </h4>
                         <div class="grid grid-cols-3 gap-3">
                           <div>
-                            <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Date</label>
+                            <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">{{ t('dashboard.jobs.detail.date') }}</label>
                             <input
                               v-model="rescheduleForm.date"
                               type="date"
@@ -1925,7 +1927,7 @@ function closeDocPreview() {
                             />
                           </div>
                           <div>
-                            <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Time</label>
+                            <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">{{ t('dashboard.jobs.detail.time') }}</label>
                             <input
                               v-model="rescheduleForm.time"
                               type="time"
@@ -1934,7 +1936,7 @@ function closeDocPreview() {
                             />
                           </div>
                           <div>
-                            <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Duration (min)</label>
+                            <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">{{ t('dashboard.jobs.detail.duration') }}</label>
                             <input
                               v-model.number="rescheduleForm.duration"
                               type="number"
@@ -1951,14 +1953,14 @@ function closeDocPreview() {
                             class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                             @click.stop="cancelReschedule"
                           >
-                            Cancel
+                            {{ t('dashboard.jobs.detail.cancel') }}
                           </button>
                           <button
                             :disabled="isRescheduling"
                             class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             @click.stop="handleReschedule"
                           >
-                            {{ isRescheduling ? 'Saving…' : 'Reschedule' }}
+                            {{ isRescheduling ? t('dashboard.jobs.detail.saving') : t('dashboard.jobs.detail.interviewReschedule') }}
                           </button>
                         </div>
                       </div>
@@ -1969,47 +1971,47 @@ function closeDocPreview() {
                         <template v-if="editingInterviewId !== iv.id">
                           <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                             <div>
-                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">Date & Time</dt>
+                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">{{ t('dashboard.jobs.detail.dateAndTime') }}</dt>
                               <dd class="text-surface-800 dark:text-surface-200 font-medium text-[13px]">
                                 <TimelineDateLink :date="iv.scheduledAt">{{ formatInterviewDateTimeFull(iv.scheduledAt) }}</TimelineDateLink>
                               </dd>
                             </div>
                             <div>
-                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">Duration</dt>
+                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">{{ t('dashboard.jobs.detail.durationLabel') }}</dt>
                               <dd class="text-surface-800 dark:text-surface-200 font-medium text-[13px] flex items-center gap-1.5">
                                 <Clock class="size-3.5 text-surface-400" />
-                                {{ iv.duration }} minutes
+                                {{ iv.duration }} {{ t('dashboard.jobs.detail.minutes') }}
                               </dd>
                             </div>
                             <div>
-                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">Type</dt>
+                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">{{ t('dashboard.jobs.detail.type') }}</dt>
                               <dd class="text-surface-800 dark:text-surface-200 font-medium text-[13px] flex items-center gap-1.5">
                                 <component :is="interviewTypeIcons[iv.type] ?? Calendar" class="size-3.5 text-surface-400" />
                                 {{ interviewTypeLabels[iv.type] ?? iv.type }}
                               </dd>
                             </div>
                             <div v-if="iv.location">
-                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">Location</dt>
+                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">{{ t('dashboard.jobs.detail.location') }}</dt>
                               <dd class="text-surface-800 dark:text-surface-200 font-medium text-[13px] flex items-center gap-1.5">
                                 <MapPin class="size-3.5 text-surface-400" />
                                 {{ iv.location }}
                               </dd>
                             </div>
                             <div v-if="iv.interviewers?.length" class="col-span-2">
-                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">Interviewers</dt>
+                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">{{ t('dashboard.jobs.detail.interviewers') }}</dt>
                               <dd class="text-surface-800 dark:text-surface-200 font-medium text-[13px] flex items-center gap-1.5">
                                 <Users class="size-3.5 text-surface-400" />
                                 {{ iv.interviewers.join(', ') }}
                               </dd>
                             </div>
                             <div v-if="iv.notes" class="col-span-2">
-                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">Notes</dt>
+                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">{{ t('dashboard.jobs.detail.notesLabel') }}</dt>
                               <dd class="text-surface-700 dark:text-surface-300 text-[13px] leading-relaxed whitespace-pre-wrap">
                                 {{ iv.notes }}
                               </dd>
                             </div>
                             <div v-if="iv.googleCalendarEventId" class="col-span-2">
-                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">Calendar Sync</dt>
+                              <dt class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-0.5">{{ t('dashboard.jobs.detail.calendarSync') }}</dt>
                               <dd class="text-[13px]">
                                 <a
                                   v-if="iv.googleCalendarEventLink"
@@ -2019,12 +2021,12 @@ function closeDocPreview() {
                                   class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-1 text-emerald-700 dark:text-emerald-400 font-medium hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors"
                                 >
                                   <Calendar class="size-3.5" />
-                                  Open in Google Calendar
+                                  {{ t('dashboard.jobs.detail.openInGoogleCalendar') }}
                                   <ExternalLink class="size-3" />
                                 </a>
                                 <span v-else class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-1 text-emerald-700 dark:text-emerald-400 font-medium">
                                   <Calendar class="size-3.5" />
-                                  Synced to Google Calendar
+                                  {{ t('dashboard.jobs.detail.syncedToGoogleCalendar') }}
                                 </span>
                               </dd>
                             </div>
@@ -2035,7 +2037,7 @@ function closeDocPreview() {
                               @click.stop="startInterviewEdit(iv)"
                             >
                               <Pencil class="size-3" />
-                              Edit Details
+                              {{ t('dashboard.jobs.detail.editDetails') }}
                             </button>
                             <NuxtLink
                               :to="$localePath(`/dashboard/interviews/${iv.id}`)"
@@ -2043,7 +2045,7 @@ function closeDocPreview() {
                               @click.stop
                             >
                               <ExternalLink class="size-3" />
-                              Full Page
+                              {{ t('dashboard.jobs.detail.fullPage') }}
                             </NuxtLink>
                           </div>
                         </template>
@@ -2052,7 +2054,7 @@ function closeDocPreview() {
                         <template v-else>
                           <div class="space-y-3">
                             <div>
-                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Title</label>
+                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">{{ t('dashboard.jobs.detail.titleLabel') }}</label>
                               <input
                                 v-model="interviewEditForm.title"
                                 type="text"
@@ -2064,51 +2066,51 @@ function closeDocPreview() {
                             </div>
 
                             <div>
-                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Type</label>
+                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">{{ t('dashboard.jobs.detail.type') }}</label>
                               <select
                                 v-model="interviewEditForm.type"
                                 class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-colors"
                                 @click.stop
                               >
-                                <option value="video">Video Call</option>
-                                <option value="phone">Phone</option>
-                                <option value="in_person">In Person</option>
-                                <option value="technical">Technical</option>
-                                <option value="panel">Panel</option>
-                                <option value="take_home">Take Home</option>
+                                <option value="video">{{ t('dashboard.jobs.detail.typeVideo') }}</option>
+                                <option value="phone">{{ t('dashboard.jobs.detail.typePhone') }}</option>
+                                <option value="in_person">{{ t('dashboard.jobs.detail.typeInPerson') }}</option>
+                                <option value="technical">{{ t('dashboard.jobs.detail.typeTechnical') }}</option>
+                                <option value="panel">{{ t('dashboard.jobs.detail.typePanel') }}</option>
+                                <option value="take_home">{{ t('dashboard.jobs.detail.typeTakeHome') }}</option>
                               </select>
                             </div>
 
                             <div>
-                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Location / Link</label>
+                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">{{ t('dashboard.jobs.detail.locationLink') }}</label>
                               <input
                                 v-model="interviewEditForm.location"
                                 type="text"
-                                placeholder="Zoom link, office address…"
+:placeholder="t('dashboard.jobs.detail.locationPlaceholder')"
                                 class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-colors"
                                 @click.stop
                               />
                             </div>
 
                             <div>
-                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Notes</label>
+                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">{{ t('dashboard.jobs.detail.notesLabel') }}</label>
                               <textarea
                                 v-model="interviewEditForm.notes"
                                 rows="3"
-                                placeholder="Interview notes…"
+:placeholder="t('dashboard.jobs.detail.interviewNotesPlaceholder')"
                                 class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-colors"
                                 @click.stop
                               />
                             </div>
 
                             <div>
-                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1.5">Interviewers</label>
+                              <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1.5">{{ t('dashboard.jobs.detail.interviewers') }}</label>
                               <div class="space-y-2">
                                 <div v-for="(_, idx) in interviewEditForm.interviewers" :key="idx" class="flex items-center gap-2">
                                   <input
                                     v-model="interviewEditForm.interviewers[idx]"
                                     type="text"
-                                    placeholder="Name or email"
+:placeholder="t('dashboard.jobs.detail.nameOrEmail')"
                                     class="flex-1 rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-1.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-colors"
                                     @click.stop
                                   />
@@ -2126,7 +2128,7 @@ function closeDocPreview() {
                                 @click.stop="addEditInterviewer"
                               >
                                 <Plus class="size-3" />
-                                Add interviewer
+                                {{ t('dashboard.jobs.detail.addInterviewer') }}
                               </button>
                             </div>
 
@@ -2137,14 +2139,14 @@ function closeDocPreview() {
                                 class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                                 @click.stop="cancelInterviewEdit"
                               >
-                                Cancel
+                                {{ t('dashboard.jobs.detail.cancel') }}
                               </button>
                               <button
                                 :disabled="isInterviewSaving"
                                 class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 @click.stop="saveInterviewEdit"
                               >
-                                {{ isInterviewSaving ? 'Saving…' : 'Save Changes' }}
+                                {{ isInterviewSaving ? t('dashboard.jobs.detail.saving') : t('dashboard.jobs.detail.saveChanges') }}
                               </button>
                             </div>
                           </div>
@@ -2159,14 +2161,14 @@ function closeDocPreview() {
                   <div class="flex size-14 items-center justify-center rounded-2xl bg-surface-100 dark:bg-surface-800/60 mx-auto mb-3">
                     <Calendar class="size-6 text-surface-400 dark:text-surface-500" />
                   </div>
-                  <p class="text-sm font-medium text-surface-600 dark:text-surface-300">No interviews scheduled</p>
-                  <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">Schedule an interview to start the process.</p>
+                  <p class="text-sm font-medium text-surface-600 dark:text-surface-300">{{ t('dashboard.jobs.detail.noInterviews') }}</p>
+                  <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">{{ t('dashboard.jobs.detail.scheduleInterviewHint') }}</p>
                   <button
                     class="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-700 transition-colors shadow-sm"
                     @click="openInterviewScheduler"
                   >
                     <Plus class="size-3.5" />
-                    Schedule Interview
+                    {{ t('dashboard.jobs.detail.scheduleInterview') }}
                   </button>
                 </div>
               </div>
@@ -2175,7 +2177,7 @@ function closeDocPreview() {
               <div v-if="showSection.documents" ref="documentsRef" class="space-y-3 max-w-4xl mx-auto" :class="detailTab === 'overview' ? 'mt-10' : ''">
                 <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200 flex items-center gap-2 mb-3">
                   <Paperclip class="size-4 text-surface-400 dark:text-surface-500" />
-                  Documents
+                  {{ t('dashboard.jobs.detail.tabDocuments') }}
                 </h2>
                 <div v-if="resolvedCurrentApplication?.candidate.documents?.length" class="space-y-3">
                   <div
@@ -2202,14 +2204,14 @@ function closeDocPreview() {
                         @click="handleDocPreview(doc)"
                       >
                         <Eye class="size-3.5" />
-                        Preview
+                        {{ t('dashboard.jobs.detail.preview') }}
                       </button>
                       <a
                         :href="`/api/documents/${doc.id}/download`"
                         class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 px-3 py-1.5 text-xs font-medium text-surface-600 hover:bg-surface-50 hover:border-surface-300 dark:border-surface-700 dark:text-surface-300 dark:hover:bg-surface-800 dark:hover:border-surface-600 transition-all duration-150"
                       >
                         <Download class="size-3.5" />
-                        Download
+                        {{ t('dashboard.jobs.detail.download') }}
                       </a>
                     </div>
                   </div>
@@ -2218,8 +2220,8 @@ function closeDocPreview() {
                   <div class="flex size-14 items-center justify-center rounded-2xl bg-surface-100 dark:bg-surface-800/60 mx-auto mb-3">
                     <FileText class="size-6 text-surface-400 dark:text-surface-500" />
                   </div>
-                  <p class="text-sm font-medium text-surface-600 dark:text-surface-300">No documents uploaded</p>
-                  <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">Documents will appear here once uploaded.</p>
+                  <p class="text-sm font-medium text-surface-600 dark:text-surface-300">{{ t('dashboard.jobs.detail.noDocuments') }}</p>
+                  <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">{{ t('dashboard.jobs.detail.noDocumentsHint') }}</p>
                 </div>
               </div>
 
@@ -2227,7 +2229,7 @@ function closeDocPreview() {
               <div v-if="showSection.responses" ref="responsesRef" class="space-y-3 max-w-4xl mx-auto" :class="detailTab === 'overview' ? 'mt-10' : ''">
                 <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200 flex items-center gap-2 mb-3">
                   <MessageSquare class="size-4 text-surface-400 dark:text-surface-500" />
-                  Responses
+                  {{ t('dashboard.jobs.detail.tabResponses') }}
                 </h2>                <template v-if="resolvedCurrentApplication?.responses?.length">
                   <div class="space-y-3">
                     <div
@@ -2236,7 +2238,7 @@ function closeDocPreview() {
                       class="rounded-xl border border-surface-200/80 bg-white p-5 shadow-sm shadow-surface-900/[0.03] dark:border-surface-800/60 dark:bg-surface-900 dark:shadow-none"
                     >
                       <p class="text-xs font-semibold text-surface-400 dark:text-surface-500 uppercase tracking-wider mb-2">
-                        {{ response.question?.label ?? 'Unknown question' }}
+                        {{ response.question?.label ?? t('dashboard.jobs.detail.unknownQuestion') }}
                       </p>
                       <p class="text-sm text-surface-700 dark:text-surface-200 leading-relaxed">
                         {{ formatResponseValue(response.value) }}
@@ -2248,8 +2250,8 @@ function closeDocPreview() {
                   <div class="flex size-14 items-center justify-center rounded-2xl bg-surface-100 dark:bg-surface-800/60 mx-auto mb-3">
                     <MessageSquare class="size-6 text-surface-400 dark:text-surface-500" />
                   </div>
-                  <p class="text-sm font-medium text-surface-600 dark:text-surface-300">No responses</p>
-                  <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">Application form responses will appear here.</p>
+                  <p class="text-sm font-medium text-surface-600 dark:text-surface-300">{{ t('dashboard.jobs.detail.noResponses') }}</p>
+                  <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">{{ t('dashboard.jobs.detail.noResponsesHint') }}</p>
                 </div>
               </div>
 
@@ -2260,7 +2262,7 @@ function closeDocPreview() {
                     <div class="flex size-7 items-center justify-center rounded-lg bg-brand-50 dark:bg-brand-950/40">
                       <SlidersHorizontal class="size-3.5 text-brand-600 dark:text-brand-400" />
                     </div>
-                    <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Properties</h3>
+                    <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t('dashboard.jobs.detail.tabProperties') }}</h3>
                   </div>
                   <PropertyBlock
                     entity-type="application"
@@ -2276,13 +2278,13 @@ function closeDocPreview() {
               <div v-if="showSection.timeline" class="space-y-3 max-w-4xl mx-auto">
                 <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200 flex items-center gap-2 mb-3">
                   <History class="size-4 text-surface-400 dark:text-surface-500" />
-                  Timeline
+                  {{ t('dashboard.jobs.detail.tabTimeline') }}
                 </h2>
 
                 <!-- Loading -->
                 <div v-if="timelineLoading" class="text-center py-12 text-surface-400">
                   <div class="size-6 rounded-full border-2 border-brand-200 border-t-brand-600 dark:border-brand-800 dark:border-t-brand-400 animate-spin mx-auto mb-3" />
-                  Loading timeline…
+                  {{ t('dashboard.jobs.detail.loadingTimeline') }}
                 </div>
 
                 <!-- Error -->
@@ -2296,7 +2298,7 @@ function closeDocPreview() {
                     class="mt-3 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium cursor-pointer"
                     @click="loadTimeline"
                   >
-                    Retry
+                    {{ t('dashboard.jobs.detail.retry') }}
                   </button>
                 </div>
 
@@ -2308,8 +2310,8 @@ function closeDocPreview() {
                   <div class="flex size-14 items-center justify-center rounded-2xl bg-surface-100 dark:bg-surface-800/60 mx-auto mb-3">
                     <History class="size-6 text-surface-400 dark:text-surface-500" />
                   </div>
-                  <p class="text-sm font-medium text-surface-600 dark:text-surface-300">No activity recorded yet.</p>
-                  <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">Activity for this candidate will appear here.</p>
+                  <p class="text-sm font-medium text-surface-600 dark:text-surface-300">{{ t('dashboard.jobs.detail.noActivity') }}</p>
+                  <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">{{ t('dashboard.jobs.detail.noActivityHint') }}</p>
                 </div>
 
                 <!-- Timeline list -->
@@ -2435,7 +2437,7 @@ function closeDocPreview() {
         :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
       >
         <p class="text-xs text-surface-400 dark:text-surface-500">
-          No candidates in {{ formatStatusLabel(focusStatus) }}
+          {{ t('dashboard.jobs.detail.noCandidatesIn', { stage: formatStatusLabel(focusStatus) }) }}
         </p>
       </div>
     </template>
@@ -2473,11 +2475,11 @@ function closeDocPreview() {
                 class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 px-2.5 py-1.5 text-xs font-medium text-surface-600 hover:bg-surface-50 hover:border-surface-300 dark:border-surface-700 dark:text-surface-300 dark:hover:bg-surface-800 transition-all duration-150"
               >
                 <Download class="size-3.5" />
-                Download
+                {{ t('dashboard.jobs.detail.download') }}
               </a>
               <button
                 class="rounded-lg p-1.5 text-surface-500 hover:text-surface-700 hover:bg-surface-100 dark:hover:text-surface-300 dark:hover:bg-surface-800 transition-colors"
-                title="Close"
+                :title="t('dashboard.jobs.detail.close')"
                 @click="closeDocPreview"
               >
                 <X class="size-4" />
@@ -2495,14 +2497,14 @@ function closeDocPreview() {
           <div v-else class="flex-1 flex items-center justify-center p-8 text-center">
             <div>
               <FileText class="size-12 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
-              <p class="text-sm font-medium text-surface-600 dark:text-surface-300">Preview not available for this file type</p>
+              <p class="text-sm font-medium text-surface-600 dark:text-surface-300">{{ t('dashboard.jobs.detail.previewNotAvailable') }}</p>
               <a
                 v-if="docPreviewDocId"
                 :href="`/api/documents/${docPreviewDocId}/download`"
                 class="mt-3 inline-flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium"
               >
                 <Download class="size-3.5" />
-                Download instead
+                {{ t('dashboard.jobs.detail.downloadInstead') }}
               </a>
             </div>
           </div>
