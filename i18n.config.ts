@@ -1,9 +1,10 @@
 export default defineI18nConfig(() => ({
   legacy: false,
-  locale: 'en',
+  locale: 'ru',
   fallbackLocale: 'en',
   missingWarn: false,
   fallbackWarn: false,
+  warnHtmlMessage: false,
   datetimeFormats: {
     ru: {
       short: { year: 'numeric', month: '2-digit', day: '2-digit' },

@@ -81,7 +81,8 @@
       "soon": "Soon"
     },
     "demo": {
-      "banner": "<strong>Live demo</strong> — Explore freely with sample data. Editing is disabled here.",
+      "banner_label": "Live demo",
+      "banner_text": "— Explore freely with sample data. Editing is disabled here.",
       "deploy": "Deploy your own free instance →"
     },
     "index": {

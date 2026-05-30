@@ -35,7 +35,7 @@ const isDemoAccount = computed(() => session.value?.user?.email === 'demo@reqcor
       >
         <Eye class="size-4 shrink-0" />
         <span>
-          <span v-html="$t('dashboard.demo.banner')" />
+          <strong>{{ $t('dashboard.demo.banner_label') }}</strong> {{ $t('dashboard.demo.banner_text') }}
           <a
             href="https://github.com/reqcore-inc/reqcore#quick-start"
             target="_blank"

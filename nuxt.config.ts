@@ -7,7 +7,7 @@ const railwayEnvironmentName =
 const railwayPublicDomain =
   process.env.RAILWAY_PUBLIC_DOMAIN?.toLowerCase() ?? "";
 const siteUrl = process.env.NUXT_PUBLIC_SITE_URL || "https://reqcore.com";
-const i18nDefaultLocale = "en";
+const i18nDefaultLocale = "ru";
 const i18nLocales = [
   { code: "en", language: "en-US", name: "English", file: "en.json" },
   {
@@ -161,11 +161,9 @@ export default defineNuxtConfig({
     strategy: "prefix_except_default",
     locales: i18nLocales,
     langDir: "locales",
-    detectBrowserLanguage: {
-      useCookie: true,
-      cookieKey: "reqcore_i18n_redirected",
-      redirectOn: "root",
-    },
+    // Disabled: this self-hosted Astra Group deployment defaults to Russian.
+    // Users can still switch via the language picker; the choice is then remembered.
+    detectBrowserLanguage: false,
     vueI18n: "./i18n.config.ts",
   },
 
