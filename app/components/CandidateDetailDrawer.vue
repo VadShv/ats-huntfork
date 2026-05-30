@@ -16,6 +16,7 @@ const toast = useToast()
 
 const { candidate, status: fetchStatus, error, refresh } = useCandidate(() => props.candidateId)
 const { formatCandidateName, formatDate } = useOrgSettings()
+const { t } = useI18n()
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -252,7 +253,7 @@ onUnmounted(() => {
                 <div>
                   <dt class="text-surface-400 inline-flex items-center gap-1">
                     <Calendar class="size-3.5" />
-                    Created
+                    {{ $t('dashboard.candidates.fields.added') }}
                   </dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">
                     <TimelineDateLink :date="candidate.createdAt">{{ new Date(candidate.createdAt).toLocaleDateString() }}</TimelineDateLink>
@@ -345,11 +346,11 @@ onUnmounted(() => {
                   <div class="flex items-center gap-2 shrink-0 sm:ml-3">
                     <button
                       class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-400 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all cursor-pointer"
-                      title="Schedule Interview"
+                      :title="$t('dashboard.interviews.schedule')"
                       @click="openScheduleInterview(app)"
                     >
                       <Calendar class="size-3" />
-                      Schedule
+                      {{ $t('dashboard.interviews.schedule') }}
                     </button>
                     <span
                       class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
@@ -371,7 +372,7 @@ onUnmounted(() => {
                     class="inline-flex items-center gap-1.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
                     @click="closePreview"
                   >
-                    ← Back to documents
+                    ← {{ $t('dashboard.common.back') }}
                   </button>
                   <div class="flex items-center gap-1">
                     <button

@@ -35,13 +35,13 @@ const isDemoAccount = computed(() => session.value?.user?.email === 'demo@reqcor
       >
         <Eye class="size-4 shrink-0" />
         <span>
-          <strong>Live demo</strong> — Explore freely with sample data. Editing is disabled here.
+          <span v-html="$t('dashboard.demo.banner')" />
           <a
             href="https://github.com/reqcore-inc/reqcore#quick-start"
             target="_blank"
             rel="noopener noreferrer"
             class="ml-1 font-semibold underline decoration-brand-400/40 underline-offset-2 hover:decoration-brand-400"
-          >Deploy your own free instance →</a>
+          >{{ $t('dashboard.demo.deploy') }}</a>
         </span>
       </div>
       <slot />

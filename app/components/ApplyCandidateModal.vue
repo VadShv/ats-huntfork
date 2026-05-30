@@ -38,6 +38,7 @@ const { data: candidateData, status: searchStatus } = useFetch('/api/candidates'
 const candidates = computed(() => candidateData.value?.data ?? [])
 const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const { formatCandidateName } = useOrgSettings()
+const { t } = useI18n()
 
 // Apply candidate
 const isApplying = ref(false)
@@ -123,7 +124,7 @@ async function applyCandidate(candidateId: string) {
                 <p class="text-xs text-surface-400 truncate">{{ c.email }}</p>
               </div>
               <span class="text-xs text-brand-600 dark:text-brand-400 font-medium shrink-0 ml-2">
-                Apply
+                {{ $t('dashboard.applications.title') }}
               </span>
             </button>
           </div>

@@ -21,6 +21,7 @@ useSeoMeta({
 const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const toast = useToast()
 const { formatPersonName, formatDateTime } = useOrgSettings()
+const { t } = useI18n()
 
 // ─── Filters ──────────────────────────────────────────────────────
 const searchInput = ref('')
@@ -79,32 +80,32 @@ const groupedByDate = computed(() => {
 })
 
 // ─── Status styling ──────────────────────────────────────────────
-const statusConfig: Record<InterviewStatus, { label: string; icon: any; class: string; dot: string }> = {
+const statusConfig = computed<Record<InterviewStatus, { label: string; icon: any; class: string; dot: string }>>(() => ({
   scheduled: {
-    label: 'Scheduled',
+    label: t('dashboard.interviews.status.scheduled'),
     icon: Calendar,
     class: 'bg-brand-50 text-brand-700 ring-brand-200 dark:bg-brand-950/50 dark:text-brand-300 dark:ring-brand-800',
     dot: 'bg-brand-500',
   },
   completed: {
-    label: 'Completed',
+    label: t('dashboard.interviews.status.completed'),
     icon: CheckCircle2,
     class: 'bg-success-50 text-success-700 ring-success-200 dark:bg-success-950/50 dark:text-success-300 dark:ring-success-800',
     dot: 'bg-success-500',
   },
   cancelled: {
-    label: 'Cancelled',
+    label: t('dashboard.interviews.status.cancelled'),
     icon: XCircle,
     class: 'bg-surface-100 text-surface-500 ring-surface-200 dark:bg-surface-800/50 dark:text-surface-400 dark:ring-surface-700',
     dot: 'bg-surface-400',
   },
   no_show: {
-    label: 'No Show',
+    label: t('dashboard.interviews.status.no_show'),
     icon: AlertTriangle,
     class: 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950/50 dark:text-danger-300 dark:ring-danger-800',
     dot: 'bg-danger-500',
   },
-}
+}))
 
 const typeIcons: Record<string, any> = {
   video: Video,
@@ -115,14 +116,14 @@ const typeIcons: Record<string, any> = {
   take_home: FileText,
 }
 
-const typeLabels: Record<string, string> = {
-  video: 'Video',
-  phone: 'Phone',
-  in_person: 'In Person',
-  technical: 'Technical',
-  panel: 'Panel',
-  take_home: 'Take Home',
-}
+const typeLabels = computed<Record<string, string>>(() => ({
+  video: t('dashboard.interviews.type.video'),
+  phone: t('dashboard.interviews.type.phone'),
+  in_person: t('dashboard.interviews.type.in_person'),
+  technical: t('dashboard.interviews.type.technical'),
+  panel: t('dashboard.interviews.type.panel'),
+  take_home: t('dashboard.interviews.type.take_home'),
+}))
 
 function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('en-US', {
@@ -306,7 +307,7 @@ const statusCounts = computed(() => {
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">Interviews</h1>
+        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">{{ $t('dashboard.interviews.title') }}</h1>
         <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
           Manage all scheduled interviews across your jobs
         </p>
@@ -328,7 +329,7 @@ const statusCounts = computed(() => {
         <input
           v-model="searchInput"
           type="text"
-          placeholder="Search interviews, candidates, jobs…"
+          :placeholder="$t('dashboard.interviews.searchPlaceholder')"
           class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 py-2 pl-10 pr-9 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
         />
         <button
@@ -406,8 +407,8 @@ const statusCounts = computed(() => {
       v-else-if="error"
       class="rounded-lg border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950 p-4 text-sm text-danger-700 dark:text-danger-400"
     >
-      Failed to load interviews.
-      <button class="underline ml-1 cursor-pointer" @click="refresh()">Retry</button>
+      {{ $t('dashboard.interviews.failedToLoad') }}
+      <button class="underline ml-1 cursor-pointer" @click="refresh()">{{ $t('dashboard.interviews.retry') }}</button>
     </div>
 
     <!-- Empty state -->
@@ -417,7 +418,7 @@ const statusCounts = computed(() => {
     >
       <Calendar class="size-10 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
       <h3 class="text-base font-semibold text-surface-700 dark:text-surface-200 mb-1">
-        {{ searchInput || activeStatus ? 'No matching interviews' : 'No interviews yet' }}
+        {{ searchInput || activeStatus ? $t('dashboard.interviews.empty') : $t('dashboard.interviews.empty') }}
       </h3>
       <p class="text-sm text-surface-500 dark:text-surface-400 mb-4 max-w-xs mx-auto">
         {{ searchInput || activeStatus

@@ -1,0 +1,434 @@
+{
+  "common": {
+    "language": "Язык",
+    "selectLanguage": "Выбор языка",
+    "save": "Сохранить",
+    "cancel": "Отмена"
+  },
+  "home": {
+    "nav": {
+      "features": "Возможности",
+      "openPositions": "Открытые вакансии",
+      "roadmap": "Дорожная карта",
+      "blog": "Блог",
+      "github": "GitHub",
+      "dashboard": "Панель",
+      "logIn": "Войти",
+      "signUp": "Регистрация"
+    },
+    "badge": "Open-source ATS для команд разработчиков",
+    "hero": {
+      "titleLine1": "Ваш найм.",
+      "titleHighlight": "Ваша инфраструктура.",
+      "subtitle": "Open-source ATS для команд, которые сами хостят свою инфраструктуру.",
+      "goToDashboard": "Перейти в панель",
+      "signIn": "Войти",
+      "createAccount": "Создать аккаунт",
+      "ctaDemo": "Попробовать демо",
+      "ctaStart": "Смотреть на GitHub",
+      "hint": "Ранний open-source релиз — попробуйте демо с тестовыми данными, регистрация не нужна"
+    },
+    "pillars": {
+      "yourData": {
+        "label": "Ваши данные",
+        "desc": "Postgres + MinIO на вашей инфраструктуре. Ничего не покидает вашу сеть."
+      },
+      "auditable": {
+        "label": "Полная прозрачность",
+        "desc": "Open source — каждая строка логики сопоставления видна и может быть изменена."
+      },
+      "unlimitedSeats": {
+        "label": "Без лимита мест",
+        "desc": "Добавьте всю команду найма. Без поштучной оплаты."
+      }
+    },
+    "footer": {
+      "source": "Исходный код",
+      "tagline": "Reqcore — open-source система отслеживания кандидатов"
+    }
+  },
+  "dashboard": {
+    "nav": {
+      "dashboard": "Панель",
+      "jobs": "Вакансии",
+      "candidates": "Кандидаты",
+      "applications": "Отклики",
+      "interviews": "Интервью",
+      "timeline": "Лента событий",
+      "sourceTracking": "Источники",
+      "aiAnalysis": "AI-анализ",
+      "assistant": "Ассистент",
+      "settings": "Настройки",
+      "updates": "Обновления"
+    },
+    "topbar": {
+      "newJob": "Новая вакансия",
+      "more": "Ещё",
+      "moreOptions": "Дополнительно",
+      "signOut": "Выйти",
+      "signingOut": "Выход...",
+      "switchToDark": "Переключить на тёмную тему",
+      "switchToLight": "Переключить на светлую тему",
+      "updatesChangelog": "Обновления и журнал изменений",
+      "reportIssue": "Сообщить о проблеме",
+      "getStarted": "Начать",
+      "chooseSetup": "Выберите способ",
+      "cloudHosted": "Облако",
+      "cloudHostedDesc": "Старт бесплатно за секунды — мы берём на себя хостинг, обновления и резервные копии",
+      "selfHost": "Свой хостинг",
+      "selfHostDesc": "Разверните на своей инфраструктуре — полный контроль, бесплатно",
+      "allJobs": "Все вакансии",
+      "soon": "Скоро"
+    },
+    "demo": {
+      "banner": "<strong>Демо-режим</strong> — свободно изучайте с тестовыми данными. Редактирование отключено.",
+      "deploy": "Развернуть свой бесплатный экземпляр →"
+    },
+    "index": {
+      "title": "Панель",
+      "welcomeTitle": "Добро пожаловать в Reqcore",
+      "welcomeDesc": "Ваш центр управления рекрутингом. Создайте первую вакансию, чтобы запустить воронку найма.",
+      "createFirstJob": "Создать первую вакансию",
+      "newJob": "Новая вакансия",
+      "hiringPipeline": "Воронка найма",
+      "allJobs": "Все вакансии",
+      "noOpenJobs": "Нет открытых вакансий",
+      "noOpenJobsDesc": "Создайте первую вакансию, чтобы увидеть воронку",
+      "createOne": "Создать",
+      "recentApplications": "Последние отклики",
+      "viewAll": "Все",
+      "noApplicationsYet": "Пока нет откликов",
+      "upcomingInterviews": "Предстоящие интервью",
+      "noUpcomingInterviews": "Нет предстоящих интервью",
+      "next7Days": "Ближайшие 7 дней",
+      "quickActions": "Быстрые действия",
+      "createNewJob": "Создать вакансию",
+      "addCandidate": "Добавить кандидата",
+      "reviewApplications": "Просмотреть отклики",
+      "viewInterviews": "Перейти к интервью",
+      "failedToLoad": "Не удалось загрузить данные.",
+      "retry": "Повторить",
+      "openJobs": "Открытые вакансии",
+      "candidates": "Кандидаты",
+      "talentPool": "База кандидатов",
+      "applications": "Отклики",
+      "totalReceived": "Всего получено",
+      "toReview": "На проверке",
+      "needsAttention": "Требует внимания",
+      "allReviewed": "Всё проверено",
+      "draft": "черновик",
+      "drafts": "черновика",
+      "total": "всего",
+      "today": "Сегодня",
+      "tomorrow": "Завтра",
+      "inHours": "Через {n}ч",
+      "inDays": "Через {n} дн."
+    },
+    "jobs": {
+      "title": "Мои вакансии",
+      "new": "Новая вакансия",
+      "create": "Создать вакансию",
+      "createFirst": "Создать первую вакансию",
+      "welcomeTitle": "Добро пожаловать в Reqcore",
+      "welcomeDesc": "Создайте первую вакансию, чтобы начать получать и управлять кандидатами.",
+      "searchPlaceholder": "Поиск по названию, локации или описанию",
+      "filters": "Фильтры",
+      "clearFilters": "Сбросить",
+      "noResults": "Нет вакансий по вашему запросу",
+      "noResultsHint": "Попробуйте другое слово или сбросьте фильтры.",
+      "failedToLoad": "Не удалось загрузить вакансии.",
+      "retry": "Повторить",
+      "totalJobs": "{n} вакансия(-й) всего",
+      "showingOf": "Показано {shown} из {total} вакансии(-й)",
+      "status": {
+        "draft": "Черновик",
+        "open": "Открыта",
+        "closed": "Закрыта",
+        "archived": "В архиве"
+      },
+      "type": {
+        "full_time": "Полная занятость",
+        "part_time": "Частичная занятость",
+        "contract": "Контракт",
+        "internship": "Стажировка"
+      },
+      "fields": {
+        "title": "Название",
+        "department": "Отдел",
+        "location": "Локация",
+        "employment_type": "Тип занятости",
+        "description": "Описание",
+        "requirements": "Требования"
+      },
+      "table": {
+        "title": "Название",
+        "status": "Статус",
+        "type": "Тип",
+        "location": "Локация",
+        "new": "Новые",
+        "active": "Активные",
+        "created": "Создана"
+      },
+      "sort": {
+        "dateCreated": "Дата создания",
+        "title": "Название",
+        "status": "Статус",
+        "employmentType": "Тип занятости",
+        "location": "Локация",
+        "newApplicants": "Новые заявки",
+        "activeCandidates": "Активные кандидаты",
+        "ascending": "По возрастанию",
+        "descending": "По убыванию"
+      },
+      "filter": {
+        "status": "Статус",
+        "employmentType": "Тип занятости",
+        "experienceLevel": "Уровень опыта",
+        "workArrangement": "Формат работы",
+        "sortBy": "Сортировка",
+        "statusOptions": {
+          "open": "Открыта",
+          "draft": "Черновик",
+          "closed": "Закрыта",
+          "archived": "В архиве"
+        },
+        "typeOptions": {
+          "full_time": "Полная занятость",
+          "part_time": "Частичная занятость",
+          "contract": "Контракт",
+          "internship": "Стажировка"
+        },
+        "experienceOptions": {
+          "junior": "Джуниор",
+          "mid": "Мидл",
+          "senior": "Сениор",
+          "lead": "Лид"
+        },
+        "remoteOptions": {
+          "remote": "Удалённо",
+          "hybrid": "Гибрид",
+          "onsite": "В офисе"
+        }
+      },
+      "pipeline": {
+        "stages": {
+          "new": "Новый",
+          "screening": "Скрининг",
+          "interview": "Интервью",
+          "offer": "Оффер",
+          "hired": "Нанят",
+          "rejected": "Отклонён"
+        }
+      },
+      "actions": {
+        "edit": "Редактировать",
+        "delete": "Удалить",
+        "duplicate": "Дублировать",
+        "archive": "В архив",
+        "publish": "Опубликовать",
+        "reviewPipeline": "Просмотреть воронку",
+        "reviewInPipeline": "Открыть воронку"
+      },
+      "attention": {
+        "needsYourAttention": "Требует вашего внимания",
+        "newApplicationsToReview": "{n} новый(-х) откликов на проверку"
+      },
+      "views": {
+        "gallery": "Карточки",
+        "list": "Список",
+        "table": "Таблица"
+      },
+      "empty": "Нет вакансий. Создайте первую.",
+      "filterTitle": "Фильтры вакансий",
+      "filterDescription": "Настройте отображение и сохраните для быстрого доступа.",
+      "allJobs": "Все вакансии",
+      "notPublishedYet": "Ещё не опубликована",
+      "newApplication": "{n} новый откликк",
+      "newApplications": "{n} новых откликов"
+    },
+    "candidates": {
+      "title": "Кандидаты",
+      "new": "Новый кандидат",
+      "add": "Добавить кандидата",
+      "search_placeholder": "Поиск по имени, email...",
+      "failedToLoad": "Не удалось загрузить кандидатов.",
+      "retry": "Повторить",
+      "noResults": "Нет кандидатов по запросу",
+      "empty": "Пока нет кандидатов.",
+      "fields": {
+        "first_name": "Имя",
+        "last_name": "Фамилия",
+        "display_name": "Отображаемое имя",
+        "email": "Email",
+        "phone": "Телефон",
+        "location": "Город",
+        "linkedin": "LinkedIn",
+        "github": "GitHub",
+        "resume": "Резюме",
+        "notes": "Заметки",
+        "gender": "Пол",
+        "dateOfBirth": "Дата рождения",
+        "applications": "Отклики",
+        "added": "Добавлен",
+        "quickNotes": "Быстрые заметки"
+      },
+      "gender": {
+        "male": "Мужской",
+        "female": "Женский",
+        "other": "Другой",
+        "prefer_not_to_say": "Не указывать"
+      },
+      "stages": {
+        "applied": "Откликнулся",
+        "screening": "Скрининг",
+        "interview": "Интервью",
+        "offer": "Оффер",
+        "hired": "Нанят",
+        "rejected": "Отклонён"
+      },
+      "sort": {
+        "name": "Имя",
+        "email": "Email",
+        "phone": "Телефон",
+        "applications": "Отклики",
+        "created": "Дата добавления"
+      },
+      "table": {
+        "name": "Имя",
+        "email": "Email",
+        "phone": "Телефон",
+        "applications": "Отклики",
+        "added": "Добавлен",
+        "quickNotes": "Заметки"
+      },
+      "addForm": {
+        "title": "Добавить кандидата",
+        "back": "Назад к кандидатам",
+        "submit": "Сохранить кандидата",
+        "submitting": "Сохранение...",
+        "validation": {
+          "firstNameRequired": "Имя обязательно",
+          "lastNameRequired": "Фамилия обязательна",
+          "emailRequired": "Email обязателен",
+          "emailInvalid": "Некорректный email"
+        }
+      }
+    },
+    "applications": {
+      "title": "Отклики",
+      "empty": "Нет откликов.",
+      "failedToLoad": "Не удалось загрузить отклики.",
+      "retry": "Повторить",
+      "noResults": "Нет откликов по запросу",
+      "applied_at": "Откликнулся",
+      "stage": "Стадия",
+      "ai_score": "AI-оценка",
+      "resume": "Резюме",
+      "cover_letter": "Сопроводительное письмо",
+      "searchPlaceholder": "Поиск кандидатов или вакансий...",
+      "stages": {
+        "new": "Новый",
+        "screening": "Скрининг",
+        "interview": "Интервью",
+        "offer": "Оффер",
+        "hired": "Нанят",
+        "rejected": "Отклонён"
+      },
+      "table": {
+        "candidate": "Кандидат",
+        "email": "Email",
+        "job": "Вакансия",
+        "status": "Статус",
+        "score": "Оценка",
+        "applied": "Дата отклика"
+      },
+      "sort": {
+        "name": "Имя",
+        "email": "Email",
+        "job": "Вакансия",
+        "status": "Статус",
+        "score": "Оценка",
+        "created": "Дата"
+      }
+    },
+    "interviews": {
+      "title": "Интервью",
+      "schedule": "Запланировать",
+      "schedule_another": "Запланировать ещё одно",
+      "create_template": "Создать шаблон",
+      "interviewer": "Интервьюер",
+      "candidate": "Кандидат",
+      "duration": "Длительность",
+      "meeting_link": "Ссылка на встречу",
+      "calendar_event": "Создать событие в календаре",
+      "empty": "Нет запланированных интервью.",
+      "failedToLoad": "Не удалось загрузить интервью.",
+      "retry": "Повторить",
+      "searchPlaceholder": "Поиск по имени или вакансии...",
+      "allInterviews": "Все интервью",
+      "status": {
+        "scheduled": "Запланировано",
+        "completed": "Проведено",
+        "cancelled": "Отменено",
+        "no_show": "Не явился"
+      },
+      "type": {
+        "video": "Видео",
+        "phone": "Телефон",
+        "in_person": "Очно",
+        "technical": "Техническое",
+        "panel": "Панельное",
+        "take_home": "Домашнее задание"
+      },
+      "actions": {
+        "edit": "Редактировать",
+        "delete": "Удалить",
+        "confirmDelete": "Удалить интервью?",
+        "markCompleted": "Отметить проведённым",
+        "markCancelled": "Отменить"
+      },
+      "fields": {
+        "scheduledAt": "Запланировано на",
+        "duration": "Длительность",
+        "interviewer": "Интервьюер",
+        "meetingLink": "Ссылка на встречу",
+        "notes": "Заметки"
+      },
+      "today": "Сегодня",
+      "tomorrow": "Завтра"
+    },
+    "common": {
+      "search": "Поиск",
+      "filter": "Фильтр",
+      "loading": "Загрузка...",
+      "no_results": "Ничего не найдено",
+      "delete_confirm": "Точно удалить?",
+      "view_details": "Подробнее",
+      "back": "Назад",
+      "next": "Далее",
+      "previous": "Назад",
+      "submit": "Отправить",
+      "close": "Закрыть",
+      "yes": "Да",
+      "no": "Нет",
+      "ok": "ОК",
+      "all": "Все",
+      "none": "Нет",
+      "edit": "Редактировать",
+      "delete": "Удалить",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "create": "Создать",
+      "add": "Добавить",
+      "saving": "Сохранение...",
+      "saved": "Сохранено",
+      "error": "Ошибка",
+      "retry": "Повторить",
+      "optional": "Необязательно",
+      "required": "Обязательное поле",
+      "notPublished": "Не опубликовано",
+      "unknown": "Неизвестно",
+      "noData": "Нет данных"
+    }
+  }
+}

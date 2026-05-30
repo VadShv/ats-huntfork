@@ -46,5 +46,389 @@
       "source": "Source",
       "tagline": "Reqcore — open-source applicant tracking"
     }
+  },
+  "dashboard": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "jobs": "Jobs",
+      "candidates": "Candidates",
+      "applications": "Applications",
+      "interviews": "Interviews",
+      "timeline": "Timeline",
+      "sourceTracking": "Source Tracking",
+      "aiAnalysis": "AI Analysis",
+      "assistant": "Assistant",
+      "settings": "Settings",
+      "updates": "Updates"
+    },
+    "topbar": {
+      "newJob": "New Job",
+      "more": "More",
+      "moreOptions": "More options",
+      "signOut": "Sign out",
+      "signingOut": "Signing out…",
+      "switchToDark": "Switch to dark mode",
+      "switchToLight": "Switch to light mode",
+      "updatesChangelog": "Updates & changelog",
+      "reportIssue": "Report issue",
+      "getStarted": "Get Started",
+      "chooseSetup": "Choose your setup",
+      "cloudHosted": "Cloud Hosted",
+      "cloudHostedDesc": "Start free in seconds — we handle hosting, updates & backups",
+      "selfHost": "Self-Host",
+      "selfHostDesc": "Deploy on your own infrastructure — full control, 100% free",
+      "allJobs": "All Jobs",
+      "soon": "Soon"
+    },
+    "demo": {
+      "banner": "<strong>Live demo</strong> — Explore freely with sample data. Editing is disabled here.",
+      "deploy": "Deploy your own free instance →"
+    },
+    "index": {
+      "title": "Dashboard",
+      "welcomeTitle": "Welcome to Reqcore",
+      "welcomeDesc": "Your recruiting command center. Create your first job posting to start building your hiring pipeline.",
+      "createFirstJob": "Create Your First Job",
+      "newJob": "New Job",
+      "hiringPipeline": "Hiring Pipeline",
+      "allJobs": "All jobs",
+      "noOpenJobs": "No open jobs",
+      "noOpenJobsDesc": "Create your first job to see the pipeline",
+      "createOne": "Create one",
+      "recentApplications": "Recent Applications",
+      "viewAll": "All",
+      "noApplicationsYet": "No applications yet",
+      "upcomingInterviews": "Upcoming Interviews",
+      "noUpcomingInterviews": "No upcoming interviews",
+      "next7Days": "Next 7 days",
+      "quickActions": "Quick Actions",
+      "createNewJob": "Create new job",
+      "addCandidate": "Add candidate",
+      "reviewApplications": "Review applications",
+      "viewInterviews": "View interviews",
+      "failedToLoad": "Failed to load dashboard.",
+      "retry": "Retry",
+      "openJobs": "Open Jobs",
+      "candidates": "Candidates",
+      "talentPool": "Talent pool",
+      "applications": "Applications",
+      "totalReceived": "Total received",
+      "toReview": "To Review",
+      "needsAttention": "Needs attention",
+      "allReviewed": "All reviewed",
+      "draft": "draft",
+      "drafts": "drafts",
+      "total": "total",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "inHours": "In {n}h",
+      "inDays": "In {n} days"
+    },
+    "jobs": {
+      "title": "My Jobs",
+      "new": "New Job",
+      "create": "Create Job",
+      "createFirst": "Create Your First Job",
+      "welcomeTitle": "Welcome to Reqcore",
+      "welcomeDesc": "Create your first job posting to start receiving and managing candidates.",
+      "searchPlaceholder": "Search jobs by title, location, or description",
+      "filters": "Filters",
+      "clearFilters": "Clear",
+      "noResults": "No jobs match your search",
+      "noResultsHint": "Try a different keyword or clear your filters.",
+      "failedToLoad": "Failed to load jobs.",
+      "retry": "Retry",
+      "totalJobs": "{n} job(s) total",
+      "showingOf": "Showing {shown} of {total} job(s)",
+      "status": {
+        "draft": "Draft",
+        "open": "Open",
+        "closed": "Closed",
+        "archived": "Archived"
+      },
+      "type": {
+        "full_time": "Full-time",
+        "part_time": "Part-time",
+        "contract": "Contract",
+        "internship": "Internship"
+      },
+      "fields": {
+        "title": "Title",
+        "department": "Department",
+        "location": "Location",
+        "employment_type": "Employment type",
+        "description": "Description",
+        "requirements": "Requirements"
+      },
+      "table": {
+        "title": "Title",
+        "status": "Status",
+        "type": "Type",
+        "location": "Location",
+        "new": "New",
+        "active": "Active",
+        "created": "Created"
+      },
+      "sort": {
+        "dateCreated": "Date created",
+        "title": "Title",
+        "status": "Status",
+        "employmentType": "Employment type",
+        "location": "Location",
+        "newApplicants": "New applicants",
+        "activeCandidates": "Active candidates",
+        "ascending": "Ascending",
+        "descending": "Descending"
+      },
+      "filter": {
+        "status": "Status",
+        "employmentType": "Employment type",
+        "experienceLevel": "Experience level",
+        "workArrangement": "Work arrangement",
+        "sortBy": "Sort by",
+        "statusOptions": {
+          "open": "Open",
+          "draft": "Draft",
+          "closed": "Closed",
+          "archived": "Archived"
+        },
+        "typeOptions": {
+          "full_time": "Full-time",
+          "part_time": "Part-time",
+          "contract": "Contract",
+          "internship": "Internship"
+        },
+        "experienceOptions": {
+          "junior": "Junior",
+          "mid": "Mid",
+          "senior": "Senior",
+          "lead": "Lead"
+        },
+        "remoteOptions": {
+          "remote": "Remote",
+          "hybrid": "Hybrid",
+          "onsite": "On-site"
+        }
+      },
+      "pipeline": {
+        "stages": {
+          "new": "New",
+          "screening": "Screening",
+          "interview": "Interview",
+          "offer": "Offer",
+          "hired": "Hired",
+          "rejected": "Rejected"
+        }
+      },
+      "actions": {
+        "edit": "Edit",
+        "delete": "Delete",
+        "duplicate": "Duplicate",
+        "archive": "Archive",
+        "publish": "Publish",
+        "reviewPipeline": "Review pipeline",
+        "reviewInPipeline": "Review in Pipeline"
+      },
+      "attention": {
+        "needsYourAttention": "Needs your attention",
+        "newApplicationsToReview": "{n} new application(s) to review"
+      },
+      "views": {
+        "gallery": "Gallery",
+        "list": "List",
+        "table": "Table"
+      },
+      "empty": "No jobs. Create your first one.",
+      "filterTitle": "Filter jobs",
+      "filterDescription": "Customize your view, then save it for quick access.",
+      "allJobs": "All jobs",
+      "notPublishedYet": "Not published yet",
+      "newApplication": "{n} new application",
+      "newApplications": "{n} new applications"
+    },
+    "candidates": {
+      "title": "Candidates",
+      "new": "New Candidate",
+      "add": "Add Candidate",
+      "search_placeholder": "Search by name, email...",
+      "failedToLoad": "Failed to load candidates.",
+      "retry": "Retry",
+      "noResults": "No candidates match your search",
+      "empty": "No candidates yet.",
+      "fields": {
+        "first_name": "First name",
+        "last_name": "Last name",
+        "display_name": "Display name",
+        "email": "Email",
+        "phone": "Phone",
+        "location": "Location",
+        "linkedin": "LinkedIn",
+        "github": "GitHub",
+        "resume": "Resume",
+        "notes": "Notes",
+        "gender": "Gender",
+        "dateOfBirth": "Date of birth",
+        "applications": "Applications",
+        "added": "Added",
+        "quickNotes": "Quick notes"
+      },
+      "gender": {
+        "male": "Male",
+        "female": "Female",
+        "other": "Other",
+        "prefer_not_to_say": "Prefer not to say"
+      },
+      "stages": {
+        "applied": "Applied",
+        "screening": "Screening",
+        "interview": "Interview",
+        "offer": "Offer",
+        "hired": "Hired",
+        "rejected": "Rejected"
+      },
+      "sort": {
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "applications": "Applications",
+        "created": "Date added"
+      },
+      "table": {
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "applications": "Applications",
+        "added": "Added",
+        "quickNotes": "Quick notes"
+      },
+      "addForm": {
+        "title": "Add Candidate",
+        "back": "Back to candidates",
+        "submit": "Save Candidate",
+        "submitting": "Saving...",
+        "validation": {
+          "firstNameRequired": "First name is required",
+          "lastNameRequired": "Last name is required",
+          "emailRequired": "Email is required",
+          "emailInvalid": "Invalid email address"
+        }
+      }
+    },
+    "applications": {
+      "title": "Applications",
+      "empty": "No applications.",
+      "failedToLoad": "Failed to load applications.",
+      "retry": "Retry",
+      "noResults": "No applications match your search",
+      "applied_at": "Applied",
+      "stage": "Stage",
+      "ai_score": "AI Score",
+      "resume": "Resume",
+      "cover_letter": "Cover letter",
+      "searchPlaceholder": "Search candidates or jobs...",
+      "stages": {
+        "new": "New",
+        "screening": "Screening",
+        "interview": "Interview",
+        "offer": "Offer",
+        "hired": "Hired",
+        "rejected": "Rejected"
+      },
+      "table": {
+        "candidate": "Candidate",
+        "email": "Email",
+        "job": "Job",
+        "status": "Status",
+        "score": "Score",
+        "applied": "Applied"
+      },
+      "sort": {
+        "name": "Name",
+        "email": "Email",
+        "job": "Job",
+        "status": "Status",
+        "score": "Score",
+        "created": "Date"
+      }
+    },
+    "interviews": {
+      "title": "Interviews",
+      "schedule": "Schedule",
+      "schedule_another": "Schedule another",
+      "create_template": "Create template",
+      "interviewer": "Interviewer",
+      "candidate": "Candidate",
+      "duration": "Duration",
+      "meeting_link": "Meeting link",
+      "calendar_event": "Create calendar event",
+      "empty": "No interviews scheduled.",
+      "failedToLoad": "Failed to load interviews.",
+      "retry": "Retry",
+      "searchPlaceholder": "Search by name or job...",
+      "allInterviews": "All interviews",
+      "status": {
+        "scheduled": "Scheduled",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "no_show": "No Show"
+      },
+      "type": {
+        "video": "Video",
+        "phone": "Phone",
+        "in_person": "In Person",
+        "technical": "Technical",
+        "panel": "Panel",
+        "take_home": "Take Home"
+      },
+      "actions": {
+        "edit": "Edit",
+        "delete": "Delete",
+        "confirmDelete": "Delete this interview?",
+        "markCompleted": "Mark as completed",
+        "markCancelled": "Cancel interview"
+      },
+      "fields": {
+        "scheduledAt": "Scheduled at",
+        "duration": "Duration",
+        "interviewer": "Interviewer",
+        "meetingLink": "Meeting link",
+        "notes": "Notes"
+      },
+      "today": "Today",
+      "tomorrow": "Tomorrow"
+    },
+    "common": {
+      "search": "Search",
+      "filter": "Filter",
+      "loading": "Loading...",
+      "no_results": "No results found",
+      "delete_confirm": "Are you sure you want to delete?",
+      "view_details": "View details",
+      "back": "Back",
+      "next": "Next",
+      "previous": "Previous",
+      "submit": "Submit",
+      "close": "Close",
+      "yes": "Yes",
+      "no": "No",
+      "ok": "OK",
+      "all": "All",
+      "none": "None",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "create": "Create",
+      "add": "Add",
+      "saving": "Saving...",
+      "saved": "Saved",
+      "error": "Error",
+      "retry": "Retry",
+      "optional": "Optional",
+      "required": "Required",
+      "notPublished": "Not published",
+      "unknown": "Unknown",
+      "noData": "No data"
+    }
   }
 }

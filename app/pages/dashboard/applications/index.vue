@@ -100,6 +100,7 @@ const { applications, total, fetchStatus, error, refresh } = useApplications({
 })
 
 const { formatPersonName } = useOrgSettings()
+const { t } = useI18n()
 
 // ── Job filter (client-side) ──────────────────────────────────────────────────
 
@@ -353,7 +354,7 @@ const selectedApplicationId = ref<string | null>(null)
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">Applications</h1>
+        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">{{ $t('dashboard.applications.title') }}</h1>
         <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">
           Track candidates through your hiring pipeline.
         </p>
@@ -367,7 +368,7 @@ const selectedApplicationId = ref<string | null>(null)
         <input
           v-model="searchInput"
           type="text"
-          placeholder="Search by candidate name, email, or job title…"
+          :placeholder="$t('dashboard.applications.searchPlaceholder')"
           class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 pl-10 pr-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
         />
       </div>
@@ -532,8 +533,8 @@ const selectedApplicationId = ref<string | null>(null)
       v-else-if="error"
       class="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700"
     >
-      Failed to load applications. Please try again.
-      <button class="underline ml-1" @click="refresh()">Retry</button>
+      {{ $t('dashboard.applications.failedToLoad') }}
+      <button class="underline ml-1" @click="refresh()">{{ $t('dashboard.applications.retry') }}</button>
     </div>
 
     <!-- Empty state -->
@@ -542,7 +543,7 @@ const selectedApplicationId = ref<string | null>(null)
       class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-16 text-center"
     >
       <FileText class="size-10 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
-      <h3 class="text-base font-semibold text-surface-700 dark:text-surface-200 mb-1">No applications yet</h3>
+      <h3 class="text-base font-semibold text-surface-700 dark:text-surface-200 mb-1">{{ $t('dashboard.applications.empty') }}</h3>
       <p class="text-sm text-surface-500 dark:text-surface-400">
         Applications will appear here when candidates apply to your jobs or when you manually link candidates.
       </p>

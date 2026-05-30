@@ -15,6 +15,7 @@ useSeoMeta({
 const localePath = useLocalePath()
 const { createCandidate } = useCandidates()
 const { track } = useTrack()
+const { t } = useI18n()
 
 // Form state
 const form = ref({
@@ -106,10 +107,10 @@ async function handleSubmit() {
       class="inline-flex items-center gap-1 text-sm text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 mb-6 transition-colors"
     >
       <ArrowLeft class="size-4" />
-      Back to Candidates
+      {{ $t('dashboard.candidates.addForm.back') }}
     </NuxtLink>
 
-    <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-100 mb-6">Add Candidate</h1>
+    <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-100 mb-6">{{ $t('dashboard.candidates.addForm.title') }}</h1>
 
     <!-- Server error -->
     <div
@@ -123,7 +124,7 @@ async function handleSubmit() {
       <!-- First Name -->
       <div>
         <label for="firstName" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-          First Name <span class="text-danger-500">*</span>
+          {{ $t('dashboard.candidates.fields.first_name') }} <span class="text-danger-500">*</span>
         </label>
         <input
           id="firstName"
@@ -139,7 +140,7 @@ async function handleSubmit() {
       <!-- Last Name -->
       <div>
         <label for="lastName" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-          Last Name <span class="text-danger-500">*</span>
+          {{ $t('dashboard.candidates.fields.last_name') }} <span class="text-danger-500">*</span>
         </label>
         <input
           id="lastName"
@@ -155,7 +156,7 @@ async function handleSubmit() {
       <!-- Display Name (optional) -->
       <div>
         <label for="displayName" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-          Display Name
+          {{ $t('dashboard.candidates.fields.display_name') }}
           <span class="ml-1 text-xs font-normal text-surface-400">(optional — overrides default name format)</span>
         </label>
         <input
@@ -171,7 +172,7 @@ async function handleSubmit() {
       <!-- Email -->
       <div>
         <label for="email" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-          Email <span class="text-danger-500">*</span>
+          {{ $t('dashboard.candidates.fields.email') }} <span class="text-danger-500">*</span>
         </label>
         <input
           id="email"
@@ -187,7 +188,7 @@ async function handleSubmit() {
       <!-- Phone -->
       <div>
         <label for="phone" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-          Phone
+          {{ $t('dashboard.candidates.fields.phone') }}
         </label>
         <input
           id="phone"
@@ -203,25 +204,25 @@ async function handleSubmit() {
         <!-- Gender -->
         <div>
           <label for="gender" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-            Gender
+            {{ $t('dashboard.candidates.fields.gender') }}
           </label>
           <select
             id="gender"
             v-model="form.gender"
             class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
           >
-            <option value="">Not specified</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-            <option value="prefer_not_to_say">Prefer not to say</option>
+            <option value="">{{ $t('dashboard.common.none') }}</option>
+            <option value="male">{{ $t('dashboard.candidates.gender.male') }}</option>
+            <option value="female">{{ $t('dashboard.candidates.gender.female') }}</option>
+            <option value="other">{{ $t('dashboard.candidates.gender.other') }}</option>
+            <option value="prefer_not_to_say">{{ $t('dashboard.candidates.gender.prefer_not_to_say') }}</option>
           </select>
         </div>
 
         <!-- Date of Birth -->
         <div>
           <label for="dateOfBirth" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-            Date of Birth
+            {{ $t('dashboard.candidates.fields.dateOfBirth') }}
           </label>
           <input
             id="dateOfBirth"
@@ -242,7 +243,7 @@ async function handleSubmit() {
           :disabled="isSubmitting"
           class="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {{ isSubmitting ? 'Adding…' : 'Add Candidate' }}
+          {{ isSubmitting ? $t('dashboard.candidates.addForm.submitting') : $t('dashboard.candidates.addForm.submit') }}
         </button>
         <NuxtLink
           :to="$localePath('/dashboard/candidates')"

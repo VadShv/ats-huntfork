@@ -58,14 +58,16 @@ const { interviews: upcomingInterviews } = useInterviews({
 // Derived data
 // ─────────────────────────────────────────────
 
-const stageConfig = [
-  { key: 'new', label: 'New', color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-950/40' },
-  { key: 'screening', label: 'Screening', color: 'bg-violet-500', textColor: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-50 dark:bg-violet-950/40' },
-  { key: 'interview', label: 'Interview', color: 'bg-amber-500', textColor: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-950/40' },
-  { key: 'offer', label: 'Offer', color: 'bg-teal-500', textColor: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-50 dark:bg-teal-950/40' },
-  { key: 'hired', label: 'Hired', color: 'bg-green-600', textColor: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-950/40' },
-  { key: 'rejected', label: 'Rejected', color: 'bg-surface-400', textColor: 'text-surface-500 dark:text-surface-400', bgColor: 'bg-surface-100 dark:bg-surface-800' },
-] as const
+const { t } = useI18n()
+
+const stageConfig = computed(() => [
+  { key: 'new', label: t('dashboard.jobs.pipeline.stages.new'), color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-950/40' },
+  { key: 'screening', label: t('dashboard.jobs.pipeline.stages.screening'), color: 'bg-violet-500', textColor: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-50 dark:bg-violet-950/40' },
+  { key: 'interview', label: t('dashboard.jobs.pipeline.stages.interview'), color: 'bg-amber-500', textColor: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-950/40' },
+  { key: 'offer', label: t('dashboard.jobs.pipeline.stages.offer'), color: 'bg-teal-500', textColor: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-50 dark:bg-teal-950/40' },
+  { key: 'hired', label: t('dashboard.jobs.pipeline.stages.hired'), color: 'bg-green-600', textColor: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-950/40' },
+  { key: 'rejected', label: t('dashboard.jobs.pipeline.stages.rejected'), color: 'bg-surface-400', textColor: 'text-surface-500 dark:text-surface-400', bgColor: 'bg-surface-100 dark:bg-surface-800' },
+] as const)
 
 const stageCountKeys: Record<string, string> = {
   new: 'newCount',
@@ -98,14 +100,14 @@ const statusBadgeClasses: Record<string, string> = {
   rejected: 'bg-surface-100 text-surface-600 ring-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:ring-surface-700',
 }
 
-const interviewTypeLabels: Record<string, string> = {
-  phone: 'Phone',
-  video: 'Video',
-  in_person: 'In-person',
-  panel: 'Panel',
-  technical: 'Technical',
-  take_home: 'Take-home',
-}
+const interviewTypeLabels = computed<Record<string, string>>(() => ({
+  phone: t('dashboard.interviews.type.phone'),
+  video: t('dashboard.interviews.type.video'),
+  in_person: t('dashboard.interviews.type.in_person'),
+  panel: t('dashboard.interviews.type.panel'),
+  technical: t('dashboard.interviews.type.technical'),
+  take_home: t('dashboard.interviews.type.take_home'),
+}))
 
 function formatRelativeDate(dateStr: string) {
   const date = new Date(dateStr)
@@ -114,11 +116,11 @@ function formatRelativeDate(dateStr: string) {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
 
   if (diffDays === 0) {
-    if (diffHours <= 0) return 'Now'
-    return `In ${diffHours}h`
+    if (diffHours <= 0) return t('dashboard.index.today')
+    return t('dashboard.index.inHours', { n: diffHours })
   }
-  if (diffDays === 1) return 'Tomorrow'
-  if (diffDays < 7) return `In ${diffDays} days`
+  if (diffDays === 1) return t('dashboard.index.tomorrow')
+  if (diffDays < 7) return t('dashboard.index.inDays', { n: diffDays })
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
@@ -186,8 +188,8 @@ const isEmpty = computed(() =>
       class="rounded-2xl border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950/60 p-5 text-sm text-danger-700 dark:text-danger-400 flex items-center gap-3"
     >
       <AlertCircle class="size-5 shrink-0" />
-      <span>Failed to load dashboard.</span>
-      <button class="underline ml-auto font-medium cursor-pointer" @click="refresh()">Retry</button>
+      <span>{{ $t('dashboard.index.failedToLoad') }}</span>
+      <button class="underline ml-auto font-medium cursor-pointer" @click="refresh()">{{ $t('dashboard.index.retry') }}</button>
     </div>
 
     <!-- ─── Empty state (brand new org) ─── -->
@@ -197,17 +199,17 @@ const isEmpty = computed(() =>
           <LayoutDashboard class="size-9 text-white" />
         </div>
         <h2 class="text-2xl font-bold text-surface-900 dark:text-surface-100 mb-3 tracking-tight">
-          Welcome to Reqcore
+          {{ $t('dashboard.index.welcomeTitle') }}
         </h2>
         <p class="text-sm text-surface-500 dark:text-surface-400 mb-10 leading-relaxed max-w-sm mx-auto">
-          Your recruiting command center. Create your first job posting to start building your hiring pipeline.
+          {{ $t('dashboard.index.welcomeDesc') }}
         </p>
         <NuxtLink
           :to="localePath('/dashboard/jobs/new')"
           class="inline-flex items-center gap-2.5 rounded-xl bg-brand-600 px-7 py-3.5 text-sm font-semibold text-white hover:bg-brand-700 shadow-md shadow-brand-600/20 hover:shadow-lg hover:shadow-brand-600/25 transition-all no-underline"
         >
           <Plus class="size-4" />
-          Create Your First Job
+          {{ $t('dashboard.index.createFirstJob') }}
         </NuxtLink>
       </div>
     </div>
@@ -217,7 +219,7 @@ const isEmpty = computed(() =>
       <!-- ─── Header ─── -->
       <div class="flex items-center justify-between mb-6 sm:mb-10">
         <div>
-          <h1 class="text-xl sm:text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">Dashboard</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">{{ $t('dashboard.index.title') }}</h1>
           <p v-if="activeOrg" class="text-sm text-surface-400 dark:text-surface-500 mt-1">
             {{ activeOrg.name }}
           </p>
@@ -227,7 +229,7 @@ const isEmpty = computed(() =>
           class="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-brand-600 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-brand-700 shadow-sm shadow-brand-600/15 hover:shadow-md hover:shadow-brand-600/20 transition-all no-underline shrink-0"
         >
           <Plus class="size-4" />
-          New Job
+          {{ $t('dashboard.index.newJob') }}
         </NuxtLink>
       </div>
 
@@ -247,9 +249,9 @@ const isEmpty = computed(() =>
               </span>
               <span class="size-1.5 rounded-full bg-brand-500 shrink-0 mb-1" />
             </div>
-            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Open Jobs</span>
+            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">{{ $t('dashboard.index.openJobs') }}</span>
             <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">
-              {{ jobsByStatus.draft }} draft{{ jobsByStatus.draft === 1 ? '' : 's' }}
+              {{ jobsByStatus.draft }} {{ jobsByStatus.draft === 1 ? $t('dashboard.index.draft') : $t('dashboard.index.drafts') }}
             </p>
           </div>
         </NuxtLink>
@@ -268,8 +270,8 @@ const isEmpty = computed(() =>
               </span>
               <span class="size-1.5 rounded-full bg-violet-500 shrink-0 mb-1" />
             </div>
-            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Candidates</span>
-            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Talent pool</p>
+            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">{{ $t('dashboard.index.candidates') }}</span>
+            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">{{ $t('dashboard.index.talentPool') }}</p>
           </div>
         </NuxtLink>
 
@@ -287,8 +289,8 @@ const isEmpty = computed(() =>
               </span>
               <span class="size-1.5 rounded-full bg-teal-500 shrink-0 mb-1" />
             </div>
-            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Applications</span>
-            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Total received</p>
+            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">{{ $t('dashboard.index.applications') }}</span>
+            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">{{ $t('dashboard.index.totalReceived') }}</p>
           </div>
         </NuxtLink>
 
@@ -322,9 +324,9 @@ const isEmpty = computed(() =>
                 <span v-if="counts.newApplications > 0" class="absolute inset-0 size-1.5 rounded-full bg-warning-500 animate-ping" />
               </span>
             </div>
-            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">To Review</span>
+            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">{{ $t('dashboard.index.toReview') }}</span>
             <p class="text-[11px] mt-1" :class="counts.newApplications > 0 ? 'text-warning-500 dark:text-warning-500 font-medium' : 'text-surface-300 dark:text-surface-600'">
-              {{ counts.newApplications > 0 ? 'Needs attention' : 'All reviewed' }}
+              {{ counts.newApplications > 0 ? $t('dashboard.index.needsAttention') : $t('dashboard.index.allReviewed') }}
             </p>
           </div>
         </NuxtLink>
@@ -341,13 +343,13 @@ const isEmpty = computed(() =>
                 <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                   <TrendingUp class="size-3.5 text-surface-500 dark:text-surface-400" />
                 </div>
-                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Hiring Pipeline</h2>
+                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ $t('dashboard.index.hiringPipeline') }}</h2>
               </div>
               <NuxtLink
                 :to="localePath('/dashboard/jobs')"
                 class="text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 no-underline inline-flex items-center gap-1 group/link"
               >
-                All jobs
+                {{ $t('dashboard.index.allJobs') }}
                 <ArrowRight class="size-3 group-hover/link:translate-x-0.5 transition-transform" />
               </NuxtLink>
             </div>
@@ -356,14 +358,14 @@ const isEmpty = computed(() =>
               <div class="mx-auto mb-4 flex items-center justify-center size-12 rounded-2xl bg-surface-100 dark:bg-surface-800">
                 <Briefcase class="size-5 text-surface-400 dark:text-surface-500" />
               </div>
-              <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">No open jobs</p>
-              <p class="text-xs text-surface-400 dark:text-surface-500 mb-4">Create your first job to see the pipeline</p>
+              <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">{{ $t('dashboard.index.noOpenJobs') }}</p>
+              <p class="text-xs text-surface-400 dark:text-surface-500 mb-4">{{ $t('dashboard.index.noOpenJobsDesc') }}</p>
               <NuxtLink
                 :to="localePath('/dashboard/jobs/new')"
                 class="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 no-underline hover:text-brand-700 dark:hover:text-brand-300"
               >
                 <Plus class="size-3.5" />
-                Create one
+                {{ $t('dashboard.index.createOne') }}
               </NuxtLink>
             </div>
 
@@ -378,7 +380,7 @@ const isEmpty = computed(() =>
                     {{ j.title }}
                   </NuxtLink>
                   <span class="text-xs text-surface-400 dark:text-surface-500 shrink-0 ml-3 tabular-nums font-medium">
-                    {{ j.applicationCount }} total
+                    {{ j.applicationCount }} {{ $t('dashboard.index.total') }}
                   </span>
                 </div>
 
@@ -423,13 +425,13 @@ const isEmpty = computed(() =>
                 <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                   <Clock class="size-3.5 text-surface-500 dark:text-surface-400" />
                 </div>
-                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Recent Applications</h2>
+                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ $t('dashboard.index.recentApplications') }}</h2>
               </div>
               <NuxtLink
                 :to="localePath('/dashboard/applications')"
                 class="text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 no-underline inline-flex items-center gap-1 group/link"
               >
-                View all
+                {{ $t('dashboard.index.viewAll') }}
                 <ArrowRight class="size-3 group-hover/link:translate-x-0.5 transition-transform" />
               </NuxtLink>
             </div>
@@ -438,7 +440,7 @@ const isEmpty = computed(() =>
               <div class="mx-auto mb-4 flex items-center justify-center size-12 rounded-2xl bg-surface-100 dark:bg-surface-800">
                 <FileText class="size-5 text-surface-400 dark:text-surface-500" />
               </div>
-              <p class="text-sm font-medium text-surface-500 dark:text-surface-400">No applications yet</p>
+              <p class="text-sm font-medium text-surface-500 dark:text-surface-400">{{ $t('dashboard.index.noApplicationsYet') }}</p>
             </div>
 
             <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -491,7 +493,7 @@ const isEmpty = computed(() =>
                 <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                   <Calendar class="size-3.5 text-surface-500 dark:text-surface-400" />
                 </div>
-                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Upcoming Interviews</h2>
+                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ $t('dashboard.index.upcomingInterviews') }}</h2>
               </div>
               <NuxtLink
                 :to="localePath('/dashboard/interviews')"
@@ -506,8 +508,8 @@ const isEmpty = computed(() =>
               <div class="mx-auto mb-4 flex items-center justify-center size-12 rounded-2xl bg-surface-100 dark:bg-surface-800">
                 <Calendar class="size-5 text-surface-400 dark:text-surface-500" />
               </div>
-              <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-0.5">No upcoming interviews</p>
-              <p class="text-xs text-surface-400 dark:text-surface-500">Next 7 days</p>
+              <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-0.5">{{ $t('dashboard.index.noUpcomingInterviews') }}</p>
+              <p class="text-xs text-surface-400 dark:text-surface-500">{{ $t('dashboard.index.next7Days') }}</p>
             </div>
 
             <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -554,7 +556,7 @@ const isEmpty = computed(() =>
               <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                 <Zap class="size-3.5 text-surface-500 dark:text-surface-400" />
               </div>
-              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Quick Actions</h2>
+              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ $t('dashboard.index.quickActions') }}</h2>
             </div>
 
             <div class="p-2.5 space-y-0.5">
@@ -565,7 +567,7 @@ const isEmpty = computed(() =>
                 <div class="flex items-center justify-center size-8 rounded-lg bg-brand-50 dark:bg-brand-950/40 group-hover/action:bg-brand-100 dark:group-hover/action:bg-brand-950/60 transition-colors">
                   <Plus class="size-4 text-brand-600 dark:text-brand-400" />
                 </div>
-                Create new job
+                {{ $t('dashboard.index.createNewJob') }}
               </NuxtLink>
               <NuxtLink
                 :to="localePath('/dashboard/candidates/new')"
@@ -574,7 +576,7 @@ const isEmpty = computed(() =>
                 <div class="flex items-center justify-center size-8 rounded-lg bg-violet-50 dark:bg-violet-950/40 group-hover/action:bg-violet-100 dark:group-hover/action:bg-violet-950/60 transition-colors">
                   <UserPlus class="size-4 text-violet-600 dark:text-violet-400" />
                 </div>
-                Add candidate
+                {{ $t('dashboard.index.addCandidate') }}
               </NuxtLink>
               <NuxtLink
                 :to="localePath('/dashboard/applications')"
@@ -583,7 +585,7 @@ const isEmpty = computed(() =>
                 <div class="flex items-center justify-center size-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 group-hover/action:bg-teal-100 dark:group-hover/action:bg-teal-950/60 transition-colors">
                   <Eye class="size-4 text-teal-600 dark:text-teal-400" />
                 </div>
-                Review applications
+                {{ $t('dashboard.index.reviewApplications') }}
               </NuxtLink>
               <NuxtLink
                 :to="localePath('/dashboard/interviews')"
@@ -592,7 +594,7 @@ const isEmpty = computed(() =>
                 <div class="flex items-center justify-center size-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 group-hover/action:bg-amber-100 dark:group-hover/action:bg-amber-950/60 transition-colors">
                   <Calendar class="size-4 text-amber-600 dark:text-amber-400" />
                 </div>
-                View interviews
+                {{ $t('dashboard.index.viewInterviews') }}
               </NuxtLink>
             </div>
           </div>

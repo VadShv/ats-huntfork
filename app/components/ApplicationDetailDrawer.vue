@@ -17,6 +17,7 @@ const toast = useToast()
 
 const { application, status: fetchStatus, error, refresh, updateApplication } = useApplication(() => props.applicationId)
 const { formatCandidateName } = useOrgSettings()
+const { t } = useI18n()
 
 // ─── Status transitions ───────────────────────────────────────────────────────
 
@@ -242,7 +243,7 @@ onUnmounted(() => {
                   @click="showInterviewSidebar = true"
                 >
                   <Calendar class="size-3.5" />
-                  Schedule Interview
+                  {{ $t('dashboard.interviews.schedule') }}
                 </button>
               </div>
             </div>
@@ -358,7 +359,7 @@ onUnmounted(() => {
                   class="cursor-pointer text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
                   @click="startEditNotes"
                 >
-                  {{ application.notes ? 'Edit' : 'Add Notes' }}
+                  {{ application.notes ? $t('dashboard.common.edit') : $t('dashboard.common.add') }}
                 </button>
               </div>
 
@@ -375,13 +376,13 @@ onUnmounted(() => {
                     class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     @click="saveNotes"
                   >
-                    {{ isSavingNotes ? 'Saving…' : 'Save' }}
+                    {{ isSavingNotes ? $t('dashboard.common.saving') : $t('dashboard.common.save') }}
                   </button>
                   <button
                     class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                     @click="isEditingNotes = false"
                   >
-                    Cancel
+                    {{ $t('dashboard.common.cancel') }}
                   </button>
                 </div>
               </div>

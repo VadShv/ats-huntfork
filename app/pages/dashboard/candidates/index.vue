@@ -91,6 +91,7 @@ const { candidates, total, fetchStatus, error, refresh } = useCandidates({
 
 // Org localization (name + date format)
 const { formatCandidateName, formatDateTime } = useOrgSettings()
+const { t } = useI18n()
 
 // ── Sorting ───────────────────────────────────────────────────────────────────
 
@@ -273,9 +274,9 @@ const selectedCandidateId = ref<string | null>(null)
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">Candidates</h1>
+        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">{{ $t('dashboard.candidates.title') }}</h1>
         <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Manage your candidate pool and track applicants.
+          {{ $t('dashboard.candidates.search_placeholder') }}
         </p>
       </div>
       <NuxtLink
@@ -283,7 +284,7 @@ const selectedCandidateId = ref<string | null>(null)
         class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
       >
         <Plus class="size-4" />
-        Add Candidate
+        {{ $t('dashboard.candidates.add') }}
       </NuxtLink>
     </div>
 
@@ -294,7 +295,7 @@ const selectedCandidateId = ref<string | null>(null)
         <input
           v-model="searchInput"
           type="text"
-          placeholder="Search by name or email…"
+          :placeholder="$t('dashboard.candidates.search_placeholder')"
           class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 pl-10 pr-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
         />
       </div>
@@ -451,7 +452,7 @@ const selectedCandidateId = ref<string | null>(null)
 
     <!-- Loading state -->
     <div v-if="fetchStatus === 'pending'" class="text-center py-12 text-surface-400">
-      Loading candidates…
+      {{ $t('dashboard.common.loading') }}
     </div>
 
     <!-- Error state -->
@@ -459,8 +460,8 @@ const selectedCandidateId = ref<string | null>(null)
       v-else-if="error"
       class="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700"
     >
-      Failed to load candidates. Please try again.
-      <button class="underline ml-1" @click="refresh()">Retry</button>
+      {{ $t('dashboard.candidates.failedToLoad') }}
+      <button class="underline ml-1" @click="refresh()">{{ $t('dashboard.candidates.retry') }}</button>
     </div>
 
     <!-- Empty state -->
@@ -470,12 +471,12 @@ const selectedCandidateId = ref<string | null>(null)
     >
       <Users class="size-10 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
       <h3 class="text-base font-semibold text-surface-700 dark:text-surface-200 mb-1">
-        {{ debouncedSearch ? 'No candidates found' : 'No candidates yet' }}
+        {{ debouncedSearch ? $t('dashboard.candidates.noResults') : $t('dashboard.candidates.empty') }}
       </h3>
       <p class="text-sm text-surface-500 dark:text-surface-400 mb-4">
         {{ debouncedSearch
-          ? 'Try adjusting your search terms.'
-          : 'Add your first candidate to start building your talent pool.'
+          ? $t('dashboard.common.no_results')
+          : $t('dashboard.candidates.search_placeholder')
         }}
       </p>
       <NuxtLink
@@ -484,7 +485,7 @@ const selectedCandidateId = ref<string | null>(null)
         class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
       >
         <Plus class="size-4" />
-        Add Candidate
+        {{ $t('dashboard.candidates.add') }}
       </NuxtLink>
     </div>
 

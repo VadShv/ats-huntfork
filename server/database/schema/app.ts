@@ -265,7 +265,7 @@ export const orgSettings = pgTable('org_settings', {
   /** Controls whether names display as "First Last" or "Last First" */
   nameDisplayFormat: nameDisplayFormatEnum('name_display_format').notNull().default('first_last'),
   /** Controls the date display format across the app */
-  dateFormat: dateFormatEnum('date_format').notNull().default('mdy'),
+  dateFormat: dateFormatEnum('date_format').notNull().default('dmy'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([

@@ -124,24 +124,26 @@ const jobTabs = computed(() => {
 // Main navigation
 // ─────────────────────────────────────────────
 
-const mainNav: Array<{ label: string; to: string; icon: typeof Briefcase; exact: boolean; comingSoon?: boolean }> = [
-  { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, exact: true },
-  { label: 'Jobs', to: '/dashboard/jobs', icon: Briefcase, exact: false },
-  { label: 'Candidates', to: '/dashboard/candidates', icon: Users, exact: false },
-  { label: 'Applications', to: '/dashboard/applications', icon: FileText, exact: false },
-  { label: 'Interviews', to: '/dashboard/interviews', icon: Calendar, exact: false },
-  { label: 'Timeline', to: '/dashboard/timeline', icon: History, exact: true },
-  { label: 'Source Tracking', to: '/dashboard/source-tracking', icon: Radio, exact: true },
-  { label: 'AI Analysis', to: '/dashboard/ai-analysis', icon: Sparkles, exact: true },
-  { label: 'Settings', to: '/dashboard/settings', icon: Settings, exact: false },
-]
+const { t } = useI18n()
+
+const mainNav = computed<Array<{ label: string; to: string; icon: typeof Briefcase; exact: boolean; comingSoon?: boolean }>>(() => [
+  { label: t('dashboard.nav.dashboard'), to: '/dashboard', icon: LayoutDashboard, exact: true },
+  { label: t('dashboard.nav.jobs'), to: '/dashboard/jobs', icon: Briefcase, exact: false },
+  { label: t('dashboard.nav.candidates'), to: '/dashboard/candidates', icon: Users, exact: false },
+  { label: t('dashboard.nav.applications'), to: '/dashboard/applications', icon: FileText, exact: false },
+  { label: t('dashboard.nav.interviews'), to: '/dashboard/interviews', icon: Calendar, exact: false },
+  { label: t('dashboard.nav.timeline'), to: '/dashboard/timeline', icon: History, exact: true },
+  { label: t('dashboard.nav.sourceTracking'), to: '/dashboard/source-tracking', icon: Radio, exact: true },
+  { label: t('dashboard.nav.aiAnalysis'), to: '/dashboard/ai-analysis', icon: Sparkles, exact: true },
+  { label: t('dashboard.nav.settings'), to: '/dashboard/settings', icon: Settings, exact: false },
+])
 
 // Items shown only when their feature flag is enabled. Filtered into mainNav
 // reactively so the gating happens at render time (PostHog flags load async).
 const flaggedNav = computed(() => {
   const items: Array<{ label: string; to: string; icon: typeof Briefcase; exact: boolean; afterLabel: string }> = []
   if (showChatbot.value) {
-    items.push({ label: 'Assistant', to: '/dashboard/chatbot', icon: MessageCircle, exact: false, afterLabel: 'AI Analysis' })
+    items.push({ label: t('dashboard.nav.assistant'), to: '/dashboard/chatbot', icon: MessageCircle, exact: false, afterLabel: t('dashboard.nav.aiAnalysis') })
   }
   return items
 })
@@ -164,9 +166,26 @@ function isActiveRoute(to: string, exact: boolean) {
   return route.path === localizedTo || route.path.startsWith(`${localizedTo}/`)
 }
 
-const primaryNavLabels = ['Dashboard', 'Jobs', 'Candidates', 'Applications', 'Interviews']
-const primaryNavItems = computed(() => navItems.value.filter(i => primaryNavLabels.includes(i.label)))
-const moreNavItems = computed(() => navItems.value.filter(i => !primaryNavLabels.includes(i.label)))
+const primaryNavItems = computed(() => {
+  const primaryKeys = [
+    t('dashboard.nav.dashboard'),
+    t('dashboard.nav.jobs'),
+    t('dashboard.nav.candidates'),
+    t('dashboard.nav.applications'),
+    t('dashboard.nav.interviews'),
+  ]
+  return navItems.value.filter(i => primaryKeys.includes(i.label))
+})
+const moreNavItems = computed(() => {
+  const primaryKeys = [
+    t('dashboard.nav.dashboard'),
+    t('dashboard.nav.jobs'),
+    t('dashboard.nav.candidates'),
+    t('dashboard.nav.applications'),
+    t('dashboard.nav.interviews'),
+  ]
+  return navItems.value.filter(i => !primaryKeys.includes(i.label))
+})
 
 // Close menus on route change
 watch(() => route.path, () => {
@@ -626,7 +645,7 @@ onUnmounted(() => {
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/40 hover:bg-brand-100 dark:hover:bg-brand-950/60 transition-colors no-underline"
               >
                 <Cloud class="size-4" />
-                Cloud Hosted — Start Free
+                  {{ $t('dashboard.topbar.cloudHosted') }} — Start Free
               </NuxtLink>
               <a
                 href="https://github.com/reqcore-inc/reqcore#quick-start"
@@ -635,7 +654,7 @@ onUnmounted(() => {
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors no-underline mt-1"
               >
                 <Server class="size-4" />
-                Self-Host — Deploy Free
+                {{ $t('dashboard.topbar.selfHost') }} — Deploy Free
               </a>
             </div>
           </template>

@@ -11,6 +11,12 @@ const i18nDefaultLocale = "en";
 const i18nLocales = [
   { code: "en", language: "en-US", name: "English", file: "en.json" },
   {
+    code: "ru",
+    language: "ru-RU",
+    name: "Русский",
+    file: "ru.json",
+  },
+  {
     code: "es",
     language: "es-ES",
     name: "Español",

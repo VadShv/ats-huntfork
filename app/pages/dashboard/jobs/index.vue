@@ -17,19 +17,20 @@ useSeoMeta({
 
 const { activeOrg } = useCurrentOrg()
 const localePath = useLocalePath()
+const { t } = useI18n()
 
 // ─────────────────────────────────────────────
 // Stage config for clickable pipeline counts
 // ─────────────────────────────────────────────
 
-const stageConfig = [
-  { key: 'new', label: 'New', textColor: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-950/40' },
-  { key: 'screening', label: 'Screening', textColor: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-50 dark:bg-violet-950/40' },
-  { key: 'interview', label: 'Interview', textColor: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-950/40' },
-  { key: 'offer', label: 'Offer', textColor: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-50 dark:bg-teal-950/40' },
-  { key: 'hired', label: 'Hired', textColor: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-950/40' },
-  { key: 'rejected', label: 'Rejected', textColor: 'text-surface-500 dark:text-surface-400', bgColor: 'bg-surface-100 dark:bg-surface-800' },
-] as const
+const stageConfig = computed(() => [
+  { key: 'new', label: t('dashboard.jobs.pipeline.stages.new'), textColor: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-950/40' },
+  { key: 'screening', label: t('dashboard.jobs.pipeline.stages.screening'), textColor: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-50 dark:bg-violet-950/40' },
+  { key: 'interview', label: t('dashboard.jobs.pipeline.stages.interview'), textColor: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-950/40' },
+  { key: 'offer', label: t('dashboard.jobs.pipeline.stages.offer'), textColor: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-50 dark:bg-teal-950/40' },
+  { key: 'hired', label: t('dashboard.jobs.pipeline.stages.hired'), textColor: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-950/40' },
+  { key: 'rejected', label: t('dashboard.jobs.pipeline.stages.rejected'), textColor: 'text-surface-500 dark:text-surface-400', bgColor: 'bg-surface-100 dark:bg-surface-800' },
+] as const)
 
 function getStageCount(pipeline: any, key: string): number {
   return pipeline?.[key] ?? 0
@@ -344,7 +345,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
     <!-- ─── Header ─── -->
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">My Jobs</h1>
+        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">{{ $t('dashboard.jobs.title') }}</h1>
         <p v-if="activeOrg" class="text-sm text-surface-500 dark:text-surface-400 mt-1">
           {{ activeOrg.name }}
         </p>
@@ -354,7 +355,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
         class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors no-underline"
       >
         <Plus class="size-4" />
-        New Job
+        {{ $t('dashboard.jobs.new') }}
       </NuxtLink>
     </div>
 
@@ -384,8 +385,8 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
       v-else-if="error"
       class="rounded-lg border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950 p-4 text-sm text-danger-700 dark:text-danger-400"
     >
-      Failed to load jobs.
-      <button class="underline ml-1 cursor-pointer" @click="refresh()">Retry</button>
+      {{ $t('dashboard.jobs.failedToLoad') }}
+      <button class="underline ml-1 cursor-pointer" @click="refresh()">{{ $t('dashboard.jobs.retry') }}</button>
     </div>
 
     <!-- ─── Empty state ─── -->
@@ -393,17 +394,17 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
       <div class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-10 text-center max-w-md">
         <Briefcase class="size-12 text-brand-400 mx-auto mb-4" />
         <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-2">
-          Welcome to Reqcore
+          {{ $t('dashboard.jobs.welcomeTitle') }}
         </h2>
         <p class="text-sm text-surface-500 dark:text-surface-400 mb-6 leading-relaxed">
-          Create your first job posting to start receiving and managing candidates.
+          {{ $t('dashboard.jobs.welcomeDesc') }}
         </p>
         <NuxtLink
           :to="$localePath('/dashboard/jobs/new')"
           class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors no-underline"
         >
           <Plus class="size-4" />
-          Create Your First Job
+          {{ $t('dashboard.jobs.createFirst') }}
         </NuxtLink>
       </div>
     </div>
@@ -417,7 +418,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
           <input
             v-model="search"
             type="search"
-            placeholder="Search jobs by title, location, or description"
+            :placeholder="$t('dashboard.jobs.searchPlaceholder')"
             class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 pl-9 pr-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
           />
         </div>
@@ -481,7 +482,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
           @click="drawerOpen = true"
         >
           <SlidersHorizontal class="size-4" />
-          Filters
+          {{ $t('dashboard.jobs.filters') }}
           <span
             v-if="activeFilterCount > 0"
             class="inline-flex items-center justify-center size-4 rounded-full bg-surface-700 dark:bg-surface-300 text-white dark:text-surface-900 text-xs font-semibold"
@@ -513,7 +514,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
         <div class="space-y-6">
           <!-- Status -->
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Status</label>
+            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">{{ $t('dashboard.jobs.filter.status') }}</label>
             <div class="flex flex-wrap gap-1.5">
               <button
                 v-for="opt in statusOptions"
@@ -532,7 +533,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
 
           <!-- Employment type -->
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Employment type</label>
+            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">{{ $t('dashboard.jobs.filter.employmentType') }}</label>
             <div class="flex flex-wrap gap-1.5">
               <button
                 v-for="opt in typeOptions"
@@ -551,7 +552,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
 
           <!-- Experience level -->
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Experience level</label>
+            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">{{ $t('dashboard.jobs.filter.experienceLevel') }}</label>
             <div class="flex flex-wrap gap-1.5">
               <button
                 v-for="opt in experienceOptions"
@@ -570,7 +571,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
 
           <!-- Work arrangement -->
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Work arrangement</label>
+            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">{{ $t('dashboard.jobs.filter.workArrangement') }}</label>
             <div class="flex flex-wrap gap-1.5">
               <button
                 v-for="opt in remoteOptions"
@@ -589,26 +590,26 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
 
           <!-- Sort -->
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Sort by</label>
+            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">{{ $t('dashboard.jobs.filter.sortBy') }}</label>
             <div class="flex gap-2">
               <select
                 v-model="sortKey"
                 class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
               >
-                <option value="created">Date created</option>
-                <option value="title">Title</option>
-                <option value="status">Status</option>
-                <option value="type">Employment type</option>
-                <option value="location">Location</option>
-                <option value="new">New applicants</option>
-                <option value="active">Active candidates</option>
+                <option value="created">{{ $t('dashboard.jobs.sort.dateCreated') }}</option>
+                <option value="title">{{ $t('dashboard.jobs.sort.title') }}</option>
+                <option value="status">{{ $t('dashboard.jobs.sort.status') }}</option>
+                <option value="type">{{ $t('dashboard.jobs.sort.employmentType') }}</option>
+                <option value="location">{{ $t('dashboard.jobs.sort.location') }}</option>
+                <option value="new">{{ $t('dashboard.jobs.sort.newApplicants') }}</option>
+                <option value="active">{{ $t('dashboard.jobs.sort.activeCandidates') }}</option>
               </select>
               <select
                 v-model="sortDir"
                 class="w-32 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
               >
-                <option value="asc">Ascending</option>
-                <option value="desc">Descending</option>
+                <option value="asc">{{ $t('dashboard.jobs.sort.ascending') }}</option>
+                <option value="desc">{{ $t('dashboard.jobs.sort.descending') }}</option>
               </select>
             </div>
           </div>
@@ -621,8 +622,8 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
         class="rounded-xl border border-dashed border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-10 text-center"
       >
         <Search class="size-8 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
-        <p class="text-sm text-surface-600 dark:text-surface-300 mb-1">No jobs match your search</p>
-        <p class="text-xs text-surface-400 dark:text-surface-500">Try a different keyword or clear your filters.</p>
+        <p class="text-sm text-surface-600 dark:text-surface-300 mb-1">{{ $t('dashboard.jobs.noResults') }}</p>
+        <p class="text-xs text-surface-400 dark:text-surface-500">{{ $t('dashboard.jobs.noResultsHint') }}</p>
       </div>
 
       <!-- ═══════════════════════════════════
@@ -825,7 +826,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
               </span>
               <span class="inline-flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 font-medium">
                 <Kanban class="size-3" />
-                Review
+                {{ $t('dashboard.common.view_details') }}
               </span>
             </div>
           </NuxtLink>
@@ -841,7 +842,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
           <div class="flex items-center gap-2 mb-3 px-1">
             <Bell class="size-4 text-warning-500" />
             <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">
-              Needs your attention
+              {{ $t('dashboard.jobs.attention.needsYourAttention') }}
             </h2>
             <span class="text-xs text-surface-400 dark:text-surface-500">
               {{ jobsNeedingAttention.length }} job{{ jobsNeedingAttention.length === 1 ? '' : 's' }}
@@ -911,7 +912,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
                   class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 transition-colors no-underline"
                 >
                   <Kanban class="size-3" />
-                  Review in Pipeline
+                  {{ $t('dashboard.jobs.actions.reviewInPipeline') }}
                 </NuxtLink>
               </div>
             </div>
@@ -923,7 +924,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
           <div v-if="jobsNeedingAttention.length > 0" class="flex items-center gap-2 mb-3 px-1">
             <Briefcase class="size-4 text-surface-400" />
             <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">
-              All jobs
+              {{ $t('dashboard.jobs.allJobs') }}
             </h2>
             <span class="text-xs text-surface-400 dark:text-surface-500">
               {{ otherJobs.length }} job{{ otherJobs.length === 1 ? '' : 's' }}
@@ -958,7 +959,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
                   {{ j.location }}
                 </span>
                 <span v-if="j.status === 'draft'" class="text-surface-400 italic">
-                  Not published yet
+                  {{ $t('dashboard.jobs.notPublishedYet') }}
                 </span>
               </div>
 
