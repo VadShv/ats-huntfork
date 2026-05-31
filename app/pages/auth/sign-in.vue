@@ -204,16 +204,7 @@ async function handleSocialSignIn(providerId: string) {
 </script>
 
 <template>
-    <!-- Astra brand: декоративная плашка с паттерном (h=120px) -->
-    <div
-        v-if="isAstraBrand"
-        class="astra-auth-bg w-full rounded-xl mb-4 flex items-center justify-center gap-3"
-        style="height: 120px;"
-        aria-hidden="true"
-    >
-        <img :src="'/brand/falcon.svg'" alt="" class="h-16 w-16 object-contain drop-shadow-lg" />
-        <span class="text-white text-2xl font-bold tracking-tight" style="font-family: 'PT Astra Fact', system-ui, sans-serif;">ReqCore Astra</span>
-    </div>
+    <!-- Декоративная плашка убрана — эмблема и название отдаётся layouts/auth.vue -->
     <form class="flex flex-col gap-4" @submit.prevent="handleSignIn">
         <h2
             class="text-xl font-semibold text-center text-surface-900 dark:text-surface-100 mb-2"

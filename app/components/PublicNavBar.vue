@@ -15,22 +15,25 @@ const isAstraBrand = useAstraBrand()
 <template>
   <nav class="fixed inset-x-0 top-0 z-50 border-b border-surface-200/80 dark:border-white/[0.06] bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-xl">
     <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-      <!-- Logo — links to marketing site (reqcore.com) -->
-      <a
-        :href="useRuntimeConfig().public.marketingUrl"
-        class="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight text-surface-900 dark:text-white"
+      <!-- Logo — в бренде Астры: авторизован → /dashboard, иначе → /. Дефолт — marketingUrl. -->
+      <component
+        :is="isAstraBrand ? 'NuxtLink' : 'a'"
+        v-bind="isAstraBrand
+          ? { to: localePath(session ? '/dashboard' : '/') }
+          : { href: useRuntimeConfig().public.marketingUrl }"
+        class="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight text-surface-900 dark:text-white no-underline"
       >
         <img
-          :src="isAstraBrand ? '/brand/falcon.svg' : '/eagle-mascot-logo-128.png'"
+          :src="isAstraBrand ? '/brand/falcon-emblem.jpg' : '/eagle-mascot-logo-128.png'"
           :alt="isAstraBrand ? 'Группа Астра' : 'Reqcore mascot'"
           width="28"
           height="28"
           loading="eager"
           decoding="sync"
-          class="h-7 w-7 object-contain"
+          class="h-7 w-7 object-contain rounded-full"
         />
         {{ isAstraBrand ? 'ReqCore Astra' : 'Reqcore' }}
-      </a>
+      </component>
 
       <!-- Center nav links (desktop) -->
       <div class="hidden items-center gap-1 md:flex">

@@ -235,20 +235,23 @@ onUnmounted(() => {
       <div class="flex h-14 items-center justify-between px-4 lg:px-6">
         <!-- Left: Logo + Nav -->
         <div class="flex items-center gap-1 lg:gap-2">
-          <!-- Logo — links to marketing site (reqcore.com), not app root -->
-          <a
-            :href="useRuntimeConfig().public.marketingUrl"
+          <!-- Logo — в бренде Астры: авторизован → /dashboard, иначе → /. Дефолт — marketingUrl. -->
+          <component
+            :is="isAstraBrand ? 'NuxtLink' : 'a'"
+            v-bind="isAstraBrand
+              ? { to: $localePath(session ? '/dashboard' : '/') }
+              : { href: useRuntimeConfig().public.marketingUrl }"
             class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg no-underline hover:bg-surface-100/60 dark:hover:bg-surface-800/60 transition-colors mr-1 lg:mr-4"
           >
             <img
-              :src="isAstraBrand ? '/brand/falcon.svg' : '/eagle-mascot-logo.png'"
+              :src="isAstraBrand ? '/brand/falcon-emblem.jpg' : '/eagle-mascot-logo.png'"
               :alt="isAstraBrand ? 'Группа Астра' : 'Reqcore mascot'"
-              class="size-7 shrink-0 object-contain"
+              class="size-7 shrink-0 object-contain rounded-full"
             />
             <span class="text-[15px] font-bold text-surface-900 dark:text-surface-100 hidden sm:block tracking-tight">
               {{ isAstraBrand ? 'ReqCore Astra' : 'Reqcore' }}
             </span>
-          </a>
+          </component>
 
           <!-- Desktop nav links -->
           <nav class="hidden md:flex items-center gap-0.5">
