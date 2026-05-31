@@ -38,9 +38,11 @@ useHead(() => ({
   },
   link: isAstraBrand.value
     ? [
-        // cache-bust v=3: новая favicon из JPG-эмблемы (Сокол в кольце)
-        { rel: 'icon', type: 'image/png', href: '/favicon-32-astra.png?v=3' },
-        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon-astra.png?v=3' },
+        // cache-bust v=4: Сокол без кольца в вкладке браузера
+        // SVG — резкий на любом DPI; PNG — fallback для старых браузеров
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon-astra.svg?v=4' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32-astra.png?v=4' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon-astra.png?v=4' },
       ]
     : [
         { rel: 'icon', type: 'image/png', href: '/favicon.png' },
