@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { needsConsent, acceptAnalytics, declineAnalytics } = useAnalyticsConsent()
+const isAstraBrand = useAstraBrand()
 </script>
 
 <template>
@@ -15,9 +16,11 @@ const { needsConsent, acceptAnalytics, declineAnalytics } = useAnalyticsConsent(
       v-if="needsConsent"
       class="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border border-white/10 bg-zinc-900/95 px-4 py-3 shadow-2xl backdrop-blur-md sm:right-6 sm:bottom-6"
     >
-      <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">A small ask</p>
+      <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">{{ isAstraBrand ? 'Небольшая просьба' : 'A small ask' }}</p>
       <p class="text-[13px] leading-relaxed text-white/70">
-        Help us improve reqcore. No ads, no data selling, just product insights.
+        {{ isAstraBrand
+          ? 'Помогите улучшить Huntfork. Без рекламы и продажи данных — только продуктовые метрики.'
+          : 'Help us improve reqcore. No ads, no data selling, just product insights.' }}
       </p>
       <p class="mt-1.5 text-[12px] text-white/40">
         <a

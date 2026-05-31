@@ -32,7 +32,7 @@ const isAstraBrand = useAstraBrand()
           decoding="sync"
           class="h-7 w-7 object-contain rounded-full"
         />
-        {{ isAstraBrand ? 'ReqCore Astra' : 'Reqcore' }}
+        {{ isAstraBrand ? 'Huntfork' : 'Reqcore' }}
       </component>
 
       <!-- Center nav links (desktop) -->
@@ -45,6 +45,7 @@ const isAstraBrand = useAstraBrand()
           {{ t('home.nav.openPositions') }}
         </NuxtLink>
         <a
+          v-if="!isAstraBrand"
           href="https://github.com/reqcore-inc/reqcore"
           target="_blank"
           rel="noopener noreferrer"

@@ -8,7 +8,7 @@ const isAstraBrand = useAstraBrand();
 
 useSeoMeta({
     title: computed(() => isAstraBrand.value ? "Регистрация" : "Sign Up"),
-    description: computed(() => isAstraBrand.value ? "Создать аккаунт ReqCore Astra" : "Create your Reqcore account"),
+    description: computed(() => isAstraBrand.value ? "Создать аккаунт Huntfork" : "Create your Reqcore account"),
     robots: "noindex, nofollow",
 });
 

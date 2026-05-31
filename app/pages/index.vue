@@ -11,7 +11,8 @@ const pillars = computed(() => [
   { icon: Users, label: t('home.pillars.unlimitedSeats.label'), desc: t('home.pillars.unlimitedSeats.desc') },
 ])
 
-useHead({ title: 'Reqcore' })
+const isAstraBrand = useAstraBrand()
+// title не задаём явно — titleTemplate в app.vue вернёт просто "Huntfork" / "Reqcore"
 definePageMeta({ layout: false })
 </script>
 
@@ -101,7 +102,7 @@ definePageMeta({ layout: false })
           </NuxtLink>
         </div>
         <p class="text-[12px] text-surface-500 dark:text-surface-600">
-          {{ $t('home.footer.tagline') }}
+          {{ isAstraBrand ? '«Huntfork» — рекрутинговая платформа Группы Астра' : $t('home.footer.tagline') }}
         </p>
       </footer>
     </main>

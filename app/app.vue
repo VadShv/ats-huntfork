@@ -33,13 +33,14 @@ await usePostHogIdentity()
 const isAstraBrand = useAstraBrand()
 useHead(() => ({
   titleTemplate: (chunk?: string) => {
-    const brand = isAstraBrand.value ? 'ReqCore Astra' : 'Reqcore'
+    const brand = isAstraBrand.value ? 'Huntfork' : 'Reqcore'
     return chunk ? `${chunk} — ${brand}` : brand
   },
   link: isAstraBrand.value
     ? [
-        { rel: 'icon', type: 'image/png', href: '/favicon-32-astra.png' },
-        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon-astra.png' },
+        // cache-bust v=3: новая favicon из JPG-эмблемы (Сокол в кольце)
+        { rel: 'icon', type: 'image/png', href: '/favicon-32-astra.png?v=3' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon-astra.png?v=3' },
       ]
     : [
         { rel: 'icon', type: 'image/png', href: '/favicon.png' },

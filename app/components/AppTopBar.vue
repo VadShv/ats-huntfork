@@ -249,7 +249,7 @@ onUnmounted(() => {
               class="size-7 shrink-0 object-contain rounded-full"
             />
             <span class="text-[15px] font-bold text-surface-900 dark:text-surface-100 hidden sm:block tracking-tight">
-              {{ isAstraBrand ? 'ReqCore Astra' : 'Reqcore' }}
+              {{ isAstraBrand ? 'Huntfork' : 'Reqcore' }}
             </span>
           </component>
 
@@ -364,6 +364,7 @@ onUnmounted(() => {
                     </div>
                   </NuxtLink>
                   <a
+                    v-if="!isAstraBrand"
                     href="https://github.com/reqcore-inc/reqcore#quick-start"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -659,6 +660,7 @@ onUnmounted(() => {
                   {{ $t('dashboard.topbar.cloudHosted') }} — Start Free
               </NuxtLink>
               <a
+                v-if="!isAstraBrand"
                 href="https://github.com/reqcore-inc/reqcore#quick-start"
                 target="_blank"
                 rel="noopener noreferrer"
