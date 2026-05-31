@@ -27,6 +27,7 @@ const { track } = useTrack();
 
 const { data: authProviders } = await useFetch('/api/auth/providers');
 const oidcEnabled = computed(() => authProviders.value?.oidc ?? false);
+const signupEnabled = computed(() => authProviders.value?.signupEnabled ?? false);
 const oidcProviderName = computed(
     () => authProviders.value?.oidcProviderName || "SSO",
 );
@@ -370,7 +371,7 @@ async function handleSocialSignIn(providerId: string) {
             </button>
         </template>
 
-        <p class="text-center text-sm text-surface-500 dark:text-surface-400">
+        <p v-if="signupEnabled" class="text-center text-sm text-surface-500 dark:text-surface-400">
             Don't have an account?
             <NuxtLink
                 :to="

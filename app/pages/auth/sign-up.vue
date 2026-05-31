@@ -23,6 +23,7 @@ const localePath = useLocalePath();
 const { track } = useTrack();
 const { data: authProviders } = await useFetch('/api/auth/providers');
 const oidcEnabled = computed(() => authProviders.value?.oidc ?? false);
+const signupEnabled = computed(() => authProviders.value?.signupEnabled ?? false);
 const oidcProviderName = computed(
     () => authProviders.value?.oidcProviderName || "SSO",
 );
@@ -96,6 +97,9 @@ async function handleSignUp() {
             localePath(`/auth/accept-invitation/${pendingInvitation.value}`),
         );
     } else {
+        // New sign-ups go to org creation first; once they create an org
+        // they'll be set to pending status and redirected by the global
+        // require-approved-member middleware.
         await navigateTo(localePath("/onboarding/create-org"));
     }
 }
@@ -147,8 +151,23 @@ async function handleSocialSignUp(providerId: string) {
 </script>
 
 <template>
+    <!-- Регистрация закрыта — приглашения только через invite-link от администратора. -->
+    <div v-if="!signupEnabled" class="flex flex-col gap-4 text-center">
+        <h2 class="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-1">
+            {{ isAstraBrand ? 'Регистрация закрыта' : 'Sign-up disabled' }}
+        </h2>
+        <p class="text-sm text-surface-600 dark:text-surface-400">
+            {{ isAstraBrand
+                ? 'Новые учётные записи создаются только по приглашению. Обратитесь к администратору вашей команды, чтобы получить ссылку.'
+                : 'New accounts are created by invitation only. Ask your administrator for an invite link.' }}
+        </p>
+        <NuxtLink :to="localePath('/auth/sign-in')" class="text-primary-600 dark:text-primary-400 hover:underline text-sm">
+            {{ isAstraBrand ? 'Уже есть аккаунт? Войти' : 'Already have an account? Sign in' }}
+        </NuxtLink>
+    </div>
+
     <!-- Декоративная плашка убрана — эмблема и название отдаётся layouts/auth.vue -->
-    <form class="flex flex-col gap-4" @submit.prevent="handleSignUp">
+    <form v-else class="flex flex-col gap-4" @submit.prevent="handleSignUp">
         <h2
             class="text-xl font-semibold text-center text-surface-900 dark:text-surface-100 mb-2"
         >

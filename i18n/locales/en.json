@@ -1585,5 +1585,30 @@
     "failed_to_load": "Failed to load application.",
     "job_status": "Job Status",
     "applied": "Applied"
+  },
+  "auth": {
+    "pendingApproval": {
+      "title": "Pending Approval",
+      "description": "Your account is pending approval by an administrator. You'll get access to the dashboard once approved.",
+      "signOut": "Sign out"
+    },
+    "accessDenied": {
+      "title": "Access Denied",
+      "description": "Your request was rejected by an administrator. If you believe this is a mistake, please contact your admin.",
+      "signOut": "Sign out"
+    }
+  },
+  "members": {
+    "pending": {
+      "title": "Pending Approval",
+      "empty": "No pending requests",
+      "approve": "Approve",
+      "reject": "Reject",
+      "confirmReject": "Reject this request? The user will not get access to the organisation.",
+      "approveSuccess": "Request approved",
+      "approveError": "Failed to approve request",
+      "rejectSuccess": "Request rejected",
+      "rejectError": "Failed to reject request"
+    }
   }
 }

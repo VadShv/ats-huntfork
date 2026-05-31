@@ -88,6 +88,7 @@ const isAstraBrand = useAstraBrand()
             {{ t('home.nav.logIn') }}
           </NuxtLink>
           <NuxtLink
+            v-if="!isAstraBrand"
             :to="localePath('/auth/sign-up')"
             class="rounded-md bg-surface-900 dark:bg-white px-3.5 py-1.5 text-[13px] font-semibold text-white dark:text-[#09090b] transition hover:bg-surface-800 dark:hover:bg-white/90"
           >

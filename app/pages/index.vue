@@ -59,6 +59,7 @@ definePageMeta({ layout: false })
               <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </NuxtLink>
             <NuxtLink
+              v-if="!isAstraBrand"
               :to="localePath('/auth/sign-up')"
               class="rounded-lg border border-surface-300 dark:border-white/[0.08] bg-surface-100 dark:bg-white/[0.03] px-6 py-3 text-[14px] font-medium text-surface-600 dark:text-surface-300 transition hover:border-surface-400 dark:hover:border-white/[0.14] hover:bg-surface-200 dark:hover:bg-white/[0.06]"
             >

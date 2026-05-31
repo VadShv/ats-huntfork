@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization, genericOAuth } from "better-auth/plugins";
 import { sso } from "@better-auth/sso";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { ac, owner, admin, member } from "~~/shared/permissions";
 import { sendOrgInvitationEmail, sendPasswordResetEmail } from "./email";
 import * as schema from "../database/schema";
@@ -222,6 +222,14 @@ function getAuth(): Auth {
 
       emailAndPassword: {
         enabled: true,
+        // ── Open registration toggle ────────────────────────────
+        // By default sign-up is CLOSED — new users only via invite link.
+        // Set NUXT_PUBLIC_ALLOW_SIGNUP=1 (or ALLOW_SIGNUP=1) to re-enable.
+        // When closed, /api/auth/sign-up/email returns 400, and the
+        // pending-approval moderation flow acts as a defence in depth.
+        disableSignUp:
+          process.env.NUXT_PUBLIC_ALLOW_SIGNUP !== '1'
+          && process.env.ALLOW_SIGNUP !== '1',
         // Server-side password policy — prevents bypass via direct API calls.
         // Client-side validation (sign-up.vue) is UX only; this is the enforcement.
         minPasswordLength: 8,
@@ -306,18 +314,44 @@ function getAuth(): Auth {
             await sendOrgInvitationEmail(data, inviteLink);
           },
 
-          // ── Post-creation hook ──────────────────────────────────
-          // Seed the standard system pipeline preset immediately after a new
-          // organization is created via better-auth's API (e.g. from the UI).
-          async afterCreateOrganization(data: { organization: { id: string; [key: string]: unknown } }) {
-            try {
-              await seedSystemPipelineForOrg(db, data.organization.id);
-            }
-            catch (err) {
-              // Log but don't throw — pipeline seeding failure must not block
-              // org creation. The backfill script can recover missing presets.
-              console.error('[pipeline-seed] Failed to seed system pipeline for org', data.organization.id, err);
-            }
+          // ── Post-creation hooks ─────────────────────────────────
+          // In better-auth 1.6+, lifecycle hooks live under `organizationHooks`.
+          // - Seed the standard system pipeline preset.
+          // - Mark new self-signup owner as 'pending' (except bootstrap).
+          organizationHooks: {
+            async afterCreateOrganization(data: { organization: { id: string; [key: string]: unknown }; member: { id: string; [key: string]: unknown } }) {
+              try {
+                await seedSystemPipelineForOrg(db, data.organization.id);
+              }
+              catch (err) {
+                // Log but don't throw — pipeline seeding failure must not block
+                // org creation. The backfill script can recover missing presets.
+                console.error('[pipeline-seed] Failed to seed system pipeline for org', data.organization.id, err);
+              }
+
+              // ── Moderation: mark new self-signup owner as pending ────
+              // Exception: if this is the very first organization in the system
+              // (bootstrap scenario), the owner stays 'active' so they can
+              // approve future sign-ups. All subsequent org creators are 'pending'.
+              try {
+                const [{ orgCount }] = await db
+                  .select({ orgCount: count() })
+                  .from(schema.organization);
+
+                // orgCount includes the org just created, so > 1 means not first
+                if (orgCount > 1) {
+                  await db
+                    .update(schema.member)
+                    .set({ status: 'pending' })
+                    .where(eq(schema.member.id, data.member.id));
+                  console.log('[moderation] Set member', data.member.id, 'to pending (orgCount=' + orgCount + ')');
+                }
+              }
+              catch (err) {
+                // Never block org creation — log and continue
+                console.error('[moderation] Failed to set member status to pending', err);
+              }
+            },
           },
 
           // ── Security Hardening ──────────────────────────────────

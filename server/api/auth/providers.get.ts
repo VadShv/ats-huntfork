@@ -26,5 +26,9 @@ export default defineEventHandler(() => {
       process.env.OIDC_DISCOVERY_URL
     ),
     oidcProviderName: process.env.OIDC_PROVIDER_NAME || "SSO",
+    // Open registration toggle (defaults to CLOSED). Mirrors auth.ts.
+    signupEnabled:
+      process.env.NUXT_PUBLIC_ALLOW_SIGNUP === '1'
+      || process.env.ALLOW_SIGNUP === '1',
   };
 });

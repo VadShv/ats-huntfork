@@ -5,6 +5,7 @@ import {
   MoreHorizontal, Trash2, ChevronDown, Loader2,
   Mail, Clock, X, Check, AlertTriangle, RefreshCw,
   Link2, Copy, Eye, EyeOff, UserCheck, UserX, MessageSquare, Search,
+  ClipboardList,
 } from 'lucide-vue-next'
 
 definePageMeta({})
@@ -352,6 +353,86 @@ const expiryOptions = [
   { label: '14 days', value: 336 },
   { label: '30 days', value: 720 },
 ]
+
+// ─────────────────────────────────────────────
+// Pending members (sign-up moderation)
+// ─────────────────────────────────────────────
+const pendingMembers = ref<Array<{
+  id: string
+  userId: string
+  role: string
+  status: string
+  createdAt: string
+  userName: string
+  userEmail: string
+  userImage: string | null
+}>>([])
+const isLoadingPendingMembers = ref(true)
+const pendingMembersError = ref('')
+const approvingMemberId = ref<string | null>(null)
+const rejectingMemberId = ref<string | null>(null)
+const pendingMemberActionError = ref('')
+const { success: toastSuccess, error: toastError } = useToast()
+const { ask: confirmAsk } = useConfirm()
+const { t: tLocal } = useI18n()
+
+async function fetchPendingMembers() {
+  isLoadingPendingMembers.value = true
+  pendingMembersError.value = ''
+  try {
+    const data = await $fetch('/api/members/pending')
+    pendingMembers.value = data as typeof pendingMembers.value
+  }
+  catch (err: unknown) {
+    pendingMembersError.value = err instanceof Error ? err.message : 'Не удалось загрузить заявки'
+  }
+  finally {
+    isLoadingPendingMembers.value = false
+  }
+}
+
+onMounted(fetchPendingMembers)
+
+async function handleApproveMember(memberId: string) {
+  approvingMemberId.value = memberId
+  pendingMemberActionError.value = ''
+  try {
+    await $fetch(`/api/members/${memberId}/approve`, { method: 'POST' })
+    toastSuccess(tLocal('members.pending.approveSuccess'))
+    await Promise.all([fetchPendingMembers(), fetchMembers()])
+  }
+  catch (err: any) {
+    pendingMemberActionError.value = err?.data?.statusMessage || 'Не удалось одобрить заявку'
+    toastError(tLocal('members.pending.approveError'))
+  }
+  finally {
+    approvingMemberId.value = null
+  }
+}
+
+async function handleRejectMember(memberId: string) {
+  pendingMemberActionError.value = ''
+  const confirmed = await confirmAsk({
+    title: tLocal('members.pending.confirmReject'),
+    variant: 'danger',
+    confirmLabel: tLocal('members.pending.reject'),
+  })
+  if (!confirmed) return
+
+  rejectingMemberId.value = memberId
+  try {
+    await $fetch(`/api/members/${memberId}/reject`, { method: 'POST' })
+    toastSuccess(tLocal('members.pending.rejectSuccess'))
+    await fetchPendingMembers()
+  }
+  catch (err: any) {
+    pendingMemberActionError.value = err?.data?.statusMessage || 'Не удалось отклонить заявку'
+    toastError(tLocal('members.pending.rejectError'))
+  }
+  finally {
+    rejectingMemberId.value = null
+  }
+}
 
 // ─────────────────────────────────────────────
 // Join requests
@@ -942,6 +1023,110 @@ onUnmounted(() => {
               <Loader2 v-if="revokingLinkId === link.id" class="size-3 animate-spin" />
               <Trash2 v-else class="size-3" />
               Revoke
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- На рассмотрении (sign-up moderation) -->
+    <section v-if="canManageMembers && (isLoadingPendingMembers || pendingMembers.length > 0)" class="mb-6 rounded-xl border border-warning-200 dark:border-warning-900 bg-white dark:bg-surface-900 overflow-hidden">
+      <div class="px-4 sm:px-6 py-4 border-b border-warning-200 dark:border-warning-900">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center justify-center size-8 rounded-lg bg-warning-50 dark:bg-warning-950 text-warning-600 dark:text-warning-400">
+            <ClipboardList class="size-4" />
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ $t('members.pending.title') }}</h2>
+              <span v-if="pendingMembers.length > 0" class="inline-flex items-center justify-center size-5 rounded-full bg-danger-500 text-white text-xs font-bold">
+                {{ pendingMembers.length }}
+              </span>
+            </div>
+            <p class="text-xs text-surface-500 dark:text-surface-400">
+              {{ isLoadingPendingMembers ? 'Загрузка…' : (pendingMembers.length === 0 ? $t('members.pending.empty') : `${pendingMembers.length} ожидают одобрения`) }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action error -->
+      <div v-if="pendingMemberActionError" class="px-4 sm:px-6 py-2 flex items-center justify-between text-sm text-danger-700 dark:text-danger-400 bg-danger-50 dark:bg-danger-950/40 border-b border-danger-200 dark:border-danger-900">
+        <span>{{ pendingMemberActionError }}</span>
+        <button class="text-danger-500 hover:text-danger-700 transition-colors" @click="pendingMemberActionError = ''">
+          <X class="size-4" />
+        </button>
+      </div>
+
+      <!-- Loading state -->
+      <div v-if="isLoadingPendingMembers" class="px-4 sm:px-6 py-6 text-center text-surface-400 text-sm">
+        <Loader2 class="size-4 animate-spin mx-auto mb-1.5" />
+        Загрузка…
+      </div>
+
+      <!-- Error state -->
+      <div v-else-if="pendingMembersError" class="px-4 sm:px-6 py-6 text-center">
+        <AlertTriangle class="size-5 text-danger-400 mx-auto mb-1.5" />
+        <p class="text-sm text-danger-600 dark:text-danger-400">{{ pendingMembersError }}</p>
+        <button class="mt-1.5 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchPendingMembers">
+          Повторить
+        </button>
+      </div>
+
+      <!-- Pending members list -->
+      <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
+        <div
+          v-for="pm in pendingMembers"
+          :key="pm.id"
+          class="px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+        >
+          <!-- Avatar + Info -->
+          <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+            <div class="flex-shrink-0">
+              <img
+                v-if="pm.userImage"
+                :src="pm.userImage"
+                :alt="pm.userName"
+                class="size-9 rounded-full object-cover ring-2 ring-surface-100 dark:ring-surface-800"
+              />
+              <div v-else class="size-9 rounded-full bg-warning-100 dark:bg-warning-900 flex items-center justify-center text-xs font-semibold text-warning-700 dark:text-warning-300 ring-2 ring-surface-100 dark:ring-surface-800">
+                {{ pm.userName?.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase() || '?' }}
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">
+                {{ pm.userName }}
+              </div>
+              <div class="text-xs text-surface-500 dark:text-surface-400 truncate">
+                {{ pm.userEmail }}
+              </div>
+              <div class="text-xs text-surface-400 dark:text-surface-500 mt-0.5">
+                {{ new Date(pm.createdAt).toLocaleDateString() }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-1.5 flex-shrink-0 pl-12 sm:pl-0">
+            <button
+              :disabled="approvingMemberId === pm.id"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :title="$t('members.pending.approve')"
+              @click="handleApproveMember(pm.id)"
+            >
+              <Loader2 v-if="approvingMemberId === pm.id" class="size-3 animate-spin" />
+              <UserCheck v-else class="size-3" />
+              {{ $t('members.pending.approve') }}
+            </button>
+            <button
+              :disabled="rejectingMemberId === pm.id"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :title="$t('members.pending.reject')"
+              @click="handleRejectMember(pm.id)"
+            >
+              <Loader2 v-if="rejectingMemberId === pm.id" class="size-3 animate-spin" />
+              <UserX v-else class="size-3" />
+              {{ $t('members.pending.reject') }}
             </button>
           </div>
         </div>

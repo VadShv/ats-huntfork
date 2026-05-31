@@ -87,10 +87,19 @@ export const member = pgTable('member', {
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
   role: text('role').notNull().default('member'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  // ── Moderation fields (Phase 1) ─────────────────────────────
+  // Values: 'active' | 'pending' | 'rejected' | 'suspended'
+  // Default 'active' keeps invitation-flow and existing rows working;
+  // new self-sign-up members are explicitly set to 'pending' via afterCreateOrganization.
+  status: text('status').notNull().default('active'),
+  approvedBy: text('approved_by').references(() => user.id, { onDelete: 'set null' }),
+  approvedAt: timestamp('approved_at'),
+  rejectedReason: text('rejected_reason'),
 }, (t) => ([
   index('member_user_id_idx').on(t.userId),
   index('member_organization_id_idx').on(t.organizationId),
   uniqueIndex('member_user_org_unique_idx').on(t.userId, t.organizationId),
+  index('member_org_status_idx').on(t.organizationId, t.status),
 ]))
 
 export const invitation = pgTable('invitation', {
