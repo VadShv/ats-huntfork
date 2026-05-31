@@ -4,9 +4,11 @@ definePageMeta({
     middleware: ["guest"],
 });
 
+const isAstraBrand = useAstraBrand();
+
 useSeoMeta({
-    title: "Sign Up — Reqcore",
-    description: "Create your Reqcore account",
+    title: computed(() => isAstraBrand.value ? "Регистрация" : "Sign Up"),
+    description: computed(() => isAstraBrand.value ? "Создать аккаунт ReqCore Astra" : "Create your Reqcore account"),
     robots: "noindex, nofollow",
 });
 
@@ -145,6 +147,16 @@ async function handleSocialSignUp(providerId: string) {
 </script>
 
 <template>
+    <!-- Astra brand: декоративная плашка с паттерном (h=120px) -->
+    <div
+        v-if="isAstraBrand"
+        class="astra-auth-bg w-full rounded-xl mb-4 flex items-center justify-center gap-3"
+        style="height: 120px;"
+        aria-hidden="true"
+    >
+        <img :src="'/brand/falcon-128.png'" alt="" class="h-16 w-16 object-contain drop-shadow-lg" />
+        <span class="text-white text-2xl font-bold tracking-tight" style="font-family: 'PT Astra Fact', system-ui, sans-serif;">ReqCore Astra</span>
+    </div>
     <form class="flex flex-col gap-4" @submit.prevent="handleSignUp">
         <h2
             class="text-xl font-semibold text-center text-surface-900 dark:text-surface-100 mb-2"

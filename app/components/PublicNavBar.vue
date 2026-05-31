@@ -9,6 +9,7 @@ const { t } = useI18n()
 const localePath = useLocalePath()
 const { data: session } = await authClient.useSession(useFetch)
 const { isDark, toggle: toggleColorMode } = useColorMode()
+const isAstraBrand = useAstraBrand()
 </script>
 
 <template>
@@ -20,15 +21,15 @@ const { isDark, toggle: toggleColorMode } = useColorMode()
         class="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight text-surface-900 dark:text-white"
       >
         <img
-          src="/eagle-mascot-logo-128.png"
-          alt="Reqcore mascot"
+          :src="isAstraBrand ? '/brand/falcon-64.png' : '/eagle-mascot-logo-128.png'"
+          :alt="isAstraBrand ? 'Группа Астра' : 'Reqcore mascot'"
           width="28"
           height="28"
           loading="eager"
           decoding="sync"
           class="h-7 w-7 object-contain"
         />
-        Reqcore
+        {{ isAstraBrand ? 'ReqCore Astra' : 'Reqcore' }}
       </a>
 
       <!-- Center nav links (desktop) -->

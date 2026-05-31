@@ -1,0 +1,31 @@
+<!--
+  Astra Group brand pattern — chevrons + stars
+  Use as background-image with CSS:
+    background: #28334E url(/astra-pattern.svg) repeat;
+  Or with opacity overlay for subtle texture.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <defs>
+    <pattern id="astra-chevrons" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <!-- Tonal chevrons (subtle, on dark bg) -->
+      <path d="M 8 12 l 6 8 l -6 8" fill="none" stroke="#3B455B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 24 12 l 6 8 l -6 8" fill="none" stroke="#3B455B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </pattern>
+    <pattern id="astra-accents" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
+      <!-- Neon accent chevrons + star -->
+      <path d="M 40 60 l 6 8 l -6 8" fill="none" stroke="#5BC3F5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 56 60 l 6 8 l -6 8" fill="none" stroke="#5BC3F5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 72 60 l 6 8 l -6 8" fill="none" stroke="#5BC3F5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Star: 6-point asterisk -->
+      <g transform="translate(96, 68)" stroke="#5BC3F5" stroke-width="2.5" stroke-linecap="round">
+        <line x1="0" y1="-6" x2="0" y2="6"/>
+        <line x1="-5.2" y1="-3" x2="5.2" y2="3"/>
+        <line x1="-5.2" y1="3" x2="5.2" y2="-3"/>
+      </g>
+      <path d="M 150 140 l 6 8 l -6 8" fill="none" stroke="#5BC3F5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 166 140 l 6 8 l -6 8" fill="none" stroke="#5BC3F5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </pattern>
+  </defs>
+  <rect width="240" height="240" fill="url(#astra-chevrons)"/>
+  <rect width="240" height="240" fill="url(#astra-accents)"/>
+</svg>

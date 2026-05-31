@@ -1,0 +1,45 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Public Fonts for Minority Languages of Russia
+Source: http://www.paratype.com/public/
+
+Files: PTSans/*.ttf
+Copyright: 2009, ParaType Ltd. All Rights Reserved.
+License: ParaType Free Font Licensing Agreement
+
+Files: PTSerif/*.ttf
+Copyright: 2009, ParaType Ltd. All Rights Reserved.
+License: ParaType Free Font Licensing Agreement
+
+Files: PTMono/*.ttf
+Copyright: 2009, ParaType Ltd. All Rights Reserved.
+License: ParaType Free Font Licensing Agreement
+
+Files: PTAstra/*.ttf
+Copyright: 2016, JSC «RPA RusBITech». All rights reserved.
+License: SIL Open Font License, Version 1.1.
+
+Files: PTRootUI/*.ttf
+Copyright: 2018, Paratype Inc (https://paratype.com)
+           2018, Paratype Ltd, with Reserved Font Name "PT Root UI".
+License: SIL Open Font License, Version 1.1.
+
+Files: debian/*
+Copyright: 2015 Alexander Volkov <support@rusbitech.ru>
+License: GPL-3.0+
+
+License: GPL-3.0+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 3 can be found in "/usr/share/common-licenses/GPL-3".

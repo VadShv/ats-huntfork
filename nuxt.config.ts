@@ -72,6 +72,8 @@ const localizedJobsRobotsRules = Object.fromEntries(
     ]),
 );
 
+const useAstraIcons = process.env.NUXT_PUBLIC_ASTRA_BRAND === '1';
+
 const isRailwayPreview =
   railwayEnvironmentName.startsWith("pr") ||
   railwayEnvironmentName.includes("pr-") ||
@@ -172,14 +174,14 @@ export default defineNuxtConfig({
   // ─────────────────────────────────────────────
   app: {
     head: {
-      titleTemplate: "%s — Reqcore",
+      titleTemplate: useAstraIcons ? "%s — ReqCore Astra" : "%s — Reqcore",
       link: [
-        { rel: "icon", type: "image/png", href: "/favicon.png" },
-        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+        { rel: "icon", type: "image/png", href: useAstraIcons ? "/favicon-32-astra.png" : "/favicon.png" },
+        ...(useAstraIcons ? [] : [{ rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }]),
         {
           rel: "apple-touch-icon",
           sizes: "180x180",
-          href: "/apple-touch-icon.png",
+          href: useAstraIcons ? "/apple-touch-icon-astra.png" : "/apple-touch-icon.png",
         },
       ],
       meta: [
@@ -250,6 +252,8 @@ export default defineNuxtConfig({
         string,
         boolean | string
       >,
+      /** Включить брендинг Astra Group (графит + сокол + PT Astra Fact) */
+      astraBrand: process.env.NUXT_PUBLIC_ASTRA_BRAND === '1',
     },
   },
 
