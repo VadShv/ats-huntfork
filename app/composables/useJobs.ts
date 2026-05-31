@@ -33,6 +33,7 @@ export function useJobs(options?: {
     requireResume?: boolean
     requireCoverLetter?: boolean
     autoScoreOnApply?: boolean
+    pipelineId?: string
   }) {
     try {
       const created = await $fetch('/api/jobs', {

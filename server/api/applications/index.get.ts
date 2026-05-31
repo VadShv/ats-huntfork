@@ -1,5 +1,5 @@
 import { eq, and, desc, inArray } from 'drizzle-orm'
-import { application, candidate, job } from '../../database/schema'
+import { application, candidate, job, pipelineStage, pipelineStageTypeEnum } from '../../database/schema'
 import { applicationQuerySchema } from '../../utils/schemas/application'
 import { propertyFiltersArraySchema } from '../../utils/schemas/property'
 import {
@@ -11,7 +11,14 @@ import {
 /**
  * GET /api/applications
  * List applications for the current organization.
- * Filterable by jobId, candidateId, status, and custom property filters. Paginated.
+ * Filterable by jobId, candidateId, status, stageId, stageType, and custom
+ * property filters. Paginated. Includes current pipeline stage fields (left join).
+ *
+ * Stage filter precedence:
+ *   ?stageId=<uuid>   — filter where currentStageId = stageId (exact)
+ *   ?stageType=<type> — filter where the joined pipelineStage.type matches
+ *                       (all matching stages across all pipelines)
+ *   When both are present, stageId wins.
  */
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'] })
@@ -30,6 +37,17 @@ export default defineEventHandler(async (event) => {
   }
   if (query.status) {
     conditions.push(eq(application.status, query.status))
+  }
+  if (query.stageId) {
+    // Exact stage match — directly filter on the FK column
+    conditions.push(eq(application.currentStageId, query.stageId))
+  }
+  else if (query.stageType) {
+    // Type-based match — filter on the joined stage's type column.
+    // We use a subquery-style approach: only rows where the left-joined
+    // pipelineStage.type equals the requested value are included.
+    // This is expressed via the join condition + WHERE on pipelineStage.type.
+    conditions.push(eq(pipelineStage.type, query.stageType as (typeof pipelineStageTypeEnum.enumValues)[number]))
   }
 
   // ── Custom property filters ──
@@ -77,10 +95,14 @@ export default defineEventHandler(async (event) => {
         jobId: application.jobId,
         jobTitle: job.title,
         jobStatus: job.status,
+        currentStageId: application.currentStageId,
+        currentStageName: pipelineStage.name,
+        currentStageColor: pipelineStage.color,
       })
       .from(application)
       .innerJoin(candidate, eq(candidate.id, application.candidateId))
       .innerJoin(job, eq(job.id, application.jobId))
+      .leftJoin(pipelineStage, eq(pipelineStage.id, application.currentStageId))
       .where(where)
       .orderBy(desc(application.createdAt))
       .limit(query.limit)
@@ -106,4 +128,3 @@ export default defineEventHandler(async (event) => {
 
   return { data: enriched, total, page: query.page, limit: query.limit }
 })
-

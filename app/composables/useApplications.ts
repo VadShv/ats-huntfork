@@ -10,16 +10,22 @@ export function useApplications(options?: {
   jobId?: Ref<string | undefined> | string
   candidateId?: Ref<string | undefined> | string
   status?: Ref<string | undefined> | string
+  stageId?: Ref<string | undefined> | string
+  stageType?: Ref<string | undefined> | string
   propertyFilters?: Ref<PropertyFilter[] | undefined> | PropertyFilter[]
 }) {
   const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 
   const query = computed(() => {
     const pf = toValue(options?.propertyFilters)
+    const sid = toValue(options?.stageId)
+    const stype = toValue(options?.stageType)
     return {
       ...(toValue(options?.jobId) && { jobId: toValue(options?.jobId) }),
       ...(toValue(options?.candidateId) && { candidateId: toValue(options?.candidateId) }),
       ...(toValue(options?.status) && { status: toValue(options?.status) }),
+      // stageId takes precedence over stageType
+      ...(sid ? { stageId: sid } : stype ? { stageType: stype } : {}),
       ...(pf && pf.length > 0 && { propertyFilters: JSON.stringify(pf) }),
     }
   })

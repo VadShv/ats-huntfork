@@ -8,6 +8,8 @@ export { JOB_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 
 /** Schema for creating a new job */
 export const createJobSchema = z.object({
+  /** Optional pipeline to assign to this job. If omitted, the org default is used. */
+  pipelineId: z.string().optional(),
   title: z.string().min(1, 'Title is required').max(200),
   description: z.string().optional(),
   location: z.string().optional(),
@@ -37,6 +39,8 @@ export const createJobSchema = z.object({
 
 /** Schema for updating an existing job (all fields optional, no defaults — PATCH semantics) */
 export const updateJobSchema = z.object({
+  /** Change the pipeline assigned to this job. Only allowed when there are 0 active applications. */
+  pipelineId: z.string().nullable().optional(),
   title: z.string().min(1, 'Title is required').max(200).optional(),
   description: z.string().nullable().optional(),
   location: z.string().nullable().optional(),

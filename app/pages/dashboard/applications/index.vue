@@ -18,6 +18,7 @@ const COLUMNS_STORAGE_KEY = 'reqcore:columns:applications'
 const defaultColumnVisibility = {
   email: true,
   job: true,
+  stage: true,
   status: true,
   score: true,
   applied: true,
@@ -31,6 +32,7 @@ const applicationColumns = computed(() => [
   { key: 'candidate', label: 'Candidate', required: true },
   { key: 'email', label: 'Email' },
   { key: 'job', label: 'Job' },
+  { key: 'stage', label: t('applications.stage.label') },
   { key: 'status', label: 'Status' },
   { key: 'score', label: 'Score' },
   { key: 'applied', label: 'Applied' },
@@ -94,8 +96,47 @@ watch(activeStatus, (newStatus) => {
 const statusFilter = computed(() => activeStatus.value)
 const propertyFilters = ref<import('~~/shared/properties').PropertyFilter[]>([])
 
+// ── Stage filter (server-side, via stageId param) ──────────────────────────────
+
+const initialStageId = typeof route.query.stageId === 'string' ? route.query.stageId : undefined
+const activeStageId = useState<string | undefined>('app-filter-stageId', () => initialStageId)
+if (initialStageId !== undefined) {
+  activeStageId.value = initialStageId
+}
+
+watch(activeStageId, (newStageId) => {
+  const query = { ...route.query }
+  if (newStageId) {
+    query.stageId = newStageId
+  }
+  else {
+    delete query.stageId
+  }
+  router.replace({ query })
+})
+
+// Fetch stages-summary for the stage filter dropdown
+type StageOption = { id: string; name: string; color: string; type: string; displayOrder: number }
+type PipelineGroup = { pipelineId: string; pipelineName: string; stages: StageOption[] }
+
+const { data: stagesSummaryData } = useFetch<PipelineGroup[]>('/api/pipelines/stages-summary', {
+  key: 'stages-summary',
+  headers: useRequestHeaders(['cookie']),
+})
+const stageGroups = computed<PipelineGroup[]>(() => stagesSummaryData.value ?? [])
+
+// Flat map for label lookup
+const stageById = computed(() => {
+  const map = new Map<string, StageOption>()
+  for (const g of stageGroups.value) {
+    for (const s of g.stages) map.set(s.id, s)
+  }
+  return map
+})
+
 const { applications, total, fetchStatus, error, refresh } = useApplications({
   status: statusFilter,
+  stageId: activeStageId,
   propertyFilters,
 })
 
@@ -177,12 +218,17 @@ const filteredApplications = computed(() => {
 })
 
 const hasActiveFilters = computed(() =>
-  activeStatus.value != null || activeJobId.value != null || debouncedSearch.value.length > 0 || propertyFilters.value.length > 0,
+  activeStatus.value != null
+  || activeJobId.value != null
+  || activeStageId.value != null
+  || debouncedSearch.value.length > 0
+  || propertyFilters.value.length > 0,
 )
 
 function clearAllFilters() {
   activeStatus.value = undefined
   activeJobId.value = undefined
+  activeStageId.value = undefined
   searchInput.value = ''
   debouncedSearch.value = ''
   propertyFilters.value = []
@@ -239,6 +285,7 @@ const statusLabels: Record<Status, string> = {
 type ApplicationsViewSettings = {
   status?: Status
   jobId?: string
+  stageId?: string
   propertyFilters: import('~~/shared/properties').PropertyFilter[]
   sortKey: SortKey
   sortDir: SortDir
@@ -248,6 +295,7 @@ type ApplicationsViewSettings = {
 const defaultSettings: ApplicationsViewSettings = {
   status: undefined,
   jobId: undefined,
+  stageId: undefined,
   propertyFilters: [],
   sortKey: 'created',
   sortDir: 'desc',
@@ -259,6 +307,7 @@ const isFullscreen = ref(false)
 const currentSettings = computed<ApplicationsViewSettings>(() => ({
   status: activeStatus.value,
   jobId: activeJobId.value,
+  stageId: activeStageId.value,
   propertyFilters: [...propertyFilters.value],
   sortKey: sortKey.value,
   sortDir: sortDir.value,
@@ -268,6 +317,7 @@ const currentSettings = computed<ApplicationsViewSettings>(() => ({
 function applySettings(s: ApplicationsViewSettings) {
   activeStatus.value = s.status
   activeJobId.value = s.jobId
+  activeStageId.value = s.stageId
   propertyFilters.value = [...(s.propertyFilters ?? [])]
   sortKey.value = s.sortKey
   sortDir.value = s.sortDir
@@ -298,6 +348,7 @@ onMounted(() => {
 function settingsEqual(a: ApplicationsViewSettings, b: ApplicationsViewSettings) {
   return a.status === b.status
     && a.jobId === b.jobId
+    && a.stageId === b.stageId
     && a.sortKey === b.sortKey
     && a.sortDir === b.sortDir
     && JSON.stringify(a.propertyFilters ?? []) === JSON.stringify(b.propertyFilters ?? [])
@@ -337,7 +388,7 @@ function onUpdateView(id: string) {
 }
 
 const drawerActiveCount = computed(() =>
-  [activeStatus.value, activeJobId.value].filter(Boolean).length + propertyFilters.value.length,
+  [activeStatus.value, activeJobId.value, activeStageId.value].filter(Boolean).length + propertyFilters.value.length,
 )
 
 // ── Property value lookup helper ──────────────────────────────────────────────
@@ -467,6 +518,49 @@ const selectedApplicationId = ref<string | null>(null)
             <option :value="undefined">All jobs</option>
             <option v-for="j in uniqueJobs" :key="j.id" :value="j.id">{{ j.title }}</option>
           </select>
+        </div>
+
+        <!-- Stage filter (grouped by pipeline) -->
+        <div v-if="stageGroups.length > 0">
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">
+            {{ $t('applications.filter.stage') }}
+          </label>
+          <select
+            v-model="activeStageId"
+            class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+          >
+            <option :value="undefined">{{ $t('applications.filter.allStages') }}</option>
+            <optgroup
+              v-for="group in stageGroups"
+              :key="group.pipelineId"
+              :label="group.pipelineName"
+            >
+              <option
+                v-for="stage in group.stages"
+                :key="stage.id"
+                :value="stage.id"
+              >
+                {{ stage.name }}
+              </option>
+            </optgroup>
+          </select>
+          <!-- Active stage badge -->
+          <div v-if="activeStageId && stageById.get(activeStageId)" class="mt-1.5 flex items-center gap-1.5">
+            <span
+              class="inline-flex size-2 rounded-full shrink-0"
+              :style="{ backgroundColor: stageById.get(activeStageId)!.color }"
+            />
+            <span class="text-xs text-surface-500 dark:text-surface-400">
+              {{ stageById.get(activeStageId)!.name }}
+            </span>
+            <button
+              type="button"
+              class="ml-auto text-xs text-danger-500 hover:text-danger-700 transition-colors cursor-pointer"
+              @click="activeStageId = undefined"
+            >
+              {{ $t('common.cancel') }}
+            </button>
+          </div>
         </div>
 
         <!-- Sort -->
@@ -614,6 +708,9 @@ const selectedApplicationId = ref<string | null>(null)
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
                 </button>
               </th>
+              <th v-if="visibleColumns.stage" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 whitespace-nowrap">
+                {{ t('applications.stage.label') }}
+              </th>
               <th v-if="visibleColumns.status" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('status')">
                   Status
@@ -672,6 +769,13 @@ const selectedApplicationId = ref<string | null>(null)
                   <Briefcase class="size-3.5 shrink-0 text-surface-400" />
                   {{ app.jobTitle }}
                 </span>
+              </td>
+              <td v-if="visibleColumns.stage" class="px-4 py-3" @click.stop>
+                <ApplicationStagePicker
+                  :application-id="app.id"
+                  :current-stage-id="(app as { currentStageId?: string | null }).currentStageId ?? null"
+                  @stage-changed="refresh()"
+                />
               </td>
               <td v-if="visibleColumns.status" class="px-4 py-3">
                 <span

@@ -1,11 +1,12 @@
 import { eq, and } from 'drizzle-orm'
-import { application } from '../../database/schema'
+import { application, pipelineStage } from '../../database/schema'
 import { applicationIdParamSchema } from '../../utils/schemas/application'
 import { loadPropertyEntriesForEntity } from '../../utils/properties'
 
 /**
  * GET /api/applications/:id
- * Single application detail with related candidate, job, and question responses.
+ * Single application detail with related candidate, job, question responses,
+ * and pipeline stage info.
  */
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'] })
@@ -32,7 +33,7 @@ export default defineEventHandler(async (event) => {
         },
       },
       job: {
-        columns: { id: true, title: true, status: true, slug: true },
+        columns: { id: true, title: true, status: true, slug: true, pipelineId: true },
       },
       responses: {
         with: {
@@ -43,10 +44,36 @@ export default defineEventHandler(async (event) => {
         orderBy: (r, { asc }) => [asc(r.createdAt)],
       },
     },
+    columns: {
+      id: true,
+      organizationId: true,
+      candidateId: true,
+      jobId: true,
+      status: true,
+      currentStageId: true,
+      stageChangedAt: true,
+      score: true,
+      notes: true,
+      coverLetterText: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   })
 
   if (!result) {
     throw createError({ statusCode: 404, statusMessage: 'Not found' })
+  }
+
+  // Load current stage details if available
+  let currentStage: { id: string; name: string; color: string; type: string; isTerminal: boolean } | null = null
+  if (result.currentStageId) {
+    const stage = await db.query.pipelineStage.findFirst({
+      where: eq(pipelineStage.id, result.currentStageId),
+      columns: { id: true, name: true, color: true, type: true, isTerminal: true },
+    })
+    if (stage) {
+      currentStage = stage
+    }
   }
 
   const properties = await loadPropertyEntriesForEntity({
@@ -56,5 +83,5 @@ export default defineEventHandler(async (event) => {
     jobId: result.jobId,
   })
 
-  return { ...result, properties }
+  return { ...result, currentStage, properties }
 })

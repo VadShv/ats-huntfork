@@ -39,6 +39,7 @@ const atsStatements = {
   activityLog: ['read'],
   scoring: ['create', 'read', 'update', 'delete'],
   sourceTracking: ['create', 'read', 'update', 'delete'],
+  pipeline: ['create', 'read', 'update', 'delete'],
 } as const
 
 // ─── Merged statement (Better Auth defaults + ATS resources) ───────
@@ -69,6 +70,7 @@ export const owner = ac.newRole({
   activityLog: ['read'],
   scoring: ['create', 'read', 'update', 'delete'],
   sourceTracking: ['create', 'read', 'update', 'delete'],
+  pipeline: ['create', 'read', 'update', 'delete'],
 })
 
 export const admin = ac.newRole({
@@ -84,6 +86,7 @@ export const admin = ac.newRole({
   activityLog: ['read'],
   scoring: ['create', 'read', 'update', 'delete'],
   sourceTracking: ['create', 'read', 'update', 'delete'],
+  pipeline: ['create', 'read', 'update', 'delete'],
 })
 
 export const member = ac.newRole({
@@ -99,4 +102,5 @@ export const member = ac.newRole({
   activityLog: ['read'],
   scoring: ['create', 'read'],
   sourceTracking: ['read'],
+  pipeline: ['read'],
 })

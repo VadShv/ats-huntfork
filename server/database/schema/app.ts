@@ -36,6 +36,15 @@ export const genderEnum = pgEnum('gender', ['male', 'female', 'other', 'prefer_n
 export const experienceLevelEnum = pgEnum('experience_level', ['junior', 'mid', 'senior', 'lead'])
 export const nameDisplayFormatEnum = pgEnum('name_display_format', ['first_last', 'last_first'])
 export const dateFormatEnum = pgEnum('date_format', ['mdy', 'dmy', 'ymd'])
+export const pipelineStageTypeEnum = pgEnum('pipeline_stage_type', [
+  'applied',     // entry point
+  'screening',   // CV / phone screen
+  'interview',   // any interview round
+  'offer',       // offer extended
+  'hired',       // success terminal
+  'rejected',    // reject terminal
+  'custom',      // anything else
+])
 
 // ─────────────────────────────────────────────
 // ATS Domain Tables — ALL scoped by organizationId
@@ -63,6 +72,8 @@ export const job = pgTable('job', {
   validThrough: timestamp('valid_through'),
   /** Experience level required for this role */
   experienceLevel: experienceLevelEnum('experience_level'),
+  /** Optional pipeline assigned to this job. Null = use org default pipeline. */
+  pipelineId: text('pipeline_id').references(() => pipeline.id, { onDelete: 'set null' }),
   // ── Application form settings ──
   requireResume: boolean('require_resume').notNull().default(false),
   requireCoverLetter: boolean('require_cover_letter').notNull().default(false),
@@ -110,6 +121,10 @@ export const application = pgTable('application', {
   candidateId: text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
   jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
   status: applicationStatusEnum('status').notNull().default('new'),
+  /** Current pipeline stage — null until assigned to a pipeline. Old enum status field kept for back-compat. */
+  currentStageId: text('current_stage_id').references(() => pipelineStage.id, { onDelete: 'set null' }),
+  /** Timestamp of last stage transition. */
+  stageChangedAt: timestamp('stage_changed_at'),
   score: integer('score'),
   notes: text('notes'),
   coverLetterText: text('cover_letter_text'),
@@ -120,6 +135,78 @@ export const application = pgTable('application', {
   index('application_candidate_id_idx').on(t.candidateId),
   index('application_job_id_idx').on(t.jobId),
   uniqueIndex('application_org_candidate_job_idx').on(t.organizationId, t.candidateId, t.jobId),
+]))
+
+// ─────────────────────────────────────────────
+// Configurable Pipelines (Stage B1)
+// ─────────────────────────────────────────────
+
+/**
+ * A recruiting pipeline template belonging to an organization.
+ * System presets (isSystem=true) are seeded once per org and cannot be
+ * edited or deleted — only cloned. Exactly one default per org is enforced
+ * in application logic.
+ */
+export const pipeline = pgTable('pipeline', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  /** System preset cannot be edited or deleted; only cloned. Seeded once per org. */
+  isSystem: boolean('is_system').notNull().default(false),
+  /** Default pipeline for new jobs in this org. Exactly one default per org enforced in app logic. */
+  isDefault: boolean('is_default').notNull().default(false),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('pipeline_organization_id_idx').on(t.organizationId),
+  uniqueIndex('pipeline_org_name_idx').on(t.organizationId, t.name),
+]))
+
+/**
+ * A single stage within a pipeline. Each pipeline has an ordered list of stages.
+ * Terminal stages (isTerminal=true) represent final outcomes (hired/rejected).
+ * Each pipeline must have ≥1 success-terminal and ≥1 reject-terminal (enforced in app logic).
+ */
+export const pipelineStage = pgTable('pipeline_stage', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  pipelineId: text('pipeline_id').notNull().references(() => pipeline.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  /** Hex color, auto-assigned by server based on type. e.g. '#10b981' */
+  color: text('color').notNull(),
+  type: pipelineStageTypeEnum('type').notNull().default('custom'),
+  /** Order within pipeline. 0-based, gaps allowed (we reindex on save). */
+  displayOrder: integer('display_order').notNull().default(0),
+  /** True for hired/rejected stages. Validation: each pipeline must have >=1 success-terminal + >=1 reject-terminal. */
+  isTerminal: boolean('is_terminal').notNull().default(false),
+  /** When archived, hidden in new movements but existing applications stay. */
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('pipeline_stage_pipeline_id_idx').on(t.pipelineId),
+  index('pipeline_stage_organization_id_idx').on(t.organizationId),
+]))
+
+/**
+ * Audit trail for every stage transition of an application.
+ * fromStageId is null for the initial placement into the pipeline.
+ */
+export const applicationStageHistory = pgTable('application_stage_history', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  applicationId: text('application_id').notNull().references(() => application.id, { onDelete: 'cascade' }),
+  fromStageId: text('from_stage_id').references(() => pipelineStage.id, { onDelete: 'set null' }),
+  toStageId: text('to_stage_id').notNull().references(() => pipelineStage.id, { onDelete: 'cascade' }),
+  movedByUserId: text('moved_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+  comment: text('comment'),
+  movedAt: timestamp('moved_at').notNull().defaultNow(),
+}, (t) => ([
+  index('application_stage_history_application_id_idx').on(t.applicationId),
+  index('application_stage_history_organization_id_idx').on(t.organizationId),
 ]))
 
 /**
@@ -466,7 +553,7 @@ export const comment = pgTable('comment', {
 export const activityActionEnum = pgEnum('activity_action', [
   'created', 'updated', 'deleted', 'status_changed',
   'comment_added', 'member_invited', 'member_removed', 'member_role_changed',
-  'scored',
+  'scored', 'stage_changed',
 ])
 
 // ─────────────────────────────────────────────
@@ -711,6 +798,7 @@ export const jobRelations = relations(job, ({ one, many }) => ({
   questions: many(jobQuestion),
   scoringCriteria: many(scoringCriterion),
   trackingLinks: many(trackingLink),
+  pipeline: one(pipeline, { fields: [job.pipelineId], references: [pipeline.id] }),
 }))
 
 export const candidateRelations = relations(candidate, ({ one, many }) => ({
@@ -728,6 +816,8 @@ export const applicationRelations = relations(application, ({ one, many }) => ({
   criterionScores: many(criterionScore),
   analysisRuns: many(analysisRun),
   source: one(applicationSource),
+  currentStage: one(pipelineStage, { fields: [application.currentStageId], references: [pipelineStage.id] }),
+  stageHistory: many(applicationStageHistory),
 }))
 
 export const documentRelations = relations(document, ({ one }) => ({
@@ -965,4 +1055,28 @@ export const chatbotConversationRelations = relations(chatbotConversation, ({ on
 
 export const chatbotMessageRelations = relations(chatbotMessage, ({ one }) => ({
   conversation: one(chatbotConversation, { fields: [chatbotMessage.conversationId], references: [chatbotConversation.id] }),
+}))
+
+// ─── Pipeline Relations ─────────────────────────────────────────────────
+
+export const pipelineRelations = relations(pipeline, ({ one, many }) => ({
+  organization: one(organization, { fields: [pipeline.organizationId], references: [organization.id] }),
+  stages: many(pipelineStage),
+  jobs: many(job),
+}))
+
+export const pipelineStageRelations = relations(pipelineStage, ({ one, many }) => ({
+  organization: one(organization, { fields: [pipelineStage.organizationId], references: [organization.id] }),
+  pipeline: one(pipeline, { fields: [pipelineStage.pipelineId], references: [pipeline.id] }),
+  applications: many(application),
+  stageHistoryFrom: many(applicationStageHistory, { relationName: 'fromStage' }),
+  stageHistoryTo: many(applicationStageHistory, { relationName: 'toStage' }),
+}))
+
+export const applicationStageHistoryRelations = relations(applicationStageHistory, ({ one }) => ({
+  organization: one(organization, { fields: [applicationStageHistory.organizationId], references: [organization.id] }),
+  application: one(application, { fields: [applicationStageHistory.applicationId], references: [application.id] }),
+  fromStage: one(pipelineStage, { fields: [applicationStageHistory.fromStageId], references: [pipelineStage.id], relationName: 'fromStage' }),
+  toStage: one(pipelineStage, { fields: [applicationStageHistory.toStageId], references: [pipelineStage.id], relationName: 'toStage' }),
+  movedByUser: one(user, { fields: [applicationStageHistory.movedByUserId], references: [user.id] }),
 }))

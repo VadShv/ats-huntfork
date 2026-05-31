@@ -1,6 +1,7 @@
-import { eq, and } from 'drizzle-orm'
-import { job } from '../../database/schema'
+import { eq, and, isNull } from 'drizzle-orm'
+import { job, pipeline, application } from '../../database/schema'
 import { idParamSchema, updateJobSchema, JOB_STATUS_TRANSITIONS } from '../../utils/schemas/job'
+import { countActiveApplicationsForJob } from '../../utils/pipeline-helpers'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['update'] })
@@ -9,10 +10,10 @@ export default defineEventHandler(async (event) => {
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
   const body = await readValidatedBody(event, updateJobSchema.parse)
 
-  // Fetch existing job — needed for status transition check and slug regeneration
+  // Fetch existing job — needed for status transition check, slug regeneration, and pipeline change check
   const existing = await db.query.job.findFirst({
     where: and(eq(job.id, id), eq(job.organizationId, orgId)),
-    columns: { status: true, title: true, slug: true },
+    columns: { status: true, title: true, slug: true, pipelineId: true },
   })
 
   if (!existing) {
@@ -28,6 +29,57 @@ export default defineEventHandler(async (event) => {
         statusMessage: `Cannot transition from '${existing.status}' to '${body.status}'`,
       })
     }
+  }
+
+  // ─────────────────────────────────────────────
+  // Pipeline change validation
+  // ─────────────────────────────────────────────
+
+  const pipelineIsChanging =
+    'pipelineId' in body &&
+    body.pipelineId !== undefined &&
+    body.pipelineId !== existing.pipelineId
+
+  if (pipelineIsChanging && body.pipelineId !== null) {
+    // Validate the new pipeline exists in the same org and is not archived
+    const targetPipeline = await db.query.pipeline.findFirst({
+      where: and(
+        eq(pipeline.id, body.pipelineId!),
+        eq(pipeline.organizationId, orgId),
+        eq(pipeline.isArchived, false),
+      ),
+      columns: { id: true },
+    })
+
+    if (!targetPipeline) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Указанная воронка не найдена',
+      })
+    }
+  }
+
+  if (pipelineIsChanging) {
+    // Block the change if there are active applications on this job
+    const activeCount = await countActiveApplicationsForJob(db, id)
+
+    if (activeCount > 0) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: `Нельзя сменить воронку: у вакансии ${activeCount} активных кандидатов. Закройте или перенесите их перед сменой воронки.`,
+      })
+    }
+
+    // Clear currentStageId on any closed (terminal) applications so they don't reference
+    // stages from the old pipeline. Closed apps have status hired/rejected.
+    await db.update(application)
+      .set({ currentStageId: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(application.jobId, id),
+          eq(application.organizationId, orgId),
+        ),
+      )
   }
 
   // Regenerate slug when title or custom slug changes
@@ -59,6 +111,7 @@ export default defineEventHandler(async (event) => {
       requireCoverLetter: job.requireCoverLetter,
       autoScoreOnApply: job.autoScoreOnApply,
       experienceLevel: job.experienceLevel,
+      pipelineId: job.pipelineId,
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
     })

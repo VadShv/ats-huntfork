@@ -1,11 +1,44 @@
-import { job } from '../../database/schema'
+import { eq, and } from 'drizzle-orm'
+import { job, pipeline } from '../../database/schema'
 import { createJobSchema } from '../../utils/schemas/job'
+import { getDefaultPipelineForOrg } from '../../utils/pipeline-helpers'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['create'] })
   const orgId = session.session.activeOrganizationId
 
   const body = await readValidatedBody(event, createJobSchema.parse)
+
+  // ─────────────────────────────────────────────
+  // Resolve pipeline
+  // ─────────────────────────────────────────────
+
+  let resolvedPipelineId: string | null = null
+
+  if (body.pipelineId) {
+    // Validate the provided pipeline exists in the same org and is not archived
+    const existingPipeline = await db.query.pipeline.findFirst({
+      where: and(
+        eq(pipeline.id, body.pipelineId),
+        eq(pipeline.organizationId, orgId),
+        eq(pipeline.isArchived, false),
+      ),
+      columns: { id: true },
+    })
+
+    if (!existingPipeline) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Указанная воронка не найдена',
+      })
+    }
+
+    resolvedPipelineId = existingPipeline.id
+  } else {
+    // Auto-resolve: use org default, fall back to system pipeline
+    const defaultPipeline = await getDefaultPipelineForOrg(db, orgId)
+    resolvedPipelineId = defaultPipeline?.id ?? null
+  }
 
   // Generate a deterministic ID upfront so we can build the slug
   const jobId = crypto.randomUUID()
@@ -30,6 +63,7 @@ export default defineEventHandler(async (event) => {
     requireCoverLetter: body.requireCoverLetter,
     autoScoreOnApply: body.autoScoreOnApply,
     experienceLevel: body.experienceLevel,
+    pipelineId: resolvedPipelineId,
   }).returning({
     id: job.id,
     title: job.title,
@@ -49,6 +83,7 @@ export default defineEventHandler(async (event) => {
     requireCoverLetter: job.requireCoverLetter,
     autoScoreOnApply: job.autoScoreOnApply,
     experienceLevel: job.experienceLevel,
+    pipelineId: job.pipelineId,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
   })

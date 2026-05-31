@@ -1,6 +1,7 @@
 import { eq, and } from 'drizzle-orm'
-import { application, candidate, job } from '../../database/schema'
+import { application, candidate, job, applicationStageHistory } from '../../database/schema'
 import { createApplicationSchema } from '../../utils/schemas/application'
+import { getEntryStageForPipeline } from '../../utils/pipeline-helpers'
 
 /**
  * POST /api/applications
@@ -23,10 +24,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
   }
 
-  // Verify job belongs to this org
+  // Verify job belongs to this org — also fetch pipelineId for stage assignment
   const existingJob = await db.query.job.findFirst({
     where: and(eq(job.id, body.jobId), eq(job.organizationId, orgId)),
-    columns: { id: true },
+    columns: { id: true, pipelineId: true },
   })
 
   if (!existingJob) {
@@ -50,12 +51,26 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // ─────────────────────────────────────────────
+  // Resolve the entry stage for the job's pipeline
+  // ─────────────────────────────────────────────
+
+  let entryStageId: string | null = null
+  if (existingJob.pipelineId) {
+    const entryStage = await getEntryStageForPipeline(db, existingJob.pipelineId)
+    entryStageId = entryStage?.id ?? null
+  }
+
+  const now = new Date()
+
   const [created] = await db.insert(application).values({
     organizationId: orgId,
     candidateId: body.candidateId,
     jobId: body.jobId,
     notes: body.notes,
     status: 'new',
+    currentStageId: entryStageId,
+    stageChangedAt: entryStageId ? now : null,
   }).returning({
     id: application.id,
     candidateId: application.candidateId,
@@ -63,12 +78,26 @@ export default defineEventHandler(async (event) => {
     status: application.status,
     score: application.score,
     notes: application.notes,
+    currentStageId: application.currentStageId,
+    stageChangedAt: application.stageChangedAt,
     createdAt: application.createdAt,
     updatedAt: application.updatedAt,
   })
 
   if (!created) {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create application' })
+  }
+
+  // Write initial stage history row if a pipeline entry stage was resolved
+  if (entryStageId) {
+    await db.insert(applicationStageHistory).values({
+      organizationId: orgId,
+      applicationId: created.id,
+      fromStageId: null,
+      toStageId: entryStageId,
+      movedByUserId: session.user.id,
+      movedAt: now,
+    })
   }
 
   recordActivity({

@@ -35,6 +35,7 @@ export function useJob(id: MaybeRefOrGetter<string>) {
     requireCoverLetter: boolean
     autoScoreOnApply: boolean
     experienceLevel: 'junior' | 'mid' | 'senior' | 'lead' | null
+    pipelineId: string | null
   }>) {
     try {
       const updated = await $fetch(`/api/jobs/${jobId.value}`, {

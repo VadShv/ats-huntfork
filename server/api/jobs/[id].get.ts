@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm'
-import { job } from '../../database/schema'
+import { job, pipeline } from '../../database/schema'
 import { idParamSchema } from '../../utils/schemas/job'
 
 export default defineEventHandler(async (event) => {
@@ -29,6 +29,7 @@ export default defineEventHandler(async (event) => {
       requireCoverLetter: true,
       autoScoreOnApply: true,
       experienceLevel: true,
+      pipelineId: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -37,6 +38,9 @@ export default defineEventHandler(async (event) => {
         columns: { id: true, candidateId: true, status: true, createdAt: true },
         limit: 100,
       },
+      pipeline: {
+        columns: { id: true, name: true, isDefault: true, isSystem: true },
+      },
     },
   })
 
@@ -44,5 +48,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Not found' })
   }
 
-  return result
+  return {
+    ...result,
+    pipelineName: result.pipeline?.name ?? null,
+  }
 })

@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { ac, owner, admin, member } from "~~/shared/permissions";
 import { sendOrgInvitationEmail, sendPasswordResetEmail } from "./email";
 import * as schema from "../database/schema";
+import { seedSystemPipelineForOrg } from "./pipeline-seed";
 
 type Auth = ReturnType<typeof betterAuth>;
 let _auth: Auth | undefined;
@@ -303,6 +304,20 @@ function getAuth(): Auth {
           async sendInvitationEmail(data) {
             const inviteLink = `${baseURL}/auth/accept-invitation/${data.id}`;
             await sendOrgInvitationEmail(data, inviteLink);
+          },
+
+          // ── Post-creation hook ──────────────────────────────────
+          // Seed the standard system pipeline preset immediately after a new
+          // organization is created via better-auth's API (e.g. from the UI).
+          async afterCreateOrganization(data: { organization: { id: string; [key: string]: unknown } }) {
+            try {
+              await seedSystemPipelineForOrg(db, data.organization.id);
+            }
+            catch (err) {
+              // Log but don't throw — pipeline seeding failure must not block
+              // org creation. The backfill script can recover missing presets.
+              console.error('[pipeline-seed] Failed to seed system pipeline for org', data.organization.id, err);
+            }
           },
 
           // ── Security Hardening ──────────────────────────────────

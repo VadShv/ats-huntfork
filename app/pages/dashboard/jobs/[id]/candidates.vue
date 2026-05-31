@@ -42,12 +42,47 @@ type Status = typeof STATUS_OPTIONS[number]
 const selectedStatuses = useState<Status[]>(`cand-filter-statuses-${jobId}`, () => [])
 const scoreMin = useState<number | undefined>(`cand-filter-score-min-${jobId}`, () => undefined)
 const scoreMax = useState<number | undefined>(`cand-filter-score-max-${jobId}`, () => undefined)
+const selectedStageId = useState<string | undefined>(`cand-filter-stageId-${jobId}`, () => undefined)
 const visibleCols = useState(`cand-visible-cols-${jobId}`, () => ({
   email: true,
   score: true,
+  stage: true,
   status: true,
   createdAt: true,
 }))
+
+// ── Pipeline stages for this job (for stage filter) ────────────────────────────
+
+const { data: pipelineStatus } = useFetch(
+  () => `/api/jobs/${jobId}/pipeline-status`,
+  {
+    key: `cand-pipeline-status-${jobId}`,
+    headers: useRequestHeaders(['cookie']),
+  },
+)
+
+const pipelineId = computed(() => pipelineStatus.value?.pipelineId ?? null)
+const pipelineName = computed(() => pipelineStatus.value?.pipelineName ?? null)
+
+type StageItem = { id: string; name: string; color: string; type: string; displayOrder: number; isArchived: boolean }
+
+const { data: pipelineData } = useFetch(
+  () => pipelineId.value ? `/api/pipelines/${pipelineId.value}` : null,
+  {
+    key: computed(() => `cand-pipeline-${pipelineId.value}`),
+    headers: useRequestHeaders(['cookie']),
+    watch: [pipelineId],
+  },
+)
+
+const pipelineStages = computed<StageItem[]>(() => {
+  if (!pipelineData.value) return []
+  // The pipeline GET endpoint returns stages in displayOrder
+  return ((pipelineData.value as { stages?: StageItem[] }).stages ?? [])
+    .filter((s: StageItem) => !s.isArchived)
+})
+
+const hasPipeline = computed(() => !!pipelineId.value)
 
 // Only send a single status to the API when exactly one is selected; otherwise fetch all and filter client-side
 const apiStatusFilter = computed(() =>
@@ -60,6 +95,7 @@ const { data: appData, status: appFetchStatus, error: appError, refresh: refresh
     jobId,
     limit: 100,
     ...(apiStatusFilter.value && { status: apiStatusFilter.value }),
+    ...(selectedStageId.value && { stageId: selectedStageId.value }),
   })),
   headers: useRequestHeaders(['cookie']),
 })
@@ -123,6 +159,7 @@ const activeFilterCount = computed(() => {
   let n = selectedStatuses.value.length
   if (scoreMin.value != null) n++
   if (scoreMax.value != null) n++
+  if (selectedStageId.value != null) n++
   return n
 })
 
@@ -130,6 +167,7 @@ function clearFilters() {
   selectedStatuses.value = []
   scoreMin.value = undefined
   scoreMax.value = undefined
+  selectedStageId.value = undefined
 }
 
 // ─────────────────────────────────────────────
@@ -285,6 +323,7 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                   v-for="col in ([
                     { key: 'email', label: $t('dashboard.jobs.candidates.colEmail') },
                     { key: 'score', label: $t('dashboard.jobs.candidates.colScore') },
+                    { key: 'stage', label: $t('applications.stage.label') },
                     { key: 'status', label: $t('dashboard.jobs.candidates.colStatus') },
                     { key: 'createdAt', label: $t('dashboard.jobs.candidates.colApplied') },
                   ] as const)"
@@ -338,6 +377,56 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
             </div>
 
             <div class="border-t border-surface-100 dark:border-surface-800" />
+
+            <!-- Stage filter (only shown when the job has a pipeline) -->
+            <div v-if="hasPipeline && pipelineStages.length > 0">
+              <p class="text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wide mb-2">
+                {{ $t('applications.filter.stage') }}
+              </p>
+              <div class="space-y-1.5">
+                <label
+                  v-for="stage in pipelineStages"
+                  :key="stage.id"
+                  class="flex items-center gap-2.5 cursor-pointer select-none group"
+                >
+                  <input
+                    type="radio"
+                    class="sr-only"
+                    name="stageFilter"
+                    :value="stage.id"
+                    :checked="selectedStageId === stage.id"
+                    @change="selectedStageId = selectedStageId === stage.id ? undefined : stage.id"
+                  />
+                  <span
+                    class="size-4 shrink-0 rounded-full border flex items-center justify-center transition-colors"
+                    :class="selectedStageId === stage.id
+                      ? 'border-brand-500'
+                      : 'bg-white dark:bg-surface-800 border-surface-300 dark:border-surface-600'"
+                    :style="selectedStageId === stage.id ? { backgroundColor: stage.color } : {}"
+                  >
+                    <Check v-if="selectedStageId === stage.id" class="size-2.5 text-white" :stroke-width="3" />
+                  </span>
+                  <span class="flex items-center gap-1.5 text-sm text-surface-700 dark:text-surface-300">
+                    <span
+                      class="inline-flex size-2 rounded-full shrink-0"
+                      :style="{ backgroundColor: stage.color }"
+                    />
+                    {{ stage.name }}
+                  </span>
+                </label>
+                <!-- Clear stage selection -->
+                <button
+                  v-if="selectedStageId"
+                  type="button"
+                  class="text-xs text-surface-400 hover:text-danger-600 transition-colors mt-1 cursor-pointer"
+                  @click="selectedStageId = undefined"
+                >
+                  {{ $t('applications.filter.allStages') }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="hasPipeline && pipelineStages.length > 0" class="border-t border-surface-100 dark:border-surface-800" />
 
             <!-- Score range -->
             <div>
@@ -451,6 +540,9 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                     <ChevronsUpDown v-else class="size-3 opacity-40" />
                   </button>
                 </th>
+                <th v-if="visibleCols.stage" class="px-4 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide select-none">
+                  {{ $t('applications.stage.label') }}
+                </th>
                 <th v-if="visibleCols.status" class="px-4 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide select-none">
                   <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('status')">
                     {{ $t('dashboard.jobs.candidates.colStatus') }}
@@ -519,6 +611,13 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                     {{ app.score }} pts
                   </span>
                   <span v-else class="text-surface-400 dark:text-surface-500 text-xs">—</span>
+                </td>
+                <td v-if="visibleCols.stage" class="px-4 py-3" @click.stop>
+                  <ApplicationStagePicker
+                    :application-id="app.id"
+                    :current-stage-id="(app as { currentStageId?: string | null }).currentStageId ?? null"
+                    @stage-changed="refreshApps()"
+                  />
                 </td>
                 <td v-if="visibleCols.status" class="px-4 py-3">
                   <span

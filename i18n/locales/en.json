@@ -1003,6 +1003,14 @@
         "configured": "configured",
         "cancel": "Cancel",
         "aiNotConfiguredDesc": "Set up your AI provider and model before generating criteria."
+      },
+      "form": {
+        "pipelineLabel": "Hiring Pipeline",
+        "pipelineHelp": "Hiring stages for this job. You can change the pipeline later.",
+        "pipelinePlaceholder": "Select a pipeline",
+        "pipelineSystemSuffix": "(System)",
+        "pipelineDefaultSuffix": "(Default)",
+        "pipelineLocked": "Cannot change pipeline: this job has {count} active candidates. Close or move them before switching pipelines."
       }
     },
     "candidates": {
@@ -1452,6 +1460,113 @@
       "deleteTitle": "Delete Candidate",
       "deleteBody": "Are you sure you want to delete? This will also delete all their applications and documents. This action cannot be undone.",
       "deleting": "Deleting…"
+    }
+  },
+  "pipelines": {
+    "title": "Recruitment Pipelines",
+    "description": "Configure hiring stages for different job types",
+    "create": "Create pipeline",
+    "showArchived": "Show archived",
+    "emptyHint": "The system preset \"Standard\" is in use. Create your own pipeline to customise the stages.",
+    "badges": {
+      "system": "System",
+      "default": "Default",
+      "archived": "Archived"
+    },
+    "list": {
+      "name": "Name",
+      "description": "Description",
+      "stages": "Stages",
+      "jobs": "Jobs",
+      "actions": "Actions"
+    },
+    "actions": {
+      "edit": "Edit",
+      "clone": "Clone",
+      "archive": "Archive",
+      "setDefault": "Set as default",
+      "cloneAndEdit": "Clone & edit"
+    },
+    "systemReadOnly": "This is a system preset and cannot be edited. Clone it and edit the copy.",
+    "systemEditTooltip": "System preset cannot be edited. Clone it.",
+    "form": {
+      "nameLabel": "Name",
+      "namePlaceholder": "E.g. Software Engineering",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Brief pipeline description (optional)",
+      "stagesTitle": "Stages",
+      "stagesHint": "Minimum 2 active stages. At least one terminal \"Hired\" and one terminal \"Rejected\" stage required.",
+      "addStage": "+ Add stage"
+    },
+    "stage": {
+      "nameLabel": "Stage name",
+      "typeLabel": "Type",
+      "terminal": "Terminal",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "archive": "Archive",
+      "restore": "Restore"
+    },
+    "stageType": {
+      "applied": "Incoming",
+      "screening": "Screening",
+      "interview": "Interview",
+      "offer": "Offer",
+      "hired": "Hired",
+      "rejected": "Rejected",
+      "custom": "Custom"
+    },
+    "validation": {
+      "needSuccessTerminal": "Add a \"Hired\" terminal stage",
+      "needRejectTerminal": "Add a \"Rejected\" terminal stage",
+      "minTwoStages": "Minimum 2 active stages required",
+      "duplicateName": "Stage names must be unique"
+    },
+    "stats": {
+      "usedInJobs": "Used in {count} jobs",
+      "activeApplications": "{count} active applications"
+    },
+    "toast": {
+      "created": "Pipeline created",
+      "updated": "Pipeline updated",
+      "archived": "Pipeline archived",
+      "cloned": "Pipeline cloned",
+      "defaultSet": "Pipeline set as default"
+    },
+    "confirmArchive": "Archive pipeline \"{name}\"?",
+    "cloneNamePlaceholder": "{name} (copy)"
+  },
+  "settings": {
+    "sidebar": {
+      "pipelines": "Pipelines"
+    }
+  },
+  "applications": {
+    "stage": {
+      "label": "Stage",
+      "current": "Current stage",
+      "move": "Move",
+      "moveTo": "Move to stage",
+      "comment": "Comment (optional)",
+      "commentPlaceholder": "E.g. passed initial screening successfully",
+      "movedToast": "Candidate moved to stage \"{name}\"",
+      "noPipeline": "To move between stages, set a pipeline in the job settings",
+      "alreadyOnStage": "Candidate is already at this stage",
+      "errors": {
+        "noPipelineOnJob": "The job has no pipeline assigned",
+        "stageNotFound": "Stage not found or archived"
+      }
+    },
+    "history": {
+      "title": "Stage History",
+      "empty": "No stage history yet",
+      "moved": "moved",
+      "system": "System",
+      "comment": "Comment"
+    },
+    "filter": {
+      "stage": "Stage",
+      "allStages": "All stages"
     }
   }
 }

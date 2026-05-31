@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare } from 'lucide-vue-next'
+import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
 definePageMeta({
@@ -13,6 +13,32 @@ const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const toast = useToast()
 
 const { application, status: fetchStatus, error, refresh, updateApplication } = useApplication(applicationId)
+const { t } = useI18n()
+
+/** Reactive stage state — updated optimistically when picker emits */
+const localStageId = ref<string | null>(null)
+const localStageName = ref<string | null>(null)
+const localStageColor = ref<string | null>(null)
+
+watch(
+  () => application.value,
+  (app) => {
+    if (app) {
+      localStageId.value = (app as { currentStageId?: string | null }).currentStageId ?? null
+      localStageName.value = (app as { currentStage?: { name: string } | null }).currentStage?.name ?? null
+      localStageColor.value = (app as { currentStage?: { color: string } | null }).currentStage?.color ?? null
+    }
+  },
+  { immediate: true },
+)
+
+function handleStageChanged(payload: { newStageId: string; newStageName: string; newStageColor: string }) {
+  localStageId.value = payload.newStageId
+  localStageName.value = payload.newStageName
+  localStageColor.value = payload.newStageColor
+  // Full refresh to keep all data in sync
+  void refresh()
+}
 
 const { formatCandidateName } = useOrgSettings()
 
@@ -167,7 +193,15 @@ function formatResponseValue(value: unknown): string {
           </NuxtLink>
         </div>
         <div class="flex flex-wrap items-center gap-3">
+          <!-- Pipeline stage picker — shown prominently when a pipeline exists -->
+          <ApplicationStagePicker
+            :application-id="applicationId"
+            :current-stage-id="localStageId"
+            @stage-changed="handleStageChanged"
+          />
+          <!-- Legacy status badge: hidden when a pipeline stage is set, shown otherwise for back-compat -->
           <span
+            v-if="!localStageId"
             class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
             :class="statusBadgeClasses[application.status] ?? 'bg-surface-100 text-surface-600'"
           >
@@ -280,6 +314,16 @@ function formatResponseValue(value: unknown): string {
               <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ application.score ?? '—' }}</dd>
             </div>
             <div>
+              <dt class="text-surface-400">{{ $t('applications.stage.current') }}</dt>
+              <dd class="text-surface-700 dark:text-surface-200 font-medium">
+                <ApplicationStageBadge
+                  :name="localStageName ?? ''"
+                  :color="localStageColor ?? '#94a3b8'"
+                  size="sm"
+                />
+              </dd>
+            </div>
+            <div v-if="!localStageId">
               <dt class="text-surface-400">Status</dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium capitalize">{{ application.status }}</dd>
             </div>
@@ -364,6 +408,19 @@ function formatResponseValue(value: unknown): string {
           :entries="(application.properties ?? []) as import('~~/shared/properties').PropertyEntry[]"
           @refresh="refresh()"
         />
+      </div>
+
+      <!-- Stage History Timeline — always show; the component renders its own empty state -->
+      <div
+        class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 mb-4"
+      >
+        <div class="flex items-center gap-2 mb-4">
+          <GitBranch class="size-4 text-surface-500 dark:text-surface-400" />
+          <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+            {{ $t('applications.history.title') }}
+          </h2>
+        </div>
+        <ApplicationStageTimeline :application-id="applicationId" />
       </div>
 
       <!-- Question Responses -->

@@ -26,6 +26,7 @@ import { eq } from 'drizzle-orm'
 import { hashPassword } from 'better-auth/crypto'
 import * as schema from '../database/schema'
 import { encrypt } from '../utils/encryption'
+import { seedSystemPipelineForOrg } from '../utils/pipeline-seed'
 
 // ─────────────────────────────────────────────
 // Config
@@ -2338,6 +2339,10 @@ async function seed() {
   })
 
   console.log(`✅ Created organization: ${DEMO_ORG_NAME}`)
+
+  // Seed system pipeline preset for the new org
+  await seedSystemPipelineForOrg(db, orgId)
+  console.log('✅ Seeded system pipeline preset')
 
   // 3. Create jobs
   const jobIds: string[] = []

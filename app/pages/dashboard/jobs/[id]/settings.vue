@@ -47,6 +47,7 @@ const form = ref({
   requireResume: false,
   requireCoverLetter: false,
   autoScoreOnApply: false,
+  pipelineId: null as string | null,
 })
 
 watch(job, (j) => {
@@ -68,9 +69,33 @@ watch(job, (j) => {
       requireResume: j.requireResume ?? false,
       requireCoverLetter: j.requireCoverLetter ?? false,
       autoScoreOnApply: j.autoScoreOnApply ?? false,
+      pipelineId: (j as any).pipelineId ?? null,
     }
   }
 }, { immediate: true })
+
+// ─────────────────────────────────────────────
+// Pipeline selector state
+// ─────────────────────────────────────────────
+
+// Fetch all non-archived pipelines for the org
+const { data: pipelinesData } = useFetch('/api/pipelines', {
+  query: { includeArchived: false },
+  headers: useRequestHeaders(['cookie']),
+})
+const pipelines = computed(() => pipelinesData.value ?? [])
+
+// Fetch pipeline-status for this job (lightweight — tells us if change is allowed)
+const { data: pipelineStatus, refresh: refreshPipelineStatus } = useFetch(
+  () => `/api/jobs/${jobId}/pipeline-status`,
+  {
+    key: computed(() => `pipeline-status-${jobId}`),
+    headers: useRequestHeaders(['cookie']),
+  },
+)
+
+const canChangePipeline = computed(() => pipelineStatus.value?.canChangePipeline ?? true)
+const activeApplicationsCount = computed(() => pipelineStatus.value?.activeApplicationsCount ?? 0)
 
 // When "Negotiable" is toggled on, clear the salary range fields
 watch(() => form.value.salaryNegotiable, (negotiable) => {
@@ -142,9 +167,12 @@ async function handleSave() {
       experienceLevel: (form.value.experienceLevel as 'junior' | 'mid' | 'senior' | 'lead' | null) || null,
       // Send null when cleared so the DB column is set to NULL
       validThrough: form.value.validThrough ? new Date(form.value.validThrough) : null,
+      // Only send pipelineId if it has changed (backend validates active applications)
+      pipelineId: form.value.pipelineId ?? null,
     }
 
     await updateJob(payload as any)
+    await refreshPipelineStatus()
     track('job_settings_saved', { job_id: jobId })
     saved.value = true
     setTimeout(() => { saved.value = false }, 2000)
@@ -472,6 +500,39 @@ function onSalaryMaxChange(e: Event) {
                 </div>
               </div>
             </template>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- SECTION: Hiring Pipeline                 -->
+        <!-- ═══════════════════════════════════════ -->
+        <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
+          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ t('dashboard.jobs.form.pipelineLabel') }}</h2>
+          <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">{{ t('dashboard.jobs.form.pipelineHelp') }}</p>
+
+          <!-- Warning banner: pipeline locked due to active candidates -->
+          <div
+            v-if="!canChangePipeline"
+            class="mb-4 rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950/30 px-4 py-3 text-sm text-danger-700 dark:text-danger-300"
+          >
+            {{ t('dashboard.jobs.form.pipelineLocked', { count: activeApplicationsCount }) }}
+          </div>
+
+          <div>
+            <label for="settings-pipelineId" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+              {{ t('dashboard.jobs.form.pipelineLabel') }}
+            </label>
+            <select
+              id="settings-pipelineId"
+              v-model="form.pipelineId"
+              :disabled="!canChangePipeline"
+              class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 border-surface-300 dark:border-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option :value="null" disabled>{{ t('dashboard.jobs.form.pipelinePlaceholder') }}</option>
+              <option v-for="p in pipelines" :key="(p as any).id" :value="(p as any).id">
+                {{ (p as any).name }}{{ (p as any).isSystem ? ` ${t('dashboard.jobs.form.pipelineSystemSuffix')}` : (p as any).isDefault ? ` ${t('dashboard.jobs.form.pipelineDefaultSuffix')}` : '' }}
+              </option>
+            </select>
           </div>
         </section>
 

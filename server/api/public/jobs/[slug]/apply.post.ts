@@ -1,7 +1,8 @@
 import { eq, and, asc, sql } from 'drizzle-orm'
 import { fileTypeFromBuffer } from 'file-type'
-import { job, candidate, application, jobQuestion, questionResponse, document, organization, applicationSource, trackingLink } from '../../../../database/schema'
+import { job, candidate, application, jobQuestion, questionResponse, document, organization, applicationSource, trackingLink, applicationStageHistory } from '../../../../database/schema'
 import { publicApplicationSchema, publicJobSlugSchema } from '../../../../utils/schemas/publicApplication'
+import { getEntryStageForPipeline } from '../../../../utils/pipeline-helpers'
 import { createPreviewReadOnlyError } from '../../../../utils/previewReadOnly'
 import { autoScoreApplication } from '../../../../utils/ai/autoScore'
 import { parseDocument } from '../../../../utils/resume-parser'
@@ -178,7 +179,7 @@ export default defineEventHandler(async (event) => {
 
   const existingJob = await db.query.job.findFirst({
     where: and(eq(job.slug, slug), eq(job.status, 'open')),
-    columns: { id: true, organizationId: true, requireResume: true, requireCoverLetter: true, autoScoreOnApply: true },
+    columns: { id: true, organizationId: true, requireResume: true, requireCoverLetter: true, autoScoreOnApply: true, pipelineId: true },
   })
 
   if (!existingJob) {
@@ -387,7 +388,19 @@ export default defineEventHandler(async (event) => {
   }
 
   // ─────────────────────────────────────────────
-  // 8. Create application
+  // 8. Resolve pipeline entry stage for this job
+  // ─────────────────────────────────────────────
+
+  let entryStageId: string | null = null
+  if (existingJob.pipelineId) {
+    const entryStage = await getEntryStageForPipeline(db, existingJob.pipelineId)
+    entryStageId = entryStage?.id ?? null
+  }
+
+  const applicationCreatedAt = new Date()
+
+  // ─────────────────────────────────────────────
+  // 8b. Create application
   // ─────────────────────────────────────────────
 
   const [newApplication] = await db.insert(application).values({
@@ -396,10 +409,32 @@ export default defineEventHandler(async (event) => {
     jobId,
     status: 'new',
     coverLetterText: coverLetterText || null,
+    currentStageId: entryStageId,
+    stageChangedAt: entryStageId ? applicationCreatedAt : null,
   }).returning({ id: application.id })
 
+  // Write initial stage history row (no movedByUserId — public submission)
+  if (entryStageId && newApplication) {
+    try {
+      await db.insert(applicationStageHistory).values({
+        organizationId: orgId,
+        applicationId: newApplication.id,
+        fromStageId: null,
+        toStageId: entryStageId,
+        movedByUserId: null,
+        movedAt: applicationCreatedAt,
+      })
+    } catch (historyErr) {
+      // Stage history is best-effort — do not fail the application
+      logWarn('application.stage_history_failed', {
+        application_id: newApplication?.id,
+        error_message: historyErr instanceof Error ? historyErr.message : String(historyErr),
+      })
+    }
+  }
+
   // ─────────────────────────────────────────────
-  // 8b. Record source attribution
+  // 8c. Record source attribution
   // ─────────────────────────────────────────────
 
   try {

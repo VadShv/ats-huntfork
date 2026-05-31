@@ -37,8 +37,14 @@ export default defineEventHandler(async (event) => {
         status: true,
         experienceLevel: true,
         remoteStatus: true,
+        pipelineId: true,
         createdAt: true,
         updatedAt: true,
+      },
+      with: {
+        pipeline: {
+          columns: { id: true, name: true },
+        },
       },
     }),
     db.$count(job, and(...conditions)),
@@ -70,6 +76,7 @@ export default defineEventHandler(async (event) => {
 
   const enrichedData = data.map((j) => ({
     ...j,
+    pipelineName: j.pipeline?.name ?? null,
     pipeline: pipelineMap[j.id] ?? { new: 0, screening: 0, interview: 0, offer: 0, hired: 0, rejected: 0 },
   }))
 

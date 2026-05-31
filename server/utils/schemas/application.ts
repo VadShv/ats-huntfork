@@ -29,6 +29,17 @@ export const applicationQuerySchema = z.object({
   status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional(),
   /** JSON-encoded array of { propertyDefinitionId, op, value } filters */
   propertyFilters: z.string().optional(),
+  /**
+   * Filter by exact pipeline stage id (currentStageId = stageId).
+   * Takes precedence over stageType when both are supplied.
+   */
+  stageId: z.string().min(1).optional(),
+  /**
+   * Filter by stage type — matches all stages across all pipelines whose
+   * `type` column equals this value (e.g. 'interview').
+   * Ignored when stageId is present.
+   */
+  stageType: z.string().min(1).optional(),
 })
 
 /** Reusable schema for `:id` route params */

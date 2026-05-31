@@ -91,7 +91,22 @@ const form = ref({
   type: 'full_time' as 'full_time' | 'part_time' | 'contract' | 'internship',
   experienceLevel: 'mid' as 'junior' | 'mid' | 'senior' | 'lead',
   remoteStatus: undefined as 'remote' | 'hybrid' | 'onsite' | undefined,
+  pipelineId: undefined as string | undefined,
 })
+
+// Pipeline selector: fetch all non-archived pipelines for this org
+const { data: pipelinesData } = useFetch('/api/pipelines', {
+  query: { includeArchived: false },
+  headers: useRequestHeaders(['cookie']),
+})
+const pipelines = computed(() => pipelinesData.value ?? [])
+
+// Auto-select the default pipeline once data loads
+watch(pipelines, (list) => {
+  if (form.value.pipelineId) return // don't override a user selection
+  const defaultPipeline = list.find((p: any) => p.isDefault) ?? list[0]
+  if (defaultPipeline) form.value.pipelineId = defaultPipeline.id
+}, { immediate: true })
 
 // Step 2: Application form (client-only for now)
 const applicationForm = ref({
@@ -328,6 +343,7 @@ function resetState() {
     type: 'full_time',
     experienceLevel: 'mid',
     remoteStatus: undefined,
+    pipelineId: pipelines.value.find((p: any) => p.isDefault)?.id ?? pipelines.value[0]?.id ?? undefined,
   }
   applicationForm.value = {
     requireResume: true,
@@ -661,6 +677,7 @@ async function handleSubmit(mode: 'publish' | 'draft' = publishChoice.value) {
       requireResume: applicationForm.value.requireResume,
       requireCoverLetter: applicationForm.value.requireCoverLetter,
       autoScoreOnApply: autoScoreOnApply.value,
+      pipelineId: form.value.pipelineId || undefined,
     })
 
     track('job_created')
@@ -946,6 +963,27 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                       <option value="onsite">{{ t('dashboard.jobs.new.remoteOnsite') }}</option>
                     </select>
                   </div>
+                </div>
+              </div>
+
+              <!-- Section: Pipeline -->
+              <div class="space-y-6">
+                <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-6 pb-2 border-b border-surface-100 dark:border-surface-800">{{ t('dashboard.jobs.form.pipelineLabel') }}</h2>
+                <div>
+                  <label for="pipelineId" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+                    {{ t('dashboard.jobs.form.pipelineLabel') }}
+                  </label>
+                  <select
+                    id="pipelineId"
+                    v-model="form.pipelineId"
+                    class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 border-surface-300 dark:border-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                  >
+                    <option :value="undefined" disabled>{{ t('dashboard.jobs.form.pipelinePlaceholder') }}</option>
+                    <option v-for="p in pipelines" :key="(p as any).id" :value="(p as any).id">
+                      {{ (p as any).name }}{{ (p as any).isSystem ? ` ${t('dashboard.jobs.form.pipelineSystemSuffix')}` : (p as any).isDefault ? ` ${t('dashboard.jobs.form.pipelineDefaultSuffix')}` : '' }}
+                    </option>
+                  </select>
+                  <p class="mt-1.5 text-xs text-surface-500">{{ t('dashboard.jobs.form.pipelineHelp') }}</p>
                 </div>
               </div>
 
