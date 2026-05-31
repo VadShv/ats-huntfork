@@ -65,6 +65,13 @@ const isEdit = computed(() => props.config !== null)
 
 const DEFAULT_MAX_TOKENS = 16384
 
+// For Yandex provider: extract folder ID from existing model id like `gpt://b1g.../yandexgpt/latest`.
+function extractFolderId(model: string | undefined | null): string {
+  if (!model) return ''
+  const m = model.match(/^gpt:\/\/([^/]+)\//)
+  return m?.[1] && m[1] !== '__FOLDER_ID__' ? m[1] : ''
+}
+
 const form = ref({
   name: props.config?.name ?? '',
   provider: props.config?.provider ?? 'openai',
@@ -76,6 +83,8 @@ const form = ref({
   outputPricePer1m: props.config?.outputPricePer1m ?? null as number | null,
   isDefaultChatbot: !isEdit.value && props.isFirst,
   isDefaultAnalysis: !isEdit.value && props.isFirst,
+  // Yandex-only: folder ID is embedded in the model id; we keep it in a separate field for UX.
+  yandexFolderId: extractFolderId(props.config?.model),
 })
 
 // When creating, pre-pick the first model of the default provider.
@@ -103,13 +112,14 @@ const selectedProvider = computed<ProviderInfo | null>(() =>
 )
 
 const isCustomProvider = computed(() => form.value.provider === 'openai_compatible')
+const isYandexProvider = computed(() => form.value.provider === 'yandex')
 
 function pickModel(m: ModelInfo) {
   form.value.model = m.id
   form.value.inputPricePer1m = m.inputPricePer1m ?? form.value.inputPricePer1m
   form.value.outputPricePer1m = m.outputPricePer1m ?? form.value.outputPricePer1m
   // Auto-set the friendly name only if the user hasn't customised it.
-  if (!form.value.name || /^(GPT|Claude|Gemini|Llama|Mistral|New configuration)/i.test(form.value.name)) {
+  if (!form.value.name || /^(GPT|Claude|Gemini|Llama|Mistral|YandexGPT|Qwen|New configuration)/i.test(form.value.name)) {
     form.value.name = m.label
   }
 }
@@ -127,11 +137,21 @@ function pickProvider(key: string) {
   }
 }
 
+// For Yandex: build the final model id by replacing the __FOLDER_ID__ placeholder with the user-entered folder ID.
+const resolvedModel = computed(() => {
+  if (isYandexProvider.value && form.value.yandexFolderId.trim()) {
+    return form.value.model.replace('__FOLDER_ID__', form.value.yandexFolderId.trim())
+  }
+  return form.value.model
+})
+
 const canSave = computed(() => {
   if (!form.value.name.trim()) return false
   if (!form.value.model.trim()) return false
   if (!isEdit.value && !form.value.apiKey) return false
   if (isCustomProvider.value && !form.value.baseUrl) return false
+  if (isYandexProvider.value && !form.value.yandexFolderId.trim()) return false
+  if (isYandexProvider.value && !/^b1[a-z0-9]{18}$/.test(form.value.yandexFolderId.trim())) return false
   return true
 })
 
@@ -142,7 +162,8 @@ async function handleSave() {
     const body: Record<string, unknown> = {
       name: form.value.name.trim(),
       provider: form.value.provider,
-      model: form.value.model.trim(),
+      // For Yandex: substitute the folder ID into the model URI before persisting.
+      model: (isYandexProvider.value ? resolvedModel.value : form.value.model).trim(),
       maxTokens: form.value.maxTokens,
       inputPricePer1m: form.value.inputPricePer1m,
       outputPricePer1m: form.value.outputPricePer1m,
@@ -370,6 +391,22 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
             >
             <p class="mt-1 text-[11px] text-surface-500">
               Shown in the model picker. Use something memorable.
+            </p>
+          </div>
+
+          <!-- Yandex Folder ID (yandex only) -->
+          <div v-if="isYandexProvider">
+            <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+              ID каталога Yandex Cloud
+            </label>
+            <input
+              v-model="form.yandexFolderId"
+              type="text"
+              placeholder="b1gxxxxxxxxxxxxxxxxx"
+              class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors font-mono"
+            >
+            <p class="mt-1 text-[11px] text-surface-500">
+              Найти можно в консоли Yandex Cloud: <a :href="selectedProvider?.signupUrl ?? 'https://console.yandex.cloud/'" target="_blank" rel="noopener" class="text-brand-600 dark:text-brand-400 hover:underline">console.yandex.cloud</a> → ваш каталог → ID. Формат: <code class="font-mono">b1g...</code> (20 символов).
             </p>
           </div>
 

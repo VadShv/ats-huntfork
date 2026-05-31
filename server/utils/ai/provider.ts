@@ -12,7 +12,7 @@ import { generateObject } from 'ai'
 import type { z } from 'zod'
 import { decrypt } from '../encryption'
 
-export type SupportedProvider = 'openai' | 'anthropic' | 'google' | 'openai_compatible'
+export type SupportedProvider = 'openai' | 'anthropic' | 'google' | 'openai_compatible' | 'yandex'
 
 export interface ProviderConfig {
   provider: SupportedProvider
@@ -108,6 +108,22 @@ export const PROVIDER_REGISTRY: Record<string, {
     defaultModel: '',
     models: [],
   },
+  yandex: {
+    name: 'Yandex Cloud',
+    tagline: 'Модели Yandex Foundation Models — российский провайдер, хостинг в РФ, OpenAI-совместимый endpoint.',
+    modelsUrl: 'https://yandex.cloud/ru/docs/foundation-models/concepts/yandexgpt/models',
+    apiKeyUrl: 'https://yandex.cloud/ru/docs/iam/operations/api-key/create',
+    signupUrl: 'https://console.yandex.cloud/',
+    supportsBaseUrl: false,
+    defaultModel: 'gpt://__FOLDER_ID__/yandexgpt/latest',
+    models: [
+      { id: 'gpt://__FOLDER_ID__/yandexgpt/latest', label: 'YandexGPT Pro', description: 'Флагманская модель Yandex — лучшее качество для сложных задач. Контекст 32 K токенов.', inputPricePer1m: 1.20, outputPricePer1m: 1.20, badge: 'recommended' },
+      { id: 'gpt://__FOLDER_ID__/yandexgpt-lite/latest', label: 'YandexGPT Lite', description: 'Быстрая и бюджетная модель для массовых задач. Контекст 32 K токенов.', inputPricePer1m: 0.20, outputPricePer1m: 0.20, badge: 'cheap' },
+      { id: 'gpt://__FOLDER_ID__/yandexgpt-32k/latest', label: 'YandexGPT 32k', description: 'Расширенное контекстное окно для длинных резюме и профилей.', inputPricePer1m: 1.20, outputPricePer1m: 1.20 },
+      { id: 'gpt://__FOLDER_ID__/qwen3-235b-a22b-fp8/latest', label: 'Qwen3 235B', description: 'Мощная open-source MoE-модель в Yandex Cloud. Хороша для рассуждений.', badge: 'powerful' },
+      { id: 'gpt://__FOLDER_ID__/llama-3.3-70b-instruct/latest', label: 'Llama 3.3 70B Instruct', description: 'Meta Llama в Yandex Cloud. Альтернатива YandexGPT для экспериментов.' },
+    ],
+  },
 }
 
 /**
@@ -133,6 +149,17 @@ export function createLanguageModel(config: ProviderConfig) {
         ...(config.baseUrl ? { baseURL: config.baseUrl } : {}),
       })
       return openai(config.model)
+    }
+    case 'yandex': {
+      // Yandex Foundation Models exposes an OpenAI-compatible endpoint.
+      // The Authorization header accepts both `Bearer <key>` and `Api-Key <key>` formats.
+      // IMPORTANT: use the legacy Chat Completions API (`.chat()`), not the new Responses API
+      // (default for `openai(model)`), since Yandex does not implement `/v1/responses`.
+      const openai = createOpenAI({
+        apiKey,
+        baseURL: config.baseUrl || 'https://llm.api.cloud.yandex.net/v1',
+      })
+      return openai.chat(config.model)
     }
     case 'anthropic': {
       const anthropic = createAnthropic({

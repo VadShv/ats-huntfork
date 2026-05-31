@@ -45,6 +45,23 @@ describe('createAiConfigSchema', () => {
     }
   })
 
+  it('accepts yandex provider with folder-id-substituted model URI', () => {
+    const result = createAiConfigSchema.safeParse({
+      name: 'YandexGPT Pro',
+      provider: 'yandex',
+      model: 'gpt://b1gncpokmh18knpjgadr/yandexgpt/latest',
+      apiKey: 'AQVN-test-key',
+      maxTokens: 8192,
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.provider).toBe('yandex')
+      expect(result.data.model).toBe('gpt://b1gncpokmh18knpjgadr/yandexgpt/latest')
+      expect(result.data.maxTokens).toBe(8192)
+    }
+  })
+
   it('accepts standard openai provider', () => {
     const result = createAiConfigSchema.safeParse({
       name: 'Prod OpenAI',
