@@ -15,7 +15,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Updates — Reqcore',
+  title: 'Updates',
   description: 'Check for updates and manage your self-hosted instance',
 })
 

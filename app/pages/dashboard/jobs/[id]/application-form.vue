@@ -17,7 +17,7 @@ const { job, status: fetchStatus, error, updateJob } = useJob(jobId)
 
 useSeoMeta({
   title: computed(() =>
-    job.value ? `${t('dashboard.jobs.appForm.pageTitle')} — ${job.value.title} — Reqcore` : `${t('dashboard.jobs.appForm.pageTitle')} — Reqcore`,
+    job.value ? `${t('dashboard.jobs.appForm.pageTitle')} — ${job.value.title}` : `${t('dashboard.jobs.appForm.pageTitle')}`,
   ),
 })
 

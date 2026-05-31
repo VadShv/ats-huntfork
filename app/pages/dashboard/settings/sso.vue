@@ -7,7 +7,7 @@ import {
 definePageMeta({})
 
 useSeoMeta({
-  title: 'Single Sign-On — Reqcore',
+  title: 'Single Sign-On',
   description: 'Configure enterprise SSO for your organization',
 })
 
@@ -431,7 +431,7 @@ async function copyCallbackUrl(providerId: string) {
               <li>Create an OIDC application in your identity provider (Okta, Azure AD, Google Workspace, etc.).</li>
               <li>Set the <strong>Redirect URI</strong> to: <code class="bg-surface-100 dark:bg-surface-800 px-1 py-0.5 rounded text-xs">{{ `${siteOrigin}/api/auth/sso/callback/{provider-id}` }}</code></li>
               <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from your IdP and paste them above.</li>
-              <li>Enter the <strong>Issuer URL</strong> — Reqcore will auto-discover all OIDC endpoints.</li>
+              <li>Enter the <strong>Issuer URL</strong> will auto-discover all OIDC endpoints.</li>
             </ol>
 
             <div class="mt-3 flex flex-wrap gap-2">

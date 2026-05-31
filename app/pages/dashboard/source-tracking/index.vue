@@ -14,7 +14,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Source Tracking — Reqcore',
+  title: 'Source Tracking',
   description: 'Track where your applications come from',
 })
 

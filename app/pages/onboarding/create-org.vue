@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Create Organization — Reqcore',
+  title: 'Create Organization',
   description: 'Create your organization to start recruiting',
   robots: 'noindex, nofollow',
 })

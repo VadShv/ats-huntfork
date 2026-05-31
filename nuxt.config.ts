@@ -72,7 +72,8 @@ const localizedJobsRobotsRules = Object.fromEntries(
     ]),
 );
 
-const useAstraIcons = process.env.NUXT_PUBLIC_ASTRA_BRAND === '1';
+// titleTemplate и favicons управляются в app/app.vue через useHead+useRuntimeConfig
+// (даёт runtime-переключение, build не обязателен)
 
 const isRailwayPreview =
   railwayEnvironmentName.startsWith("pr") ||
@@ -174,16 +175,8 @@ export default defineNuxtConfig({
   // ─────────────────────────────────────────────
   app: {
     head: {
-      titleTemplate: useAstraIcons ? "%s — ReqCore Astra" : "%s — Reqcore",
-      link: [
-        { rel: "icon", type: "image/png", href: useAstraIcons ? "/favicon-32-astra.png" : "/favicon.png" },
-        ...(useAstraIcons ? [] : [{ rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }]),
-        {
-          rel: "apple-touch-icon",
-          sizes: "180x180",
-          href: useAstraIcons ? "/apple-touch-icon-astra.png" : "/apple-touch-icon.png",
-        },
-      ],
+      // titleTemplate и favicons задаются в app/app.vue через useHead
+      // (runtime-условие на NUXT_PUBLIC_ASTRA_BRAND)
       meta: [
         { name: "theme-color", content: "#09090b" },
         {

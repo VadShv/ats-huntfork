@@ -27,6 +27,26 @@ useHead({
 
 // Sync Better Auth session → PostHog identity & org group
 await usePostHogIdentity()
+
+// titleTemplate и favicons — runtime-переключение по флагу NUXT_PUBLIC_ASTRA_BRAND.
+// Не в nuxt.config.ts, чтобы не было билд-временного фриза.
+const isAstraBrand = useAstraBrand()
+useHead(() => ({
+  titleTemplate: (chunk?: string) => {
+    const brand = isAstraBrand.value ? 'ReqCore Astra' : 'Reqcore'
+    return chunk ? `${chunk} — ${brand}` : brand
+  },
+  link: isAstraBrand.value
+    ? [
+        { rel: 'icon', type: 'image/png', href: '/favicon-32-astra.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon-astra.png' },
+      ]
+    : [
+        { rel: 'icon', type: 'image/png', href: '/favicon.png' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+      ],
+}))
 </script>
 
 <template>

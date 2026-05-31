@@ -48,7 +48,7 @@ const { data: pipeline, status, error: fetchError, refresh } = useFetch<Pipeline
 )
 
 useSeoMeta({
-  title: computed(() => pipeline.value ? `${pipeline.value.name} — Воронка — Reqcore` : 'Воронка — Reqcore'),
+  title: computed(() => pipeline.value ? `${pipeline.value.name} — Воронка` : 'Воронка'),
 })
 
 const isLoadingPipeline = computed(() => status.value === 'pending')

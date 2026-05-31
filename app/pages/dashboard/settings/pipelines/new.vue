@@ -5,7 +5,7 @@ import type { PipelineStage } from '~/components/PipelineStageEditor.vue'
 definePageMeta({})
 
 useSeoMeta({
-  title: 'Создать воронку — Reqcore',
+  title: 'Создать воронку',
 })
 
 const { t } = useI18n()

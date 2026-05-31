@@ -5,7 +5,7 @@ definePageMeta({
 });
 
 useSeoMeta({
-    title: "Forgot Password — Reqcore",
+    title: "Forgot Password",
     description: "Reset your Reqcore account password",
     robots: "noindex, nofollow",
 });

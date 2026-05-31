@@ -7,7 +7,7 @@ import {
 definePageMeta({})
 
 useSeoMeta({
-  title: 'Воронки подбора — Reqcore',
+  title: 'Воронки подбора',
   description: 'Управляйте воронками найма для вашей организации',
 })
 

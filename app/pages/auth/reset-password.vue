@@ -5,7 +5,7 @@ definePageMeta({
 });
 
 useSeoMeta({
-    title: "Reset Password — Reqcore",
+    title: "Reset Password",
     description: "Set a new password for your Reqcore account",
     robots: "noindex, nofollow",
 });

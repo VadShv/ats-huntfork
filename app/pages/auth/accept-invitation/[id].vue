@@ -6,7 +6,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Accept Invitation — Reqcore',
+  title: 'Accept Invitation',
   description: 'Accept an organization invitation on Reqcore',
   robots: 'noindex, nofollow',
 })

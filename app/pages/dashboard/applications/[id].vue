@@ -45,8 +45,8 @@ const { formatCandidateName } = useOrgSettings()
 useSeoMeta({
   title: computed(() =>
     application.value
-      ? `${application.value.candidate.firstName} ${application.value.candidate.lastName} → ${application.value.job.title} — Reqcore`
-      : 'Application — Reqcore',
+      ? `${application.value.candidate.firstName} ${application.value.candidate.lastName} → ${application.value.job.title}`
+      : 'Application',
   ),
 })
 
