@@ -1567,6 +1567,23 @@
     "filter": {
       "stage": "Этап",
       "allStages": "Все этапы"
-    }
+    },
+    "overview": "Обзор отклика",
+    "schedule_interview": "Назначить интервью",
+    "quick_actions": "Быстрые действия",
+    "add_notes": "Добавить заметку",
+    "edit_notes": "Редактировать",
+    "no_notes": "Заметок пока нет.",
+    "notes_placeholder": "Добавьте заметку об этом отклике…",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "saving": "Сохранение…",
+    "responses_title": "Ответы на вопросы",
+    "properties": "Свойства",
+    "back_to_applications": "Назад к откликам",
+    "not_found": "Отклик не найден.",
+    "failed_to_load": "Не удалось загрузить отклик.",
+    "job_status": "Статус вакансии",
+    "applied": "Подал заявку"
   }
 }

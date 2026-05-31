@@ -180,10 +180,24 @@ async function handleSetDefault(pipeline: PipelineListItem) {
       </div>
     </div>
 
-    <!-- Loading state -->
-    <div v-if="isLoading" class="flex items-center justify-center py-12 text-surface-400">
-      <Loader2 class="size-6 animate-spin mr-2" />
-      <span class="text-sm">Загрузка…</span>
+    <!-- Loading skeleton -->
+    <div v-if="isLoading" class="space-y-3">
+      <div
+        v-for="i in 4"
+        :key="i"
+        class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 animate-pulse"
+      >
+        <div class="flex items-center justify-between">
+          <div class="space-y-2 flex-1">
+            <div class="h-4 w-40 rounded bg-surface-200 dark:bg-surface-800" />
+            <div class="h-3 w-64 rounded bg-surface-200 dark:bg-surface-800" />
+          </div>
+          <div class="flex gap-2">
+            <div class="h-7 w-16 rounded-lg bg-surface-200 dark:bg-surface-800" />
+            <div class="h-7 w-16 rounded-lg bg-surface-200 dark:bg-surface-800" />
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Error state -->

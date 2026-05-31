@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileText, Search, X, Briefcase, Mail, Clock, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Maximize2, Minimize2, Check } from 'lucide-vue-next'
+import { FileText, Search, X, Briefcase, Mail, Clock, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Maximize2, Minimize2, Check, ChevronDown, Loader2 } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard',
@@ -140,6 +140,7 @@ const { applications, total, fetchStatus, error, refresh } = useApplications({
   propertyFilters,
 })
 
+const toast = useToast()
 const { formatPersonName } = useOrgSettings()
 const { t } = useI18n()
 
@@ -398,6 +399,90 @@ function getPropertyValue(entity: { properties?: import('~~/shared/properties').
 
 // ── Application detail drawer ─────────────────────────────────────────────────
 const selectedApplicationId = ref<string | null>(null)
+
+// ── Bulk selection ────────────────────────────────────────────────────────────
+const selectedIds = ref<Set<string>>(new Set())
+const bulkStageMenuOpen = ref(false)
+const isBulkOperating = ref(false)
+
+const isAllSelected = computed(() =>
+  filteredApplications.value.length > 0
+  && filteredApplications.value.every(app => selectedIds.value.has(app.id)),
+)
+
+function toggleSelectAll() {
+  if (isAllSelected.value) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(filteredApplications.value.map(a => a.id))
+  }
+}
+
+function toggleSelect(id: string) {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+
+async function bulkReject() {
+  const ids = [...selectedIds.value]
+  if (!ids.length) return
+  isBulkOperating.value = true
+  const results = await Promise.allSettled(
+    ids.map(id => $fetch(`/api/applications/${id}/stage`, { method: 'PATCH', body: { status: 'rejected' }, headers: useRequestHeaders(['cookie']) }))
+  )
+  const succeeded = results.filter(r => r.status === 'fulfilled').length
+  const failed = results.filter(r => r.status === 'rejected').length
+  if (failed > 0) {
+    toast.error(`Ошибка: ${failed} из ${ids.length}`, { message: 'Некоторые отклики не удалось отклонить.' })
+  }
+  if (succeeded > 0) {
+    toast.success(`Отклонено: ${succeeded} из ${ids.length}`)
+    selectedIds.value = new Set()
+    await refresh()
+  }
+  isBulkOperating.value = false
+}
+
+type BulkStageOption = { id: string; name: string; color: string }
+const bulkAvailableStages = ref<BulkStageOption[]>([])
+const bulkStagesLoading = ref(false)
+
+async function loadBulkStages() {
+  if (bulkAvailableStages.value.length > 0) return
+  bulkStagesLoading.value = true
+  try {
+    type PipelineGroup = { pipelineId: string; pipelineName: string; stages: BulkStageOption[] }
+    const data = await $fetch<PipelineGroup[]>('/api/pipelines/stages-summary', { headers: useRequestHeaders(['cookie']) })
+    bulkAvailableStages.value = data.flatMap(g => g.stages)
+  } catch {
+    toast.error('Не удалось загрузить этапы')
+  } finally {
+    bulkStagesLoading.value = false
+  }
+}
+
+async function bulkMoveToStage(stageId: string, stageName: string) {
+  const ids = [...selectedIds.value]
+  if (!ids.length) return
+  bulkStageMenuOpen.value = false
+  isBulkOperating.value = true
+  const results = await Promise.allSettled(
+    ids.map(id => $fetch(`/api/applications/${id}/stage`, { method: 'PATCH', body: { stageId }, headers: useRequestHeaders(['cookie']) }))
+  )
+  const succeeded = results.filter(r => r.status === 'fulfilled').length
+  const failed = results.filter(r => r.status === 'rejected').length
+  if (succeeded > 0) {
+    toast.success(`Перенесено в "${stageName}": ${succeeded} из ${ids.length}`)
+    selectedIds.value = new Set()
+    await refresh()
+  }
+  if (failed > 0) {
+    toast.error(`Ошибка: ${failed} из ${ids.length}`, { message: 'Некоторые отклики не удалось перенести.' })
+  }
+  isBulkOperating.value = false
+}
 </script>
 
 <template>
@@ -617,9 +702,22 @@ const selectedApplicationId = ref<string | null>(null)
       </div>
     </FilterDrawer>
 
-    <!-- Loading -->
-    <div v-if="fetchStatus === 'pending'" class="text-center py-16 text-surface-400">
-      Loading applications…
+    <!-- Loading skeleton -->
+    <div v-if="fetchStatus === 'pending'" class="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-800">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-800">
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('dashboard.applications.table.candidate') }}</th>
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden lg:table-cell">{{ $t('dashboard.applications.table.email') }}</th>
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">{{ $t('dashboard.applications.table.job') }}</th>
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('applications.stage.label') }}</th>
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('dashboard.applications.table.status') }}</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
+          <SkeletonRow v-for="i in 5" :key="i" :avatar="false" :columns="5" />
+        </tbody>
+      </table>
     </div>
 
     <!-- Error -->
@@ -684,6 +782,15 @@ const selectedApplicationId = ref<string | null>(null)
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-800">
+              <th class="w-10 px-4 py-3 text-left">
+                <input
+                  type="checkbox"
+                  :checked="isAllSelected"
+                  aria-label="Выбрать все"
+                  class="size-4 rounded border-surface-300 dark:border-surface-600 accent-brand-600 cursor-pointer"
+                  @change="toggleSelectAll"
+                />
+              </th>
               <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('name')">
                   Candidate
@@ -747,8 +854,18 @@ const selectedApplicationId = ref<string | null>(null)
               v-for="app in filteredApplications"
               :key="app.id"
               class="group bg-white dark:bg-surface-900 hover:bg-surface-50 dark:hover:bg-surface-800/60 transition-colors cursor-pointer [&>td]:align-top"
+              :class="{ 'bg-brand-50/30 dark:bg-brand-950/20': selectedIds.has(app.id) }"
               @click="selectedApplicationId = app.id"
             >
+              <td class="w-10 px-4 py-3" @click.stop>
+                <input
+                  type="checkbox"
+                  :checked="selectedIds.has(app.id)"
+                  :aria-label="`Выбрать ${formatPersonName(app.candidateFirstName, app.candidateLastName)}`"
+                  class="size-4 rounded border-surface-300 dark:border-surface-600 accent-brand-600 cursor-pointer"
+                  @change="toggleSelect(app.id)"
+                />
+              </td>
               <td class="px-4 py-3">
                 <button
                   type="button"
@@ -834,4 +951,71 @@ const selectedApplicationId = ref<string | null>(null)
     :application-id="selectedApplicationId"
     @close="selectedApplicationId = null"
   />
+
+  <!-- Bulk actions sticky panel -->
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      leave-active-class="transition-all duration-150 ease-in"
+      enter-from-class="opacity-0 translate-y-4"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 translate-y-4"
+    >
+      <div
+        v-if="selectedIds.size > 0"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 shadow-2xl px-4 py-3 text-sm"
+      >
+        <span class="font-medium text-surface-700 dark:text-surface-200 whitespace-nowrap mr-1">
+          Выбрано: {{ selectedIds.size }}
+        </span>
+        <!-- Stage picker -->
+        <div class="relative">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
+            :disabled="isBulkOperating"
+            @click="bulkStageMenuOpen = !bulkStageMenuOpen; loadBulkStages()"
+          >
+            <Loader2 v-if="bulkStagesLoading" class="size-3.5 animate-spin" />
+            Перенести в этап
+            <ChevronDown class="size-3.5" />
+          </button>
+          <div
+            v-if="bulkStageMenuOpen && bulkAvailableStages.length > 0"
+            class="absolute bottom-full mb-1 left-0 min-w-[180px] rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-xl py-1 z-10"
+          >
+            <button
+              v-for="stage in bulkAvailableStages"
+              :key="stage.id"
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+              @click="bulkMoveToStage(stage.id, stage.name)"
+            >
+              <span class="inline-flex size-2 rounded-full shrink-0" :style="{ backgroundColor: stage.color }" />
+              {{ stage.name }}
+            </button>
+          </div>
+        </div>
+        <!-- Reject all -->
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950/50 px-3 py-1.5 text-sm font-medium text-danger-700 dark:text-danger-400 hover:bg-danger-100 dark:hover:bg-danger-950 transition-colors"
+          :disabled="isBulkOperating"
+          @click="bulkReject"
+        >
+          <Loader2 v-if="isBulkOperating" class="size-3.5 animate-spin" />
+          Отклонить
+        </button>
+        <!-- Cancel -->
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-sm font-medium text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
+          @click="selectedIds = new Set(); bulkStageMenuOpen = false"
+        >
+          Отмена
+        </button>
+      </div>
+    </Transition>
+  </Teleport>
 </template>

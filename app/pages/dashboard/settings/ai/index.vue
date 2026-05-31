@@ -13,7 +13,7 @@ import {
 definePageMeta({})
 
 useSeoMeta({
-  title: 'AI Configuration — Reqcore',
+  title: 'AI Configuration',
   description: 'Configure AI providers and models for the chatbot and candidate analysis.',
 })
 
@@ -46,6 +46,7 @@ interface ProviderInfo {
 
 const { allowed: canManageAi, isLoading: isPermissionLoading } = usePermission({ scoring: ['create'] })
 const toast = useToast()
+const { ask } = useConfirm()
 
 const { data: configsData, refresh: refreshConfigs, status: configsStatus } = useFetch<AiConfigRow[]>('/api/ai-config', {
   key: 'ai-configs',
@@ -107,7 +108,13 @@ async function testConnection(c: AiConfigRow) {
 
 const deletingId = ref<string | null>(null)
 async function deleteConfig(c: AiConfigRow) {
-  if (!confirm(`Delete the "${c.name}" configuration? Conversations using it will fall back to the default.`)) return
+  const ok = await ask({
+    title: 'Удалить конфигурацию?',
+    message: `Конфигурация "${c.name}" будет удалена. Беседы, использующие её, переключатся на дефолтную.`,
+    variant: 'danger',
+    confirmLabel: 'Удалить',
+  })
+  if (!ok) return
   deletingId.value = c.id
   try {
     await $fetch(`/api/ai-config/${c.id}`, {
@@ -306,6 +313,7 @@ function formatPrice(p: number | null): string {
 
             <button
               :disabled="deletingId === c.id"
+              :aria-label="`Удалить конфигурацию ${c.name}`"
               class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:border-danger-300 dark:hover:border-danger-700 hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               @click="deleteConfig(c)"
             >

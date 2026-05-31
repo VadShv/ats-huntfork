@@ -1567,6 +1567,23 @@
     "filter": {
       "stage": "Stage",
       "allStages": "All stages"
-    }
+    },
+    "overview": "Application Overview",
+    "schedule_interview": "Schedule Interview",
+    "quick_actions": "Quick Actions",
+    "add_notes": "Add Notes",
+    "edit_notes": "Edit",
+    "no_notes": "No notes yet.",
+    "notes_placeholder": "Add notes about this application…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "responses_title": "Application Responses",
+    "properties": "Properties",
+    "back_to_applications": "Back to Applications",
+    "not_found": "Application not found.",
+    "failed_to_load": "Failed to load application.",
+    "job_status": "Job Status",
+    "applied": "Applied"
   }
 }

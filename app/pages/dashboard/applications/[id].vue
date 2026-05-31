@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch } from 'lucide-vue-next'
+import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch, Keyboard, X } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
 definePageMeta({
@@ -110,6 +110,32 @@ const isEditingNotes = ref(false)
 const notesInput = ref('')
 const isSavingNotes = ref(false)
 
+// ─────────────────────────────────────────────
+// Refs for stage picker + notes textarea focus
+// ─────────────────────────────────────────────
+const stagePickerRef = ref<HTMLElement | null>(null)
+const notesTextareaRef = ref<HTMLTextAreaElement | null>(null)
+const showHotkeysModal = ref(false)
+
+// ─────────────────────────────────────────────
+// Hotkeys
+// ─────────────────────────────────────────────
+useHotkeys({
+  s: () => {
+    // S — открыть/сфокусировать stage picker
+    const btn = stagePickerRef.value?.querySelector('button')
+    if (btn) (btn as HTMLButtonElement).click()
+  },
+  c: () => {
+    // C — фокус на поле комментария (заметок)
+    if (!isEditingNotes.value) startEditNotes()
+    nextTick(() => notesTextareaRef.value?.focus())
+  },
+  '?': () => {
+    showHotkeysModal.value = !showHotkeysModal.value
+  },
+})
+
 function startEditNotes() {
   notesInput.value = application.value?.notes ?? ''
   isEditingNotes.value = true
@@ -178,7 +204,7 @@ function formatResponseValue(value: unknown): string {
       <!-- Header -->
       <div class="mb-4 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
         <p class="mb-2 text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">
-          Application Overview
+          {{ $t('applications.overview') }}
         </p>
         <div class="mb-2 flex flex-wrap items-center gap-2 text-surface-400">
           <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50 truncate">
@@ -194,11 +220,13 @@ function formatResponseValue(value: unknown): string {
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <!-- Pipeline stage picker — shown prominently when a pipeline exists -->
+          <div ref="stagePickerRef" class="contents">
           <ApplicationStagePicker
             :application-id="applicationId"
             :current-stage-id="localStageId"
             @stage-changed="handleStageChanged"
           />
+          </div>
           <!-- Legacy status badge: hidden when a pipeline stage is set, shown otherwise for back-compat -->
           <span
             v-if="!localStageId"
@@ -216,7 +244,7 @@ function formatResponseValue(value: unknown): string {
       <!-- Quick actions -->
       <div class="mb-6 rounded-xl border border-surface-200 dark:border-surface-800 bg-white/80 dark:bg-surface-900/70 p-3">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="inline-flex items-center rounded-full bg-surface-100 dark:bg-surface-800 px-2.5 py-1 text-xs font-medium text-surface-600 dark:text-surface-400">Quick actions</span>
+          <span class="inline-flex items-center rounded-full bg-surface-100 dark:bg-surface-800 px-2.5 py-1 text-xs font-medium text-surface-600 dark:text-surface-400">{{ $t('applications.quick_actions') }}</span>
           <button
             v-for="nextStatus in allowedTransitions"
             :key="nextStatus"
@@ -236,7 +264,7 @@ function formatResponseValue(value: unknown): string {
             @click="showInterviewSidebar = true"
           >
             <Calendar class="size-3.5" />
-            Schedule Interview
+            {{ $t('applications.schedule_interview') }}
           </button>
         </div>
       </div>
@@ -361,12 +389,13 @@ function formatResponseValue(value: unknown): string {
             class="cursor-pointer text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
             @click="startEditNotes"
           >
-            {{ application.notes ? 'Edit' : 'Add Notes' }}
+            {{ application.notes ? $t('applications.edit_notes') : $t('applications.add_notes') }}
           </button>
         </div>
 
         <div v-if="isEditingNotes">
           <textarea
+            ref="notesTextareaRef"
             v-model="notesInput"
             rows="4"
             placeholder="Add notes about this application…"
@@ -378,13 +407,13 @@ function formatResponseValue(value: unknown): string {
               class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               @click="saveNotes"
             >
-              {{ isSavingNotes ? 'Saving…' : 'Save' }}
+              {{ isSavingNotes ? $t('applications.saving') : $t('applications.save') }}
             </button>
             <button
               class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
               @click="isEditingNotes = false"
             >
-              Cancel
+              {{ $t('applications.cancel') }}
             </button>
           </div>
         </div>
@@ -395,7 +424,7 @@ function formatResponseValue(value: unknown): string {
         >
           {{ application.notes }}
         </p>
-        <p v-else class="text-sm text-surface-400 italic">No notes yet.</p>
+        <p v-else class="text-sm text-surface-400 italic">{{ $t('applications.no_notes') }}</p>
       </div>
 
       <!-- Custom properties (Notion-style) -->
@@ -451,6 +480,65 @@ function formatResponseValue(value: unknown): string {
       </div>
     </template>
   </div>
+
+  <!-- Hotkey hint -->
+  <div class="fixed bottom-4 left-4 z-40 hidden lg:flex items-center gap-1.5 rounded-full border border-surface-200 dark:border-surface-800 bg-white/80 dark:bg-surface-900/80 backdrop-blur-sm px-3 py-1.5 text-xs text-surface-400 dark:text-surface-500 shadow-sm">
+    <Keyboard class="size-3.5" />
+    <span>Нажмите <kbd class="font-mono font-semibold">?</kbd> для списка горячих клавиш</span>
+  </div>
+
+  <!-- Hotkeys modal -->
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      leave-active-class="transition-all duration-150 ease-in"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="showHotkeysModal"
+        class="fixed inset-0 z-[200] flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Горячие клавиши"
+        @click.self="showHotkeysModal = false"
+      >
+        <div class="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm" @click="showHotkeysModal = false" />
+        <div class="relative z-10 w-full max-w-sm rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-2xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <Keyboard class="size-5 text-surface-500" />
+              <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Горячие клавиши</h2>
+            </div>
+            <button
+              type="button"
+              class="rounded-lg p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+              aria-label="Закрыть"
+              @click="showHotkeysModal = false"
+            >
+              <X class="size-4" />
+            </button>
+          </div>
+          <ul class="space-y-2.5">
+            <li class="flex items-center justify-between text-sm">
+              <span class="text-surface-600 dark:text-surface-300">Открыть выбор этапа</span>
+              <kbd class="rounded-md border border-surface-300 dark:border-surface-700 bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-xs font-mono font-semibold text-surface-700 dark:text-surface-300">S</kbd>
+            </li>
+            <li class="flex items-center justify-between text-sm">
+              <span class="text-surface-600 dark:text-surface-300">Фокус на заметках</span>
+              <kbd class="rounded-md border border-surface-300 dark:border-surface-700 bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-xs font-mono font-semibold text-surface-700 dark:text-surface-300">C</kbd>
+            </li>
+            <li class="flex items-center justify-between text-sm">
+              <span class="text-surface-600 dark:text-surface-300">Показать подсказку</span>
+              <kbd class="rounded-md border border-surface-300 dark:border-surface-700 bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-xs font-mono font-semibold text-surface-700 dark:text-surface-300">?</kbd>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 
   <!-- Interview Schedule Sidebar -->
   <InterviewScheduleSidebar

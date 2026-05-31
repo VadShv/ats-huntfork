@@ -133,6 +133,12 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Visible focus ring for keyboard navigation */
+  *:focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
   body {
     font-family: var(--font-sans);
     background-color: var(--color-surface-50);
@@ -415,4 +421,105 @@
 @keyframes pipeline-dot-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+/* ───────────────────────────────────────────────────────
+   Astra Group — Бренд-токены
+   Pantone 2380C (графит) + 2985C (неон)
+   Фича-флаг: html.astra-brand
+   ─────────────────────────────────────────────────────── */
+
+@theme {
+  /* Astra Group brand palette — Pantone 2380C, 2985C */
+  --color-astra-graphite: #28334E;   /* основной */
+  --color-astra-graphite-light: #3B455B;
+  --color-astra-steel: #7E94AF;
+  --color-astra-titan: #FFFFFF;
+  --color-astra-neon: #5BC3F5;       /* АКЦЕНТ — НЕ заливка */
+  --color-astra-neon-soft: #9DD9F8;
+  --color-astra-blue: #0077CD;
+}
+
+/* Astra brand overrides — apply only when html has .astra-brand class */
+html.astra-brand {
+  /* Override brand-* (primary) c cornflower → graphite */
+  --color-brand-50:  oklch(96.5% 0.010 250);
+  --color-brand-100: oklch(91.5% 0.025 250);
+  --color-brand-200: oklch(83.0% 0.040 250);
+  --color-brand-300: oklch(71.0% 0.055 250);
+  --color-brand-400: oklch(58.0% 0.060 250);
+  --color-brand-500: oklch(45.0% 0.060 250);   /* основной = графит */
+  --color-brand-600: oklch(38.0% 0.060 250);
+  --color-brand-700: oklch(32.0% 0.055 250);
+  --color-brand-800: oklch(27.0% 0.050 250);
+  --color-brand-900: oklch(22.0% 0.045 250);
+  --color-brand-950: oklch(15.0% 0.040 250);
+
+  /* Override accent-* (links/highlights) на неон */
+  --color-accent-50:  oklch(97.5% 0.020 230);
+  --color-accent-100: oklch(94.0% 0.045 230);
+  --color-accent-200: oklch(88.0% 0.085 230);
+  --color-accent-300: oklch(80.0% 0.110 230);
+  --color-accent-400: oklch(75.0% 0.125 230);
+  --color-accent-500: oklch(72.0% 0.130 232);   /* = #5BC3F5 */
+  --color-accent-600: oklch(60.0% 0.135 235);
+  --color-accent-700: oklch(50.0% 0.115 237);
+  --color-accent-800: oklch(42.0% 0.090 238);
+  --color-accent-900: oklch(35.0% 0.070 238);
+  --color-accent-950: oklch(18.0% 0.030 240);
+}
+
+/* Astra fonts only when html has .astra-brand */
+html.astra-brand body,
+html.astra-brand input,
+html.astra-brand textarea,
+html.astra-brand select,
+html.astra-brand button {
+  font-family: 'PT Astra Fact', system-ui, -apple-system, sans-serif;
+}
+
+@font-face {
+  font-family: 'PT Astra Fact';
+  src: url('/fonts/PTAstraFact-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PT Astra Fact';
+  src: url('/fonts/PTAstraFact-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PT Astra Fact';
+  src: url('/fonts/PTAstraFact-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PT Astra Fact';
+  src: url('/fonts/PTAstraFact-BoldItalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Astra accent: focus rings and active links use neon */
+html.astra-brand *:focus-visible {
+  outline: 2px solid var(--color-astra-neon);
+  outline-offset: 2px;
+}
+
+html.astra-brand a:not([class*='btn']):not([class*='button']):hover {
+  color: var(--color-astra-neon);
+}
+
+/* Auth pages — diagonal pattern background when astra-brand enabled */
+html.astra-brand .astra-auth-bg {
+  background-color: #28334E;
+  background-image: url('/brand/astra-pattern.svg');
+  background-repeat: repeat;
 }

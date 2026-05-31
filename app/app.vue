@@ -35,6 +35,7 @@ await usePostHogIdentity()
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+    <ConfirmDialog />
     <ClientOnly>
       <ConsentBanner />
     </ClientOnly>

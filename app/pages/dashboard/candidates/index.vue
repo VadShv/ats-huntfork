@@ -450,9 +450,21 @@ const selectedCandidateId = ref<string | null>(null)
       </div>
     </FilterDrawer>
 
-    <!-- Loading state -->
-    <div v-if="fetchStatus === 'pending'" class="text-center py-12 text-surface-400">
-      {{ $t('dashboard.common.loading') }}
+    <!-- Loading skeleton -->
+    <div v-if="fetchStatus === 'pending'" class="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-800">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-800">
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('dashboard.candidates.table.name') }}</th>
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">{{ $t('dashboard.candidates.table.email') }}</th>
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden lg:table-cell">{{ $t('dashboard.candidates.table.applications') }}</th>
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('dashboard.candidates.table.added') }}</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
+          <SkeletonRow v-for="i in 5" :key="i" :avatar="true" :columns="4" />
+        </tbody>
+      </table>
     </div>
 
     <!-- Error state -->

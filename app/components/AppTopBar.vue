@@ -24,6 +24,7 @@ const showMoreNav = ref(false)
 const showMoreActions = ref(false)
 
 const config = useRuntimeConfig()
+const isAstraBrand = useAstraBrand()
 const { activeOrg } = useCurrentOrg()
 
 const isDemo = computed(() => {
@@ -239,8 +240,14 @@ onUnmounted(() => {
             :href="useRuntimeConfig().public.marketingUrl"
             class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg no-underline hover:bg-surface-100/60 dark:hover:bg-surface-800/60 transition-colors mr-1 lg:mr-4"
           >
-            <img src="/eagle-mascot-logo.png" alt="Reqcore mascot" class="size-7 shrink-0 object-contain" />
-            <span class="text-[15px] font-bold text-surface-900 dark:text-surface-100 hidden sm:block tracking-tight">Reqcore</span>
+            <img
+              :src="isAstraBrand ? '/brand/falcon-64.png' : '/eagle-mascot-logo.png'"
+              :alt="isAstraBrand ? 'Группа Астра' : 'Reqcore mascot'"
+              class="size-7 shrink-0 object-contain"
+            />
+            <span class="text-[15px] font-bold text-surface-900 dark:text-surface-100 hidden sm:block tracking-tight">
+              {{ isAstraBrand ? 'ReqCore Astra' : 'Reqcore' }}
+            </span>
           </a>
 
           <!-- Desktop nav links -->
@@ -395,6 +402,7 @@ onUnmounted(() => {
           <button
             class="inline-flex items-center justify-center size-8 rounded-lg text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all duration-200 cursor-pointer border-0 bg-transparent"
             :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+            :aria-label="isDark ? $t('dashboard.topbar.switchToLight') : $t('dashboard.topbar.switchToDark')"
             @click="toggleColorMode"
           >
             <Sun v-if="isDark" class="size-4" />
