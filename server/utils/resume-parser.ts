@@ -9,6 +9,7 @@
  *   - DOCX — via mammoth (XML-based, reliable)
  *   - DOC — via word-extractor (OLE2 compound documents)
  */
+import { createRequire } from 'node:module'
 import mammoth from 'mammoth'
 // @ts-ignore — word-extractor has no bundled type declarations
 import WordExtractor from 'word-extractor'
@@ -98,6 +99,31 @@ export async function parseDocument(
 
 // ─── PDF Parser ───────────────────────────────────────────────────
 
+/**
+ * Resolves the path to pdfjs-dist's worker file (`pdf.worker.mjs`) using the
+ * project's full `node_modules` tree. Nuxt/Nitro's bundled `.output/server/node_modules/`
+ * does not include this worker (dynamic require is untraceable), so without an
+ * explicit `workerSrc` pdfjs throws "Setting up fake worker failed" at runtime.
+ *
+ * Returns `null` if the file can't be resolved (e.g. in a stripped-down image);
+ * pdf-parse will then attempt its default fake-worker path.
+ */
+let pdfWorkerSrcCached: string | null | undefined
+function resolvePdfWorkerSrc(): string | null {
+  if (pdfWorkerSrcCached !== undefined) return pdfWorkerSrcCached
+  try {
+    const req = createRequire(import.meta.url)
+    pdfWorkerSrcCached = req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
+  }
+  catch {
+    pdfWorkerSrcCached = null
+  }
+  return pdfWorkerSrcCached
+}
+
+/** Max time we allow the PDF parser to spend on a single document. */
+const PDF_PARSE_TIMEOUT_MS = 30_000
+
 async function parsePdf(buffer: Buffer): Promise<ParsedResume | null> {
   if (buffer.length === 0) return null
 
@@ -105,8 +131,31 @@ async function parsePdf(buffer: Buffer): Promise<ParsedResume | null> {
   ensurePdfjsPolyfills()
   const { PDFParse } = await import('pdf-parse')
 
+  // Point pdfjs at a real worker file that ships with pdfjs-dist.
+  // Without this, Nitro-bundled deployments fail with "Setting up fake worker failed".
+  const workerSrc = resolvePdfWorkerSrc()
+  if (workerSrc) {
+    PDFParse.setWorker(workerSrc)
+  }
+
   const parser = new PDFParse({ data: buffer })
-  const result = await parser.getText()
+
+  // Race against a timeout so corrupted PDFs don't hang the worker forever.
+  let timeoutHandle: NodeJS.Timeout | undefined
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(
+      () => reject(new Error(`PDF parse timed out after ${PDF_PARSE_TIMEOUT_MS}ms`)),
+      PDF_PARSE_TIMEOUT_MS,
+    )
+  })
+
+  let result
+  try {
+    result = await Promise.race([parser.getText(), timeoutPromise])
+  }
+  finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle)
+  }
 
   const text = normalizeText(result.text)
   if (!text) {
