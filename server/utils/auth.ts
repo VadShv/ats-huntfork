@@ -260,6 +260,20 @@ function getAuth(): Auth {
         window: 60,
         max: 100,        // 100 requests per minute per IP — stops bots, not humans
         storage: "database",
+        // ── Hardened rules for auth-sensitive endpoints ──────────
+        // Layered defence: nginx limit_req in front + these app-level rules.
+        // Brute-force / credential-stuffing protection.
+        customRules: {
+          // Login attempts: 5 / 15 min
+          '/sign-in/email': { window: 60 * 15, max: 5 },
+          // Sign-up (when re-enabled): 3 / hour per IP
+          '/sign-up/email': { window: 60 * 60, max: 3 },
+          // Password reset: 3 / hour per IP
+          '/forget-password': { window: 60 * 60, max: 3 },
+          '/reset-password': { window: 60 * 60, max: 5 },
+          // Social / OAuth sign-in burst limit
+          '/sign-in/social': { window: 60, max: 10 },
+        },
       },
 
       socialProviders: {
