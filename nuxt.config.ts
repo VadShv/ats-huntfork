@@ -279,8 +279,12 @@ export default defineNuxtConfig({
           "X-Frame-Options": "DENY",
           "Referrer-Policy": "strict-origin-when-cross-origin",
           "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-          "Strict-Transport-Security":
-            "max-age=63072000; includeSubDomains; preload",
+          // HSTS принудительно сброшен (max-age=0): деплой HTTP-only на :8080,
+          // а ранее уже отдавали HSTS — браузеры закэшировали политику и
+          // апгрейдят запросы в HTTPS, валится ERR_ALPN_NEGOTIATION_FAILED.
+          // max-age=0 заставит браузер очистить HSTS-кэш для этого хоста.
+          // Включить обратно при появлении TLS.
+          "Strict-Transport-Security": "max-age=0",
           // Content-Security-Policy is set dynamically with a per-request
           // nonce in server/middleware/csp.ts — do NOT add a static CSP here
           // as it would override the nonce and break the XSS protection.
