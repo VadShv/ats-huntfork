@@ -211,7 +211,7 @@ async function handleSocialSignIn(providerId: string) {
         style="height: 120px;"
         aria-hidden="true"
     >
-        <img :src="'/brand/falcon-128.png'" alt="" class="h-16 w-16 object-contain drop-shadow-lg" />
+        <img :src="'/brand/falcon.svg'" alt="" class="h-16 w-16 object-contain drop-shadow-lg" />
         <span class="text-white text-2xl font-bold tracking-tight" style="font-family: 'PT Astra Fact', system-ui, sans-serif;">ReqCore Astra</span>
     </div>
     <form class="flex flex-col gap-4" @submit.prevent="handleSignIn">

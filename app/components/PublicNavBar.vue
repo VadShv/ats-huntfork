@@ -21,7 +21,7 @@ const isAstraBrand = useAstraBrand()
         class="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight text-surface-900 dark:text-white"
       >
         <img
-          :src="isAstraBrand ? '/brand/falcon-64.png' : '/eagle-mascot-logo-128.png'"
+          :src="isAstraBrand ? '/brand/falcon.svg' : '/eagle-mascot-logo-128.png'"
           :alt="isAstraBrand ? 'Группа Астра' : 'Reqcore mascot'"
           width="28"
           height="28"

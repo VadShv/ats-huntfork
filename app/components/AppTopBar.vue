@@ -241,7 +241,7 @@ onUnmounted(() => {
             class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg no-underline hover:bg-surface-100/60 dark:hover:bg-surface-800/60 transition-colors mr-1 lg:mr-4"
           >
             <img
-              :src="isAstraBrand ? '/brand/falcon-64.png' : '/eagle-mascot-logo.png'"
+              :src="isAstraBrand ? '/brand/falcon.svg' : '/eagle-mascot-logo.png'"
               :alt="isAstraBrand ? 'Группа Астра' : 'Reqcore mascot'"
               class="size-7 shrink-0 object-contain"
             />
