@@ -128,6 +128,12 @@ export const application = pgTable('application', {
   score: integer('score'),
   notes: text('notes'),
   coverLetterText: text('cover_letter_text'),
+  /** Source of this application: 'manual' (created in UI), 'hh' (imported from hh.ru), 'api' (external API). */
+  source: text('source').notNull().default('manual'),
+  /** External identifier (e.g. hh.ru negotiation_id) for idempotent sync. */
+  externalId: text('external_id'),
+  /** Direct URL to the source (e.g. resume URL on hh.ru). */
+  externalUrl: text('external_url'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
@@ -135,6 +141,7 @@ export const application = pgTable('application', {
   index('application_candidate_id_idx').on(t.candidateId),
   index('application_job_id_idx').on(t.jobId),
   uniqueIndex('application_org_candidate_job_idx').on(t.organizationId, t.candidateId, t.jobId),
+  index('application_source_idx').on(t.organizationId, t.source),
 ]))
 
 // ─────────────────────────────────────────────
@@ -1079,4 +1086,115 @@ export const applicationStageHistoryRelations = relations(applicationStageHistor
   fromStage: one(pipelineStage, { fields: [applicationStageHistory.fromStageId], references: [pipelineStage.id], relationName: 'fromStage' }),
   toStage: one(pipelineStage, { fields: [applicationStageHistory.toStageId], references: [pipelineStage.id], relationName: 'toStage' }),
   movedByUser: one(user, { fields: [applicationStageHistory.movedByUserId], references: [user.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// Huntfork × hh.ru integration (Stage 5)
+// ─────────────────────────────────────────────
+
+/**
+ * Stores the hh.ru OAuth tokens for a single recruiter within an organization.
+ * Tokens are AES-256-GCM encrypted at rest using BETTER_AUTH_SECRET as the
+ * key source — see server/utils/crypto.ts.
+ */
+export const hhAccount = pgTable('hh_account', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  // Identifiers returned by hh.ru GET /me
+  hhUserId: text('hh_user_id').notNull(),
+  hhEmployerId: text('hh_employer_id'),
+  hhManagerId: text('hh_manager_id'),
+  hhEmail: text('hh_email'),
+  hhFirstName: text('hh_first_name'),
+  hhLastName: text('hh_last_name'),
+  // Encrypted tokens (base64-encoded ciphertext + iv + tag)
+  accessTokenEncrypted: text('access_token_encrypted').notNull(),
+  refreshTokenEncrypted: text('refresh_token_encrypted').notNull(),
+  accessTokenExpiresAt: timestamp('access_token_expires_at').notNull(),
+  scope: text('scope'),
+  connectedAt: timestamp('connected_at').notNull().defaultNow(),
+  lastRefreshedAt: timestamp('last_refreshed_at'),
+  lastError: text('last_error'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_account_org_idx').on(t.organizationId),
+  uniqueIndex('hh_account_org_user_idx').on(t.organizationId, t.userId),
+  index('hh_account_hh_user_idx').on(t.hhUserId),
+]))
+
+/**
+ * Links a Huntfork job to a specific hh.ru vacancy.
+ * A job can have at most one hh link (enforced in app logic);
+ * a single hh vacancy can be linked only once per organization.
+ */
+export const hhVacancyLink = pgTable('hh_vacancy_link', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  hhAccountId: text('hh_account_id').notNull().references(() => hhAccount.id, { onDelete: 'cascade' }),
+  hhVacancyId: text('hh_vacancy_id').notNull(),
+  hhVacancyUrl: text('hh_vacancy_url'),
+  hhVacancyTitle: text('hh_vacancy_title'),
+  lastSyncAt: timestamp('last_sync_at'),
+  lastSyncStatus: text('last_sync_status'),
+  lastSyncError: text('last_sync_error'),
+  autoSyncEnabled: boolean('auto_sync_enabled').notNull().default(true),
+  importedCount: integer('imported_count').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_vacancy_link_org_idx').on(t.organizationId),
+  index('hh_vacancy_link_job_idx').on(t.jobId),
+  uniqueIndex('hh_vacancy_link_org_hh_vacancy_idx').on(t.organizationId, t.hhVacancyId),
+]))
+
+/**
+ * Tracks an individual отклик (negotiation) imported from hh.ru.
+ * One-to-one with application: each imported negotiation creates or updates
+ * a single application row. Raw JSON snapshots are kept for re-scoring.
+ */
+export const hhNegotiation = pgTable('hh_negotiation', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  hhVacancyLinkId: text('hh_vacancy_link_id').notNull().references(() => hhVacancyLink.id, { onDelete: 'cascade' }),
+  applicationId: text('application_id').references(() => application.id, { onDelete: 'set null' }),
+  hhNegotiationId: text('hh_negotiation_id').notNull(),
+  hhResumeId: text('hh_resume_id'),
+  hhCollection: text('hh_collection'),
+  hhState: text('hh_state'),
+  hhCreatedAt: timestamp('hh_created_at'),
+  hhUpdatedAt: timestamp('hh_updated_at'),
+  rawResumeJson: jsonb('raw_resume_json'),
+  rawNegotiationJson: jsonb('raw_negotiation_json'),
+  importedAt: timestamp('imported_at').notNull().defaultNow(),
+  lastSeenAt: timestamp('last_seen_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_negotiation_org_idx').on(t.organizationId),
+  index('hh_negotiation_link_idx').on(t.hhVacancyLinkId),
+  index('hh_negotiation_application_idx').on(t.applicationId),
+  uniqueIndex('hh_negotiation_org_hhid_idx').on(t.organizationId, t.hhNegotiationId),
+]))
+
+// Relations for ergonomics in queries
+export const hhAccountRelations = relations(hhAccount, ({ one, many }) => ({
+  organization: one(organization, { fields: [hhAccount.organizationId], references: [organization.id] }),
+  user: one(user, { fields: [hhAccount.userId], references: [user.id] }),
+  vacancyLinks: many(hhVacancyLink),
+}))
+
+export const hhVacancyLinkRelations = relations(hhVacancyLink, ({ one, many }) => ({
+  organization: one(organization, { fields: [hhVacancyLink.organizationId], references: [organization.id] }),
+  job: one(job, { fields: [hhVacancyLink.jobId], references: [job.id] }),
+  hhAccount: one(hhAccount, { fields: [hhVacancyLink.hhAccountId], references: [hhAccount.id] }),
+  negotiations: many(hhNegotiation),
+}))
+
+export const hhNegotiationRelations = relations(hhNegotiation, ({ one }) => ({
+  organization: one(organization, { fields: [hhNegotiation.organizationId], references: [organization.id] }),
+  vacancyLink: one(hhVacancyLink, { fields: [hhNegotiation.hhVacancyLinkId], references: [hhVacancyLink.id] }),
+  application: one(application, { fields: [hhNegotiation.applicationId], references: [application.id] }),
 }))

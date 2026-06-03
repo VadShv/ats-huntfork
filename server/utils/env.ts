@@ -166,6 +166,27 @@ export const envSchema = z
       .pipe(z.string().min(1))
       .optional()
       .default("SSO"),
+    /** hh.ru OAuth Client ID (from dev.hh.ru application registration). */
+    HH_CLIENT_ID: emptyToUndefined.pipe(z.string().min(1)).optional(),
+    /** hh.ru OAuth Client Secret. */
+    HH_CLIENT_SECRET: emptyToUndefined.pipe(z.string().min(1)).optional(),
+    /** hh.ru OAuth redirect URI. Must exactly match the one registered in dev.hh.ru. */
+    HH_REDIRECT_URI: emptyToUndefined.pipe(z.string().url()).optional(),
+    /** Base URL for hh.ru OAuth endpoints. Defaults to https://hh.ru/oauth. */
+    HH_OAUTH_BASE: emptyToUndefined
+      .pipe(z.string().url())
+      .optional()
+      .default('https://hh.ru/oauth'),
+    /** Base URL for hh.ru REST API. Defaults to https://api.hh.ru. */
+    HH_API_BASE: emptyToUndefined
+      .pipe(z.string().url())
+      .optional()
+      .default('https://api.hh.ru'),
+    /** User-Agent header to send with hh.ru API requests (required by hh.ru). */
+    HH_USER_AGENT: emptyToUndefined
+      .pipe(z.string().min(1))
+      .optional()
+      .default('Huntfork/1.0'),
   })
   .superRefine((data, ctx) => {
     // BETTER_AUTH_URL can be derived at runtime from RAILWAY_PUBLIC_DOMAIN,

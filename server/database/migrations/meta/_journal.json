@@ -218,6 +218,13 @@
       "when": 1777700000000,
       "tag": "0031_member_moderation",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1780000000000,
+      "tag": "0032_huntfork_hh_integration",
+      "breakpoints": true
     }
   ]
 }
