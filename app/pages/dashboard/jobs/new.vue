@@ -108,6 +108,72 @@ watch(pipelines, (list) => {
   if (defaultPipeline) form.value.pipelineId = defaultPipeline.id
 }, { immediate: true })
 
+// --- hh.ru: импорт вакансии по ссылке ---
+const hhStatus = useFetch<{ configured: boolean, connected: boolean }>('/api/hh/status', {
+  headers: useRequestHeaders(['cookie']),
+  default: () => ({ configured: false, connected: false }),
+})
+const hhConnected = computed(() => hhStatus.data.value?.connected === true)
+const hhUrlInput = ref('')
+const hhImporting = ref(false)
+const hhImportError = ref('')
+const hhImported = ref<null | { id: string, url: string, title: string }>(null)
+
+async function importFromHh() {
+  hhImportError.value = ''
+  const url = hhUrlInput.value.trim()
+  if (!url) {
+    hhImportError.value = 'Вставьте ссылку на вакансию hh.ru'
+    return
+  }
+  hhImporting.value = true
+  try {
+    const parsed = await $fetch<{
+      hhVacancyId: string
+      hhVacancyUrl: string
+      title: string
+      description: string
+      location: string
+      type: 'full_time' | 'part_time' | 'contract' | 'internship'
+      experienceLevel?: 'junior' | 'mid' | 'senior' | 'lead'
+      remoteStatus?: 'remote' | 'hybrid' | 'onsite'
+    }>('/api/hh/parse-vacancy', {
+      method: 'POST',
+      body: { url },
+    })
+    form.value.title = parsed.title || form.value.title
+    form.value.description = parsed.description || form.value.description
+    form.value.location = parsed.location || form.value.location
+    form.value.type = parsed.type || form.value.type
+    if (parsed.experienceLevel) form.value.experienceLevel = parsed.experienceLevel
+    if (parsed.remoteStatus) form.value.remoteStatus = parsed.remoteStatus
+    hhImported.value = {
+      id: parsed.hhVacancyId,
+      url: parsed.hhVacancyUrl,
+      title: parsed.title,
+    }
+    toast.add({
+      title: 'Вакансия импортирована',
+      description: `«${parsed.title}» — данные подставлены в форму`,
+      color: 'success',
+    })
+    track('hh_vacancy_imported')
+  }
+  catch (err: any) {
+    const msg = err?.data?.statusMessage || err?.statusMessage || err?.message || 'Не удалось загрузить вакансию'
+    hhImportError.value = msg
+  }
+  finally {
+    hhImporting.value = false
+  }
+}
+
+function clearHhImport() {
+  hhImported.value = null
+  hhUrlInput.value = ''
+  hhImportError.value = ''
+}
+
 // Step 2: Application form (client-only for now)
 const applicationForm = ref({
   requireResume: true,
@@ -682,6 +748,25 @@ async function handleSubmit(mode: 'publish' | 'draft' = publishChoice.value) {
 
     track('job_created')
 
+    // Связываем вакансию с hh.ru, если была импортирована из hh
+    if (hhImported.value && created?.id) {
+      try {
+        await $fetch('/api/hh/link-vacancy', {
+          method: 'POST',
+          body: {
+            jobId: created.id,
+            hhVacancyId: hhImported.value.id,
+            hhVacancyUrl: hhImported.value.url,
+            hhVacancyTitle: hhImported.value.title,
+          },
+        })
+        track('hh_vacancy_linked')
+      } catch (e) {
+        // Неблокирующая ошибка: вакансия создана, связь можно добавить позже
+        console.error('Failed to link hh vacancy', e)
+      }
+    }
+
     if (applicationForm.value.questions.length > 0 && created?.id) {
       await Promise.all(
         applicationForm.value.questions.map((question, index) => (
@@ -878,6 +963,52 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
           <form @submit.prevent="() => handleSubmit()" class="p-6 md:p-8">
             <!-- Step 1: Job details -->
             <section v-if="currentStep === 1" class="space-y-10">
+
+              <!-- hh.ru import block -->
+              <div v-if="hhConnected" class="rounded-xl border border-brand-200 dark:border-brand-800 bg-brand-50/60 dark:bg-brand-950/30 p-5">
+                <div class="flex items-start gap-3 mb-3">
+                  <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-100 dark:bg-brand-900 flex items-center justify-center">
+                    <Link2 class="w-5 h-5 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <div class="flex-1">
+                    <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Импорт с hh.ru</h3>
+                    <p class="text-xs text-surface-600 dark:text-surface-400 mt-0.5">Вставьте ссылку на вакансию — поля ниже заполнятся автоматически. После создания вакансии отклики будут подтягиваться автоматически.</p>
+                  </div>
+                </div>
+                <div v-if="!hhImported" class="flex flex-col sm:flex-row gap-2">
+                  <input
+                    v-model="hhUrlInput"
+                    type="url"
+                    placeholder="https://hh.ru/vacancy/12345678"
+                    class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                    :disabled="hhImporting"
+                    @keydown.enter.prevent="importFromHh"
+                  />
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    :disabled="hhImporting || !hhUrlInput.trim()"
+                    @click="importFromHh"
+                  >
+                    <Loader2 v-if="hhImporting" class="w-4 h-4 animate-spin" />
+                    <Upload v-else class="w-4 h-4" />
+                    {{ hhImporting ? 'Загружаем…' : 'Загрузить с hh.ru' }}
+                  </button>
+                </div>
+                <div v-else class="flex items-start gap-2 rounded-lg bg-success-50 dark:bg-success-950/40 border border-success-200 dark:border-success-800 px-3 py-2.5">
+                  <Check class="w-4 h-4 text-success-600 dark:text-success-400 flex-shrink-0 mt-0.5" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-surface-900 dark:text-surface-100">Связано с hh.ru вакансией #{{ hhImported.id }}</p>
+                    <a :href="hhImported.url" target="_blank" rel="noopener noreferrer" class="text-xs text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1">
+                      Открыть на hh.ru
+                      <ExternalLink class="w-3 h-3" />
+                    </a>
+                  </div>
+                  <button type="button" class="text-xs text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 underline" @click="clearHhImport">Отвязать</button>
+                </div>
+                <p v-if="hhImportError" class="mt-2 text-xs text-danger-600 dark:text-danger-400 font-medium">{{ hhImportError }}</p>
+              </div>
+
               <!-- Section: Job title and department -->
               <div class="space-y-6">
                 <div>
