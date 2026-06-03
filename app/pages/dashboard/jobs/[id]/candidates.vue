@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Users, SlidersHorizontal, X, Check, ChevronsUpDown, ChevronUp, ChevronDown, UserRound } from 'lucide-vue-next'
+import { Users, SlidersHorizontal, X, Check, ChevronsUpDown, ChevronUp, ChevronDown, UserRound, Sparkles, Loader2, ChevronDown as ChevronDownIcon } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -102,6 +102,102 @@ const { data: appData, status: appFetchStatus, error: appError, refresh: refresh
 
 const applications = computed(() => appData.value?.data ?? [])
 const total = computed(() => appData.value?.total ?? 0)
+
+// ──────────────────────────────────────────────
+// Batch AI scoring («Обработать всё/выборочно»)
+// ──────────────────────────────────────────────
+const toast = useToast()
+const selectedAppIds = ref<Set<string>>(new Set())
+const isBatchScoring = ref(false)
+const batchMenuOpen = ref(false)
+const batchMenuRef = ref<HTMLElement | null>(null)
+
+function toggleAppSelection(id: string) {
+  const next = new Set(selectedAppIds.value)
+  if (next.has(id)) next.delete(id); else next.add(id)
+  selectedAppIds.value = next
+}
+
+function toggleSelectAllVisible() {
+  const visible = sorted.value.map(a => a.id)
+  const allSelected = visible.every(id => selectedAppIds.value.has(id))
+  const next = new Set(selectedAppIds.value)
+  if (allSelected) {
+    for (const id of visible) next.delete(id)
+  } else {
+    for (const id of visible) next.add(id)
+  }
+  selectedAppIds.value = next
+}
+
+function clearSelection() {
+  selectedAppIds.value = new Set()
+}
+
+const unscoredCount = computed(() => applications.value.filter((a: any) => a.score == null).length)
+const selectedCount = computed(() => selectedAppIds.value.size)
+
+// Close batch menu on outside click
+onMounted(() => {
+  const onDocClick = (e: MouseEvent) => {
+    if (!batchMenuRef.value) return
+    if (!batchMenuRef.value.contains(e.target as Node)) batchMenuOpen.value = false
+  }
+  document.addEventListener('mousedown', onDocClick)
+  onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
+})
+
+async function runBatchScore(mode: 'all' | 'rescore_all' | 'selected') {
+  if (isBatchScoring.value) return
+  batchMenuOpen.value = false
+
+  const body: Record<string, unknown> = { mode }
+  if (mode === 'selected') {
+    if (selectedAppIds.value.size === 0) {
+      toast.add({ title: 'Ничего не выбрано', description: 'Отметьте отклики в таблице', color: 'warning' })
+      return
+    }
+    body.ids = Array.from(selectedAppIds.value)
+  }
+
+  isBatchScoring.value = true
+  const startedAt = Date.now()
+  try {
+    const res = await $fetch<{
+      total: number
+      succeeded: number
+      failed: number
+      skipped: number
+    }>(`/api/jobs/${jobId}/batch-score`, {
+      method: 'POST',
+      body,
+    })
+
+    const seconds = Math.round((Date.now() - startedAt) / 1000)
+    const parts: string[] = []
+    if (res.succeeded > 0) parts.push(`обработано ${res.succeeded}`)
+    if (res.skipped > 0) parts.push(`пропущено ${res.skipped}`)
+    if (res.failed > 0) parts.push(`ошибок ${res.failed}`)
+
+    toast.add({
+      title: res.total === 0 ? 'Нечего обрабатывать' : 'Скоринг завершён',
+      description: res.total === 0
+        ? 'Нет откликов, подходящих под выбранный режим'
+        : `${parts.join(', ')} — за ${seconds} сек`,
+      color: res.failed > 0 ? 'warning' : 'success',
+    })
+
+    clearSelection()
+    await refreshApps()
+  }
+  catch (err: any) {
+    const msg = err?.data?.statusMessage || err?.statusMessage || err?.message || 'Не удалось запустить скоринг'
+    toast.add({ title: 'Ошибка', description: msg, color: 'error' })
+  }
+  finally {
+    isBatchScoring.value = false
+  }
+}
 
 // ─────────────────────────────────────────────
 // Status & badge helpers
@@ -475,6 +571,58 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
           </div>
         </div>
 
+        <!-- Batch AI scoring «Обработать» -->
+        <div ref="batchMenuRef" class="relative">
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+            :disabled="isBatchScoring || applications.length === 0"
+            @click="batchMenuOpen = !batchMenuOpen"
+          >
+            <Loader2 v-if="isBatchScoring" class="size-4 animate-spin" />
+            <Sparkles v-else class="size-4" />
+            <span>{{ isBatchScoring ? 'Обрабатываем…' : 'Обработать' }}</span>
+            <span
+              v-if="selectedCount > 0"
+              class="inline-flex items-center justify-center min-w-5 h-5 rounded-full bg-white/25 text-white text-[11px] font-semibold px-1.5"
+            >
+              {{ selectedCount }}
+            </span>
+            <ChevronDownIcon class="size-3.5 opacity-80" />
+          </button>
+          <div
+            v-if="batchMenuOpen"
+            class="absolute left-0 top-full mt-2 z-20 w-72 rounded-xl border border-surface-200/80 dark:border-surface-700/80 bg-white dark:bg-surface-900 shadow-xl shadow-surface-900/5 dark:shadow-black/20 p-1.5"
+          >
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors flex flex-col gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="selectedCount === 0"
+              @click="runBatchScore('selected')"
+            >
+              <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Выбранные ({{ selectedCount }})</span>
+              <span class="text-xs text-surface-500">Скоринг только отмеченных в таблице откликов</span>
+            </button>
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors flex flex-col gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="unscoredCount === 0"
+              @click="runBatchScore('all')"
+            >
+              <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Все необработанные ({{ unscoredCount }})</span>
+              <span class="text-xs text-surface-500">Только те, у кого ещё нет оценки</span>
+            </button>
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors flex flex-col gap-0.5"
+              @click="runBatchScore('rescore_all')"
+            >
+              <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Пересчитать все ({{ applications.length }})</span>
+              <span class="text-xs text-surface-500">Скоринг заново для всех откликов вакансии</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Active filter pills -->
         <template v-if="selectedStatuses.length > 0">
           <span
@@ -523,6 +671,25 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-surface-200/80 dark:border-surface-800/60 bg-surface-50/80 dark:bg-surface-900">
+                <!-- Select-all checkbox -->
+                <th class="px-4 py-3 w-9">
+                  <label class="flex items-center cursor-pointer" @click.stop>
+                    <input
+                      type="checkbox"
+                      class="sr-only peer"
+                      :checked="sorted.length > 0 && sorted.every(a => selectedAppIds.has(a.id))"
+                      @change="toggleSelectAllVisible"
+                    />
+                    <span
+                      class="size-4 shrink-0 rounded border flex items-center justify-center transition-colors"
+                      :class="sorted.length > 0 && sorted.every(a => selectedAppIds.has(a.id))
+                        ? 'bg-brand-500 border-brand-500'
+                        : 'bg-white dark:bg-surface-800 border-surface-300 dark:border-surface-600'"
+                    >
+                      <Check v-if="sorted.length > 0 && sorted.every(a => selectedAppIds.has(a.id))" class="size-3 text-white" stroke-width="3" />
+                    </span>
+                  </label>
+                </th>
                 <!-- Name always visible -->
                 <th class="px-4 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide select-none">
                   <button
@@ -576,7 +743,7 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
               <!-- No results after filtering -->
               <tr v-if="sorted.length === 0">
                 <td
-                  :colspan="1 + Object.values(visibleCols).filter(Boolean).length"
+                  :colspan="2 + Object.values(visibleCols).filter(Boolean).length"
                   class="px-4 py-10 text-center text-sm text-surface-400"
                 >
                   {{ $t('dashboard.jobs.candidates.noMatchFilters') }}
@@ -591,6 +758,14 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                   : 'hover:bg-surface-50/80 dark:hover:bg-surface-900/60'"
                 @click="selectRow(app.id)"
               >
+                <td class="px-3 py-3 whitespace-nowrap" @click.stop>
+                  <input
+                    type="checkbox"
+                    class="size-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                    :checked="selectedAppIds.has(app.id)"
+                    @change="toggleAppSelection(app.id)"
+                  >
+                </td>
                 <td class="px-4 py-3 whitespace-nowrap">
                   <div class="flex items-center gap-3">
                     <div
