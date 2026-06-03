@@ -269,6 +269,16 @@ export default defineNuxtConfig({
   },
 
   nitro: {
+    // ──────────────────────────────────────────
+    // Scheduled tasks (cron)
+    // ──────────────────────────────────────────
+    experimental: {
+      tasks: true,
+    },
+    scheduledTasks: {
+      // Каждые 5 минут: синк откликов hh.ru
+      '*/5 * * * *': ['hh:sync'],
+    },
     routeRules: {
       "/**": {
         headers: {
