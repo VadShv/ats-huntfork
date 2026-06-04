@@ -89,9 +89,9 @@ const apiStatusFilter = computed(() =>
   selectedStatuses.value.length === 1 ? selectedStatuses.value[0] : undefined,
 )
 
-// Лимит расширяем по кнопке «Показать все» — иначе при 240+ откликах
-// пользователь видит только первые 100.
-const applicationsLimit = ref(100)
+// Сразу тянем до 500 откликов по вакансии — это верхний серверный лимит.
+// Если вакансия имеет 500+, покажем кнопку «Показать все» (ноп -- надо пагинация).
+const applicationsLimit = ref(500)
 const { data: appData, status: appFetchStatus, error: appError, refresh: refreshApps } = useFetch('/api/applications', {
   key: `candidates-table-apps-${jobId}`,
   query: computed(() => ({

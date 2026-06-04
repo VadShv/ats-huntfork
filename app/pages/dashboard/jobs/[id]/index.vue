@@ -43,7 +43,7 @@ const {
   refresh: refreshApps,
 } = useFetch('/api/applications', {
   key: `pipeline-apps-${jobId}`,
-  query: { jobId, limit: 100 },
+  query: { jobId, limit: 500 },
   headers: useRequestHeaders(['cookie']),
 })
 
