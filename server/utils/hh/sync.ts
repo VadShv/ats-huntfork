@@ -192,24 +192,58 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
     return result
   }
 
-  // ── 1. Тянем все страницы откликов ──────────────────────────────────
+  // ── 1. Тянем отклики по всем коллекциям работодателя ───────────────
+  // У работодателя hh.ru отклики разнесены по коллекциям. Чистый
+  // GET /negotiations?vacancy_id=... ничего не возвращает — нужно ходить
+  // в GET /negotiations/<collection>?vacancy_id=... для каждой коллекции.
+  const EMPLOYER_COLLECTIONS = [
+    'response',
+    'consider',
+    'phone_interview',
+    'assessment',
+    'interview',
+    'offer',
+    'hired',
+    'discard_by_employer',
+    'discard_visible_by_opponent',
+    'discard_after_interview',
+  ] as const
   const collected: HhNegotiationItem[] = []
+  const collectionStats: Record<string, number> = {}
   try {
-    let page = 0
-    const perPage = 100
-    // limit pages to 20 (= 2000 откликов) — защита от рантэвея
-    while (page < 20) {
-      const data = await apiGet<HhNegotiationsPage>('/negotiations', token, {
-        vacancy_id: link.hhVacancyId,
-        page,
-        per_page: perPage,
-      })
-      const items = data.items || []
-      collected.push(...items)
-      result.fetched += items.length
-      const totalPages = data.pages ?? 1
-      if (page + 1 >= totalPages || items.length < perPage) break
-      page += 1
+    // Для коллекций работодателя hh.ru лимит per_page = 50 (не 100, как обычно).
+    const perPage = 50
+    for (const collection of EMPLOYER_COLLECTIONS) {
+      let page = 0
+      let inCollection = 0
+      // защита от рантэвея — до 40 страниц = 2000 на коллекцию
+      while (page < 40) {
+        let data: HhNegotiationsPage
+        try {
+          data = await apiGet<HhNegotiationsPage>(`/negotiations/${collection}`, token, {
+            vacancy_id: link.hhVacancyId,
+            page,
+            per_page: perPage,
+          })
+        }
+        catch (innerErr) {
+          // 404/403 на коллекции — возможно она недоступна для тарифа.
+          // Логируем и идём дальше, не валим весь синк.
+          console.warn(`[hh:sync] link=${link.id} collection=${collection} skipped:`, innerErr instanceof Error ? innerErr.message : innerErr)
+          break
+        }
+        const items = data.items || []
+        collected.push(...items)
+        result.fetched += items.length
+        inCollection += items.length
+        const totalPages = data.pages ?? 1
+        if (page + 1 >= totalPages || items.length < perPage) break
+        page += 1
+      }
+      if (inCollection > 0) collectionStats[collection] = inCollection
+    }
+    if (result.fetched > 0) {
+      console.log(`[hh:sync] link=${link.id} vac=${link.hhVacancyId} collections=${JSON.stringify(collectionStats)}`)
     }
   }
   catch (err) {
@@ -222,6 +256,15 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
     }).where(eq(hhVacancyLink.id, link.id))
     return result
   }
+
+  // Дедупликация по id — один отклик может попасть в несколько коллекций.
+  const seenIds = new Set<string>()
+  for (let i = collected.length - 1; i >= 0; i--) {
+    const item = collected[i]
+    if (!item || !item.id || seenIds.has(item.id)) collected.splice(i, 1)
+    else if (item.id) seenIds.add(item.id)
+  }
+  result.fetched = collected.length
 
   if (collected.length === 0) {
     await db.update(hhVacancyLink).set({

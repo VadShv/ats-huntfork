@@ -103,6 +103,38 @@ const { data: appData, status: appFetchStatus, error: appError, refresh: refresh
 const applications = computed(() => appData.value?.data ?? [])
 const total = computed(() => appData.value?.total ?? 0)
 
+// hh.ru связка вакансии — панель «Связано с hh.ru» и кнопка ручного синка
+interface HhLinkInfo {
+  id: string
+  hhVacancyId: string
+  hhVacancyUrl: string | null
+  hhVacancyTitle: string | null
+  lastSyncAt: string | null
+  lastSyncStatus: string | null
+  lastSyncError: string | null
+  importedCount: number
+  autoSyncEnabled: boolean
+}
+const { data: hhLinkData, refresh: refreshHhLink } = useFetch<{ linked: boolean, link?: HhLinkInfo }>(`/api/jobs/${jobId}/hh-link`, {
+  key: `hh-link-${jobId}`,
+  headers: useRequestHeaders(['cookie']),
+  default: () => ({ linked: false }),
+})
+const hhLink = computed<HhLinkInfo | null>(() => hhLinkData.value?.linked ? (hhLinkData.value.link ?? null) : null)
+const isSyncingHh = ref(false)
+const hhRelativeTime = computed(() => {
+  const at = hhLink.value?.lastSyncAt
+  if (!at) return null
+  const diff = Date.now() - new Date(at).getTime()
+  if (diff < 60_000) return 'только что'
+  const m = Math.floor(diff / 60_000)
+  if (m < 60) return `${m} мин назад`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h} ч назад`
+  const d = Math.floor(h / 24)
+  return `${d} дн. назад`
+})
+
 // ──────────────────────────────────────────────
 // Batch AI scoring («Обработать всё/выборочно»)
 // ──────────────────────────────────────────────
@@ -196,6 +228,34 @@ async function runBatchScore(mode: 'all' | 'rescore_all' | 'selected') {
   }
   finally {
     isBatchScoring.value = false
+  }
+}
+
+// Ручной синк откликов с hh.ru по этой вакансии (тянет по всем коллекциям)
+async function runHhSync() {
+  const link = hhLink.value
+  if (!link || isSyncingHh.value) return
+  isSyncingHh.value = true
+  try {
+    const res = await $fetch<{ fetched: number, created: number, updated: number, failed: number, error?: string }>(`/api/hh/sync/${link.id}`, { method: 'POST' })
+    if (res.error) {
+      toast.add({ title: 'Ошибка синхронизации hh.ru', description: res.error, color: 'error' })
+    }
+    else {
+      toast.add({
+        title: 'Синхронизация hh.ru',
+        description: `Получено: ${res.fetched} · новых: ${res.created} · обновлено: ${res.updated}${res.failed ? ` · ошибок: ${res.failed}` : ''}`,
+        color: res.created > 0 || res.updated > 0 ? 'success' : 'info',
+      })
+    }
+    await Promise.all([refreshHhLink(), refreshApps()])
+  }
+  catch (err: any) {
+    const msg = err?.data?.statusMessage || err?.statusMessage || err?.message || 'Не удалось запустить синхронизацию'
+    toast.add({ title: 'Ошибка', description: msg, color: 'error' })
+  }
+  finally {
+    isSyncingHh.value = false
   }
 }
 
@@ -399,6 +459,57 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
     </div>
 
     <template v-else-if="jobData">
+      <!-- hh.ru связка вакансии -->
+      <div
+        v-if="hhLink"
+        class="mb-4 flex flex-col gap-3 rounded-xl border border-red-200/80 bg-gradient-to-br from-red-50/70 to-orange-50/50 px-4 py-3 dark:border-red-900/40 dark:from-red-950/20 dark:to-orange-950/10 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div class="flex items-start gap-3 min-w-0">
+          <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold text-xs">
+            hh
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">Связано с hh.ru · #{{ hhLink.hhVacancyId }}</span>
+              <span
+                v-if="hhLink.lastSyncStatus === 'error'"
+                class="inline-flex items-center rounded-full bg-danger-100 dark:bg-danger-950/50 px-2 py-0.5 text-[11px] font-medium text-danger-700 dark:text-danger-300"
+                :title="hhLink.lastSyncError ?? ''"
+              >Ошибка синка</span>
+              <span
+                v-else-if="hhLink.lastSyncStatus === 'ok'"
+                class="inline-flex items-center rounded-full bg-success-100 dark:bg-success-950/50 px-2 py-0.5 text-[11px] font-medium text-success-700 dark:text-success-300"
+              >OK</span>
+            </div>
+            <div class="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
+              <span>{{ hhLink.importedCount }} откликов импортировано</span>
+              <span v-if="hhRelativeTime" class="mx-1.5 text-surface-300 dark:text-surface-700">·</span>
+              <span v-if="hhRelativeTime">синк {{ hhRelativeTime }}</span>
+              <span v-if="!hhLink.autoSyncEnabled" class="mx-1.5 text-surface-300 dark:text-surface-700">·</span>
+              <span v-if="!hhLink.autoSyncEnabled" class="text-warn-700 dark:text-warn-400">автосинк выключен</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a
+            v-if="hhLink.hhVacancyUrl"
+            :href="hhLink.hhVacancyUrl"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+          >Открыть на hh.ru</a>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="isSyncingHh"
+            @click="runHhSync"
+          >
+            <Loader2 v-if="isSyncingHh" class="size-3.5 animate-spin" />
+            <span>{{ isSyncingHh ? 'Синхронизируем…' : 'Синхронизировать сейчас' }}</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Toolbar -->
       <div class="flex items-center gap-3 mb-4">
         <!-- Column / filter picker -->

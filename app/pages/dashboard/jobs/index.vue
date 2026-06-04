@@ -714,6 +714,11 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
                     >
                       {{ j.pipeline.new }} new
                     </span>
+                    <span
+                      v-if="j.hhLinked"
+                      class="inline-flex items-center justify-center rounded-full bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-[10px] font-bold px-1.5 py-0.5 shrink-0"
+                      :title="`Связано с hh.ru · #${j.hhVacancyId} · ${j.hhImportedCount} откликов`"
+                    >hh</span>
                   </div>
                 </td>
                 <td class="px-4 py-3">
@@ -780,12 +785,19 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
               <span class="font-semibold text-sm text-surface-900 dark:text-surface-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-2 leading-snug">
                 {{ j.title }}
               </span>
-              <span
-                class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 capitalize mt-0.5"
-                :class="statusBadgeClasses[j.status] ?? 'bg-surface-100 text-surface-600'"
-              >
-                {{ j.status }}
-              </span>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span
+                  v-if="j.hhLinked"
+                  class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-[10px] font-bold px-1.5 py-0.5"
+                  :title="`Связано с hh.ru · #${j.hhVacancyId} · ${j.hhImportedCount} откликов`"
+                >hh</span>
+                <span
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize mt-0.5"
+                  :class="statusBadgeClasses[j.status] ?? 'bg-surface-100 text-surface-600'"
+                >
+                  {{ j.status }}
+                </span>
+              </div>
             </div>
 
             <!-- Meta: type + location -->

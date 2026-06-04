@@ -1,5 +1,5 @@
 import { eq, and, desc, count, inArray } from 'drizzle-orm'
-import { job, application } from '../../database/schema'
+import { job, application, hhVacancyLink } from '../../database/schema'
 import { jobQuerySchema } from '../../utils/schemas/job'
 
 interface PipelineCounts {
@@ -74,10 +74,30 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // hh.ru linked-jobs (для чипа «hh» в списке)
+  let hhLinkedMap: Record<string, { hhVacancyId: string, importedCount: number }> = {}
+  if (jobIds.length > 0) {
+    const hhRows = await db
+      .select({
+        jobId: hhVacancyLink.jobId,
+        hhVacancyId: hhVacancyLink.hhVacancyId,
+        importedCount: hhVacancyLink.importedCount,
+      })
+      .from(hhVacancyLink)
+      .where(and(
+        eq(hhVacancyLink.organizationId, orgId),
+        inArray(hhVacancyLink.jobId, jobIds),
+      ))
+    hhLinkedMap = Object.fromEntries(hhRows.map(r => [r.jobId, { hhVacancyId: r.hhVacancyId, importedCount: r.importedCount }]))
+  }
+
   const enrichedData = data.map((j) => ({
     ...j,
     pipelineName: j.pipeline?.name ?? null,
     pipeline: pipelineMap[j.id] ?? { new: 0, screening: 0, interview: 0, offer: 0, hired: 0, rejected: 0 },
+    hhLinked: !!hhLinkedMap[j.id],
+    hhVacancyId: hhLinkedMap[j.id]?.hhVacancyId ?? null,
+    hhImportedCount: hhLinkedMap[j.id]?.importedCount ?? 0,
   }))
 
   return { data: enrichedData, total, page: query.page, limit: query.limit }
