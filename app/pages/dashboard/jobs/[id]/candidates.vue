@@ -89,15 +89,19 @@ const apiStatusFilter = computed(() =>
   selectedStatuses.value.length === 1 ? selectedStatuses.value[0] : undefined,
 )
 
+// Лимит расширяем по кнопке «Показать все» — иначе при 240+ откликах
+// пользователь видит только первые 100.
+const applicationsLimit = ref(100)
 const { data: appData, status: appFetchStatus, error: appError, refresh: refreshApps } = useFetch('/api/applications', {
   key: `candidates-table-apps-${jobId}`,
   query: computed(() => ({
     jobId,
-    limit: 100,
+    limit: applicationsLimit.value,
     ...(apiStatusFilter.value && { status: apiStatusFilter.value }),
     ...(selectedStageId.value && { stageId: selectedStageId.value }),
   })),
   headers: useRequestHeaders(['cookie']),
+  watch: [applicationsLimit],
 })
 
 const applications = computed(() => appData.value?.data ?? [])
@@ -932,11 +936,21 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
           </table>
         </div>
 
-        <!-- Footer / count -->
-        <div class="px-4 py-3 border-t border-surface-200/80 dark:border-surface-800/60 bg-surface-50/80 dark:bg-surface-900">
+        <!-- Footer / count + load more -->
+        <div class="px-4 py-3 border-t border-surface-200/80 dark:border-surface-800/60 bg-surface-50/80 dark:bg-surface-900 flex items-center justify-between gap-3 flex-wrap">
           <p class="text-xs font-medium text-surface-500 dark:text-surface-400">
             {{ $t('dashboard.jobs.candidates.counter', { shown: sorted.length, total })}}
+            <span v-if="applications.length < total" class="ml-1 text-warning-700 dark:text-warning-400">(загружено {{ applications.length }} из {{ total }})</span>
           </p>
+          <button
+            v-if="applications.length < total"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors disabled:opacity-60"
+            :disabled="appFetchStatus === 'pending'"
+            @click="applicationsLimit = Math.min(500, total)"
+          >
+            {{ appFetchStatus === 'pending' ? 'Загружаем…' : `Показать все (${total})` }}
+          </button>
         </div>
       </div>
     </template>
