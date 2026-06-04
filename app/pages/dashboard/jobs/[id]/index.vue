@@ -63,12 +63,36 @@ const appFetchStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const appError = ref<unknown>(null)
 const isLoadingMore = ref(false)
 
+// Инкремент при каждом новом loadApplications — сталые ответы не пишут в стейт.
+let appsRequestId = 0
+
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
+async function fetchAppsPage(query: Record<string, unknown>, maxRetries = 4): Promise<AppPage> {
+  let attempt = 0
+  while (true) {
+    try {
+      return await $fetch<AppPage>('/api/applications', { query, credentials: 'include' })
+    }
+    catch (err: any) {
+      const status = err?.response?.status ?? err?.statusCode
+      const retriable = status === 429 || status === 502 || status === 503 || status === 504
+      if (!retriable || attempt >= maxRetries) throw err
+      const backoff = 400 * 2 ** attempt + Math.random() * 200
+      await sleep(backoff)
+      attempt += 1
+    }
+  }
+}
+
 async function loadApplications() {
+  const myId = ++appsRequestId
   appFetchStatus.value = 'pending'
   appError.value = null
   try {
     const baseQuery: Record<string, unknown> = { jobId, limit: PAGE_SIZE, page: 1 }
-    const first = await $fetch<AppPage>('/api/applications', { query: baseQuery, credentials: 'include' })
+    const first = await fetchAppsPage(baseQuery)
+    if (myId !== appsRequestId) return
     applications.value = first.data
     total.value = first.total
     appFetchStatus.value = 'success'
@@ -77,10 +101,8 @@ async function loadApplications() {
       isLoadingMore.value = true
       let page = 2
       while (applications.value.length < first.total && page <= 20) {
-        const next = await $fetch<AppPage>('/api/applications', {
-          query: { ...baseQuery, page },
-          credentials: 'include',
-        })
+        const next = await fetchAppsPage({ ...baseQuery, page })
+        if (myId !== appsRequestId) return
         if (!next.data.length) break
         applications.value = [...applications.value, ...next.data]
         page += 1
@@ -88,7 +110,9 @@ async function loadApplications() {
       isLoadingMore.value = false
     }
   }
-  catch (err) {
+  catch (err: any) {
+    if (myId !== appsRequestId) return
+    if (err?.name === 'AbortError') return
     appError.value = err
     appFetchStatus.value = 'error'
     isLoadingMore.value = false

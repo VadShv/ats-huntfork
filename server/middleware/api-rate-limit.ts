@@ -3,16 +3,18 @@ import { createRateLimiter } from '../utils/rateLimit'
 const SAFE_METHODS = new Set(['GET', 'HEAD'])
 const SKIP_METHODS = new Set(['OPTIONS'])
 
-// Baseline global API limits (per IP)
+// Baseline global API limits (per IP). Реальные рекрутеры в SPA легко выбивают 300/мин:
+// один открытый KAM = ~6 параллельных fetch'ей + автодогрузка откликов
+// + watch'еры при переключении вкладок Pipeline/Table.
 const globalReadLimiter = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 300,
+  maxRequests: 1200,
   message: 'Too many API requests. Please try again shortly.',
 })
 
 const globalWriteLimiter = createRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 80,
+  maxRequests: 200,
   message: 'Too many write requests. Please try again shortly.',
 })
 
