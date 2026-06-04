@@ -89,23 +89,76 @@ const apiStatusFilter = computed(() =>
   selectedStatuses.value.length === 1 ? selectedStatuses.value[0] : undefined,
 )
 
-// Сразу тянем до 500 откликов по вакансии — это верхний серверный лимит.
-// Если вакансия имеет 500+, покажем кнопку «Показать все» (ноп -- надо пагинация).
-const applicationsLimit = ref(500)
-const { data: appData, status: appFetchStatus, error: appError, refresh: refreshApps } = useFetch('/api/applications', {
-  key: `candidates-table-apps-${jobId}`,
-  query: computed(() => ({
-    jobId,
-    limit: applicationsLimit.value,
-    ...(apiStatusFilter.value && { status: apiStatusFilter.value }),
-    ...(selectedStageId.value && { stageId: selectedStageId.value }),
-  })),
-  headers: useRequestHeaders(['cookie']),
-  watch: [applicationsLimit],
-})
+// Автодогрузка всех откликов по вакансии батчами по 1000.
+// Даже если откликов 5000+, UI получит все без кнопок/пагинации.
+const PAGE_SIZE = 1000
+interface AppRow {
+  id: string
+  jobId: string
+  candidateId: string
+  candidateFirstName?: string | null
+  candidateLastName?: string | null
+  candidateEmail?: string | null
+  status: string
+  score?: number | null
+  currentStageId?: string | null
+  createdAt: string
+  [k: string]: unknown
+}
+interface AppPage {
+  data: AppRow[]
+  total: number
+  page: number
+  limit: number
+}
+const applications = ref<AppRow[]>([])
+const total = ref(0)
+const appFetchStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
+const appError = ref<unknown>(null)
+const isLoadingMore = ref(false)
 
-const applications = computed(() => appData.value?.data ?? [])
-const total = computed(() => appData.value?.total ?? 0)
+async function loadApplications() {
+  appFetchStatus.value = 'pending'
+  appError.value = null
+  try {
+    const baseQuery: Record<string, unknown> = { jobId, limit: PAGE_SIZE, page: 1 }
+    if (apiStatusFilter.value) baseQuery.status = apiStatusFilter.value
+    if (selectedStageId.value) baseQuery.stageId = selectedStageId.value
+    const first = await $fetch<AppPage>('/api/applications', { query: baseQuery, credentials: 'include' })
+    applications.value = first.data
+    total.value = first.total
+    appFetchStatus.value = 'success'
+
+    // Если есть ещё — добираем фоном, обновляя список по мере прихода.
+    if (first.total > applications.value.length) {
+      isLoadingMore.value = true
+      let page = 2
+      while (applications.value.length < first.total && page <= 20) {
+        const next = await $fetch<AppPage>('/api/applications', {
+          query: { ...baseQuery, page },
+          credentials: 'include',
+        })
+        if (!next.data.length) break
+        applications.value = [...applications.value, ...next.data]
+        page += 1
+      }
+      isLoadingMore.value = false
+    }
+  }
+  catch (err) {
+    appError.value = err
+    appFetchStatus.value = 'error'
+    isLoadingMore.value = false
+  }
+}
+
+async function refreshApps() {
+  await loadApplications()
+}
+
+// Перезагрузка при смене фильтров
+watch([apiStatusFilter, selectedStageId], () => { loadApplications() })
+onMounted(() => { loadApplications() })
 
 // hh.ru связка вакансии — панель «Связано с hh.ru» и кнопка ручного синка
 interface HhLinkInfo {
@@ -936,21 +989,18 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
           </table>
         </div>
 
-        <!-- Footer / count + load more -->
+        <!-- Footer / count -->
         <div class="px-4 py-3 border-t border-surface-200/80 dark:border-surface-800/60 bg-surface-50/80 dark:bg-surface-900 flex items-center justify-between gap-3 flex-wrap">
           <p class="text-xs font-medium text-surface-500 dark:text-surface-400">
             {{ $t('dashboard.jobs.candidates.counter', { shown: sorted.length, total })}}
-            <span v-if="applications.length < total" class="ml-1 text-warning-700 dark:text-warning-400">(загружено {{ applications.length }} из {{ total }})</span>
           </p>
-          <button
-            v-if="applications.length < total"
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors disabled:opacity-60"
-            :disabled="appFetchStatus === 'pending'"
-            @click="applicationsLimit = Math.min(500, total)"
+          <span
+            v-if="isLoadingMore"
+            class="inline-flex items-center gap-1.5 text-xs text-surface-500 dark:text-surface-400"
           >
-            {{ appFetchStatus === 'pending' ? 'Загружаем…' : `Показать все (${total})` }}
-          </button>
+            <Loader2 class="size-3.5 animate-spin" />
+            Дозагружаем… ({{ applications.length }} / {{ total }})
+          </span>
         </div>
       </div>
     </template>

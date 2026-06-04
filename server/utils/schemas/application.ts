@@ -23,7 +23,7 @@ export const updateApplicationSchema = z.object({
 /** Schema for application list query params */
 export const applicationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(500).default(20),
+  limit: z.coerce.number().int().min(1).max(1000).default(20),
   jobId: z.string().min(1).optional(),
   candidateId: z.string().min(1).optional(),
   status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional(),

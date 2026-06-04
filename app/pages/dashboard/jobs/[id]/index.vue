@@ -33,24 +33,73 @@ const { formatPersonName } = useOrgSettings()
 const { job: jobData, status: jobFetchStatus, error: jobError } = useJob(jobId)
 
 // ─────────────────────────────────────────────
-// Applications data
+// Applications data — автодогрузка всех откликов батчами по 1000.
+// Даже если откликов 5000+, UI получит все без ручной пагинации.
 // ─────────────────────────────────────────────
-
-const {
-  data: appData,
-  status: appFetchStatus,
-  error: appError,
-  refresh: refreshApps,
-} = useFetch('/api/applications', {
-  key: `pipeline-apps-${jobId}`,
-  query: { jobId, limit: 500 },
-  headers: useRequestHeaders(['cookie']),
-})
 
 const PIPELINE_STATUSES = ['new', 'screening', 'interview', 'offer', 'hired', 'rejected'] as const
 type PipelineStatus = typeof PIPELINE_STATUSES[number]
 
-const applications = computed(() => appData.value?.data ?? [])
+const PAGE_SIZE = 1000
+interface AppRow {
+  id: string
+  jobId: string
+  candidateId: string
+  status: string
+  score?: number | null
+  currentStageId?: string | null
+  createdAt: string
+  [k: string]: unknown
+}
+interface AppPage {
+  data: AppRow[]
+  total: number
+  page: number
+  limit: number
+}
+const applications = ref<AppRow[]>([])
+const total = ref(0)
+const appFetchStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
+const appError = ref<unknown>(null)
+const isLoadingMore = ref(false)
+
+async function loadApplications() {
+  appFetchStatus.value = 'pending'
+  appError.value = null
+  try {
+    const baseQuery: Record<string, unknown> = { jobId, limit: PAGE_SIZE, page: 1 }
+    const first = await $fetch<AppPage>('/api/applications', { query: baseQuery, credentials: 'include' })
+    applications.value = first.data
+    total.value = first.total
+    appFetchStatus.value = 'success'
+
+    if (first.total > applications.value.length) {
+      isLoadingMore.value = true
+      let page = 2
+      while (applications.value.length < first.total && page <= 20) {
+        const next = await $fetch<AppPage>('/api/applications', {
+          query: { ...baseQuery, page },
+          credentials: 'include',
+        })
+        if (!next.data.length) break
+        applications.value = [...applications.value, ...next.data]
+        page += 1
+      }
+      isLoadingMore.value = false
+    }
+  }
+  catch (err) {
+    appError.value = err
+    appFetchStatus.value = 'error'
+    isLoadingMore.value = false
+  }
+}
+
+async function refreshApps() {
+  await loadApplications()
+}
+
+onMounted(() => { loadApplications() })
 
 // Read initial pipeline stage from URL query param (?stage=screening)
 const initialStage = PIPELINE_STATUSES.includes(route.query.stage as any)
@@ -1412,6 +1461,10 @@ function closeDocPreview() {
             </span>
             <span v-if="hasActiveFilters && filteredApplications.length !== focusedApplications.length" class="text-[10px] text-surface-400 dark:text-surface-500">
               of {{ focusedApplications.length }}
+            </span>
+            <span v-if="isLoadingMore" class="flex items-center gap-1 text-[10px] text-surface-400 dark:text-surface-500">
+              <Loader2 class="size-3 animate-spin" />
+              Дозагружаем… ({{ applications.length }} / {{ total }})
             </span>
           </div>
 
