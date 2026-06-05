@@ -104,12 +104,25 @@ export const candidate = pgTable('candidate', {
   dateOfBirth: text('date_of_birth'),
   /** Quick notes visible inline on the candidates list */
   quickNotes: text('quick_notes'),
+  // ─── hh.ru resume snapshot ('бэкап резюме' — даже если кандидат удалил его на hh) ───
+  /** Id резюме на hh.ru — последний пришедший для этого кандидата. */
+  hhResumeId: text('hh_resume_id'),
+  /** Сырой JSON-payload резюме с hh.ru. Используется для красивого рендера + PDF-экспорта. */
+  hhResumeRaw: jsonb('hh_resume_raw').$type<Record<string, unknown> | null>(),
+  /** Когда последний раз обновляли hh_resume_raw. */
+  hhResumeFetchedAt: timestamp('hh_resume_fetched_at'),
+  // ─── AI summary ───
+  /** Короткое AI-саммари по кандидату (3-5 строк, plain text). */
+  aiSummary: text('ai_summary'),
+  /** Когда сгенерировано последнее ai_summary. */
+  aiSummaryAt: timestamp('ai_summary_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   index('candidate_organization_id_idx').on(t.organizationId),
   index('candidate_gender_idx').on(t.organizationId, t.gender),
   uniqueIndex('candidate_org_email_idx').on(t.organizationId, t.email),
+  index('candidate_hh_resume_id_idx').on(t.organizationId, t.hhResumeId),
 ]))
 
 /**

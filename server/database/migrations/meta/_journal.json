@@ -225,6 +225,13 @@
       "when": 1780000000000,
       "tag": "0032_huntfork_hh_integration",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1781000000000,
+      "tag": "0033_candidate_hh_resume_and_ai_summary",
+      "breakpoints": true
     }
   ]
 }

@@ -304,7 +304,7 @@ function formatFileSize(bytes: number | null | undefined): string {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
+  <div class="mx-auto max-w-[1400px]">
     <!-- Back link -->
     <NuxtLink
       :to="$localePath('/dashboard/candidates')"
@@ -330,8 +330,10 @@ function formatFileSize(bytes: number | null | undefined): string {
 
     <!-- Candidate detail -->
     <template v-else-if="candidate">
-      <!-- VIEW MODE -->
-      <div v-if="!isEditing">
+      <!-- VIEW MODE — 3-column layout «Хантфлоу»-стиль -->
+      <div v-if="!isEditing" class="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_360px] gap-6">
+        <!-- ╗╗╗ LEFT COLUMN: profile + contacts + properties ╗╗╗ -->
+        <aside class="space-y-4 min-w-0">
         <!-- Header -->
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div class="min-w-0">
@@ -441,7 +443,31 @@ function formatFileSize(bytes: number | null | undefined): string {
             @refresh="refresh()"
           />
         </div>
+        </aside>
 
+        <!-- ╗╗╗ CENTER COLUMN: AI summary + hh resume ╗╗╗ -->
+        <main class="space-y-4 min-w-0">
+          <CandidateAiSummaryCard
+            :candidate-id="candidateId"
+            :ai-summary="(candidate as any).aiSummary"
+            :ai-summary-at="(candidate as any).aiSummaryAt"
+            :can-generate="Boolean((candidate as any).hhResumeId)"
+            @generated="refresh()"
+          />
+          <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
+            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-4 flex items-center justify-between">
+              <span>Резюме с hh.ru</span>
+            </h2>
+            <CandidateHhResumeView
+              :candidate-id="candidateId"
+              :has-snapshot="Boolean((candidate as any).hhResumeId)"
+              :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
+            />
+          </div>
+        </main>
+
+        <!-- ╗╗╗ RIGHT COLUMN: tabs (applications, documents) ╗╗╗ -->
+        <section class="space-y-4 min-w-0">
         <!-- Tabs -->
         <div class="border-b border-surface-200 dark:border-surface-800 mb-4">
           <div class="flex gap-1">
@@ -542,7 +568,7 @@ function formatFileSize(bytes: number | null | undefined): string {
           @scheduled="showInterviewSidebar = false"
         />
 
-        <!-- Documents tab -->
+        <!-- Documents tab (в правой колонке) -->
         <div v-if="activeTab === 'documents'">
           <!-- Hidden file input -->
           <input
@@ -733,6 +759,7 @@ function formatFileSize(bytes: number | null | undefined): string {
             </div>
           </Teleport>
         </div>
+        </section>
       </div>
 
       <!-- EDIT MODE -->

@@ -340,8 +340,23 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
           eq(candidate.email, fallbackEmail),
         ))
         .limit(1)
+      // Общее для обоих веток: снепшот сырого резюме для сохранения в candidate.
+      const resumeSnapshot = {
+        hhResumeId: resumeId,
+        hhResumeRaw: resume as unknown as Record<string, unknown>,
+        hhResumeFetchedAt: new Date(),
+      }
       if (existingCand.length > 0) {
         candidateId = existingCand[0]!.id
+        // Обновляем snapshot — при каждом sync'е берём актуальнуы версию резюме.
+        await db.update(candidate).set({
+          hhResumeId: resumeSnapshot.hhResumeId,
+          hhResumeRaw: resumeSnapshot.hhResumeRaw,
+          hhResumeFetchedAt: resumeSnapshot.hhResumeFetchedAt,
+          // подобьём телефон, если раньше не было и сейчас пришёл
+          ...(phone ? { phone } : {}),
+          updatedAt: new Date(),
+        }).where(eq(candidate.id, candidateId))
       }
       else {
         const insCand = await db.insert(candidate).values({
@@ -350,6 +365,9 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
           lastName,
           email: fallbackEmail,
           phone: phone ?? null,
+          hhResumeId: resumeSnapshot.hhResumeId,
+          hhResumeRaw: resumeSnapshot.hhResumeRaw,
+          hhResumeFetchedAt: resumeSnapshot.hhResumeFetchedAt,
         }).returning({ id: candidate.id })
         candidateId = insCand[0]!.id
       }

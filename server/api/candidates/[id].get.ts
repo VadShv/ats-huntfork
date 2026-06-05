@@ -21,12 +21,16 @@ export default defineEventHandler(async (event) => {
       gender: true,
       dateOfBirth: true,
       quickNotes: true,
+      hhResumeId: true,
+      hhResumeFetchedAt: true,
+      aiSummary: true,
+      aiSummaryAt: true,
       createdAt: true,
       updatedAt: true,
     },
     with: {
       applications: {
-        columns: { id: true, status: true, createdAt: true },
+        columns: { id: true, status: true, createdAt: true, source: true, externalUrl: true, score: true, currentStageId: true },
         with: {
           job: {
             columns: { id: true, title: true },
