@@ -1,5 +1,5 @@
-import { eq, and } from 'drizzle-orm'
-import { candidate } from '../../database/schema'
+import { eq, and, or, count } from 'drizzle-orm'
+import { candidate, candidateDuplicateCandidate } from '../../database/schema'
 import { candidateIdParamSchema } from '../../utils/schemas/candidate'
 import { loadPropertyEntriesForEntity } from '../../utils/properties'
 
@@ -25,6 +25,13 @@ export default defineEventHandler(async (event) => {
       hhResumeFetchedAt: true,
       aiSummary: true,
       aiSummaryAt: true,
+      fraudFlag: true,
+      fraudReason: true,
+      fraudFlaggedAt: true,
+      fraudFlaggedByUserId: true,
+      fraudNotes: true,
+      mergeStatus: true,
+      mergedIntoId: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -58,6 +65,18 @@ export default defineEventHandler(async (event) => {
     entityId: result.id,
   })
 
+  // Сколько pending fuzzy-дублей у кандидата (для баннера в карточке)
+  const [dupCount] = await db
+    .select({ value: count() })
+    .from(candidateDuplicateCandidate)
+    .where(and(
+      eq(candidateDuplicateCandidate.status, 'pending'),
+      or(
+        eq(candidateDuplicateCandidate.candidateIdA, result.id),
+        eq(candidateDuplicateCandidate.candidateIdB, result.id),
+      )!,
+    ))
+
   return {
     ...rest,
     documents: documents.map(({ parsedContent, ...doc }) => ({
@@ -65,5 +84,6 @@ export default defineEventHandler(async (event) => {
       parsed: parsedContent != null,
     })),
     properties,
+    fuzzyDuplicatesCount: Number(dupCount?.value ?? 0),
   }
 })

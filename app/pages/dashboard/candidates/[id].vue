@@ -355,6 +355,74 @@ function formatFileSize(bytes: number | null | undefined): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
+
+// ─────────────────────────────
+// Фрод-флаг
+// ──────────────────────────────
+
+const HARD_FRAUD_REASONS_RU: Record<string, string> = {
+  blacklist: 'Чёрный список',
+  security_incident: 'Инцидент безопасности',
+  fake_data: 'Ложные данные',
+  other_fraud: 'Иной фрод',
+  manual: 'Ручное подтверждение',
+}
+
+function fraudReasonLabel(reason: string | null | undefined): string {
+  if (!reason) return 'Без причины'
+  return HARD_FRAUD_REASONS_RU[reason] ?? reason
+}
+
+const showFraudDialog = ref(false)
+const fraudForm = ref({ reason: 'blacklist', notes: '' })
+const isUpdatingFraud = ref(false)
+
+function openFraudDialog() {
+  fraudForm.value = { reason: 'blacklist', notes: '' }
+  showFraudDialog.value = true
+}
+
+async function submitFraudFlag() {
+  if (isUpdatingFraud.value) return
+  isUpdatingFraud.value = true
+  try {
+    await $fetch(`/api/candidates/${candidateId}/fraud-flag`, {
+      method: 'POST',
+      body: { flag: true, reason: fraudForm.value.reason, notes: fraudForm.value.notes || null },
+    })
+    await refresh()
+    toast.success?.('Кандидат помечен фрод-флагом')
+    showFraudDialog.value = false
+  }
+  catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error('Не удалось выставить фрод-флаг', { message: err.data?.statusMessage })
+  }
+  finally {
+    isUpdatingFraud.value = false
+  }
+}
+
+async function removeFraudFlag() {
+  if (isUpdatingFraud.value) return
+  if (!confirm('Снять фрод-флаг с кандидата?')) return
+  isUpdatingFraud.value = true
+  try {
+    await $fetch(`/api/candidates/${candidateId}/fraud-flag`, {
+      method: 'POST',
+      body: { flag: false },
+    })
+    await refresh()
+    toast.success?.('Фрод-флаг снят')
+  }
+  catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error('Не удалось снять фрод-флаг', { message: err.data?.statusMessage })
+  }
+  finally {
+    isUpdatingFraud.value = false
+  }
+}
 </script>
 
 <template>
@@ -447,6 +515,25 @@ function formatFileSize(bytes: number | null | undefined): string {
 
             <div class="flex items-center gap-2 shrink-0">
               <button
+                v-if="!candidate.fraudFlag"
+                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-300 dark:border-amber-700 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
+                title="Пометить как фрод"
+                @click="openFraudDialog"
+              >
+                <AlertTriangle class="size-3.5" />
+                Пометить фрод
+              </button>
+              <button
+                v-else
+                :disabled="isUpdatingFraud"
+                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-300 dark:border-amber-700 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors disabled:opacity-50"
+                title="Снять фрод-флаг"
+                @click="removeFraudFlag"
+              >
+                <AlertTriangle class="size-3.5" />
+                Снять фрод
+              </button>
+              <button
                 class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 @click="startEdit"
               >
@@ -463,6 +550,42 @@ function formatFileSize(bytes: number | null | undefined): string {
             </div>
           </div>
         </header>
+
+        <!-- ╗╗╗ Баннеры: фрод и fuzzy-дубли ╗╗╗ -->
+        <div
+          v-if="candidate.fraudFlag"
+          class="rounded-lg border border-danger-300 dark:border-danger-700 bg-danger-50 dark:bg-danger-950/40 p-4 flex items-start gap-3"
+        >
+          <AlertTriangle class="size-5 shrink-0 text-danger-600 dark:text-danger-400 mt-0.5" />
+          <div class="flex-1 text-sm">
+            <div class="font-semibold text-danger-700 dark:text-danger-300">⚠️ Фрод-предупреждение</div>
+            <div class="text-danger-700 dark:text-danger-300 mt-1">
+              Причина: <span class="font-medium">{{ fraudReasonLabel(candidate.fraudReason) }}</span>
+              <span v-if="candidate.fraudFlaggedAt" class="text-danger-600/80 dark:text-danger-400/80">
+                · выставлено {{ new Date(candidate.fraudFlaggedAt).toLocaleDateString() }}
+              </span>
+            </div>
+            <div v-if="candidate.fraudNotes" class="text-danger-700/90 dark:text-danger-300/90 mt-1 whitespace-pre-wrap">
+              {{ candidate.fraudNotes }}
+            </div>
+          </div>
+        </div>
+
+        <NuxtLink
+          v-if="(candidate.fuzzyDuplicatesCount ?? 0) > 0"
+          :to="$localePath('/dashboard/candidates/duplicates')"
+          class="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-4 flex items-start gap-3 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-colors"
+        >
+          <AlertTriangle class="size-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div class="flex-1 text-sm">
+            <div class="font-semibold text-amber-700 dark:text-amber-300">
+              Возможные дубли: {{ candidate.fuzzyDuplicatesCount }}
+            </div>
+            <div class="text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+              Система нашла похожих кандидатов по ФИО/городу/дате рождения. Открыть очередь ревью →
+            </div>
+          </div>
+        </NuxtLink>
 
         <!-- ╗╗╗ 2-column body: center (AI + резюме) + right (tabs + properties) ╗╗╗ -->
         <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6">
@@ -955,6 +1078,61 @@ function formatFileSize(bytes: number | null | undefined): string {
                 @click="handleDelete"
               >
                 {{ isDeleting ? t('candidate.detail.deleting') : t('candidate.detail.delete') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+
+      <!-- Fraud-flag dialog -->
+      <Teleport to="body">
+        <div v-if="showFraudDialog" class="fixed inset-0 z-50 flex items-center justify-center">
+          <div class="absolute inset-0 bg-black/50" @click="showFraudDialog = false" />
+          <div class="relative bg-white dark:bg-surface-900 rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50 mb-2 flex items-center gap-2">
+              <AlertTriangle class="size-5 text-danger-600" />
+              Пометить кандидата как фрод
+            </h3>
+            <p class="text-sm text-surface-600 dark:text-surface-400 mb-4">
+              Кандидат будет помечен фрод-флагом. Выберите причину и при желании добавьте комментарий.
+            </p>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Причина</label>
+                <select
+                  v-model="fraudForm.reason"
+                  class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                >
+                  <option value="blacklist">Чёрный список</option>
+                  <option value="security_incident">Инцидент безопасности</option>
+                  <option value="fake_data">Ложные данные</option>
+                  <option value="other_fraud">Иной фрод</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Комментарий (опционально)</label>
+                <textarea
+                  v-model="fraudForm.notes"
+                  rows="3"
+                  placeholder="Опишите инцидент или причину..."
+                  class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none resize-none"
+                />
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+              <button
+                :disabled="isUpdatingFraud"
+                class="rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                @click="showFraudDialog = false"
+              >
+                Отмена
+              </button>
+              <button
+                :disabled="isUpdatingFraud"
+                class="rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
+                @click="submitFraudFlag"
+              >
+                {{ isUpdatingFraud ? 'Сохранение…' : 'Пометить фрод' }}
               </button>
             </div>
           </div>

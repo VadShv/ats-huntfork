@@ -29,6 +29,7 @@ import { autoScoreApplication } from '../ai/autoScore'
 import { extractIdentitiesFromHhResume } from '../dedup/extract'
 import { getOrgGroupId, resolveCandidateBySignals, upsertCandidateIdentities } from '../dedup/resolve'
 import { appendResumeVersionIfChanged } from '../resume-version/append'
+import { findFuzzyDuplicatesForCandidate, FUZZY_AUTOMERGE_THRESHOLD, upsertDuplicateCandidate } from '../fuzzy/match'
 
 interface HhResumeApi {
   id: string
@@ -347,6 +348,7 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
       }
 
       let candidateId: string
+      let wasJustCreated = false
       if (resolved.candidateId) {
         // Нашли существующего кандидата по одному из сигналов — переиспользуем
         candidateId = resolved.candidateId
@@ -399,6 +401,7 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
             hhResumeFetchedAt: resumeSnapshot.hhResumeFetchedAt,
           }).returning({ id: candidate.id })
           candidateId = insCand[0]!.id
+          wasJustCreated = true
         }
       }
 
@@ -429,6 +432,38 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
       catch (err) {
         // Версионирование не должно ломать импорт — логируем и идём дальше.
         console.warn('[hh:sync] resume versioning failed', { candidateId, err: (err as Error).message })
+      }
+
+      // ─── Fuzzy-поиск дублей для новых кандидатов ───
+      // Для только что созданных кандидатов ищем возможные дубли по ФИО/городу/ДР.
+      // Пары со скором ≥ 95 — в очередь высокого приоритета (выведём «рекомендуем слить» в UI).
+      // Пары 85..94 — просто в очередь.
+      if (wasJustCreated) {
+        try {
+          const matches = await findFuzzyDuplicatesForCandidate(candidateId, { includeOtherOrgs: true })
+          for (const m of matches) {
+            await upsertDuplicateCandidate({
+              organizationId: link.organizationId,
+              candidateIdA: candidateId,
+              candidateIdB: m.candidateId,
+              score: m.score,
+              signals: m.signals,
+            })
+          }
+          if (matches.length > 0) {
+            const highScore = matches.filter(m => m.score >= FUZZY_AUTOMERGE_THRESHOLD)
+            if (highScore.length > 0) {
+              console.info('[hh:sync] high-confidence fuzzy duplicates found', {
+                candidateId,
+                count: highScore.length,
+                topScore: highScore[0]!.score,
+              })
+            }
+          }
+        }
+        catch (err) {
+          console.warn('[hh:sync] fuzzy duplicate detection failed', { candidateId, err: (err as Error).message })
+        }
       }
 
       // Resume document — по storageKey hh://resume/{resumeId}

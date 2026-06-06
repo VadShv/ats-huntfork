@@ -123,6 +123,11 @@ export const candidate = pgTable('candidate', {
   mergedAt: timestamp('merged_at'),
   /** True — «возможно повторный после отказа» (Д1), выводится предупреждение в UI. */
   fraudFlag: boolean('fraud_flag').notNull().default(false),
+  /** Причина фрод-флага (auto: hard_rejection / blacklist / security_incident; manual). */
+  fraudReason: text('fraud_reason'),
+  fraudFlaggedAt: timestamp('fraud_flagged_at'),
+  fraudFlaggedByUserId: text('fraud_flagged_by_user_id'),
+  fraudNotes: text('fraud_notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
@@ -155,6 +160,8 @@ export const application = pgTable('application', {
   externalId: text('external_id'),
   /** Direct URL to the source (e.g. resume URL on hh.ru). */
   externalUrl: text('external_url'),
+  /** Опциональный «жёсткий» признак причины отказа: blacklist | security_incident | fake_data | other_fraud. */
+  fraudReason: text('fraud_reason'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
@@ -1347,4 +1354,37 @@ export const candidateResumeVersion = pgTable('candidate_resume_version', {
 export const candidateResumeVersionRelations = relations(candidateResumeVersion, ({ one }) => ({
   candidate: one(candidate, { fields: [candidateResumeVersion.candidateId], references: [candidate.id] }),
   mergedFromCandidate: one(candidate, { fields: [candidateResumeVersion.mergedFromCandidateId], references: [candidate.id] }),
+}))
+
+// ─── Fuzzy-дубли (Этап 3) ──────────────────────────────────────────────────────
+
+/**
+ * Очередь пар кандидатов, которые могут быть дубликатами по fuzzy-сигналам.
+ * Канонический порядок: candidate_id_a < candidate_id_b — избегаем (A,B) вместе с (B,A).
+ */
+export const candidateDuplicateCandidate = pgTable('candidate_duplicate_candidate', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  groupId: text('group_id'),
+  candidateIdA: text('candidate_id_a').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
+  candidateIdB: text('candidate_id_b').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
+  /** 0..100 — взвешенный fuzzy-скор. */
+  score: integer('score').notNull(),
+  /** Раскладка по факторам: { name, city, dob, title, phone… } — из 0..100 каждый. */
+  signals: jsonb('signals').$type<Record<string, number>>().notNull().default(sql`'{}'::jsonb`),
+  /** pending | merged | dismissed */
+  status: text('status').notNull().default('pending'),
+  decidedByUserId: text('decided_by_user_id'),
+  decidedAt: timestamp('decided_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('candidate_duplicate_status_idx').on(t.status, t.score),
+  index('candidate_duplicate_group_idx').on(t.groupId, t.status),
+  index('candidate_duplicate_a_idx').on(t.candidateIdA, t.status),
+  index('candidate_duplicate_b_idx').on(t.candidateIdB, t.status),
+]))
+
+export const candidateDuplicateCandidateRelations = relations(candidateDuplicateCandidate, ({ one }) => ({
+  candidateA: one(candidate, { fields: [candidateDuplicateCandidate.candidateIdA], references: [candidate.id], relationName: 'duplicateCandidateA' }),
+  candidateB: one(candidate, { fields: [candidateDuplicateCandidate.candidateIdB], references: [candidate.id], relationName: 'duplicateCandidateB' }),
 }))
