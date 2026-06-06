@@ -232,6 +232,13 @@
       "when": 1781000000000,
       "tag": "0033_candidate_hh_resume_and_ai_summary",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0034_dedup_foundation",
+      "breakpoints": true
     }
   ]
 }

@@ -26,6 +26,8 @@ import { apiGet } from './client'
 import { getValidAccessToken } from './tokens'
 import { getEntryStageForPipeline } from '../pipeline-helpers'
 import { autoScoreApplication } from '../ai/autoScore'
+import { extractIdentitiesFromHhResume } from '../dedup/extract'
+import { getOrgGroupId, resolveCandidateBySignals, upsertCandidateIdentities } from '../dedup/resolve'
 
 interface HhResumeApi {
   id: string
@@ -330,25 +332,23 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
       const firstName = resume.first_name || 'Кандидат'
       const lastName = resume.last_name || `hh#${resumeId.slice(-6)}`
 
-      // Find/create candidate (org + email unique)
-      let candidateId: string
-      const existingCand = await db
-        .select({ id: candidate.id })
-        .from(candidate)
-        .where(and(
-          eq(candidate.organizationId, link.organizationId),
-          eq(candidate.email, fallbackEmail),
-        ))
-        .limit(1)
-      // Общее для обоих веток: снепшот сырого резюме для сохранения в candidate.
+      // ─── Дедупликация через candidate_identity ───
+      // 1) вытянем все сигналы из резюме: hh_owner, hh_resume, phone, email, linkedin, telegram
+      const identitySignals = extractIdentitiesFromHhResume(resume as unknown as Record<string, unknown>)
+      const groupId = await getOrgGroupId(link.organizationId)
+      const resolved = await resolveCandidateBySignals(groupId, identitySignals)
+
+      // Общее для всех веток: снепшот сырого резюме для сохранения в candidate.
       const resumeSnapshot = {
         hhResumeId: resumeId,
         hhResumeRaw: resume as unknown as Record<string, unknown>,
         hhResumeFetchedAt: new Date(),
       }
-      if (existingCand.length > 0) {
-        candidateId = existingCand[0]!.id
-        // Обновляем snapshot — при каждом sync'е берём актуальнуы версию резюме.
+
+      let candidateId: string
+      if (resolved.candidateId) {
+        // Нашли существующего кандидата по одному из сигналов — переиспользуем
+        candidateId = resolved.candidateId
         await db.update(candidate).set({
           hhResumeId: resumeSnapshot.hhResumeId,
           hhResumeRaw: resumeSnapshot.hhResumeRaw,
@@ -357,19 +357,58 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
           ...(phone ? { phone } : {}),
           updatedAt: new Date(),
         }).where(eq(candidate.id, candidateId))
+        if (resolved.hasConflict) {
+          // Разные сигналы указали на разных кандидатов — логируем, разберём в дашборде дублей.
+          console.warn('[hh:sync] identity conflict during import', {
+            picked: candidateId,
+            matches: resolved.matches,
+          })
+        }
       }
       else {
-        const insCand = await db.insert(candidate).values({
+        // Ничего не нашли по identity. Для баквард-совместимости с до-бэкфильными записями
+        // всё ещё проверим старым способом — по (org, email).
+        const existingCand = await db
+          .select({ id: candidate.id })
+          .from(candidate)
+          .where(and(
+            eq(candidate.organizationId, link.organizationId),
+            eq(candidate.email, fallbackEmail),
+          ))
+          .limit(1)
+        if (existingCand.length > 0) {
+          candidateId = existingCand[0]!.id
+          await db.update(candidate).set({
+            hhResumeId: resumeSnapshot.hhResumeId,
+            hhResumeRaw: resumeSnapshot.hhResumeRaw,
+            hhResumeFetchedAt: resumeSnapshot.hhResumeFetchedAt,
+            ...(phone ? { phone } : {}),
+            updatedAt: new Date(),
+          }).where(eq(candidate.id, candidateId))
+        }
+        else {
+          const insCand = await db.insert(candidate).values({
+            organizationId: link.organizationId,
+            firstName,
+            lastName,
+            email: fallbackEmail,
+            phone: phone ?? null,
+            hhResumeId: resumeSnapshot.hhResumeId,
+            hhResumeRaw: resumeSnapshot.hhResumeRaw,
+            hhResumeFetchedAt: resumeSnapshot.hhResumeFetchedAt,
+          }).returning({ id: candidate.id })
+          candidateId = insCand[0]!.id
+        }
+      }
+
+      // Сохраняем (или обновляем last_seen_at) все identity-сигналы для этого кандидата.
+      if (identitySignals.length > 0) {
+        await upsertCandidateIdentities({
+          candidateId,
           organizationId: link.organizationId,
-          firstName,
-          lastName,
-          email: fallbackEmail,
-          phone: phone ?? null,
-          hhResumeId: resumeSnapshot.hhResumeId,
-          hhResumeRaw: resumeSnapshot.hhResumeRaw,
-          hhResumeFetchedAt: resumeSnapshot.hhResumeFetchedAt,
-        }).returning({ id: candidate.id })
-        candidateId = insCand[0]!.id
+          groupId,
+          signals: identitySignals,
+        })
       }
 
       // Resume document — по storageKey hh://resume/{resumeId}

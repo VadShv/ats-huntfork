@@ -116,6 +116,13 @@ export const candidate = pgTable('candidate', {
   aiSummary: text('ai_summary'),
   /** Когда сгенерировано последнее ai_summary. */
   aiSummaryAt: timestamp('ai_summary_at'),
+  // ─── Дедупликация ───
+  /** active | merged — после мерджа ставится 'merged' и появляется merged_into_id. */
+  mergeStatus: text('merge_status').notNull().default('active'),
+  mergedIntoId: text('merged_into_id'),
+  mergedAt: timestamp('merged_at'),
+  /** True — «возможно повторный после отказа» (Д1), выводится предупреждение в UI. */
+  fraudFlag: boolean('fraud_flag').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
@@ -123,6 +130,7 @@ export const candidate = pgTable('candidate', {
   index('candidate_gender_idx').on(t.organizationId, t.gender),
   uniqueIndex('candidate_org_email_idx').on(t.organizationId, t.email),
   index('candidate_hh_resume_id_idx').on(t.organizationId, t.hhResumeId),
+  index('candidate_merge_status_idx').on(t.organizationId, t.mergeStatus),
 ]))
 
 /**
@@ -1210,4 +1218,97 @@ export const hhNegotiationRelations = relations(hhNegotiation, ({ one }) => ({
   organization: one(organization, { fields: [hhNegotiation.organizationId], references: [organization.id] }),
   vacancyLink: one(hhVacancyLink, { fields: [hhNegotiation.hhVacancyLinkId], references: [hhVacancyLink.id] }),
   application: one(application, { fields: [hhNegotiation.applicationId], references: [application.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// Дедупликация — фундамент
+// ─────────────────────────────────────────────
+
+/**
+ * Группа компаний (например, «Astra Group»).
+ * Внутри одной группы кандидаты считаются общими и проверяются на дубли.
+ * Несколько organizations (юрлиц) могут принадлежать одной группе.
+ */
+export const organizationGroup = pgTable('organization_group', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text('name').notNull(),
+  /** oldest | most_complete | manual — стратегия выбора primary при автомердже */
+  mergeStrategy: text('merge_strategy').notNull().default('oldest'),
+  settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+/**
+ * Идентификатор кандидата (email / phone / hh_owner / linkedin / telegram / manual_external).
+ * Используется как «мульти-ключ» для дедупликации:
+ *   при импорте новой записи ищем по нормализованному value в рамках group_id —
+ *   если нашли существующего кандидата, переиспользуем его вместо создания дубля.
+ */
+export const candidateIdentity = pgTable('candidate_identity', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  candidateId: text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
+  /** group_id — основной ключ дедупликации (cross-org внутри группы). */
+  groupId: text('group_id').references(() => organizationGroup.id, { onDelete: 'set null' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  /** email | phone | hh_owner | hh_resume | linkedin | telegram | manual_external */
+  kind: text('kind').notNull(),
+  /** Как пришло (для отображения в UI). */
+  valueRaw: text('value_raw').notNull(),
+  /** Нормализованный ключ — по нему идёт поиск. */
+  valueNormalized: text('value_normalized').notNull(),
+  /** verified | claimed | inferred */
+  confidence: text('confidence').notNull().default('claimed'),
+  /** hh | telegram | manual | csv | career_form | import */
+  source: text('source').notNull(),
+  firstSeenAt: timestamp('first_seen_at').notNull().defaultNow(),
+  lastSeenAt: timestamp('last_seen_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('candidate_identity_candidate_id_idx').on(t.candidateId),
+  index('candidate_identity_org_id_idx').on(t.organizationId),
+  index('candidate_identity_group_lookup_idx').on(t.groupId, t.kind, t.valueNormalized),
+]))
+
+/**
+ * Журнал слияний — аудит и поддержка rollback в течение rollback_until.
+ * merged_candidate_id хранится как text (не FK), чтобы запись сохранялась
+ * и после физического удаления записи кандидата.
+ */
+export const candidateMergeLog = pgTable('candidate_merge_log', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  groupId: text('group_id').references(() => organizationGroup.id, { onDelete: 'set null' }),
+  primaryCandidateId: text('primary_candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
+  mergedCandidateId: text('merged_candidate_id').notNull(),
+  performedByUserId: text('performed_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+  /** merge | rollback */
+  action: text('action').notNull(),
+  /** auto | manual */
+  mergeKind: text('merge_kind').notNull(),
+  reason: text('reason'),
+  /** Список сигналов, по которым решили мерджить: [{kind, value, score}] */
+  signals: jsonb('signals').$type<Array<{ kind: string; value: string; score?: number }>>().notNull().default(sql`'[]'::jsonb`),
+  score: integer('score'),
+  /** Снимок обоих кандидатов до слияния (для rollback). */
+  snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  /** До какого момента возможен rollback через UI. */
+  rollbackUntil: timestamp('rollback_until'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('candidate_merge_log_primary_idx').on(t.primaryCandidateId),
+  index('candidate_merge_log_merged_idx').on(t.mergedCandidateId),
+  index('candidate_merge_log_org_idx').on(t.organizationId, t.createdAt),
+]))
+
+export const candidateIdentityRelations = relations(candidateIdentity, ({ one }) => ({
+  candidate: one(candidate, { fields: [candidateIdentity.candidateId], references: [candidate.id] }),
+  organization: one(organization, { fields: [candidateIdentity.organizationId], references: [organization.id] }),
+  group: one(organizationGroup, { fields: [candidateIdentity.groupId], references: [organizationGroup.id] }),
+}))
+
+export const candidateMergeLogRelations = relations(candidateMergeLog, ({ one }) => ({
+  organization: one(organization, { fields: [candidateMergeLog.organizationId], references: [organization.id] }),
+  primaryCandidate: one(candidate, { fields: [candidateMergeLog.primaryCandidateId], references: [candidate.id] }),
+  performedByUser: one(user, { fields: [candidateMergeLog.performedByUserId], references: [user.id] }),
 }))
