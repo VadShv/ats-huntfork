@@ -31,6 +31,57 @@ useSeoMeta({
 
 const activeTab = ref<'applications' | 'documents'>('applications')
 
+// HH resume header info — подгружаем должность/город/опыт для шапки
+interface HhResumeApiResp {
+  resume?: {
+    title?: string
+    area?: string
+    totalExperience?: { years?: number; monthsRemainder?: number }
+  }
+}
+const { data: hhResumeData } = await useFetch<HhResumeApiResp | null>(
+  () => `/api/candidates/${candidateId}/hh-resume`,
+  { default: () => null, server: false, lazy: true },
+)
+
+function calcAge(birthDate?: string | null): number | null {
+  if (!birthDate) return null
+  const d = new Date(birthDate)
+  if (isNaN(d.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+  return age > 0 && age < 120 ? age : null
+}
+
+const hhHeaderInfo = computed(() => {
+  const r = hhResumeData.value?.resume
+  const age = calcAge(candidate.value?.dateOfBirth)
+  const exp = r?.totalExperience
+  let totalExperience: string | undefined
+  if (exp && typeof exp.years === 'number') {
+    const parts: string[] = []
+    if (exp.years > 0) parts.push(`${exp.years} ${ageWord(exp.years)}`)
+    if (typeof exp.monthsRemainder === 'number' && exp.monthsRemainder > 0) {
+      parts.push(`${exp.monthsRemainder} мес`)
+    }
+    totalExperience = parts.join(' ') || undefined
+  }
+  const title = r?.title
+  const area = r?.area
+  if (!title && !area && !age && !totalExperience) return null
+  return { title, area, age, totalExperience }
+})
+
+function ageWord(n: number) {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return 'год'
+  if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return 'года'
+  return 'лет'
+}
+
 // ─────────────────────────────────────────────
 // Edit mode
 // ─────────────────────────────────────────────
@@ -330,121 +381,88 @@ function formatFileSize(bytes: number | null | undefined): string {
 
     <!-- Candidate detail -->
     <template v-else-if="candidate">
-      <!-- VIEW MODE — 3-column layout «Хантфлоу»-стиль -->
-      <div v-if="!isEditing" class="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_360px] gap-6">
-        <!-- ╗╗╗ LEFT COLUMN: profile + contacts + properties ╗╗╗ -->
-        <aside class="space-y-4 min-w-0">
-        <!-- Header -->
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-          <div class="min-w-0">
-            <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50 truncate mb-1">
-              {{ formatCandidateName(candidate) }}
-            </h1>
-            <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-surface-500">
-              <a
-                :href="`mailto:${candidate.email}`"
-                target="_blank"
-                class="inline-flex items-center gap-1 hover:text-brand-600 dark:hover:text-brand-400 hover:underline cursor-pointer transition-colors"
+      <!-- VIEW MODE — header (full-width) + 2-column layout «Хантфлоу»-стиль -->
+      <div v-if="!isEditing" class="space-y-6">
+        <!-- ╗╗╗ HEADER (full-width): идентификация кандидата ╗╗╗ -->
+        <header class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
+          <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div class="flex items-start gap-4 min-w-0 flex-1">
+              <!-- Аватар -->
+              <div class="shrink-0 size-16 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center text-xl font-semibold">
+                {{ (candidate.firstName?.[0] ?? '') + (candidate.lastName?.[0] ?? '') }}
+              </div>
+              <div class="min-w-0 flex-1">
+                <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50 mb-1 break-words">
+                  {{ formatCandidateName(candidate) }}
+                </h1>
+                <!-- Должность + город + возраст (из hh-резюме, если есть) -->
+                <div v-if="hhHeaderInfo" class="text-sm text-surface-600 dark:text-surface-300 mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span v-if="hhHeaderInfo.title" class="font-medium">{{ hhHeaderInfo.title }}</span>
+                  <span v-if="hhHeaderInfo.area" class="inline-flex items-center gap-1">
+                    <span class="text-surface-400">·</span>{{ hhHeaderInfo.area }}
+                  </span>
+                  <span v-if="hhHeaderInfo.age" class="inline-flex items-center gap-1">
+                    <span class="text-surface-400">·</span>{{ hhHeaderInfo.age }} {{ ageWord(hhHeaderInfo.age) }}
+                  </span>
+                  <span v-if="hhHeaderInfo.totalExperience" class="inline-flex items-center gap-1">
+                    <span class="text-surface-400">·</span>опыт {{ hhHeaderInfo.totalExperience }}
+                  </span>
+                </div>
+                <!-- Контакты -->
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-surface-500">
+                  <a
+                    :href="`mailto:${candidate.email}`"
+                    target="_blank"
+                    class="inline-flex items-center gap-1 hover:text-brand-600 dark:hover:text-brand-400 hover:underline cursor-pointer transition-colors"
+                  >
+                    <Mail class="size-3.5" />
+                    {{ candidate.email }}
+                  </a>
+                  <a
+                    v-if="candidate.phone"
+                    :href="`tel:${candidate.phone}`"
+                    class="inline-flex items-center gap-1 hover:text-brand-600 dark:hover:text-brand-400 hover:underline cursor-pointer transition-colors"
+                  >
+                    <Phone class="size-3.5" />
+                    {{ candidate.phone }}
+                  </a>
+                  <span v-if="candidate.gender" class="inline-flex items-center gap-1">
+                    <component :is="candidate.gender === 'female' ? Venus : Mars" class="size-3.5" />
+                    {{ genderLabels[candidate.gender] ?? candidate.gender }}
+                  </span>
+                  <span v-if="candidate.dateOfBirth" class="inline-flex items-center gap-1">
+                    <Calendar class="size-3.5" />
+                    {{ formatDate(candidate.dateOfBirth) }}
+                  </span>
+                  <span class="inline-flex items-center gap-1 text-surface-400">
+                    <Clock class="size-3.5" />
+                    {{ t('candidate.detail.updated') }}: {{ new Date(candidate.updatedAt).toLocaleDateString() }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                @click="startEdit"
               >
-                <Mail class="size-3.5" />
-                {{ candidate.email }}
-              </a>
-              <span v-if="candidate.phone" class="inline-flex items-center gap-1">
-                <Phone class="size-3.5" />
-                {{ candidate.phone }}
-              </span>
+                <Pencil class="size-3.5" />
+                {{ t('candidate.detail.edit') }}
+              </button>
+              <button
+                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-danger-300 dark:border-danger-700 px-3 py-1.5 text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors"
+                @click="showDeleteConfirm = true"
+              >
+                <Trash2 class="size-3.5" />
+                {{ t('candidate.detail.delete') }}
+              </button>
             </div>
           </div>
+        </header>
 
-          <div class="flex items-center gap-2 shrink-0">
-            <button
-              class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-              @click="startEdit"
-            >
-              <Pencil class="size-3.5" />
-              {{ t('candidate.detail.edit') }}
-            </button>
-            <button
-              class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-danger-300 dark:border-danger-700 px-3 py-1.5 text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors"
-              @click="showDeleteConfirm = true"
-            >
-              <Trash2 class="size-3.5" />
-              {{ t('candidate.detail.delete') }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Contact details -->
-        <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 mb-4">
-          <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-3">{{ t('candidate.detail.details') }}</h2>
-          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt class="text-surface-400">{{ t('candidate.detail.email') }}</dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium">
-                <a
-                  :href="`mailto:${candidate.email}`"
-                  target="_blank"
-                  class="hover:text-brand-600 dark:hover:text-brand-400 hover:underline cursor-pointer transition-colors"
-                >{{ candidate.email }}</a>
-              </dd>
-            </div>
-            <div>
-              <dt class="text-surface-400">{{ t('candidate.detail.phone') }}</dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium">
-                {{ candidate.phone || '—' }}
-              </dd>
-            </div>
-            <div v-if="candidate.gender">
-              <dt class="text-surface-400">{{ t('candidate.detail.gender') }}</dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium">
-                {{ genderLabels[candidate.gender] ?? candidate.gender }}
-              </dd>
-            </div>
-            <div v-if="candidate.dateOfBirth">
-              <dt class="text-surface-400">{{ t('candidate.detail.dateOfBirth') }}</dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium">
-                {{ formatDate(candidate.dateOfBirth) }}
-              </dd>
-            </div>
-            <div v-if="candidate.displayName">
-              <dt class="text-surface-400">{{ t('candidate.detail.displayName') }}</dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium">
-                {{ candidate.displayName }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-surface-400 inline-flex items-center gap-1">
-                <Calendar class="size-3.5" />
-                {{ t('candidate.detail.created') }}
-              </dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium">
-                <TimelineDateLink :date="candidate.createdAt">{{ new Date(candidate.createdAt).toLocaleDateString() }}</TimelineDateLink>
-              </dd>
-            </div>
-            <div>
-              <dt class="text-surface-400 inline-flex items-center gap-1">
-                <Clock class="size-3.5" />
-                {{ t('candidate.detail.updated') }}
-              </dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium">
-                <TimelineDateLink :date="candidate.updatedAt">{{ new Date(candidate.updatedAt).toLocaleDateString() }}</TimelineDateLink>
-              </dd>
-            </div>
-          </dl>
-        </div>
-
-        <!-- Custom properties (Notion-style) -->
-        <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4 mb-4">
-          <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-2 px-2">{{ t('candidate.detail.properties') }}</h2>
-          <PropertyBlock
-            entity-type="candidate"
-            :entity-id="candidateId"
-            :entries="(candidate.properties ?? []) as import('~~/shared/properties').PropertyEntry[]"
-            @refresh="refresh()"
-          />
-        </div>
-        </aside>
-
+        <!-- ╗╗╗ 2-column body: center (AI + резюме) + right (tabs + properties) ╗╗╗ -->
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6">
         <!-- ╗╗╗ CENTER COLUMN: AI summary + hh resume ╗╗╗ -->
         <main class="space-y-4 min-w-0">
           <CandidateAiSummaryCard
@@ -759,7 +777,19 @@ function formatFileSize(bytes: number | null | undefined): string {
             </div>
           </Teleport>
         </div>
+
+        <!-- Custom properties (Notion-style) -->
+        <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4 mt-4">
+          <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-2 px-2">{{ t('candidate.detail.properties') }}</h2>
+          <PropertyBlock
+            entity-type="candidate"
+            :entity-id="candidateId"
+            :entries="(candidate.properties ?? []) as import('~~/shared/properties').PropertyEntry[]"
+            @refresh="refresh()"
+          />
+        </div>
         </section>
+        </div>
       </div>
 
       <!-- EDIT MODE -->
