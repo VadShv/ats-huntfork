@@ -1312,3 +1312,39 @@ export const candidateMergeLogRelations = relations(candidateMergeLog, ({ one })
   primaryCandidate: one(candidate, { fields: [candidateMergeLog.primaryCandidateId], references: [candidate.id] }),
   performedByUser: one(user, { fields: [candidateMergeLog.performedByUserId], references: [user.id] }),
 }))
+
+// ─── Версионирование резюме (Этап 2) ────────────────────────────────────────
+
+/**
+ * Каждое hh-резюме версионируется при изменении содержимого (стабильный content_hash).
+ * Старые версии не удаляются: snapshot хранит полный raw на момент версии.
+ */
+export const candidateResumeVersion = pgTable('candidate_resume_version', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  candidateId: text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
+  versionNumber: integer('version_number').notNull(),
+  /** hh | manual_upload | api_import | merged_from */
+  source: text('source').notNull().default('hh'),
+  /** sha256 от нормализованного snapshot (без волатильных полей) */
+  contentHash: text('content_hash').notNull(),
+  /** Полный raw hh-резюме на момент версии */
+  snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull(),
+  /** Краткая дельта от предыдущей версии для UI: { addedExperienceCount, salaryChanged, ... } */
+  deltaSummary: jsonb('delta_summary').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  hhUpdatedAt: timestamp('hh_updated_at'),
+  fetchedAt: timestamp('fetched_at').notNull().defaultNow(),
+  isCurrent: boolean('is_current').notNull().default(false),
+  /** 'auto-sync' | 'manual-refresh' | user_id */
+  triggeredBy: text('triggered_by'),
+  /** Если версия пришла из мерджимого кандидата — id того кандидата */
+  mergedFromCandidateId: text('merged_from_candidate_id').references(() => candidate.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('candidate_resume_version_hash_idx').on(t.candidateId, t.contentHash),
+  index('candidate_resume_version_fetched_idx').on(t.candidateId, t.fetchedAt),
+]))
+
+export const candidateResumeVersionRelations = relations(candidateResumeVersion, ({ one }) => ({
+  candidate: one(candidate, { fields: [candidateResumeVersion.candidateId], references: [candidate.id] }),
+  mergedFromCandidate: one(candidate, { fields: [candidateResumeVersion.mergedFromCandidateId], references: [candidate.id] }),
+}))

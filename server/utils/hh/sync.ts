@@ -28,6 +28,7 @@ import { getEntryStageForPipeline } from '../pipeline-helpers'
 import { autoScoreApplication } from '../ai/autoScore'
 import { extractIdentitiesFromHhResume } from '../dedup/extract'
 import { getOrgGroupId, resolveCandidateBySignals, upsertCandidateIdentities } from '../dedup/resolve'
+import { appendResumeVersionIfChanged } from '../resume-version/append'
 
 interface HhResumeApi {
   id: string
@@ -409,6 +410,25 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
           groupId,
           signals: identitySignals,
         })
+      }
+
+      // ─── Версионирование резюме ───
+      // Если контент резюме изменился (стабильный хеш) и прошло > 1 часа с прошлой версии —
+      // создаём новую запись в candidate_resume_version. Иначе — обновляем текущую.
+      try {
+        const hhUpdatedAtRaw = (resume as { updated_at?: string }).updated_at
+        const hhUpdatedAt = hhUpdatedAtRaw ? new Date(hhUpdatedAtRaw) : null
+        await appendResumeVersionIfChanged({
+          candidateId,
+          raw: resume as unknown as Record<string, unknown>,
+          source: 'hh',
+          triggeredBy: 'auto-sync',
+          hhUpdatedAt: hhUpdatedAt && !isNaN(hhUpdatedAt.getTime()) ? hhUpdatedAt : null,
+        })
+      }
+      catch (err) {
+        // Версионирование не должно ломать импорт — логируем и идём дальше.
+        console.warn('[hh:sync] resume versioning failed', { candidateId, err: (err as Error).message })
       }
 
       // Resume document — по storageKey hh://resume/{resumeId}

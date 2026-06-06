@@ -7,6 +7,8 @@ const props = defineProps<{
   hasSnapshot: boolean
   /** Имя для генерации файлов скачивания. */
   candidateName: string
+  /** id выбранной версии резюме (null = текущая). */
+  versionId?: string | null
 }>()
 
 const { t } = useI18n()
@@ -39,12 +41,16 @@ interface ResumeData {
   photoUrl?: string
 }
 
-const { data, status, error, refresh } = useLazyFetch<{ resume: ResumeData; fetchedAt: string; hhResumeId: string }>(
-  () => `/api/candidates/${props.candidateId}/hh-resume`,
+// Если выбрана конкретная версия — ходим в /resume-versions/:versionId, иначе в текущий /hh-resume.
+const { data, status, error, refresh } = useLazyFetch<{ resume: ResumeData; fetchedAt?: string; hhResumeId?: string }>(
+  () => props.versionId
+    ? `/api/candidates/${props.candidateId}/resume-versions/${props.versionId}`
+    : `/api/candidates/${props.candidateId}/hh-resume`,
   {
-    key: computed(() => `candidate-hh-resume-${props.candidateId}`),
+    key: computed(() => `candidate-hh-resume-${props.candidateId}-${props.versionId ?? 'current'}`),
     immediate: props.hasSnapshot, // не дёргаем, если снепшота нет
     server: false,
+    watch: [() => props.versionId],
   },
 )
 

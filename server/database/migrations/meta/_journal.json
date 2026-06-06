@@ -239,6 +239,13 @@
       "when": 1782000000000,
       "tag": "0034_dedup_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1783000000000,
+      "tag": "0035_resume_versioning",
+      "breakpoints": true
     }
   ]
 }

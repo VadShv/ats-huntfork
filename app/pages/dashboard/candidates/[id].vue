@@ -31,6 +31,9 @@ useSeoMeta({
 
 const activeTab = ref<'applications' | 'documents'>('applications')
 
+// Версия резюме: null = текущая, иначе id выбранной версии.
+const selectedResumeVersionId = ref<string | null>(null)
+
 // HH resume header info — подгружаем должность/город/опыт для шапки
 interface HhResumeApiResp {
   resume?: {
@@ -473,13 +476,18 @@ function formatFileSize(bytes: number | null | undefined): string {
             @generated="refresh()"
           />
           <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
-            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-4 flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-4 flex items-center justify-between gap-2">
               <span>Резюме с hh.ru</span>
+              <ResumeVersionSelector
+                :candidate-id="candidateId"
+                v-model="selectedResumeVersionId"
+              />
             </h2>
             <CandidateHhResumeView
               :candidate-id="candidateId"
               :has-snapshot="Boolean((candidate as any).hhResumeId)"
               :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
+              :version-id="selectedResumeVersionId"
             />
           </div>
         </main>
