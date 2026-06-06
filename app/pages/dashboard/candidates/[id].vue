@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars } from 'lucide-vue-next'
+import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge } from 'lucide-vue-next'
 import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
@@ -377,6 +377,19 @@ const showFraudDialog = ref(false)
 const fraudForm = ref({ reason: 'blacklist', notes: '' })
 const isUpdatingFraud = ref(false)
 
+// ── Ручное слияние ─────────────────────────────────────────────────────────
+const showMergeModal = ref(false)
+
+function openMergeModal() {
+  showMergeModal.value = true
+}
+
+async function handleMerged(_payload: { primaryCandidateId: string; mergedCandidateId: string }) {
+  showMergeModal.value = false
+  // Обновим карточку — кол-во заявок, документов и т.д. могло измениться
+  await refresh()
+}
+
 function openFraudDialog() {
   fraudForm.value = { reason: 'blacklist', notes: '' }
   showFraudDialog.value = true
@@ -514,6 +527,14 @@ async function removeFraudFlag() {
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
+              <button
+                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                title="Слить в этого кандидата другого"
+                @click="openMergeModal"
+              >
+                <GitMerge class="size-3.5" />
+                Слить
+              </button>
               <button
                 v-if="!candidate.fraudFlag"
                 class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-300 dark:border-amber-700 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
@@ -705,6 +726,20 @@ async function removeFraudFlag() {
           :candidate-id="candidateId"
           @close="showApplyModal = false"
           @created="handleApplied"
+        />
+
+        <!-- Merge Candidates Modal -->
+        <MergeCandidatesModal
+          v-if="showMergeModal"
+          :primary-candidate="{
+            id: candidate.id,
+            firstName: candidate.firstName,
+            lastName: candidate.lastName,
+            email: candidate.email,
+            fraudFlag: candidate.fraudFlag,
+          }"
+          @close="showMergeModal = false"
+          @merged="handleMerged"
         />
 
         <!-- Interview Schedule Sidebar -->
