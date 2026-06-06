@@ -52,6 +52,7 @@
       "dashboard": "Dashboard",
       "jobs": "Jobs",
       "candidates": "Candidates",
+      "duplicates": "Duplicates",
       "applications": "Applications",
       "interviews": "Interviews",
       "timeline": "Timeline",
