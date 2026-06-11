@@ -100,6 +100,8 @@ const hasAnyDup = computed(() => hasExact.value || (dupResult.value?.fuzzy.lengt
 
 // Confirm modal state for fuzzy ≥95
 const showConfirmModal = ref(false)
+// Modal state for exact-dup (email/phone) — hard блок, предлагаем открыть существующего
+const showExactDupModal = ref(false)
 
 // Debounced check
 let checkTimer: ReturnType<typeof setTimeout> | null = null
@@ -301,9 +303,9 @@ async function doSubmit(force = false) {
   submitError.value = null
   if (!validate()) return
 
-  // Жёсткий блок exact на клиенте (UX): запрещаем submit пока exact dup есть
+  // Жёсткий блок exact на клиенте: показываем модалку с предложением открыть существующего
   if (hasExact.value) {
-    submitError.value = t('candidate.new.dedup.blockedExactHint')
+    showExactDupModal.value = true
     return
   }
 
@@ -348,12 +350,12 @@ async function doSubmit(force = false) {
 
     if (err.statusCode === 409 || err.data?.statusCode === 409) {
       if (code === 'duplicate_exact') {
-        // hard блок: подсветим панель и оставим форму
+        // hard блок: показываем модалку с предложением открыть существующего
         const serverDupes = err.data?.data
         if (serverDupes) {
           dupResult.value = { exact: serverDupes.exact ?? [], fuzzy: serverDupes.fuzzy ?? [] }
         }
-        submitError.value = t('candidate.new.dedup.blockedExactHint')
+        showExactDupModal.value = true
       } else if (code === 'duplicate_fuzzy') {
         // открываем модалку подтверждения
         const serverDupes = err.data?.data
@@ -382,7 +384,18 @@ function confirmAndCreate() {
   doSubmit(true)
 }
 
-const isSubmitDisabled = computed(() => isSubmitting.value || isParsing.value || hasExact.value)
+async function openExistingDup() {
+  const first = dupResult.value?.exact[0]
+  if (!first) {
+    showExactDupModal.value = false
+    return
+  }
+  showExactDupModal.value = false
+  await navigateTo(localePath(`/dashboard/candidates/${first.candidateId}`))
+}
+
+// Не блокируем кнопку — пускаем submit, он покажет модалку при exact dup
+const isSubmitDisabled = computed(() => isSubmitting.value || isParsing.value)
 
 function candidateLink(id: string) {
   return localePath(`/dashboard/candidates/${id}`)
@@ -724,6 +737,66 @@ function candidateLink(id: string) {
         </div>
       </aside>
     </div>
+
+    <!-- Exact dup modal — hard блок, предлагаем открыть существующего -->
+    <Teleport to="body">
+      <div
+        v-if="showExactDupModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        @click.self="showExactDupModal = false"
+      >
+        <div class="w-full max-w-lg rounded-lg bg-white dark:bg-surface-900 shadow-xl border border-surface-200 dark:border-surface-700 p-6">
+          <div class="flex items-start gap-3 mb-4">
+            <div class="rounded-full bg-danger-100 dark:bg-danger-900/40 p-2">
+              <AlertTriangle class="size-5 text-danger-600 dark:text-danger-400" />
+            </div>
+            <div class="flex-1">
+              <h3 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">
+                {{ t('candidate.new.dedup.exactModalTitle') }}
+              </h3>
+              <p class="text-sm text-surface-600 dark:text-surface-400">
+                {{ t('candidate.new.dedup.exactModalBody') }}
+              </p>
+            </div>
+          </div>
+          <ul class="space-y-1.5 mb-5 max-h-48 overflow-auto">
+            <li
+              v-for="(e, idx) in dupResult?.exact ?? []"
+              :key="`em-${idx}`"
+              class="flex items-center justify-between gap-2 rounded-md border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/40 px-3 py-2"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate">{{ fullName(e) }}</div>
+                <div class="text-xs text-surface-500 dark:text-surface-400 truncate">
+                  {{ e.kind === 'email' ? (t('candidate.new.dedup.exactEmail') + ' — ' + (e.email || '')) : (t('candidate.new.dedup.exactPhone') + ' — ' + (e.phone || '')) }}
+                </div>
+                <div v-if="e.crossOrg" class="mt-0.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-warning-100 dark:bg-warning-950 text-warning-700 dark:text-warning-400 text-[10px]">
+                  <Building2 class="size-3" />
+                  {{ t('candidate.new.dedup.crossOrgBadge') }}
+                </div>
+              </div>
+            </li>
+          </ul>
+          <div class="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+              @click="showExactDupModal = false"
+            >
+              {{ t('candidate.new.dedup.editData') }}
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 px-4 py-2 text-sm font-medium text-white transition-colors"
+              @click="openExistingDup"
+            >
+              <ExternalLink class="size-4" />
+              {{ t('candidate.new.dedup.openExisting') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Confirm modal for fuzzy ≥95 -->
     <Teleport to="body">

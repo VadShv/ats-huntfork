@@ -1456,7 +1456,11 @@
         "toastWarning": "Similar candidates found — check the side panel",
         "signalName": "Name",
         "signalCity": "City",
-        "signalDob": "DOB"
+        "signalDob": "DOB",
+        "exactModalTitle": "This candidate already exists",
+        "exactModalBody": "We found a candidate with this email or phone. Open their card or change the data if these are different people.",
+        "openExisting": "Open existing",
+        "editData": "Edit data"
       }
     },
     "detail": {
