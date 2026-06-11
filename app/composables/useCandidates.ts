@@ -44,6 +44,8 @@ export function useCandidates(options?: {
     phone?: string
     gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say'
     dateOfBirth?: string
+    /** Подтверждённый fuzzy-дубль — создать всё равно (не обходит hard-блок по email/phone) */
+    force?: boolean
   }) {
     try {
       const created = await $fetch('/api/candidates', {

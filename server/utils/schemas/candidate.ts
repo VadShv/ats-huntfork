@@ -33,6 +33,11 @@ export const createCandidateSchema = z.object({
   gender: z.enum(genderValues).optional(),
   dateOfBirth: dobSchema.optional(),
   quickNotes: z.string().max(1000).optional(),
+  /**
+   * `force=true` «пробивает» fuzzy-блок (высоковероятный дубль) — recruiter явно подтвердил в модалке.
+   * НИКОГДА не обходит жёсткий exact-match по email/phone — там всегда 409.
+   */
+  force: z.boolean().optional(),
 })
 
 /** Schema for updating an existing candidate (all fields optional) */

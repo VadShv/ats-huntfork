@@ -1434,7 +1434,30 @@
       "submitting": "Создание…",
       "cancel": "Отмена",
       "candidateCreatedResumeFailedTitle": "Кандидат создан",
-      "candidateCreatedResumeFailed": "Кандидат создан, но резюме не загрузилось — добавьте вручную в карточке"
+      "candidateCreatedResumeFailed": "Кандидат создан, но резюме не загрузилось — добавьте вручную в карточке",
+      "dedup": {
+        "panelTitle": "Похожие кандидаты",
+        "checking": "Проверяем…",
+        "noneFound": "Похожих кандидатов не найдено",
+        "exactBlockTitle": "Точный дубль",
+        "exactEmail": "Такой email уже есть в базе",
+        "exactPhone": "Такой телефон уже есть в базе",
+        "crossOrgBadge": "Другая организация группы",
+        "fuzzyHigh": "С высокой вероятностью дубль (≥95)",
+        "fuzzyMid": "Возможный дубль",
+        "score": "Скор",
+        "openCard": "Открыть карточку",
+        "blockedTitle": "Нельзя создать кандидата",
+        "blockedExactHint": "Кандидат с таким email или телефоном уже есть. Откройте его карточку или измените данные.",
+        "confirmFuzzyTitle": "Это может быть дубликат",
+        "confirmFuzzyBody": "Наши проверки нашли похожих кандидатов в базе. Пожалуйста, убедитесь, что это разные люди.",
+        "confirmCreateAnyway": "Всё равно создать",
+        "confirmCancel": "Отмена",
+        "toastWarning": "Найдены похожие кандидаты — проверьте панель справа",
+        "signalName": "ФИО",
+        "signalCity": "Город",
+        "signalDob": "ДР"
+      }
     },
     "detail": {
       "backToCandidates": "Назад к кандидатам",

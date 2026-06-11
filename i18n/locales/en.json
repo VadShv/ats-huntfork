@@ -1434,7 +1434,30 @@
       "submitting": "Creating…",
       "cancel": "Cancel",
       "candidateCreatedResumeFailedTitle": "Candidate created",
-      "candidateCreatedResumeFailed": "Candidate created, but resume failed to upload — add it manually in the candidate profile"
+      "candidateCreatedResumeFailed": "Candidate created, but resume failed to upload — add it manually in the candidate profile",
+      "dedup": {
+        "panelTitle": "Similar candidates",
+        "checking": "Checking…",
+        "noneFound": "No similar candidates found",
+        "exactBlockTitle": "Exact duplicate",
+        "exactEmail": "This email already exists",
+        "exactPhone": "This phone already exists",
+        "crossOrgBadge": "Another organization in group",
+        "fuzzyHigh": "Very likely duplicate (≥95)",
+        "fuzzyMid": "Possible duplicate",
+        "score": "Score",
+        "openCard": "Open card",
+        "blockedTitle": "Cannot create candidate",
+        "blockedExactHint": "A candidate with this email or phone already exists. Open their card or change the data.",
+        "confirmFuzzyTitle": "This may be a duplicate",
+        "confirmFuzzyBody": "Our checks found similar candidates in the database. Please make sure these are different people.",
+        "confirmCreateAnyway": "Create anyway",
+        "confirmCancel": "Cancel",
+        "toastWarning": "Similar candidates found — check the side panel",
+        "signalName": "Name",
+        "signalCity": "City",
+        "signalDob": "DOB"
+      }
     },
     "detail": {
       "backToCandidates": "Back to Candidates",
