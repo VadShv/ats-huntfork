@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { X, ExternalLink, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare } from 'lucide-vue-next'
+import { X, ExternalLink, User, Briefcase, Calendar, Clock, Hash, FileText } from 'lucide-vue-next'
+import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
 import { APPLICATION_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
@@ -65,30 +66,6 @@ async function handleTransition(newStatus: string) {
     toast.error('Failed to update status', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   } finally {
     isTransitioning.value = false
-  }
-}
-
-// ─── Notes editing ────────────────────────────────────────────────────────────
-
-const isEditingNotes = ref(false)
-const notesInput = ref('')
-const isSavingNotes = ref(false)
-
-function startEditNotes() {
-  notesInput.value = application.value?.notes ?? ''
-  isEditingNotes.value = true
-}
-
-async function saveNotes() {
-  isSavingNotes.value = true
-  try {
-    await updateApplication({ notes: notesInput.value || null })
-    isEditingNotes.value = false
-  } catch (err: any) {
-    if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to save notes', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
-  } finally {
-    isSavingNotes.value = false
   }
 }
 
@@ -347,53 +324,11 @@ onUnmounted(() => {
               </dl>
             </div>
 
-            <!-- Notes -->
-            <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
-              <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-2">
-                  <MessageSquare class="size-4 text-surface-500 dark:text-surface-400" />
-                  <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Notes</h3>
-                </div>
-                <button
-                  v-if="!isEditingNotes"
-                  class="cursor-pointer text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
-                  @click="startEditNotes"
-                >
-                  {{ application.notes ? $t('dashboard.common.edit') : $t('dashboard.common.add') }}
-                </button>
-              </div>
-
-              <div v-if="isEditingNotes">
-                <textarea
-                  v-model="notesInput"
-                  rows="4"
-                  placeholder="Add notes about this application…"
-                  class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
-                />
-                <div class="flex items-center gap-2 mt-2">
-                  <button
-                    :disabled="isSavingNotes"
-                    class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    @click="saveNotes"
-                  >
-                    {{ isSavingNotes ? $t('dashboard.common.saving') : $t('dashboard.common.save') }}
-                  </button>
-                  <button
-                    class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-                    @click="isEditingNotes = false"
-                  >
-                    {{ $t('dashboard.common.cancel') }}
-                  </button>
-                </div>
-              </div>
-              <p
-                v-else-if="application.notes"
-                class="text-sm text-surface-600 dark:text-surface-300 whitespace-pre-wrap"
-              >
-                {{ application.notes }}
-              </p>
-              <p v-else class="text-sm text-surface-400 italic">No notes yet.</p>
-            </div>
+            <!-- Collaboration thread (compact) -->
+            <ApplicationCommentThread
+              :application-id="applicationId"
+              :compact="true"
+            />
 
             <!-- Properties -->
             <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4">
