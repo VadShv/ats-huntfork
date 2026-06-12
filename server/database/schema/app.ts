@@ -1236,6 +1236,159 @@ export const hhNegotiationRelations = relations(hhNegotiation, ({ one }) => ({
 }))
 
 // ─────────────────────────────────────────────
+// HH sourcing (Joon-like cold search)
+// ─────────────────────────────────────────────
+
+/**
+ * Saved cold-search configuration. Each row is one persistent query against
+ * hh.ru /resumes — the worker re-runs it on schedule, scores anonymised
+ * resumes against the linked job, and stuffs them into `hhSourcingCandidate`.
+ */
+export const hhSavedSearch = pgTable('hh_saved_search', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  hhAccountId: text('hh_account_id').notNull().references(() => hhAccount.id, { onDelete: 'cascade' }),
+  createdByUserId: text('created_by_user_id').notNull().references(() => user.id, { onDelete: 'restrict' }),
+  name: text('name').notNull(),
+  /** Validated hh /resumes query params. See server/utils/hh/sourcing/query.ts. */
+  query: jsonb('query').notNull(),
+  /** Original hh.ru URL the recruiter pasted (for audit / future re-import). */
+  sourceUrl: text('source_url'),
+  /** Auto-run cadence in minutes. NULL = manual only. Default 1440 (24h). */
+  scheduleMinutes: integer('schedule_minutes'),
+  autoRunEnabled: boolean('auto_run_enabled').notNull().default(true),
+  maxPagesPerRun: integer('max_pages_per_run').notNull().default(10),
+  lastRunAt: timestamp('last_run_at'),
+  lastRunStatus: text('last_run_status'),
+  lastRunError: text('last_run_error'),
+  lastRunFound: integer('last_run_found').notNull().default(0),
+  lastRunNew: integer('last_run_new').notNull().default(0),
+  nextRunAt: timestamp('next_run_at'),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_saved_search_org_idx').on(t.organizationId),
+  index('hh_saved_search_job_idx').on(t.jobId),
+]))
+
+/**
+ * Anonymised hh resume surfaced by a saved search, scored against the job.
+ * No contact info is ever stored — contacts are fetched live when the
+ * recruiter clicks "Open contact" (which spends the org's hh quota).
+ */
+export const hhSourcingCandidate = pgTable('hh_sourcing_candidate', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  savedSearchId: text('saved_search_id').notNull().references(() => hhSavedSearch.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  hhResumeId: text('hh_resume_id').notNull(),
+  /** Anonymised snapshot { title, area, salary, experienceYears, lastPosition }. */
+  snapshot: jsonb('snapshot').notNull(),
+  score: integer('score'),
+  scoreRationale: text('score_rationale'),
+  scoreStrengths: jsonb('score_strengths'),
+  scoreGaps: jsonb('score_gaps'),
+  /** new | reviewed | approved | imported | rejected | contacted */
+  state: text('state').notNull().default('new'),
+  reviewedByUserId: text('reviewed_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at'),
+  reviewNote: text('review_note'),
+  applicationId: text('application_id').references(() => application.id, { onDelete: 'set null' }),
+  firstSeenAt: timestamp('first_seen_at').notNull().defaultNow(),
+  lastSeenAt: timestamp('last_seen_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_sourcing_candidate_org_idx').on(t.organizationId),
+  index('hh_sourcing_candidate_search_idx').on(t.savedSearchId),
+  index('hh_sourcing_candidate_job_idx').on(t.jobId),
+  index('hh_sourcing_candidate_state_idx').on(t.state),
+  uniqueIndex('hh_sourcing_candidate_search_resume_idx').on(t.savedSearchId, t.hhResumeId),
+]))
+
+/**
+ * Pipeline stage ↔ hh negotiation collection mapping. When an application
+ * moves to a stage with a mapping, the system pushes the corresponding
+ * action to hh.ru (and optionally sends a templated message).
+ */
+export const hhStageMapping = pgTable('hh_stage_mapping', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  hhVacancyLinkId: text('hh_vacancy_link_id').notNull().references(() => hhVacancyLink.id, { onDelete: 'cascade' }),
+  pipelineStageId: text('pipeline_stage_id').notNull().references(() => pipelineStage.id, { onDelete: 'cascade' }),
+  hhCollection: text('hh_collection').notNull(),
+  messageTemplate: text('message_template'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_stage_mapping_org_idx').on(t.organizationId),
+  index('hh_stage_mapping_link_idx').on(t.hhVacancyLinkId),
+  uniqueIndex('hh_stage_mapping_link_stage_idx').on(t.hhVacancyLinkId, t.pipelineStageId),
+]))
+
+/**
+ * Audit log of every push-action to hh.ru (stage change, message, contact
+ * open, sourcing import). Idempotency is enforced at the call site by
+ * looking at the last log entry for the same negotiation_id + action_type.
+ */
+export const hhActionLog = pgTable('hh_action_log', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  hhAccountId: text('hh_account_id').notNull().references(() => hhAccount.id, { onDelete: 'cascade' }),
+  /** stage_change | send_message | open_contact | import_sourcing */
+  actionType: text('action_type').notNull(),
+  negotiationId: text('negotiation_id'),
+  hhResumeId: text('hh_resume_id'),
+  targetCollection: text('target_collection'),
+  requestPayload: jsonb('request_payload'),
+  responseStatus: integer('response_status'),
+  responseBody: jsonb('response_body'),
+  error: text('error'),
+  performedByUserId: text('performed_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+  applicationId: text('application_id').references(() => application.id, { onDelete: 'set null' }),
+  sourcingCandidateId: text('sourcing_candidate_id').references(() => hhSourcingCandidate.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_action_log_org_idx').on(t.organizationId),
+  index('hh_action_log_negotiation_idx').on(t.negotiationId),
+  index('hh_action_log_app_idx').on(t.applicationId),
+  index('hh_action_log_created_idx').on(t.createdAt),
+]))
+
+export const hhSavedSearchRelations = relations(hhSavedSearch, ({ one, many }) => ({
+  organization: one(organization, { fields: [hhSavedSearch.organizationId], references: [organization.id] }),
+  job: one(job, { fields: [hhSavedSearch.jobId], references: [job.id] }),
+  hhAccount: one(hhAccount, { fields: [hhSavedSearch.hhAccountId], references: [hhAccount.id] }),
+  createdBy: one(user, { fields: [hhSavedSearch.createdByUserId], references: [user.id] }),
+  candidates: many(hhSourcingCandidate),
+}))
+
+export const hhSourcingCandidateRelations = relations(hhSourcingCandidate, ({ one }) => ({
+  organization: one(organization, { fields: [hhSourcingCandidate.organizationId], references: [organization.id] }),
+  savedSearch: one(hhSavedSearch, { fields: [hhSourcingCandidate.savedSearchId], references: [hhSavedSearch.id] }),
+  job: one(job, { fields: [hhSourcingCandidate.jobId], references: [job.id] }),
+  reviewedBy: one(user, { fields: [hhSourcingCandidate.reviewedByUserId], references: [user.id] }),
+  application: one(application, { fields: [hhSourcingCandidate.applicationId], references: [application.id] }),
+}))
+
+export const hhStageMappingRelations = relations(hhStageMapping, ({ one }) => ({
+  organization: one(organization, { fields: [hhStageMapping.organizationId], references: [organization.id] }),
+  vacancyLink: one(hhVacancyLink, { fields: [hhStageMapping.hhVacancyLinkId], references: [hhVacancyLink.id] }),
+  pipelineStage: one(pipelineStage, { fields: [hhStageMapping.pipelineStageId], references: [pipelineStage.id] }),
+}))
+
+export const hhActionLogRelations = relations(hhActionLog, ({ one }) => ({
+  organization: one(organization, { fields: [hhActionLog.organizationId], references: [organization.id] }),
+  hhAccount: one(hhAccount, { fields: [hhActionLog.hhAccountId], references: [hhAccount.id] }),
+  performedBy: one(user, { fields: [hhActionLog.performedByUserId], references: [user.id] }),
+  application: one(application, { fields: [hhActionLog.applicationId], references: [application.id] }),
+  sourcingCandidate: one(hhSourcingCandidate, { fields: [hhActionLog.sourcingCandidateId], references: [hhSourcingCandidate.id] }),
+}))
+
+
+// ─────────────────────────────────────────────
 // Дедупликация — фундамент
 // ─────────────────────────────────────────────
 

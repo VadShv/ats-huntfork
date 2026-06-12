@@ -149,6 +149,23 @@ export default defineEventHandler(async (event) => {
     },
   })
 
+  // hh.ru push-action (fire-and-forget, никогда не ломаем основную операцию)
+  // Если для выбранной стадии есть hh_stage_mapping — перенесём negotiation в нужную коллекцию
+  // (и опционально отправим шаблонное сообщение). Ошибки только логируются.
+  void (async () => {
+    try {
+      const { pushStageChangeToHh } = await import('../../../utils/hh/sourcing/pushAction')
+      await pushStageChangeToHh({
+        organizationId: orgId,
+        applicationId: id,
+        pipelineStageId: body.stageId,
+        userId: session.user.id,
+      })
+    } catch (err) {
+      console.warn('[stage.patch] hh push-action failed', { applicationId: id, err: (err as Error).message })
+    }
+  })()
+
   // PostHog event (fire-and-forget)
   trackEvent(event, session, 'application stage_changed', {
     application_id: id,

@@ -278,6 +278,8 @@ export default defineNuxtConfig({
     scheduledTasks: {
       // Каждые 5 минут: синк откликов hh.ru
       '*/5 * * * *': ['hh:sync'],
+      // Каждую минуту: тик сорсинг-воркера (выбирает поиски с nextRunAt <= now)
+      '* * * * *': ['hh:sourcing'],
     },
     routeRules: {
       "/**": {

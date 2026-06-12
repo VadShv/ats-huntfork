@@ -588,6 +588,13 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
             <Loader2 v-if="isSyncingHh" class="size-3.5 animate-spin" />
             <span>{{ isSyncingHh ? 'Синхронизируем…' : 'Синхронизировать сейчас' }}</span>
           </button>
+          <NuxtLink
+            :to="`/dashboard/jobs/${jobId}/sourcing`"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+            title="Автосорсинг по базе резюме hh.ru"
+          >
+            <span>🔍 Сорсинг</span>
+          </NuxtLink>
         </div>
       </div>
 

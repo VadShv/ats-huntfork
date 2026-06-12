@@ -116,16 +116,29 @@ export async function refreshAccessToken(refreshToken: string): Promise<HhTokenR
  * Low-level authenticated GET against the hh.ru API.
  * Throws on non-2xx with a short body excerpt.
  */
+export type HhQueryParams = Record<
+  string,
+  string | number | boolean | undefined | Array<string | number | boolean>
+>
+
 export async function apiGet<T = unknown>(
   path: string,
   accessToken: string,
-  query?: Record<string, string | number | boolean | undefined>,
+  query?: HhQueryParams,
 ): Promise<T> {
   const url = new URL(path.startsWith('http') ? path : `${env.HH_API_BASE}${path}`)
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v === undefined) continue
-      url.searchParams.set(k, String(v))
+      if (Array.isArray(v)) {
+        // hh.ru uses repeated keys for multi-valued params (e.g. area=1&area=2).
+        for (const item of v) {
+          if (item === undefined) continue
+          url.searchParams.append(k, String(item))
+        }
+      } else {
+        url.searchParams.set(k, String(v))
+      }
     }
   }
   const res = await fetch(url, {
@@ -147,4 +160,68 @@ export async function apiGet<T = unknown>(
 /** Convenience wrapper: GET /me with the given access token. */
 export function getMe(accessToken: string): Promise<HhMeResponse> {
   return apiGet<HhMeResponse>('/me', accessToken)
+}
+
+/**
+ * Low-level authenticated PUT against the hh.ru API.
+ * Используется для перевода откликов между коллекциями.
+ * Возвращает { status, body } — вызывающий код решает, как обрабатывать ошибки.
+ */
+export async function apiRequest<T = unknown>(
+  method: 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  accessToken: string,
+  options?: { query?: HhQueryParams, body?: unknown, contentType?: 'json' | 'form' },
+): Promise<{ status: number, body: T | null }> {
+  const url = new URL(path.startsWith('http') ? path : `${env.HH_API_BASE}${path}`)
+  if (options?.query) {
+    for (const [k, v] of Object.entries(options.query)) {
+      if (v === undefined) continue
+      if (Array.isArray(v)) {
+        for (const item of v) {
+          if (item === undefined) continue
+          url.searchParams.append(k, String(item))
+        }
+      } else {
+        url.searchParams.set(k, String(v))
+      }
+    }
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'User-Agent': env.HH_USER_AGENT,
+    Accept: 'application/json',
+  }
+
+  let body: BodyInit | undefined
+  if (options?.body !== undefined) {
+    if (options.contentType === 'form') {
+      const form = new URLSearchParams()
+      for (const [k, v] of Object.entries(options.body as Record<string, unknown>)) {
+        if (v === undefined || v === null) continue
+        form.append(k, String(v))
+      }
+      body = form
+      headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    } else {
+      body = JSON.stringify(options.body)
+      headers['Content-Type'] = 'application/json'
+    }
+  }
+
+  const res = await fetch(url, { method, headers, body })
+  const text = await res.text().catch(() => '')
+  let parsed: T | null = null
+  if (text) {
+    try { parsed = JSON.parse(text) as T } catch { parsed = null }
+  }
+
+  if (!res.ok) {
+    const err = new Error(`hh API ${method} ${url.pathname} failed: HTTP ${res.status} — ${text.slice(0, 200)}`)
+    ;(err as Error & { status?: number, body?: T | null }).status = res.status
+    ;(err as Error & { status?: number, body?: T | null }).body = parsed
+    throw err
+  }
+  return { status: res.status, body: parsed }
 }

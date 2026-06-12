@@ -288,6 +288,13 @@
       "when": 1789000000000,
       "tag": "0041_collaboration_thread",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790000000000,
+      "tag": "0042_hh_sourcing",
+      "breakpoints": true
     }
   ]
 }
