@@ -1847,5 +1847,54 @@
     "search_placeholder": "Search sticker…",
     "loading": "Loading stickers…",
     "empty": "No stickers found"
+  },
+  "assistant": {
+    "title": "AI Assistant",
+    "subtitle": "Context-aware hiring copilot",
+    "empty_title": "What do you want to figure out?",
+    "empty_subtitle": "Ask anything about your jobs, candidates, applications, or uploaded resumes. The assistant has live access to your hiring data.",
+    "loading": "Loading…",
+    "thinking": "Thinking",
+    "thinking_on": "Extended thinking on",
+    "thinking_off": "Extended thinking off",
+    "scope": {
+      "title": "Context",
+      "organization": "Whole organization",
+      "organization_desc": "All jobs, candidates, applications",
+      "select_job": "Select job…",
+      "no_jobs": "No jobs yet — create one to scope the assistant to it",
+      "label": "Context scope"
+    },
+    "sources": {
+      "show": "Show sources",
+      "hide": "Hide sources",
+      "title": "Sources"
+    },
+    "composer": {
+      "placeholder": "Ask the assistant anything…",
+      "send": "Send",
+      "stop": "Stop",
+      "attach": "Attach file",
+      "remove_attachment": "Remove {name}"
+    },
+    "tool_calls": {
+      "one": "1 tool call",
+      "many": "{n} tool calls"
+    },
+    "disclaimer": "AI Assistant can make mistakes. Verify candidate-impacting decisions.",
+    "suggestions": {
+      "job": {
+        "top": "Who are the top 5 candidates for {job} and why?",
+        "compare": "Compare the strongest candidates' resumes for {job}",
+        "stalled": "Which candidates have stalled in screening for {job}?",
+        "shortlist": "Draft an interview shortlist for {job} with reasoning"
+      },
+      "org": {
+        "strongest_pool": "Which jobs have the strongest candidate pool right now?",
+        "stuck": "Show me applications that have been stuck in screening for a while",
+        "backend": "Find candidates with strong backend experience across all jobs",
+        "month_summary": "Summarise our hiring activity this month"
+      }
+    }
   }
 }

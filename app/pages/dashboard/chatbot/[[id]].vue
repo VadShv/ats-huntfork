@@ -6,6 +6,8 @@ import {
 } from 'lucide-vue-next'
 import MarkdownDescription from '~/components/MarkdownDescription.vue'
 
+const { t } = useI18n()
+
 definePageMeta({
   layout: 'dashboard',
   middleware: ['auth', 'require-org'],
@@ -13,7 +15,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Reqcore Assistant',
+  title: () => t('assistant.title'),
   robots: 'noindex, nofollow',
 })
 
@@ -168,19 +170,19 @@ watch(currentConversationId, () => nextTick(scrollToBottom))
 // ── Suggestions for empty state ──
 const suggestions = computed(() => {
   if (selectedJob.value) {
-    const t = selectedJob.value.title
+    const job = selectedJob.value.title
     return [
-      `Who are the top 5 candidates for ${t} and why?`,
-      `Compare the strongest candidates' resumes for ${t}.`,
-      `Which candidates have stalled in screening for ${t}?`,
-      `Draft an interview shortlist for ${t} with reasoning.`,
+      t('assistant.suggestions.job.top', { job }),
+      t('assistant.suggestions.job.compare', { job }),
+      t('assistant.suggestions.job.stalled', { job }),
+      t('assistant.suggestions.job.shortlist', { job }),
     ]
   }
   return [
-    'Which jobs have the strongest candidate pool right now?',
-    'Show me applications that have been stuck in screening for a while.',
-    'Find candidates with strong backend experience across all jobs.',
-    'Summarise our hiring activity this month.',
+    t('assistant.suggestions.org.strongest_pool'),
+    t('assistant.suggestions.org.stuck'),
+    t('assistant.suggestions.org.backend'),
+    t('assistant.suggestions.org.month_summary'),
   ]
 })
 
@@ -229,10 +231,10 @@ async function startNew() {
         <div class="flex items-center gap-3 min-w-0">
           <div class="min-w-0">
             <h1 class="truncate text-sm font-semibold tracking-tight text-surface-900 dark:text-surface-100">
-              Reqcore Assistant
+              {{ t('assistant.title') }}
             </h1>
             <p class="truncate text-[11px] text-surface-500 dark:text-surface-400">
-              Context-aware copilot for your hiring data
+              {{ t('assistant.subtitle') }}
             </p>
           </div>
         </div>
@@ -246,7 +248,7 @@ async function startNew() {
             >
               <component :is="scope.kind === 'job' ? Briefcase : Globe" class="size-3.5 text-brand-500" />
               <span class="max-w-[160px] truncate">
-                {{ scope.kind === 'job' ? (selectedJob?.title ?? 'Select job…') : 'Whole organization' }}
+                {{ scope.kind === 'job' ? (selectedJob?.title ?? t('assistant.scope.select_job')) : t('assistant.scope.organization') }}
               </span>
               <ChevronDown class="size-3 text-surface-400" :class="showScopePicker ? 'rotate-180' : ''" />
             </button>
@@ -265,7 +267,7 @@ async function startNew() {
               >
                 <div class="border-b border-surface-100 dark:border-surface-800 px-4 py-2.5">
                   <p class="text-[11px] font-semibold uppercase tracking-wider text-surface-500">
-                    Context scope
+                    {{ t('assistant.scope.label') }}
                   </p>
                 </div>
                 <button
@@ -274,14 +276,14 @@ async function startNew() {
                 >
                   <Globe class="mt-0.5 size-4 text-brand-500" />
                   <div class="flex-1">
-                    <div class="text-sm font-medium text-surface-900 dark:text-surface-100">Whole organization</div>
-                    <div class="text-xs text-surface-500">All jobs, candidates, applications</div>
+                    <div class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ t('assistant.scope.organization') }}</div>
+                    <div class="text-xs text-surface-500">{{ t('assistant.scope.organization_desc') }}</div>
                   </div>
                   <Check v-if="scope.kind === 'organization'" class="size-4 text-brand-500" />
                 </button>
                 <div class="max-h-72 overflow-y-auto border-t border-surface-100 dark:border-surface-800 py-1">
                   <p v-if="jobs.length === 0" class="px-4 py-3 text-xs text-surface-500">
-                    No jobs yet — create one to scope the assistant to it.
+                    {{ t('assistant.scope.no_jobs') }}
                   </p>
                   <button
                     v-for="j in jobs"
@@ -307,17 +309,17 @@ async function startNew() {
             :class="thinking
               ? 'border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300'
               : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            :title="thinking ? 'Extended thinking on' : 'Extended thinking off'"
+            :title="thinking ? t('assistant.thinking_on') : t('assistant.thinking_off')"
             @click="thinking = !thinking"
           >
             <Brain class="size-3.5" />
-            Thinking
+            {{ t('assistant.thinking') }}
           </button>
 
           <!-- Sources panel toggle -->
           <button
             class="inline-flex items-center justify-center size-8 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-500 hover:text-brand-600 dark:hover:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-colors cursor-pointer relative"
-            :title="sourcesOpen ? 'Hide sources' : 'Show sources'"
+            :title="sourcesOpen ? t('assistant.sources.hide') : t('assistant.sources.show')"
             @click="sourcesOpen = !sourcesOpen"
           >
             <component :is="sourcesOpen ? PanelRightClose : PanelRightOpen" class="size-3.5" />
@@ -337,7 +339,7 @@ async function startNew() {
         class="flex flex-1 items-center justify-center text-sm text-surface-500"
       >
         <Loader2 class="mr-2 size-4 animate-spin" />
-        Loading…
+        {{ t('assistant.loading') }}
       </div>
 
       <!-- Conversation -->
@@ -348,12 +350,12 @@ async function startNew() {
       >
         <!-- Empty state -->
         <div v-if="messages.length === 0" class="mx-auto flex h-full max-w-3xl flex-col items-center justify-center px-6 py-12 text-center">
+          <Sparkles class="size-10 text-brand-500" />
           <h2 class="mt-5 text-xl font-semibold text-surface-900 dark:text-surface-100">
-            What do you want to figure out?
+            {{ t('assistant.empty_title') }}
           </h2>
           <p class="mt-2 max-w-md text-sm text-surface-500">
-            Ask anything about your jobs, candidates, applications, or uploaded resumes.
-            Reqcore Assistant has live access to your hiring data.
+            {{ t('assistant.empty_subtitle') }}
           </p>
           <div class="mt-8 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
             <button
@@ -375,12 +377,13 @@ async function startNew() {
             class="flex gap-3"
             :class="m.role === 'user' ? 'justify-end' : 'justify-start'"
           >
-            <img
+            <div
               v-if="m.role === 'assistant'"
-              src="/eagle-mascot-logo-128.png"
-              alt="Reqcore Assistant"
-              class="size-9 shrink-0 object-contain mt-2"
-            />
+              class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-violet-500 text-white mt-2"
+              :aria-label="t('assistant.title')"
+            >
+              <Sparkles class="size-5" />
+            </div>
 
             <div :class="m.role === 'user' ? 'max-w-[85%]' : 'max-w-[85%] flex-1'">
               <div
@@ -407,7 +410,7 @@ async function startNew() {
                 >
                   <summary class="flex cursor-pointer items-center gap-1.5 font-medium">
                     <Brain class="size-3.5" />
-                    Thinking
+                    {{ t('assistant.thinking') }}
                     <ChevronDown class="size-3 transition-transform group-open:rotate-180" />
                   </summary>
                   <div class="mt-2 whitespace-pre-wrap leading-relaxed opacity-90">
@@ -422,7 +425,7 @@ async function startNew() {
                   <summary class="flex cursor-pointer select-none list-none items-center gap-2 px-3 py-1.5 text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 transition-colors">
                     <Wrench class="size-3.5 shrink-0" />
                     <span class="flex-1 font-medium">
-                      {{ m.toolCalls.length === 1 ? '1 tool call' : `${m.toolCalls.length} tool calls` }}
+                      {{ m.toolCalls.length === 1 ? t('assistant.tool_calls.one') : t('assistant.tool_calls.many', { n: m.toolCalls.length }) }}
                     </span>
                     <ChevronDown class="size-3 shrink-0 transition-transform group-open:rotate-180" />
                   </summary>
@@ -449,7 +452,7 @@ async function startNew() {
                           v-if="tc.status === 'error'"
                           class="mt-0.5 text-danger-600 dark:text-danger-400"
                         >
-                          {{ (tc.output as { error?: string })?.error ?? 'Failed' }}
+                          {{ (tc.output as { error?: string })?.error ?? 'Ошибка' }}
                         </div>
                       </div>
                     </div>
@@ -471,7 +474,7 @@ async function startNew() {
                     <span class="size-1.5 animate-bounce rounded-full bg-brand-500" style="animation-delay: 150ms" />
                     <span class="size-1.5 animate-bounce rounded-full bg-brand-500" style="animation-delay: 300ms" />
                   </span>
-                  Thinking…
+                  {{ t('assistant.thinking') }}…
                 </div>
 
                 <!-- Inline source citations on assistant message -->
@@ -481,7 +484,7 @@ async function startNew() {
                 >
                   <span class="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-surface-500">
                     <BookOpen class="size-3" />
-                    Sources
+                    {{ t('assistant.sources.title') }}
                   </span>
                   <span
                     v-for="s in m.sources"
@@ -525,7 +528,7 @@ async function startNew() {
                 <span class="text-surface-400">{{ formatBytes(a.sizeBytes) }}</span>
                 <button
                   class="ml-1 inline-flex items-center justify-center rounded p-0.5 text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700 hover:text-danger-500 transition-colors cursor-pointer border-0 bg-transparent"
-                  :aria-label="`Remove ${a.filename}`"
+                  :aria-label="t('assistant.composer.remove_attachment', { name: a.filename })"
                   @click="removeAttachment(a.id)"
                 >
                   <X class="size-3" />
@@ -537,7 +540,7 @@ async function startNew() {
               ref="composer"
               v-model="draft"
               rows="1"
-              placeholder="Ask Reqcore Assistant anything…"
+              :placeholder="t('assistant.composer.placeholder')"
               class="block w-full resize-none border-0 bg-transparent px-4 pt-3 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-0"
               @keydown="onKeyDown"
             />
@@ -554,7 +557,7 @@ async function startNew() {
                 />
                 <button
                   class="inline-flex items-center justify-center size-8 rounded-lg text-surface-500 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors cursor-pointer border-0 bg-transparent disabled:opacity-50"
-                  title="Attach file"
+                  :title="t('assistant.composer.attach')"
                   :disabled="uploading"
                   @click="fileInputRef?.click()"
                 >
@@ -573,7 +576,7 @@ async function startNew() {
                   @click="abort"
                 >
                   <Square class="size-3.5 fill-current" />
-                  Stop
+                  {{ t('assistant.composer.stop') }}
                 </button>
                 <button
                   v-else
@@ -582,7 +585,7 @@ async function startNew() {
                   @click="handleSubmit"
                 >
                   <Send class="size-3.5" />
-                  Send
+                  {{ t('assistant.composer.send') }}
                 </button>
               </div>
             </div>
@@ -596,7 +599,7 @@ async function startNew() {
             {{ error }}
           </p>
           <p v-else class="mt-2 text-center text-[11px] text-surface-400">
-            Reqcore Assistant can make mistakes. Verify candidate-impacting decisions.
+            {{ t('assistant.disclaimer') }}
           </p>
         </div>
       </div>
