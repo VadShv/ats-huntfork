@@ -6,7 +6,7 @@ import {
   ChevronDown, Menu, X, Users, ChevronLeft,
   LayoutDashboard, Calendar, ArrowUpCircle,
   Cloud, Server, Sparkles, Radio, History,
-  MessageCircle, MoreHorizontal, GitMerge, History as HistoryIcon,
+  MessageCircle, MoreHorizontal, GitMerge, History as HistoryIcon, Upload,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -133,6 +133,7 @@ const mainNav = computed<Array<{ label: string; to: string; icon: typeof Briefca
   { label: t('dashboard.nav.candidates'), to: '/dashboard/candidates', icon: Users, exact: false },
   { label: t('dashboard.nav.duplicates'), to: '/dashboard/candidates/duplicates', icon: GitMerge, exact: true },
   { label: t('dashboard.nav.merges'), to: '/dashboard/candidates/merges', icon: HistoryIcon, exact: true },
+  { label: t('dashboard.nav.import'), to: '/dashboard/candidates/import', icon: Upload, exact: true },
   { label: t('dashboard.nav.applications'), to: '/dashboard/applications', icon: FileText, exact: false },
   { label: t('dashboard.nav.interviews'), to: '/dashboard/interviews', icon: Calendar, exact: false },
   { label: t('dashboard.nav.timeline'), to: '/dashboard/timeline', icon: History, exact: true },
