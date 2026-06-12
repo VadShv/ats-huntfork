@@ -43,6 +43,7 @@
     "better-auth": "^1.6.1",
     "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.45.1",
+    "exceljs": "^4.4.0",
     "file-type": "^21.3.0",
     "googleapis": "^171.4.0",
     "libphonenumber-js": "^1.13.5",

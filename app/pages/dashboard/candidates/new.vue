@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Upload, FileText, Loader2, X, Users, AlertTriangle, ExternalLink, Building2 } from 'lucide-vue-next'
+import { ArrowLeft, Upload, FileText, Loader2, X, Users, AlertTriangle, ExternalLink, Building2, Check as IconCheck, AlertCircle } from 'lucide-vue-next'
 import { z } from 'zod'
 
 definePageMeta({
@@ -100,6 +100,28 @@ const checkLoading = ref(false)
 const dupResult = ref<{ exact: ExactDup[]; fuzzy: FuzzyDup[] } | null>(null)
 let lastWarnedToastKey = ''
 
+// Sprint 4.4 (P3.4): inline-индикаторы дубль-чека для email/phone
+const emailChecking = ref(false)
+const phoneChecking = ref(false)
+// значения, по которым был отправлен последний запрос (для зелёной галочки «проверено без дублёй»)
+const lastCheckedEmail = ref<string | null>(null)
+const lastCheckedPhone = ref<string | null>(null)
+
+const emailExact = computed(() => dupResult.value?.exact.some(e => e.kind === 'email') ?? false)
+const phoneExact = computed(() => dupResult.value?.exact.some(e => e.kind === 'phone') ?? false)
+const emailClean = computed(() =>
+  !emailChecking.value
+  && !emailExact.value
+  && !!form.value.email.trim()
+  && lastCheckedEmail.value === form.value.email.trim(),
+)
+const phoneClean = computed(() =>
+  !phoneChecking.value
+  && !phoneExact.value
+  && !!form.value.phone.trim()
+  && lastCheckedPhone.value === form.value.phone.trim(),
+)
+
 const hasExact = computed(() => !!dupResult.value?.exact.length)
 const hasHighFuzzy = computed(() => (dupResult.value?.fuzzy ?? []).some(f => f.score >= 95))
 const hasAnyDup = computed(() => hasExact.value || (dupResult.value?.fuzzy.length ?? 0) > 0)
@@ -119,6 +141,8 @@ async function runDuplicateCheck() {
   const phone = form.value.phone.trim()
   if (!lastName && !email && !phone) {
     dupResult.value = null
+    emailChecking.value = false
+    phoneChecking.value = false
     return
   }
   checkLoading.value = true
@@ -137,6 +161,8 @@ async function runDuplicateCheck() {
       },
     )
     dupResult.value = res
+    lastCheckedEmail.value = email || null
+    lastCheckedPhone.value = phone || null
 
     // Toast (one-shot) при наличии fuzzy 85-94 (без hard блока)
     const onlyMidFuzzy = !res.exact.length && res.fuzzy.length > 0 && !res.fuzzy.some(f => f.score >= 95)
@@ -152,8 +178,26 @@ async function runDuplicateCheck() {
     console.error('[dedup check] failed:', e)
   } finally {
     checkLoading.value = false
+    emailChecking.value = false
+    phoneChecking.value = false
   }
 }
+
+// Sprint 4.4: включаем inline-спиннер раньше debounce — как только пользователь начал править поле
+watch(
+  () => form.value.email,
+  (v) => {
+    if (v.trim() && v.trim() !== lastCheckedEmail.value) emailChecking.value = true
+    else emailChecking.value = false
+  },
+)
+watch(
+  () => form.value.phone,
+  (v) => {
+    if (v.trim() && v.trim() !== lastCheckedPhone.value) phoneChecking.value = true
+    else phoneChecking.value = false
+  },
+)
 
 watch(
   () => [form.value.firstName, form.value.lastName, form.value.email, form.value.phone, form.value.dateOfBirth],
@@ -600,16 +644,23 @@ function candidateLink(id: string) {
             <label for="email" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
               {{ $t('dashboard.candidates.fields.email') }} <span class="text-danger-500">*</span>
             </label>
-            <input
-              id="email"
-              v-model="form.email"
-              type="email"
-              placeholder="e.g. jane.doe@example.com"
-              class="w-full rounded-lg border px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
-              :class="errors.email || dupResult?.exact.some(e => e.kind === 'email') ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
-            />
+            <div class="relative">
+              <input
+                id="email"
+                v-model="form.email"
+                type="email"
+                placeholder="e.g. jane.doe@example.com"
+                class="w-full rounded-lg border pr-9 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                :class="errors.email || emailExact ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
+              />
+              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Loader2 v-if="emailChecking" class="size-4 text-surface-400 animate-spin" :title="t('candidate.new.dedup.inlineChecking')" />
+                <AlertCircle v-else-if="emailExact" class="size-4 text-danger-500" :title="t('candidate.new.dedup.inlineDuplicate')" />
+                <IconCheck v-else-if="emailClean" class="size-4 text-success-500" :title="t('candidate.new.dedup.inlineClean')" />
+              </span>
+            </div>
             <p v-if="errors.email" class="mt-1 text-xs text-danger-600 dark:text-danger-400">{{ errors.email }}</p>
-            <p v-else-if="dupResult?.exact.some(e => e.kind === 'email')" class="mt-1 text-xs text-danger-600 dark:text-danger-400">
+            <p v-else-if="emailExact" class="mt-1 text-xs text-danger-600 dark:text-danger-400">
               {{ t('candidate.new.dedup.exactEmail') }}
             </p>
           </div>
@@ -619,15 +670,22 @@ function candidateLink(id: string) {
             <label for="phone" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
               {{ $t('dashboard.candidates.fields.phone') }}
             </label>
-            <input
-              id="phone"
-              v-model="form.phone"
-              type="tel"
-              placeholder="e.g. +7 (999) 123-45-67"
-              class="w-full rounded-lg border px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
-              :class="dupResult?.exact.some(e => e.kind === 'phone') ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
-            />
-            <p v-if="dupResult?.exact.some(e => e.kind === 'phone')" class="mt-1 text-xs text-danger-600 dark:text-danger-400">
+            <div class="relative">
+              <input
+                id="phone"
+                v-model="form.phone"
+                type="tel"
+                placeholder="e.g. +7 (999) 123-45-67"
+                class="w-full rounded-lg border pr-9 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                :class="phoneExact ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
+              />
+              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Loader2 v-if="phoneChecking" class="size-4 text-surface-400 animate-spin" :title="t('candidate.new.dedup.inlineChecking')" />
+                <AlertCircle v-else-if="phoneExact" class="size-4 text-danger-500" :title="t('candidate.new.dedup.inlineDuplicate')" />
+                <IconCheck v-else-if="phoneClean" class="size-4 text-success-500" :title="t('candidate.new.dedup.inlineClean')" />
+              </span>
+            </div>
+            <p v-if="phoneExact" class="mt-1 text-xs text-danger-600 dark:text-danger-400">
               {{ t('candidate.new.dedup.exactPhone') }}
             </p>
           </div>

@@ -47,6 +47,25 @@ const { data: hhResumeData } = await useFetch<HhResumeApiResp | null>(
   { default: () => null, server: false, lazy: true },
 )
 
+// Sprint 4.6 (P3.6): история слияний, в которых данный кандидат являлся primary
+interface MergeHistoryItem {
+  id: string
+  action: 'merge' | 'rollback' | string
+  mergeKind: 'auto' | 'manual' | string
+  reason: string | null
+  score: number | null
+  signals: Array<{ kind: string; value: string; score?: number }>
+  mergedCandidateId: string
+  rollbackUntil: string | null
+  createdAt: string
+  performedBy: { id: string, name: string | null, email: string | null } | null
+}
+const { data: mergeHistoryData, refresh: refreshMergeHistory } = await useFetch<{ items: MergeHistoryItem[] }>(
+  () => `/api/candidates/${candidateId}/merge-history`,
+  { default: () => ({ items: [] }), server: false, lazy: true },
+)
+const mergeHistory = computed(() => mergeHistoryData.value?.items ?? [])
+
 function calcAge(birthDate?: string | null): number | null {
   if (!birthDate) return null
   const d = new Date(birthDate)
@@ -607,6 +626,63 @@ async function removeFraudFlag() {
             </div>
           </div>
         </NuxtLink>
+
+        <!-- ╗╗╗ Sprint 4.6: История слияний ╗╗╗ -->
+        <div
+          v-if="mergeHistory.length > 0"
+          class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4"
+        >
+          <div class="flex items-center gap-2 mb-3">
+            <GitMerge class="size-4 text-brand-600 dark:text-brand-400" />
+            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">
+              История слияний <span class="text-surface-400 dark:text-surface-500 font-normal">({{ mergeHistory.length }})</span>
+            </h2>
+          </div>
+          <ul class="space-y-2">
+            <li
+              v-for="h in mergeHistory"
+              :key="h.id"
+              class="flex items-start gap-3 text-xs border-l-2 pl-3 py-1"
+              :class="h.action === 'rollback'
+                ? 'border-amber-400 dark:border-amber-600'
+                : (h.mergeKind === 'auto' ? 'border-success-400 dark:border-success-600' : 'border-brand-400 dark:border-brand-600')"
+            >
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span
+                    class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                    :class="h.action === 'rollback'
+                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
+                      : 'bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-400'"
+                  >
+                    {{ h.action === 'rollback' ? 'Откат' : 'Слияние' }}
+                  </span>
+                  <span
+                    class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300"
+                  >
+                    {{ h.mergeKind === 'auto' ? 'авто' : 'вручную' }}
+                  </span>
+                  <span v-if="h.score !== null" class="text-surface-500 dark:text-surface-400">
+                    скор {{ h.score }}
+                  </span>
+                  <span class="text-surface-400 dark:text-surface-500">·</span>
+                  <span class="text-surface-500 dark:text-surface-400">
+                    {{ new Date(h.createdAt).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) }}
+                  </span>
+                  <span v-if="h.performedBy" class="text-surface-500 dark:text-surface-400">
+                    · {{ h.performedBy.name || h.performedBy.email || '—' }}
+                  </span>
+                </div>
+                <div v-if="h.reason" class="text-surface-600 dark:text-surface-300 mt-0.5 truncate">
+                  Причина: {{ h.reason }}
+                </div>
+                <div class="text-surface-500 dark:text-surface-400 mt-0.5 truncate">
+                  ID слитого: <code class="text-[10px]">{{ h.mergedCandidateId.slice(0, 8) }}…</code>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
 
         <!-- ╗╗╗ 2-column body: center (AI + резюме) + right (tabs + properties) ╗╗╗ -->
         <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6">

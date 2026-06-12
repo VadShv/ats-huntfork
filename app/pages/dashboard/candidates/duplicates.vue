@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Users, AlertTriangle, ChevronRight, X, Check, ShieldAlert } from 'lucide-vue-next'
+import { Users, AlertTriangle, ChevronRight, X, Check, ShieldAlert, Briefcase } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard',
@@ -15,8 +15,35 @@ interface DupCandidate {
   firstName: string | null
   lastName: string | null
   email: string | null
+  phone: string | null
+  dateOfBirth: string | null
+  city: string | null
+  linkedin: string | null
+  telegram: string | null
+  github: string | null
   organizationId: string
   fraudFlag: boolean
+  activeApplications: number
+}
+
+// Sprint 4.5 (P3.5): поля для сравнения в merge-модалке
+const COMPARE_FIELDS: Array<{ key: keyof DupCandidate; label: string }> = [
+  { key: 'lastName', label: 'Фамилия' },
+  { key: 'firstName', label: 'Имя' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Телефон' },
+  { key: 'dateOfBirth', label: 'Дата рождения' },
+  { key: 'city', label: 'Город' },
+  { key: 'linkedin', label: 'LinkedIn' },
+  { key: 'telegram', label: 'Telegram' },
+  { key: 'github', label: 'GitHub' },
+]
+function fieldsDiffer(a: DupCandidate, b: DupCandidate, key: keyof DupCandidate): boolean {
+  const va = (a[key] ?? '') as string
+  const vb = (b[key] ?? '') as string
+  // Различие — если оба непусты и не равны (case-insensitive). Пустое ≃ любое — не различие (добавляемые данные).
+  if (!va.trim() || !vb.trim()) return false
+  return va.trim().toLowerCase() !== vb.trim().toLowerCase()
 }
 interface DupPair {
   id: string
@@ -29,9 +56,11 @@ interface DupPair {
 }
 
 // ── Фильтры ─────────────────────────────────────────────────────────────────
+type SortOption = 'score_desc' | 'score_asc' | 'newest' | 'oldest' | 'fraud_first' | 'active_apps_desc'
 const status = ref<'pending' | 'dismissed' | 'merged'>('pending')
 const minScore = ref<number | undefined>(undefined)
 const includeOtherOrgs = ref(true)
+const sort = ref<SortOption>('score_desc')
 
 const query = computed(() => ({
   status: status.value,
@@ -39,6 +68,7 @@ const query = computed(() => ({
   offset: 0,
   ...(minScore.value !== undefined ? { minScore: minScore.value } : {}),
   includeOtherOrgs: includeOtherOrgs.value,
+  sort: sort.value,
 }))
 
 const { data, status: fetchStatus, refresh } = await useAsyncData(
@@ -181,6 +211,20 @@ function signalsList(signals: Record<string, number>): string {
         <input v-model="includeOtherOrgs" type="checkbox" class="rounded" />
         Включая другие организации группы
       </label>
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-medium text-surface-600 dark:text-surface-400">Сортировка:</span>
+        <select
+          v-model="sort"
+          class="text-sm rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1"
+        >
+          <option value="score_desc">Скор ↓</option>
+          <option value="score_asc">Скор ↑</option>
+          <option value="newest">Сначала новые</option>
+          <option value="oldest">Сначала старые</option>
+          <option value="fraud_first">Сначала с фрод-флагом</option>
+          <option value="active_apps_desc">Сначала с активными заявками</option>
+        </select>
+      </div>
       <div class="ml-auto text-sm text-surface-500 dark:text-surface-400">
         Найдено: <span class="font-semibold text-surface-900 dark:text-surface-50">{{ data?.total ?? 0 }}</span>
       </div>
@@ -226,7 +270,20 @@ function signalsList(signals: Record<string, number>): string {
               class="font-medium text-surface-900 dark:text-surface-50 hover:text-brand-600 dark:hover:text-brand-400 truncate flex items-center gap-2"
             >
               {{ formatName(pair.candidateA) }}
-              <ShieldAlert v-if="pair.candidateA.fraudFlag" class="size-4 text-danger-500" />
+              <span
+                v-if="pair.candidateA.fraudFlag"
+                class="inline-flex items-center gap-1 rounded-full bg-danger-100 dark:bg-danger-950 text-danger-700 dark:text-danger-400 px-1.5 py-0.5 text-[10px] font-medium"
+                title="Фрод-флаг"
+              >
+                <ShieldAlert class="size-3" /> фрод
+              </span>
+              <span
+                v-if="pair.candidateA.activeApplications > 0"
+                class="inline-flex items-center gap-1 rounded-full bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-400 px-1.5 py-0.5 text-[10px] font-medium"
+                :title="`Активных заявок: ${pair.candidateA.activeApplications}`"
+              >
+                <Briefcase class="size-3" /> {{ pair.candidateA.activeApplications }}
+              </span>
             </NuxtLink>
             <div v-if="pair.candidateA.email" class="text-xs text-surface-500 dark:text-surface-400 truncate">
               {{ pair.candidateA.email }}
@@ -242,7 +299,20 @@ function signalsList(signals: Record<string, number>): string {
               class="font-medium text-surface-900 dark:text-surface-50 hover:text-brand-600 dark:hover:text-brand-400 truncate flex items-center gap-2"
             >
               {{ formatName(pair.candidateB) }}
-              <ShieldAlert v-if="pair.candidateB.fraudFlag" class="size-4 text-danger-500" />
+              <span
+                v-if="pair.candidateB.fraudFlag"
+                class="inline-flex items-center gap-1 rounded-full bg-danger-100 dark:bg-danger-950 text-danger-700 dark:text-danger-400 px-1.5 py-0.5 text-[10px] font-medium"
+                title="Фрод-флаг"
+              >
+                <ShieldAlert class="size-3" /> фрод
+              </span>
+              <span
+                v-if="pair.candidateB.activeApplications > 0"
+                class="inline-flex items-center gap-1 rounded-full bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-400 px-1.5 py-0.5 text-[10px] font-medium"
+                :title="`Активных заявок: ${pair.candidateB.activeApplications}`"
+              >
+                <Briefcase class="size-3" /> {{ pair.candidateB.activeApplications }}
+              </span>
             </NuxtLink>
             <div v-if="pair.candidateB.email" class="text-xs text-surface-500 dark:text-surface-400 truncate">
               {{ pair.candidateB.email }}
@@ -299,6 +369,42 @@ function signalsList(signals: Record<string, number>): string {
               <AlertTriangle class="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div class="text-xs text-amber-800 dark:text-amber-300">
                 Слияние можно откатить в течение 30 дней через журнал. После — данные сольются окончательно.
+              </div>
+            </div>
+
+            <!-- Sprint 4.5: Сравнение полей с подсветкой различий -->
+            <div class="rounded-lg border border-surface-200 dark:border-surface-800 overflow-hidden">
+              <div class="grid grid-cols-[140px_1fr_1fr] text-xs font-medium bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-800">
+                <div class="px-3 py-2 text-surface-500 dark:text-surface-400">Поле</div>
+                <div class="px-3 py-2 text-surface-700 dark:text-surface-300 truncate">{{ formatName(activePair.candidateA) }}</div>
+                <div class="px-3 py-2 text-surface-700 dark:text-surface-300 truncate">{{ formatName(activePair.candidateB) }}</div>
+              </div>
+              <div
+                v-for="f in COMPARE_FIELDS"
+                :key="f.key"
+                class="grid grid-cols-[140px_1fr_1fr] text-xs border-t border-surface-100 dark:border-surface-800/60"
+                :class="fieldsDiffer(activePair.candidateA, activePair.candidateB, f.key) ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''"
+              >
+                <div class="px-3 py-1.5 text-surface-500 dark:text-surface-400 flex items-center gap-1">
+                  {{ f.label }}
+                  <span
+                    v-if="fieldsDiffer(activePair.candidateA, activePair.candidateB, f.key)"
+                    class="text-amber-600 dark:text-amber-400"
+                    title="Различие"
+                  >●</span>
+                </div>
+                <div
+                  class="px-3 py-1.5 truncate"
+                  :class="fieldsDiffer(activePair.candidateA, activePair.candidateB, f.key) ? 'text-amber-800 dark:text-amber-300 font-medium' : 'text-surface-700 dark:text-surface-300'"
+                >
+                  {{ (activePair.candidateA[f.key] as string) || '—' }}
+                </div>
+                <div
+                  class="px-3 py-1.5 truncate"
+                  :class="fieldsDiffer(activePair.candidateA, activePair.candidateB, f.key) ? 'text-amber-800 dark:text-amber-300 font-medium' : 'text-surface-700 dark:text-surface-300'"
+                >
+                  {{ (activePair.candidateB[f.key] as string) || '—' }}
+                </div>
               </div>
             </div>
 

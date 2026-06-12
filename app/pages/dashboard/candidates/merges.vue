@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { History, GitMerge, X, Eye, ShieldAlert, RotateCcw, ChevronRight, Search } from 'lucide-vue-next'
+import { History, GitMerge, X, Eye, ShieldAlert, RotateCcw, ChevronRight, Search, Download, FileSpreadsheet, FileText } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard',
@@ -14,6 +14,9 @@ interface MergeItem {
   id: string
   createdAt: string
   action: 'merge' | 'rollback'
+  organizationId: string
+  organizationName: string | null
+  isCrossOrg: boolean
   mergeKind: 'auto' | 'manual'
   score: number | null
   reason: string | null
@@ -45,6 +48,8 @@ interface MergeItem {
 // ── Фильтры ────────────────────────────────────────────────────────────────
 const status = ref<'active' | 'expired' | 'rolled_back' | 'all'>('active')
 const mergeKind = ref<'auto' | 'manual' | 'all'>('all')
+// Sprint 4.2 (P3.2): own/cross/all
+const orgScope = ref<'own' | 'cross' | 'all'>('all')
 const searchInput = ref('')
 const debouncedSearch = ref('')
 const includeOtherOrgs = ref(true)
@@ -63,6 +68,7 @@ watch(searchInput, (val) => {
 const query = computed(() => ({
   status: status.value,
   mergeKind: mergeKind.value,
+  orgScope: orgScope.value,
   ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
   includeOtherOrgs: includeOtherOrgs.value,
   limit: pageSize,
@@ -226,6 +232,49 @@ async function confirmRollback() {
   }
 }
 
+// ── Sprint 4.1 (P3.1): экспорт в CSV / XLSX ────────────────────────────────
+const isExporting = ref(false)
+
+async function exportMerges(format: 'csv' | 'xlsx') {
+  if (isExporting.value) return
+  isExporting.value = true
+  try {
+    const params = new URLSearchParams()
+    params.set('format', format)
+    params.set('status', status.value)
+    params.set('mergeKind', mergeKind.value)
+    params.set('orgScope', orgScope.value)
+    if (debouncedSearch.value) params.set('search', debouncedSearch.value)
+    params.set('includeOtherOrgs', String(includeOtherOrgs.value))
+
+    const res = await fetch(`/api/dedup/merges/export?${params.toString()}`, {
+      credentials: 'include',
+    })
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`)
+    }
+    const blob = await res.blob()
+    const cd = res.headers.get('Content-Disposition') ?? ''
+    const m = cd.match(/filename="([^"]+)"/)
+    const fileName = m?.[1] ?? `merges.${format}`
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    toast.success?.(`Файл ${fileName} скачан`)
+  }
+  catch (e: any) {
+    toast.error?.(e?.message || 'Не удалось экспортировать')
+  }
+  finally {
+    isExporting.value = false
+  }
+}
+
 function statusBadge(item: MergeItem): { text: string; cls: string } {
   if (item.isRolledBack) {
     return { text: 'Откачено', cls: 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400' }
@@ -249,6 +298,29 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
             История ручных и автоматических слияний кандидатов
           </p>
         </div>
+      </div>
+      <!-- Экспорт -->
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 hover:bg-surface-50 dark:hover:bg-surface-800 disabled:opacity-50"
+          :disabled="isExporting"
+          title="Скачать журнал в CSV (с учётом текущих фильтров)"
+          @click="exportMerges('csv')"
+        >
+          <FileText class="size-3.5" />
+          CSV
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 hover:bg-surface-50 dark:hover:bg-surface-800 disabled:opacity-50"
+          :disabled="isExporting"
+          title="Скачать журнал в Excel (.xlsx)"
+          @click="exportMerges('xlsx')"
+        >
+          <FileSpreadsheet class="size-3.5" />
+          XLSX
+        </button>
       </div>
     </div>
 
@@ -275,6 +347,18 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
           <option value="all">Все</option>
           <option value="manual">Ручные</option>
           <option value="auto">Авто</option>
+        </select>
+      </div>
+      <!-- Sprint 4.2 (P3.2): область -->
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-medium text-surface-600 dark:text-surface-400">Область:</span>
+        <select
+          v-model="orgScope"
+          class="text-sm rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1"
+        >
+          <option value="all">Все</option>
+          <option value="own">Своя организация</option>
+          <option value="cross">Cross-org</option>
         </select>
       </div>
       <div class="relative">
@@ -379,9 +463,24 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
               {{ item.performedBy?.name || 'система' }} ·
               <span class="font-medium">{{ item.mergeKind === 'manual' ? 'ручное' : 'авто' }}</span>
             </div>
-            <span :class="['inline-block px-2 py-0.5 rounded text-[10px] font-medium', statusBadge(item).cls]">
-              {{ statusBadge(item).text }}
-            </span>
+            <div class="flex flex-wrap justify-end gap-1">
+              <!-- Sprint 4.2 (P3.2): бейдж организации -->
+              <span
+                v-if="item.organizationName"
+                :class="[
+                  'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                  item.isCrossOrg
+                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400'
+                    : 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300',
+                ]"
+                :title="item.isCrossOrg ? 'Cross-org merge (из другой организации вашей группы)' : 'Собственный merge'"
+              >
+                {{ item.organizationName }}
+              </span>
+              <span :class="['inline-block px-2 py-0.5 rounded text-[10px] font-medium', statusBadge(item).cls]">
+                {{ statusBadge(item).text }}
+              </span>
+            </div>
           </div>
 
           <!-- Actions -->

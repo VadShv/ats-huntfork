@@ -1,8 +1,7 @@
-import { and, desc, eq, gte, ilike, inArray, lte, or, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { alias } from 'drizzle-orm/pg-core'
-import { candidate, candidateMergeLog, organizationExt, user } from '../../database/schema'
-import { getOrgGroupId } from '../../utils/dedup/resolve'
+import { candidateMergeLog, organization, user } from '../../database/schema'
+import { buildMergesQuery } from '../../utils/dedup/merges-query'
 
 const querySchema = z.object({
   /**
@@ -20,6 +19,8 @@ const querySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).default(50),
   offset: z.coerce.number().int().nonnegative().default(0),
   includeOtherOrgs: z.coerce.boolean().default(true),
+  /** Sprint 4.2 (P3.2): own | cross | all */
+  orgScope: z.enum(['own', 'cross', 'all']).default('all'),
 })
 
 /**
@@ -35,74 +36,14 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
   const query = await getValidatedQuery(event, querySchema.parse)
 
-  // Список организаций
-  let orgIds: string[] = [orgId]
-  if (query.includeOtherOrgs) {
-    const groupId = await getOrgGroupId(orgId)
-    if (groupId) {
-      const arr = await db
-        .select({ id: organizationExt.id })
-        .from(organizationExt)
-        .where(eq(organizationExt.groupId, groupId))
-      orgIds = arr.map(r => r.id)
-      if (!orgIds.includes(orgId)) orgIds.push(orgId)
-    }
-  }
+  const { primary, merged, whereConds, rollbackExists } = await buildMergesQuery(orgId, query)
 
-  const primary = alias(candidate, 'primary')
-  const merged = alias(candidate, 'merged')
-
-  // Только записи 'merge' — записи 'rollback' учитываются как «вычитающие» через NOT EXISTS.
-  const whereConds: any[] = [
-    eq(candidateMergeLog.action, 'merge'),
-    inArray(candidateMergeLog.organizationId, orgIds),
-  ]
-
-  if (query.mergeKind !== 'all') {
-    whereConds.push(eq(candidateMergeLog.mergeKind, query.mergeKind))
+  // Sprint 4.2 (P3.2): фильтр «только своя» / «только cross-org» — по organizationId merge_log
+  if (query.orgScope === 'own') {
+    whereConds.push(eq(candidateMergeLog.organizationId, orgId))
   }
-  if (query.userId) {
-    whereConds.push(eq(candidateMergeLog.performedByUserId, query.userId))
-  }
-  if (query.dateFrom) {
-    whereConds.push(gte(candidateMergeLog.createdAt, new Date(query.dateFrom)))
-  }
-  if (query.dateTo) {
-    whereConds.push(lte(candidateMergeLog.createdAt, new Date(query.dateTo)))
-  }
-  if (query.search) {
-    const term = `%${query.search}%`
-    whereConds.push(
-      or(
-        ilike(primary.firstName, term),
-        ilike(primary.lastName, term),
-        ilike(primary.email, term),
-        ilike(merged.firstName, term),
-        ilike(merged.lastName, term),
-        ilike(merged.email, term),
-      )!,
-    )
-  }
-
-  // NOT EXISTS подзапрос для status filter — есть ли rollback-запись для этой пары?
-  const rollbackExists = sql`EXISTS (
-    SELECT 1 FROM candidate_merge_log r
-    WHERE r.action = 'rollback'
-      AND r.primary_candidate_id = ${candidateMergeLog.primaryCandidateId}
-      AND r.merged_candidate_id = ${candidateMergeLog.mergedCandidateId}
-      AND r.created_at > ${candidateMergeLog.createdAt}
-  )`
-
-  if (query.status === 'active') {
-    whereConds.push(gte(candidateMergeLog.rollbackUntil, new Date()))
-    whereConds.push(sql`NOT ${rollbackExists}`)
-  }
-  else if (query.status === 'expired') {
-    whereConds.push(sql`${candidateMergeLog.rollbackUntil} < ${new Date()}`)
-    whereConds.push(sql`NOT ${rollbackExists}`)
-  }
-  else if (query.status === 'rolled_back') {
-    whereConds.push(rollbackExists)
+  else if (query.orgScope === 'cross') {
+    whereConds.push(sql`${candidateMergeLog.organizationId} <> ${orgId}`)
   }
 
   const totalRows = await db
@@ -118,6 +59,8 @@ export default defineEventHandler(async (event) => {
       id: candidateMergeLog.id,
       createdAt: candidateMergeLog.createdAt,
       action: candidateMergeLog.action,
+      organizationId: candidateMergeLog.organizationId,
+      organizationName: organization.name,
       mergeKind: candidateMergeLog.mergeKind,
       score: candidateMergeLog.score,
       reason: candidateMergeLog.reason,
@@ -149,6 +92,7 @@ export default defineEventHandler(async (event) => {
     .leftJoin(primary, eq(primary.id, candidateMergeLog.primaryCandidateId))
     .leftJoin(merged, eq(merged.id, candidateMergeLog.mergedCandidateId))
     .leftJoin(user, eq(user.id, candidateMergeLog.performedByUserId))
+    .leftJoin(organization, eq(organization.id, candidateMergeLog.organizationId))
     .where(and(...whereConds))
     .orderBy(desc(candidateMergeLog.createdAt))
     .limit(query.limit)
@@ -175,6 +119,10 @@ export default defineEventHandler(async (event) => {
       id: r.id,
       createdAt: r.createdAt,
       action: r.action,
+      organizationId: r.organizationId,
+      organizationName: r.organizationName ?? null,
+      /** Sprint 4.2: true если merge был в чужой организации (cross-org сценарий) */
+      isCrossOrg: r.organizationId !== orgId,
       mergeKind: r.mergeKind,
       score: r.score,
       reason: r.reason,
