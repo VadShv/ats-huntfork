@@ -20,7 +20,9 @@
     "test:e2e": "npx playwright test",
     "i18n:crowdin:upload": "crowdin upload sources",
     "i18n:crowdin:download": "crowdin download --all",
-    "i18n:crowdin:sync": "npm run i18n:crowdin:upload && npm run i18n:crowdin:download"
+    "i18n:crowdin:sync": "npm run i18n:crowdin:upload && npm run i18n:crowdin:download",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.74",
@@ -49,6 +51,7 @@
     "nodemailer": "^8.0.7",
     "nuxt": "^4.4.4",
     "pdf-parse": "^2.4.5",
+    "pg-boss": "^10.4.2",
     "postgres": "^3.4.8",
     "posthog-node": "^5.28.0",
     "resend": "^6.12.2",

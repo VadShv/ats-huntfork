@@ -21,14 +21,20 @@ export function normalizeName(input: string | null | undefined): string {
 
 /**
  * Нормализация города: убирает «г.», «город», скобки с регионом.
+ *
+ * Важно: JS \b не работает с кириллицей, поэтому явные якоря
+ * по началу/пробелу вместо \b.
  */
 export function normalizeCity(input: string | null | undefined): string {
   if (!input) return ''
   return input
     .toLowerCase()
     .replace(/ё/g, 'е')
-    .replace(/\bг\.?\s*/gi, '')
-    .replace(/\bгород\b/gi, '')
+    // «г.» / «г » / «г» в начале или после пробела (но НЕ внутри слов, напр. «нижний новгород»)
+    .replace(/(^|\s)г\.\s*/g, '$1')
+    .replace(/(^|\s)г\s+/g, '$1')
+    // «город» НА НАЧАЛЕ или после пробела, но перед пробелом (чтобы не съесть «Новгород»)
+    .replace(/(^|\s)город\s+/g, '$1')
     .replace(/\(.*?\)/g, '')
     .replace(/\s+/g, ' ')
     .trim()

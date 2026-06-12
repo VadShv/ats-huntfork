@@ -2,7 +2,7 @@ import { candidate } from '../../database/schema'
 import { findDuplicatesForDraft } from '../../utils/dedup/check'
 import { normalizeEmail, normalizePhone } from '../../utils/dedup/normalize'
 import { getOrgGroupId, upsertCandidateIdentities } from '../../utils/dedup/resolve'
-import { findFuzzyDuplicatesForCandidate, upsertDuplicateCandidate } from '../../utils/fuzzy/match'
+import { enqueueFuzzyDetect } from '../../utils/dedup/workers/fuzzy-job'
 import { createCandidateSchema } from '../../utils/schemas/candidate'
 import type { IdentitySignal } from '../../utils/dedup/extract'
 
@@ -117,22 +117,13 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // ─── 6. Fuzzy-детект и запись пар в очередь (как hh-sync делает)
-  try {
-    const matches = await findFuzzyDuplicatesForCandidate(created.id, { includeOtherOrgs: !!groupId })
-    for (const m of matches) {
-      await upsertDuplicateCandidate({
-        organizationId: orgId,
-        candidateIdA: created.id,
-        candidateIdB: m.candidateId,
-        score: m.score,
-        signals: m.signals,
-      })
-    }
-  }
-  catch (e) {
-    console.error('[candidates.create] fuzzy detect failed:', e)
-  }
+  // ─── 6. Fuzzy-детект в фоне (pg-boss): не блокируем ответ клиенту
+  // Пары будут записаны в candidate_duplicate_candidate воркером позже (до ~30с SLA).
+  void enqueueFuzzyDetect({
+    candidateId: created.id,
+    organizationId: orgId,
+    includeOtherOrgs: !!groupId,
+  })
 
   recordActivity({
     organizationId: orgId,

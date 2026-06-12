@@ -1,5 +1,5 @@
 import { and, eq, inArray, or, sql } from 'drizzle-orm'
-import { candidate, candidateIdentity } from '../../database/schema'
+import { candidate, candidateIdentity, organizationExt } from '../../database/schema'
 import { computePairScore, FUZZY_REVIEW_THRESHOLD } from '../fuzzy/match'
 import { normalizeEmail, normalizePhone } from './normalize'
 import { getOrgGroupId } from './resolve'
@@ -194,16 +194,26 @@ export async function findDuplicatesForDraft(
     }> = []
 
     if (groupId) {
-      const res = await db.execute<any>(sql`
-        SELECT c.id, c.organization_id, c.first_name, c.last_name, c.email, c.phone,
-               c.date_of_birth, c.hh_resume_raw
-        FROM candidate c
-        INNER JOIN organization o ON o.id = c.organization_id
-        WHERE o.group_id = ${groupId}
-          AND c.merge_status = 'active'
-          AND lower(c.last_name) LIKE ${lastNamePrefix + '%'}
-      `)
-      rows = (res as any).rows ?? (Array.isArray(res) ? res : [])
+      // Типизированный JOIN через organizationExt — без raw SQL
+      const res = await db
+        .select({
+          id: candidate.id,
+          organization_id: candidate.organizationId,
+          first_name: candidate.firstName,
+          last_name: candidate.lastName,
+          email: candidate.email,
+          phone: candidate.phone,
+          date_of_birth: candidate.dateOfBirth,
+          hh_resume_raw: candidate.hhResumeRaw,
+        })
+        .from(candidate)
+        .innerJoin(organizationExt, eq(organizationExt.id, candidate.organizationId))
+        .where(and(
+          eq(organizationExt.groupId, groupId),
+          eq(candidate.mergeStatus, 'active'),
+          sql`lower(${candidate.lastName}) LIKE ${lastNamePrefix + '%'}`,
+        ))
+      rows = res as any
     }
     else {
       const res = await db

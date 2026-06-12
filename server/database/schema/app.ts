@@ -1236,6 +1236,26 @@ export const hhNegotiationRelations = relations(hhNegotiation, ({ one }) => ({
  * Внутри одной группы кандидаты считаются общими и проверяются на дубли.
  * Несколько organizations (юрлиц) могут принадлежать одной группе.
  */
+/**
+ * Типизированная «расширенная» проекция таблицы `organization`.
+ *
+ * `organization` принадлежит better-auth и не должна модифицироваться напрямую.
+ * Но у неё есть дополнительная колонка `group_id`, которую мы добавили миграцией
+ * для cross-org дедупа. Чтобы не писать raw SQL везде, объявляем здесь отдельный
+ * pgTable с тем же именем `organization`, который видит только нужные поля + group_id.
+ *
+ * ВАЖНО: Drizzle не падает от двух pgTable с одинаковым именем в разных файлах —
+ * runtime смотрит на SQL-имя, а TS-различает по export name. Импортируйте `organizationExt`
+ * ТОЛЬКО когда нужна `groupId`. Для всего остального — `organization` из `./auth`.
+ */
+export const organizationExt = pgTable('organization', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull(),
+  groupId: text('group_id'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 export const organizationGroup = pgTable('organization_group', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text('name').notNull(),

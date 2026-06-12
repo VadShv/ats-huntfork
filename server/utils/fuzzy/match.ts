@@ -1,5 +1,5 @@
 import { and, eq, ne, sql } from 'drizzle-orm'
-import { candidate, candidateDuplicateCandidate } from '../../database/schema'
+import { candidate, candidateDuplicateCandidate, organizationExt } from '../../database/schema'
 import { getOrgGroupId } from '../dedup/resolve'
 import { citySimilarity, dobSimilarity, nameSimilarity } from './normalize'
 
@@ -132,22 +132,25 @@ export async function findFuzzyDuplicatesForCandidate(
   }> = []
 
   if (groupId) {
-    const res = await db.execute<{
-      id: string
-      first_name: string | null
-      last_name: string | null
-      date_of_birth: string | null
-      hh_resume_raw: unknown
-    }>(sql`
-      SELECT c.id, c.first_name, c.last_name, c.date_of_birth, c.hh_resume_raw
-      FROM candidate c
-      INNER JOIN organization o ON o.id = c.organization_id
-      WHERE o.group_id = ${groupId}
-        AND c.id != ${candidateId}
-        AND c.merge_status = 'active'
-        AND lower(c.last_name) LIKE ${lastNamePrefix + '%'}
-    `)
-    rows = Array.isArray(res) ? (res as any) : ((res as any).rows ?? [])
+    // Кросс-орг поиск по group_id через типизированный JOIN с organizationExt
+    // (organizationExt — наша Drizzle-проекция таблицы organization, см. schema/app.ts)
+    const res = await db
+      .select({
+        id: candidate.id,
+        first_name: candidate.firstName,
+        last_name: candidate.lastName,
+        date_of_birth: candidate.dateOfBirth,
+        hh_resume_raw: candidate.hhResumeRaw,
+      })
+      .from(candidate)
+      .innerJoin(organizationExt, eq(organizationExt.id, candidate.organizationId))
+      .where(and(
+        eq(organizationExt.groupId, groupId),
+        ne(candidate.id, candidateId),
+        eq(candidate.mergeStatus, 'active'),
+        sql`lower(${candidate.lastName}) LIKE ${lastNamePrefix + '%'}`,
+      ))
+    rows = res as any
   }
   else {
     const res = await db

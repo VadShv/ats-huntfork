@@ -253,6 +253,13 @@
       "when": 1784000000000,
       "tag": "0036_fuzzy_and_fraud",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1781232083777,
+      "tag": "0037_dedup_hot_path_indexes",
+      "breakpoints": true
     }
   ]
 }

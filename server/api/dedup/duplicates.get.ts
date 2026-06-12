@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { alias } from 'drizzle-orm/pg-core'
-import { candidate, candidateDuplicateCandidate } from '../../database/schema'
+import { candidate, candidateDuplicateCandidate, organizationExt } from '../../database/schema'
 import { getOrgGroupId } from '../../utils/dedup/resolve'
 
 const querySchema = z.object({
@@ -30,10 +30,10 @@ export default defineEventHandler(async (event) => {
   if (query.includeOtherOrgs) {
     const groupId = await getOrgGroupId(orgId)
     if (groupId) {
-      const res = await db.execute<{ id: string }>(
-        sql`SELECT id FROM organization WHERE group_id = ${groupId}`,
-      )
-      const arr: Array<{ id: string }> = Array.isArray(res) ? (res as any) : ((res as any).rows ?? [])
+      const arr = await db
+        .select({ id: organizationExt.id })
+        .from(organizationExt)
+        .where(eq(organizationExt.groupId, groupId))
       candidateOrgIds = arr.map(r => r.id)
       if (!candidateOrgIds.includes(orgId)) candidateOrgIds.push(orgId)
     }

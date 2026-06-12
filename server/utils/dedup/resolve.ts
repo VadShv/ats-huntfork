@@ -1,5 +1,5 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
-import { candidate, candidateIdentity } from '../../database/schema'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { candidate, candidateIdentity, organizationExt } from '../../database/schema'
 import type { IdentitySignal } from './extract'
 
 /**
@@ -163,17 +163,36 @@ export async function upsertCandidateIdentities(params: {
 }
 
 /**
+ * In-memory кеш organization_id → group_id с TTL.
+ * group_id меняется крайне редко (реорганизация холдинга), а читается на каждый dedup-запрос.
+ * Сами значения и null-ы кешируем одинаково (чтобы не бить в БД для orgs без группы).
+ */
+const GROUP_ID_CACHE = new Map<string, { value: string | null; expiresAt: number }>()
+const GROUP_ID_TTL_MS = 5 * 60 * 1000 // 5 минут
+
+/** Сброс кеша group_id — вызывать при изменении связи organization → group. */
+export function invalidateOrgGroupCache(organizationId?: string) {
+  if (organizationId) GROUP_ID_CACHE.delete(organizationId)
+  else GROUP_ID_CACHE.clear()
+}
+
+/**
  * По organizationId возвращает group_id (или null, если org ещё не в группе).
- * Используем сырой SQL: поле group_id добавлено в БД, но в Drizzle-схеме organization (auth.ts)
- * его нет — эта схема принадлежит better-auth.
+ * Использует типизированный organizationExt (объявлен в schema/app.ts) — без raw SQL.
+ * Результат кешируется на 5 минут.
  */
 export async function getOrgGroupId(organizationId: string): Promise<string | null> {
-  const result = await db.execute<{ group_id: string | null }>(
-    sql`SELECT group_id FROM "organization" WHERE id = ${organizationId} LIMIT 1`,
-  )
-  const rows = (result as any).rows ?? result
-  if (Array.isArray(rows) && rows.length > 0) {
-    return rows[0]?.group_id ?? null
+  const cached = GROUP_ID_CACHE.get(organizationId)
+  const now = Date.now()
+  if (cached && cached.expiresAt > now) {
+    return cached.value
   }
-  return null
+  const rows = await db
+    .select({ groupId: organizationExt.groupId })
+    .from(organizationExt)
+    .where(eq(organizationExt.id, organizationId))
+    .limit(1)
+  const value = rows[0]?.groupId ?? null
+  GROUP_ID_CACHE.set(organizationId, { value, expiresAt: now + GROUP_ID_TTL_MS })
+  return value
 }
