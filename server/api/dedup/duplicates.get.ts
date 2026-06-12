@@ -103,6 +103,11 @@ export default defineEventHandler(async (event) => {
       signals: candidateDuplicateCandidate.signals,
       status: candidateDuplicateCandidate.status,
       createdAt: candidateDuplicateCandidate.createdAt,
+      // Sprint 5.2 (P5.2): AI-арбитр
+      aiVerdict: candidateDuplicateCandidate.aiVerdict,
+      aiConfidence: candidateDuplicateCandidate.aiConfidence,
+      aiReasoning: candidateDuplicateCandidate.aiReasoning,
+      aiCheckedAt: candidateDuplicateCandidate.aiCheckedAt,
       candidateAId: candA.id,
       candidateAFirstName: candA.firstName,
       candidateALastName: candA.lastName,
@@ -148,6 +153,10 @@ export default defineEventHandler(async (event) => {
       signals: r.signals,
       status: r.status,
       createdAt: r.createdAt,
+      aiVerdict: r.aiVerdict,
+      aiConfidence: r.aiConfidence,
+      aiReasoning: r.aiReasoning,
+      aiCheckedAt: r.aiCheckedAt,
       candidateA: {
         id: r.candidateAId,
         firstName: r.candidateAFirstName,

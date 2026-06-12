@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Users, AlertTriangle, ChevronRight, X, Check, ShieldAlert, Briefcase } from 'lucide-vue-next'
+import { Users, AlertTriangle, ChevronRight, X, Check, ShieldAlert, Briefcase, Sparkles, Loader2 } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard',
@@ -51,6 +51,11 @@ interface DupPair {
   signals: Record<string, number>
   status: string
   createdAt: string
+  // Sprint 5.2 (P5.2): AI-арбитр
+  aiVerdict: 'same' | 'different' | 'unsure' | null
+  aiConfidence: number | null
+  aiReasoning: string | null
+  aiCheckedAt: string | null
   candidateA: DupCandidate
   candidateB: DupCandidate
 }
@@ -244,6 +249,65 @@ async function submitBatchMerge() {
   }
 }
 
+// ── Sprint 5.2 (P5.2): AI-арбитр ─────────────────────────────
+const arbitratingPairId = ref<string | null>(null)
+const isBatchArbitrating = ref(false)
+
+async function arbitratePair(pair: DupPair) {
+  if (arbitratingPairId.value) return
+  arbitratingPairId.value = pair.id
+  try {
+    const r = await $fetch<{ verdict: string, confidence: number, reasoning: string }>(
+      `/api/dedup/duplicates/${pair.id}/ai-arbitrate`,
+      { method: 'POST', body: { force: !!pair.aiVerdict } },
+    )
+    const labels: Record<string, string> = { same: 'Один и тот же', different: 'Разные', unsure: 'Неуверен' }
+    toast.success?.(`AI: ${labels[r.verdict] ?? r.verdict} (уверенность ${r.confidence}%)`)
+    await refresh()
+  }
+  catch (err: any) {
+    toast.error('Не удалось вызвать AI-арбитра', { message: err.data?.statusMessage || err.message })
+  }
+  finally {
+    arbitratingPairId.value = null
+  }
+}
+
+async function arbitrateBatch() {
+  if (isBatchArbitrating.value) return
+  if (!confirm('Запустить AI-арбитра для всех непроверенных пар в зоне 85–94?\n\nЭто потратит токены организации.')) return
+  isBatchArbitrating.value = true
+  try {
+    const r = await $fetch<{ ok: boolean, totalArbitrated: number, totalFailed: number, totalRequested: number }>(
+      '/api/dedup/ai-arbitrate-batch',
+      { method: 'POST', body: { limit: 20 } },
+    )
+    if (r.totalRequested === 0) {
+      toast.success?.('Нет пар для арбитража')
+    }
+    else if (r.ok) {
+      toast.success?.(`AI-арбитраж: ${r.totalArbitrated} пар проверено`)
+    }
+    else {
+      toast.error(`Частичный успех: ${r.totalArbitrated}/${r.totalRequested}, ошибок ${r.totalFailed}`)
+    }
+    await refresh()
+  }
+  catch (err: any) {
+    toast.error('Не удалось запустить арбитраж', { message: err.data?.statusMessage || err.message })
+  }
+  finally {
+    isBatchArbitrating.value = false
+  }
+}
+
+function verdictBadge(v: string | null): { text: string, cls: string } | null {
+  if (!v) return null
+  if (v === 'same') return { text: 'AI: один и тот же', cls: 'bg-danger-100 dark:bg-danger-950 text-danger-700 dark:text-danger-400' }
+  if (v === 'different') return { text: 'AI: разные', cls: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400' }
+  return { text: 'AI: неуверен', cls: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400' }
+}
+
 function signalsList(signals: Record<string, number>): string {
   const labels: Record<string, string> = { name: 'ФИО', city: 'город', dob: 'дата рожд.' }
   return Object.entries(signals)
@@ -265,19 +329,31 @@ function signalsList(signals: Record<string, number>): string {
           </p>
         </div>
       </div>
-      <!-- Sprint 5.1: переключатель режима батч-слияния -->
-      <button
-        v-if="status === 'pending'"
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border"
-        :class="batchMode
-          ? 'bg-brand-600 hover:bg-brand-700 text-white border-brand-600'
-          : 'border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200'"
-        @click="toggleBatchMode"
-      >
-        <Check v-if="batchMode" class="size-3.5" />
-        {{ batchMode ? 'Режим объединения включён' : 'Объединить нескольких' }}
-      </button>
+      <div v-if="status === 'pending'" class="flex items-center gap-2">
+        <!-- Sprint 5.2: AI-арбитраж всех непроверенных -->
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border border-purple-300 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-purple-700 dark:text-purple-300 disabled:opacity-50"
+          :disabled="isBatchArbitrating"
+          @click="arbitrateBatch"
+        >
+          <Loader2 v-if="isBatchArbitrating" class="size-3.5 animate-spin" />
+          <Sparkles v-else class="size-3.5" />
+          {{ isBatchArbitrating ? 'Проверяем…' : 'AI-арбитр для всех' }}
+        </button>
+        <!-- Sprint 5.1: переключатель режима батч-слияния -->
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border"
+          :class="batchMode
+            ? 'bg-brand-600 hover:bg-brand-700 text-white border-brand-600'
+            : 'border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200'"
+          @click="toggleBatchMode"
+        >
+          <Check v-if="batchMode" class="size-3.5" />
+          {{ batchMode ? 'Режим объединения включён' : 'Объединить нескольких' }}
+        </button>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -453,9 +529,39 @@ function signalsList(signals: Record<string, number>): string {
           </div>
         </div>
 
-        <!-- Signals -->
-        <div class="mt-2 pl-16 text-xs text-surface-500 dark:text-surface-400">
-          {{ signalsList(pair.signals) }}
+        <!-- Signals + AI verdict -->
+        <div class="mt-2 pl-16 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-surface-500 dark:text-surface-400">
+          <span>{{ signalsList(pair.signals) }}</span>
+          <!-- Sprint 5.2: AI-вердикт + кнопка запуска -->
+          <template v-if="pair.status === 'pending'">
+            <span
+              v-if="verdictBadge(pair.aiVerdict)"
+              :class="['inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', verdictBadge(pair.aiVerdict)!.cls]"
+              :title="pair.aiReasoning || ''"
+            >
+              <Sparkles class="size-3" />
+              {{ verdictBadge(pair.aiVerdict)!.text }}
+              <span v-if="pair.aiConfidence !== null" class="opacity-70">· {{ pair.aiConfidence }}%</span>
+            </span>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 disabled:opacity-50"
+              :disabled="arbitratingPairId === pair.id"
+              :title="pair.aiVerdict ? 'Переспросить AI' : 'Спросить AI'"
+              @click="arbitratePair(pair)"
+            >
+              <Loader2 v-if="arbitratingPairId === pair.id" class="size-3 animate-spin" />
+              <Sparkles v-else class="size-3" />
+              {{ pair.aiVerdict ? 'Переспросить AI' : 'Спросить AI' }}
+            </button>
+          </template>
+        </div>
+        <!-- Sprint 5.2: reasoning AI под парой -->
+        <div
+          v-if="pair.aiReasoning && pair.status === 'pending'"
+          class="mt-2 ml-16 rounded-md bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900 px-3 py-1.5 text-[11px] text-purple-900 dark:text-purple-200"
+        >
+          <span class="font-semibold">AI:</span> {{ pair.aiReasoning }}
         </div>
       </div>
     </div>

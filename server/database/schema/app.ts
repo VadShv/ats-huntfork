@@ -1403,6 +1403,15 @@ export const candidateDuplicateCandidate = pgTable('candidate_duplicate_candidat
   status: text('status').notNull().default('pending'),
   decidedByUserId: text('decided_by_user_id'),
   decidedAt: timestamp('decided_at'),
+  /** Sprint 5.2 (P5.2): AI-арбитр. same|different|unsure (NULL = ещё не проверяли). */
+  aiVerdict: text('ai_verdict'),
+  /** 0..100 — уверенность модели в вердикте. */
+  aiConfidence: integer('ai_confidence'),
+  /** Свободно-формат объяснение от модели (до ~500 символов). */
+  aiReasoning: text('ai_reasoning'),
+  aiCheckedAt: timestamp('ai_checked_at'),
+  aiUsageInputTokens: integer('ai_usage_input_tokens'),
+  aiUsageOutputTokens: integer('ai_usage_output_tokens'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
