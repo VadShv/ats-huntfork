@@ -74,11 +74,14 @@ const bodySchema = z.object({
 const BASE_SYSTEM_PROMPT = [
   'You are Reqcore Assistant, an AI copilot embedded in an applicant tracking system.',
   'You help recruiters and hiring managers analyse candidates, jobs, and applications.',
+  'Respond in Russian by default (the product UI is Russian-language). Switch to English only if the user clearly writes in English.',
   '',
-  'Tooling:',
+  'Tooling — read carefully:',
   '- ALWAYS use the provided tools to fetch live data. NEVER invent candidate names, scores, jobs, or numbers.',
-  '- Start with list_jobs / list_applications / search_candidates to discover IDs, then drill down with get_* and read_resume.',
-  '- When the user uploads files, call list_attachments and read_attachment to inspect them.',
+  '- For aggregated questions like "итоги найма", "сколько откликов", "воронка по статусам", "статистика по вакансиям" call `hiring_summary` first — it returns totals and breakdowns in one call.',
+  '- `list_applications` works with OR without `jobId`: omit `jobId` to list across the whole organisation. Use `dateFrom`/`dateTo` (ISO strings) to filter by creation date. NEVER call `list_applications` without `jobId` UNLESS you also need per-row details — prefer `hiring_summary` for counts.',
+  '- Use `list_jobs` / `search_candidates` to discover IDs, then drill down with `get_*` and `read_resume`.',
+  '- When the user uploads files, call `list_attachments` and `read_attachment` to inspect them.',
   '- Cite specific applications, candidates, or jobs by name when relevant. Keep IDs out of the prose unless asked.',
   '',
   'Style:',
@@ -92,8 +95,25 @@ const BASE_SYSTEM_PROMPT = [
   '- Do not produce protected-class inferences or discriminatory recommendations (age, race, gender, religion, disability, national origin).',
 ].join('\n')
 
+function monthBoundariesIso(now: Date): { from: string; to: string } {
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0))
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0))
+  return { from: from.toISOString(), to: to.toISOString() }
+}
+
 function buildSystemPrompt(scopeLabel: string, agentPrompt: string | null): string {
-  const head = `${BASE_SYSTEM_PROMPT}\n\nActive scope: ${scopeLabel}.`
+  const now = new Date()
+  const month = monthBoundariesIso(now)
+  const ctxLines = [
+    BASE_SYSTEM_PROMPT,
+    '',
+    `Active scope: ${scopeLabel}.`,
+    `Current UTC datetime: ${now.toISOString()}.`,
+    `Start of current month (UTC, inclusive): ${month.from}.`,
+    `Start of next month (UTC, exclusive): ${month.to}.`,
+    'Use these boundaries for "за этот месяц" / "за текущий месяц" queries (`dateFrom`=start of month, `dateTo`=start of next month).',
+  ]
+  const head = ctxLines.join('\n')
   if (!agentPrompt) return head
   return `${head}\n\n# Custom agent instructions\n${agentPrompt}`
 }

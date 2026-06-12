@@ -12,7 +12,7 @@
  * `list_*` to discover IDs, then `get_*` to fetch details.
  */
 import { tool } from 'ai'
-import { and, desc, eq, ilike, inArray, or } from 'drizzle-orm'
+import { and, count, desc, eq, gte, ilike, inArray, lte, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import {
   application,
@@ -144,21 +144,35 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
 
     list_applications: tool({
       description:
-        'List applications (candidate ↔ job links) for a given job. ' +
-        'Returns candidate name, email, application status, score, and ids — ' +
+        'List applications (candidate ↔ job links). If `jobId` is provided, returns applications for that job only; ' +
+        'otherwise returns applications across the entire organization (respecting active scope). ' +
+        'Supports optional `dateFrom`/`dateTo` ISO date filters (inclusive) and a `status` filter. ' +
+        'Returns candidate name, email, application status, score, jobId, and createdAt — ' +
         'use get_candidate / read_resume for deeper analysis.',
       inputSchema: z.object({
-        jobId: z.string().min(1).describe('The job to list applications for.'),
+        jobId: z.string().optional().describe('Optional. If omitted, lists across all jobs in the organization.'),
         status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional(),
-        limit: z.number().int().min(1).max(100).default(50),
+        dateFrom: z.string().optional().describe('ISO date/datetime — include only applications created on or after this moment.'),
+        dateTo: z.string().optional().describe('ISO date/datetime — include only applications created on or before this moment.'),
+        limit: z.number().int().min(1).max(200).default(50),
       }),
-      execute: async ({ jobId, status, limit }) => {
-        assertJobInScope(ctx.scope, jobId)
-        const conditions = [
-          eq(application.organizationId, ctx.orgId),
-          eq(application.jobId, jobId),
-        ]
+      execute: async ({ jobId, status, dateFrom, dateTo, limit }) => {
+        const conditions = [eq(application.organizationId, ctx.orgId)]
+        if (jobId) {
+          assertJobInScope(ctx.scope, jobId)
+          conditions.push(eq(application.jobId, jobId))
+        } else if (ctx.scope.kind === 'job' && ctx.scope.jobId) {
+          conditions.push(eq(application.jobId, ctx.scope.jobId))
+        }
         if (status) conditions.push(eq(application.status, status))
+        if (dateFrom) {
+          const d = new Date(dateFrom)
+          if (!isNaN(d.getTime())) conditions.push(gte(application.createdAt, d))
+        }
+        if (dateTo) {
+          const d = new Date(dateTo)
+          if (!isNaN(d.getTime())) conditions.push(lte(application.createdAt, d))
+        }
 
         const rows = await db.query.application.findMany({
           where: and(...conditions),
@@ -167,6 +181,9 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           with: {
             candidate: {
               columns: { id: true, firstName: true, lastName: true, email: true },
+            },
+            job: {
+              columns: { id: true, title: true },
             },
           },
         })
@@ -177,8 +194,88 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           candidateEmail: a.candidate.email,
           status: a.status,
           score: a.score,
+          jobId: a.job.id,
+          jobTitle: a.job.title,
           createdAt: a.createdAt,
         }))
+      },
+    }),
+
+    hiring_summary: tool({
+      description:
+        'Aggregated hiring metrics for the organization (or active job scope). ' +
+        'Returns total counts of jobs and applications, plus breakdowns by application status and by job. ' +
+        'Supports optional `dateFrom`/`dateTo` ISO date filters for the application createdAt window — ' +
+        'use this for questions like "итоги найма за этот месяц", "сколько откликов на этой неделе", "воронка по статусам".',
+      inputSchema: z.object({
+        dateFrom: z.string().optional().describe('ISO date/datetime — include only applications created on or after this moment.'),
+        dateTo: z.string().optional().describe('ISO date/datetime — include only applications created on or before this moment.'),
+      }),
+      execute: async ({ dateFrom, dateTo }) => {
+        const appConds = [eq(application.organizationId, ctx.orgId)]
+        if (ctx.scope.kind === 'job' && ctx.scope.jobId) {
+          appConds.push(eq(application.jobId, ctx.scope.jobId))
+        }
+        if (dateFrom) {
+          const d = new Date(dateFrom)
+          if (!isNaN(d.getTime())) appConds.push(gte(application.createdAt, d))
+        }
+        if (dateTo) {
+          const d = new Date(dateTo)
+          if (!isNaN(d.getTime())) appConds.push(lte(application.createdAt, d))
+        }
+
+        // Status breakdown
+        const byStatus = await db
+          .select({ status: application.status, count: count() })
+          .from(application)
+          .where(and(...appConds))
+          .groupBy(application.status)
+
+        // Job breakdown (top 20 by application volume in window)
+        const byJob = await db
+          .select({
+            jobId: application.jobId,
+            jobTitle: job.title,
+            jobStatus: job.status,
+            count: count(application.id),
+          })
+          .from(application)
+          .innerJoin(job, eq(job.id, application.jobId))
+          .where(and(...appConds))
+          .groupBy(application.jobId, job.title, job.status)
+          .orderBy(sql`count(${application.id}) desc`)
+          .limit(20)
+
+        // Total jobs in scope (independent of date window)
+        const jobConds = [jobScopeFilter(ctx.orgId, ctx.scope)]
+        const totalJobsRows = await db
+          .select({ status: job.status, count: count() })
+          .from(job)
+          .where(and(...jobConds))
+          .groupBy(job.status)
+
+        const totalApplications = byStatus.reduce((s, r) => s + Number(r.count), 0)
+        const totalJobs = totalJobsRows.reduce((s, r) => s + Number(r.count), 0)
+
+        return {
+          window: {
+            dateFrom: dateFrom ?? null,
+            dateTo: dateTo ?? null,
+          },
+          totals: {
+            applications: totalApplications,
+            jobs: totalJobs,
+          },
+          applicationsByStatus: byStatus.map((r) => ({ status: r.status, count: Number(r.count) })),
+          jobsByStatus: totalJobsRows.map((r) => ({ status: r.status, count: Number(r.count) })),
+          topJobsByApplications: byJob.map((r) => ({
+            jobId: r.jobId,
+            jobTitle: r.jobTitle,
+            jobStatus: r.jobStatus,
+            applications: Number(r.count),
+          })),
+        }
       },
     }),
 
