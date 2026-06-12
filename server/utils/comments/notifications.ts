@@ -5,7 +5,9 @@
  * Dedup-rules:
  *   - One 'mention' per (userId, commentId).
  *   - One 'new_comment_on_watched' per (userId, commentId).
- *   - Author никогда не получает уведомление о своём же комментарии.
+ *   - Self-mention РАЗРЕШЕН (пользователь может пинговать сам себя как напоминание).
+ *   - Для остальных типов (reply / reaction / new_comment_on_watched)
+ *     автор не получает уведомление о своём же действии.
  */
 
 import { and, eq } from 'drizzle-orm'
@@ -27,8 +29,9 @@ export async function createNotification(
   database: typeof db,
   params: CreateNotificationParams,
 ): Promise<void> {
-  // Никогда не нотифицируем самого себя
-  if (params.actorUserId === params.userId) return
+  // Self-notify подавляем для всех типов КРОМЕ mention
+  // (mention может использоваться как self-reminder)
+  if (params.actorUserId === params.userId && params.type !== 'mention') return
 
   // Дедуп для mention/new_comment_on_watched по (userId, commentId, type)
   if (params.commentId && (params.type === 'mention' || params.type === 'new_comment_on_watched' || params.type === 'reply')) {
@@ -59,13 +62,14 @@ export async function createNotification(
 
 /**
  * Bulk variant — batch INSERT for "notify all watchers" scenarios.
- * Does *not* dedup (caller must pre-filter), but skips self-notify automatically.
+ * Does *not* dedup (caller must pre-filter), but skips self-notify automatically
+ * for non-mention types (mention self-pings are allowed as reminders).
  */
 export async function createNotificationsBulk(
   database: typeof db,
   items: CreateNotificationParams[],
 ): Promise<void> {
-  const filtered = items.filter(i => i.actorUserId !== i.userId)
+  const filtered = items.filter(i => i.actorUserId !== i.userId || i.type === 'mention')
   if (filtered.length === 0) return
   await database.insert(notification).values(
     filtered.map(p => ({
