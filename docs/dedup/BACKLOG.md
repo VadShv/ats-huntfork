@@ -3,6 +3,17 @@
 Источник: коммиты `fa63ce2 … 508eeff` (Этапы 1–5 + детект ручного создания).
 MVP сделан. Здесь — то, что мы намеренно сократили или отложили.
 
+## Статус закрытия (Sprint 1–5, июнь 2026)
+
+- **P1.1 / P1.2 / P1.3** — ✅ закрыто (Sprint 2.1–2.3)
+- **P2.1 / P2.2 / P2.3 / P2.4 / P2.5** — ✅ закрыто (Sprint 3.1–3.5)
+- **P3.1 / P3.2 / P3.3 / P3.4 / P3.5 / P3.6** — ✅ закрыто (Sprint 4.1–4.6)
+- **P4.1 / P4.2 / P4.3 / P4.4 / P4.5** — ✅ закрыто (Sprint 1.1–1.6 — perf-фундамент)
+- **P5.1 — Векторный матчинг (pgvector)** — ⏸ отложено пользователем. Требует смены образа БД на `pgvector/pgvector:pg16` с backup+restore. `postgres:16-alpine` не имеет расширения `vector` (`pg_available_extensions WHERE name='vector'` → 0 rows). Возвращаемся к этому после стабилизации остального.
+- **P5.2 — AI-арбитр merge-кандидатов** — ✅ закрыто (Sprint 5.2, миграция 0040, YandexGPT structured output)
+- **P5.3 — Merge N>2 кандидатов** — ✅ закрыто (Sprint 5.1)
+- **P5.4 — Дедуп при импорте CSV/XLSX** — ✅ закрыто (Sprint 5.4): `/api/candidates/import/preview` + `/commit`, UI `/dashboard/candidates/import` с drag&drop, гибкий HEADER_MAP (Имя/Фамилия/Email/Телефон), enrich-pattern для merge_into.
+
 ## Приоритет 1 — то, что закрывает явные дыры в текущем флоу
 
 ### 1.1. Rollback merge (Этап 6, изначально в плане)
