@@ -17,8 +17,6 @@ useSeoMeta({
   robots: 'noindex, nofollow',
 })
 
-const enabled = useFeatureFlagEnabled('chatbot-experience')
-
 const {
   messages,
   pendingAttachments,
@@ -220,18 +218,7 @@ async function startNew() {
 </script>
 
 <template>
-  <!-- Feature-flag-gated: hide entirely when off. -->
-  <div v-if="!enabled" class="mx-auto max-w-2xl py-24 text-center">
-    <Sparkles class="mx-auto size-10 text-surface-400" />
-    <h1 class="mt-4 text-2xl font-semibold text-surface-900 dark:text-surface-100">
-      Reqcore Assistant
-    </h1>
-    <p class="mt-2 text-sm text-surface-500">
-      This feature isn't available on your account yet.
-    </p>
-  </div>
-
-  <div v-else class="flex h-full overflow-hidden bg-white dark:bg-surface-950">
+  <div class="flex h-full overflow-hidden bg-white dark:bg-surface-950">
     <!-- Left rail: folders + conversations -->
     <ChatbotSidebar @open-agents="agentsOpen = true" />
 

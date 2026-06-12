@@ -107,8 +107,6 @@ const { data: feedbackConfig } = useFetch('/api/feedback/config', {
 
 const isFeedbackEnabled = computed(() => feedbackConfig.value?.enabled === true)
 
-const showChatbot = useFeatureFlagEnabled('chatbot-experience')
-
 const jobTabs = computed(() => {
   if (!activeJobId.value) return []
   const base = `/dashboard/jobs/${activeJobId.value}`
@@ -142,25 +140,17 @@ const mainNav = computed<Array<{ label: string; to: string; icon: typeof Briefca
   { label: t('dashboard.nav.settings'), to: '/dashboard/settings', icon: Settings, exact: false },
 ])
 
-// Items shown only when their feature flag is enabled. Filtered into mainNav
-// reactively so the gating happens at render time (PostHog flags load async).
-const flaggedNav = computed(() => {
-  const items: Array<{ label: string; to: string; icon: typeof Briefcase; exact: boolean; afterLabel: string }> = []
-  if (showChatbot.value) {
-    items.push({ label: t('dashboard.nav.assistant'), to: '/dashboard/chatbot', icon: MessageCircle, exact: false, afterLabel: t('dashboard.nav.aiAnalysis') })
-  }
-  return items
-})
-
+// Assistant is now generally available — inserted right after AI Analysis.
 const navItems = computed(() => {
   const merged = [...mainNav.value]
-  for (const item of flaggedNav.value) {
-    const idx = merged.findIndex((n) => n.label === item.afterLabel)
-    const insertAt = idx >= 0 ? idx + 1 : merged.length
-    merged.splice(insertAt, 0, {
-      label: item.label, to: item.to, icon: item.icon, exact: item.exact,
-    })
-  }
+  const idx = merged.findIndex((n) => n.label === t('dashboard.nav.aiAnalysis'))
+  const insertAt = idx >= 0 ? idx + 1 : merged.length
+  merged.splice(insertAt, 0, {
+    label: t('dashboard.nav.assistant'),
+    to: '/dashboard/chatbot',
+    icon: MessageCircle,
+    exact: false,
+  })
   return merged
 })
 
@@ -463,6 +453,19 @@ onUnmounted(() => {
               </div>
             </Transition>
           </div>
+
+          <!-- Assistant quick access -->
+          <NuxtLink
+            :to="$localePath('/dashboard/chatbot')"
+            class="hidden sm:inline-flex items-center justify-center size-8 rounded-lg transition-all duration-200 no-underline"
+            :class="isActiveRoute('/dashboard/chatbot', false)
+              ? 'text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/40'
+              : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800'"
+            :title="t('dashboard.nav.assistant')"
+            :aria-label="t('dashboard.nav.assistant')"
+          >
+            <Sparkles class="size-4" />
+          </NuxtLink>
 
           <!-- Notification bell -->
           <NotificationBell class="hidden sm:block" />
