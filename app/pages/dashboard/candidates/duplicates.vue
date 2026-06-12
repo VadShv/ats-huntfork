@@ -160,6 +160,90 @@ function scoreColor(score: number): string {
   return 'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-300'
 }
 
+// ── Sprint 5.1 (P5.3): Batch-merge N кандидатов ───────────────────────────
+const batchMode = ref(false)
+const selectedPairIds = ref<Set<string>>(new Set())
+const batchModalOpen = ref(false)
+const batchPrimaryId = ref<string | null>(null)
+const batchReason = ref('')
+const isBatchMerging = ref(false)
+
+function togglePairSelection(pairId: string) {
+  if (selectedPairIds.value.has(pairId)) selectedPairIds.value.delete(pairId)
+  else selectedPairIds.value.add(pairId)
+  // реактивность Set в Vue: пересоздаём
+  selectedPairIds.value = new Set(selectedPairIds.value)
+}
+
+function toggleBatchMode() {
+  batchMode.value = !batchMode.value
+  if (!batchMode.value) selectedPairIds.value = new Set()
+}
+
+// Собираем уникальных кандидатов из выбранных пар (ракоход по A и B)
+const selectedCandidates = computed(() => {
+  if (!data.value) return [] as DupCandidate[]
+  const map = new Map<string, DupCandidate>()
+  for (const pair of data.value.items) {
+    if (!selectedPairIds.value.has(pair.id)) continue
+    if (!map.has(pair.candidateA.id)) map.set(pair.candidateA.id, pair.candidateA)
+    if (!map.has(pair.candidateB.id)) map.set(pair.candidateB.id, pair.candidateB)
+  }
+  return Array.from(map.values())
+})
+
+function openBatchModal() {
+  if (selectedCandidates.value.length < 3) {
+    toast.error?.('Выберите пары, в которых всего больше 2 разных кандидатов (иначе проще обычное слияние)')
+    return
+  }
+  batchPrimaryId.value = selectedCandidates.value[0]?.id ?? null
+  batchReason.value = ''
+  batchModalOpen.value = true
+}
+
+function closeBatchModal() {
+  batchModalOpen.value = false
+  isBatchMerging.value = false
+}
+
+async function submitBatchMerge() {
+  if (!batchPrimaryId.value || isBatchMerging.value) return
+  const mergedIds = selectedCandidates.value
+    .map(c => c.id)
+    .filter(id => id !== batchPrimaryId.value)
+  if (mergedIds.length === 0) return
+  isBatchMerging.value = true
+  try {
+    const res = await $fetch<{
+      ok: boolean
+      totalRequested: number
+      totalMerged: number
+      totalFailed: number
+      details: Array<{ mergedCandidateId: string, ok: boolean, error?: string }>
+    }>(`/api/candidates/${batchPrimaryId.value}/merge-batch`, {
+      method: 'POST',
+      body: { mergedCandidateIds: mergedIds, reason: batchReason.value.trim() || undefined },
+    })
+    if (res.ok) {
+      toast.success?.(`Слито ${res.totalMerged} кандидатов в одного`)
+    }
+    else {
+      toast.error(`Частичный успех: ${res.totalMerged} слито, ${res.totalFailed} ошибок`, { message: res.details.filter(d => !d.ok).map(d => d.error).join('; ') })
+    }
+    closeBatchModal()
+    batchMode.value = false
+    selectedPairIds.value = new Set()
+    await refresh()
+  }
+  catch (err: any) {
+    toast.error('Не удалось выполнить пакетное слияние', { message: err.data?.statusMessage || err.message })
+  }
+  finally {
+    isBatchMerging.value = false
+  }
+}
+
 function signalsList(signals: Record<string, number>): string {
   const labels: Record<string, string> = { name: 'ФИО', city: 'город', dob: 'дата рожд.' }
   return Object.entries(signals)
@@ -181,6 +265,19 @@ function signalsList(signals: Record<string, number>): string {
           </p>
         </div>
       </div>
+      <!-- Sprint 5.1: переключатель режима батч-слияния -->
+      <button
+        v-if="status === 'pending'"
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border"
+        :class="batchMode
+          ? 'bg-brand-600 hover:bg-brand-700 text-white border-brand-600'
+          : 'border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200'"
+        @click="toggleBatchMode"
+      >
+        <Check v-if="batchMode" class="size-3.5" />
+        {{ batchMode ? 'Режим объединения включён' : 'Объединить нескольких' }}
+      </button>
     </div>
 
     <!-- Filters -->
@@ -250,9 +347,24 @@ function signalsList(signals: Record<string, number>): string {
       <div
         v-for="pair in data.items"
         :key="pair.id"
-        class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4"
+        class="rounded-lg border bg-white dark:bg-surface-900 p-4"
+        :class="batchMode && selectedPairIds.has(pair.id)
+          ? 'border-brand-500 ring-2 ring-brand-200 dark:ring-brand-900'
+          : 'border-surface-200 dark:border-surface-800'"
       >
         <div class="flex items-start gap-4">
+          <!-- Sprint 5.1: чекбокс выбора пары -->
+          <label
+            v-if="batchMode && pair.status === 'pending'"
+            class="shrink-0 mt-3 cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              :checked="selectedPairIds.has(pair.id)"
+              class="size-4 rounded"
+              @change="togglePairSelection(pair.id)"
+            />
+          </label>
           <!-- Score badge -->
           <div class="shrink-0 text-center">
             <div :class="['inline-flex items-center justify-center size-12 rounded-full text-sm font-bold', scoreColor(pair.score)]">
@@ -347,6 +459,123 @@ function signalsList(signals: Record<string, number>): string {
         </div>
       </div>
     </div>
+
+    <!-- Sprint 5.1: Sticky footer для batch-mode -->
+    <div
+      v-if="batchMode && selectedPairIds.size > 0"
+      class="sticky bottom-4 mt-4 rounded-lg bg-brand-600 text-white p-3 flex items-center justify-between shadow-lg z-20"
+    >
+      <div class="text-sm">
+        Выбрано пар: <span class="font-semibold">{{ selectedPairIds.size }}</span>
+        · уникальных кандидатов: <span class="font-semibold">{{ selectedCandidates.length }}</span>
+      </div>
+      <button
+        type="button"
+        class="rounded-md bg-white text-brand-700 hover:bg-surface-50 px-4 py-1.5 text-sm font-medium disabled:opacity-50"
+        :disabled="selectedCandidates.length < 3"
+        @click="openBatchModal"
+      >
+        Слить в одного
+      </button>
+    </div>
+
+    <!-- Sprint 5.1: Batch-merge modal -->
+    <Teleport to="body">
+      <div
+        v-if="batchModalOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        @click.self="closeBatchModal"
+      >
+        <div class="w-full max-w-3xl rounded-xl bg-white dark:bg-surface-900 shadow-2xl border border-surface-200 dark:border-surface-800 max-h-[90vh] flex flex-col">
+          <div class="px-6 py-4 border-b border-surface-200 dark:border-surface-800">
+            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-50">
+              Пакетное слияние N кандидатов в одного
+            </h2>
+            <p class="text-xs text-surface-500 dark:text-surface-400 mt-1">
+              Выберите primary — того, кто останется. Остальные ({{ selectedCandidates.length - 1 }}) будут последовательно слиты в primary. Каждое слияние можно откатить отдельно через журнал в течение 30 дней.
+            </p>
+          </div>
+
+          <div class="p-6 space-y-4 overflow-y-auto flex-1">
+            <div class="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900">
+              <AlertTriangle class="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div class="text-xs text-amber-800 dark:text-amber-300">
+                Будет выполнено {{ selectedCandidates.length - 1 }} последовательных слияний. При ошибке на одном из шагов остальные продолжат выполняться (partial success).
+              </div>
+            </div>
+
+            <div>
+              <div class="text-xs font-medium text-surface-600 dark:text-surface-400 mb-2">
+                Выбрать primary ({{ selectedCandidates.length }} кандидатов):
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[40vh] overflow-y-auto pr-1">
+                <label
+                  v-for="cand in selectedCandidates"
+                  :key="cand.id"
+                  :class="[
+                    'rounded-lg border-2 p-3 cursor-pointer transition-colors',
+                    batchPrimaryId === cand.id
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30'
+                      : 'border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600',
+                  ]"
+                >
+                  <input
+                    v-model="batchPrimaryId"
+                    type="radio"
+                    :value="cand.id"
+                    class="sr-only"
+                  />
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-medium uppercase tracking-wide" :class="batchPrimaryId === cand.id ? 'text-brand-600 dark:text-brand-400' : 'text-surface-400 dark:text-surface-500'">
+                      {{ batchPrimaryId === cand.id ? 'Primary' : 'Будет слит' }}
+                    </span>
+                    <ShieldAlert v-if="cand.fraudFlag" class="size-3.5 text-danger-500" />
+                  </div>
+                  <div class="font-medium text-sm text-surface-900 dark:text-surface-50 truncate">
+                    {{ formatName(cand) }}
+                  </div>
+                  <div v-if="cand.email" class="text-xs text-surface-500 dark:text-surface-400 truncate">
+                    {{ cand.email }}
+                  </div>
+                  <div v-if="cand.activeApplications > 0" class="text-[10px] text-brand-600 dark:text-brand-400 mt-1 flex items-center gap-1">
+                    <Briefcase class="size-3" /> Активных заявок: {{ cand.activeApplications }}
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
+                Причина (опционально, общая для всех слияний)
+              </label>
+              <textarea
+                v-model="batchReason"
+                rows="2"
+                placeholder="Например: один и тот же кандидат с резюме из разных источников"
+                class="w-full text-sm rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2"
+              />
+            </div>
+          </div>
+
+          <div class="px-6 py-3 border-t border-surface-200 dark:border-surface-800 flex justify-end gap-2">
+            <button
+              class="rounded-md px-4 py-2 text-sm font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200"
+              :disabled="isBatchMerging"
+              @click="closeBatchModal"
+            >
+              Отмена
+            </button>
+            <button
+              class="rounded-md px-4 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50"
+              :disabled="isBatchMerging || !batchPrimaryId"
+              @click="submitBatchMerge"
+            >
+              {{ isBatchMerging ? 'Сливаем…' : `Подтвердить слияние ${selectedCandidates.length}→1` }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Merge modal -->
     <Teleport to="body">
