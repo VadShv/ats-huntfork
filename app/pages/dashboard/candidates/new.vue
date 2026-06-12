@@ -394,6 +394,51 @@ async function openExistingDup() {
   await navigateTo(localePath(`/dashboard/candidates/${first.candidateId}`))
 }
 
+// P1.3: «Дополнить существующего» — берёт данные из формы и заполняет пустые поля у найденного кандидата.
+const isEnriching = ref(false)
+async function enrichExistingDup() {
+  const first = dupResult.value?.exact.find(e => !e.crossOrg) // только в своей org
+  if (!first) {
+    showExactDupModal.value = false
+    return
+  }
+  if (isEnriching.value) return
+  isEnriching.value = true
+  try {
+    const body: Record<string, unknown> = {}
+    if (form.value.phone?.trim()) body.phone = form.value.phone.trim()
+    if (form.value.gender && form.value.gender !== '') body.gender = form.value.gender
+    if (form.value.dateOfBirth?.trim()) body.dateOfBirth = form.value.dateOfBirth.trim()
+
+    const result: any = await $fetch(`/api/candidates/${first.candidateId}/enrich`, {
+      method: 'POST',
+      body,
+    })
+    const added: string[] = result?.added ?? []
+    if (added.length === 0) {
+      toast.warning?.(t('candidate.new.dedup.enrichNothing'))
+    }
+    else {
+      toast.success?.(`${t('candidate.new.dedup.enrichSuccess')}: ${added.join(', ')}`)
+    }
+    showExactDupModal.value = false
+    await navigateTo(localePath(`/dashboard/candidates/${first.candidateId}`))
+  }
+  catch (err: any) {
+    submitError.value = err.data?.statusMessage || err.message || 'Не удалось дополнить карточку'
+  }
+  finally {
+    isEnriching.value = false
+  }
+}
+
+// Доступен ли enrich: хотя бы 1 экзачный дубль в своей org И в форме есть хотя бы 1 поле для передачи
+const canEnrichExisting = computed(() => {
+  const hasOwnOrgDup = (dupResult.value?.exact ?? []).some(e => !e.crossOrg)
+  const hasNewData = !!(form.value.phone?.trim() || (form.value.gender && form.value.gender !== '') || form.value.dateOfBirth?.trim())
+  return hasOwnOrgDup && hasNewData
+})
+
 // Не блокируем кнопку — пускаем submit, он покажет модалку при exact dup
 const isSubmitDisabled = computed(() => isSubmitting.value || isParsing.value)
 
@@ -777,17 +822,35 @@ function candidateLink(id: string) {
               </div>
             </li>
           </ul>
-          <div class="flex items-center justify-end gap-2">
+          <div v-if="canEnrichExisting" class="mb-3 text-xs text-surface-500 dark:text-surface-400 italic">
+            {{ t('candidate.new.dedup.enrichHint') }}
+          </div>
+          <div class="flex flex-wrap items-center justify-end gap-2">
             <button
               type="button"
-              class="rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+              class="rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors disabled:opacity-50"
+              :disabled="isEnriching"
               @click="showExactDupModal = false"
             >
               {{ t('candidate.new.dedup.editData') }}
             </button>
             <button
+              v-if="canEnrichExisting"
               type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 px-4 py-2 text-sm font-medium text-white transition-colors"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 dark:border-brand-800 text-brand-700 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950 px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="isEnriching"
+              @click="enrichExistingDup"
+            >
+              <svg v-if="isEnriching" class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              {{ t('candidate.new.dedup.enrichExisting') }}
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
+              :disabled="isEnriching"
               @click="openExistingDup"
             >
               <ExternalLink class="size-4" />

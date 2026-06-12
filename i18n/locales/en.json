@@ -1460,7 +1460,11 @@
         "exactModalTitle": "This candidate already exists",
         "exactModalBody": "We found a candidate with this email or phone. Open their card or change the data if these are different people.",
         "openExisting": "Open existing",
-        "editData": "Edit data"
+        "editData": "Edit data",
+        "enrichExisting": "Enrich existing",
+        "enrichHint": "Fills empty fields in the existing card (phone, DOB, gender, notes). Existing values are not overwritten.",
+        "enrichSuccess": "Card enriched",
+        "enrichNothing": "All fields are already filled for this candidate"
       }
     },
     "detail": {

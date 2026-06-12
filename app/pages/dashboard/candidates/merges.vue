@@ -168,6 +168,64 @@ function signalsList(signals: any): string {
   return ''
 }
 
+// ── Модалка «Откатить» ─────────────────────────────────────────────────────
+const rollbackOpen = ref(false)
+const rollbackTarget = ref<MergeItem | null>(null)
+const rollbackReason = ref('')
+const isRollingBack = ref(false)
+
+function openRollback(item: MergeItem) {
+  rollbackTarget.value = item
+  rollbackReason.value = ''
+  rollbackOpen.value = true
+}
+
+function closeRollback() {
+  if (isRollingBack.value) return
+  rollbackOpen.value = false
+  rollbackTarget.value = null
+  rollbackReason.value = ''
+}
+
+async function confirmRollback() {
+  if (!rollbackTarget.value || isRollingBack.value) return
+  const id = rollbackTarget.value.id
+  isRollingBack.value = true
+  try {
+    const result: any = await $fetch(`/api/dedup/merges/${id}/rollback`, {
+      method: 'POST',
+      body: { reason: rollbackReason.value.trim() || undefined },
+    })
+    const restored = result?.restored
+    const lostApps = result?.applicationsDeleted ?? 0
+    let msg = 'Слияние откачено'
+    if (restored) {
+      const parts: string[] = []
+      if (restored.applications) parts.push(`заявок: ${restored.applications}`)
+      if (restored.documents) parts.push(`документов: ${restored.documents}`)
+      if (restored.identities) parts.push(`идентификаторов: ${restored.identities}`)
+      if (restored.stageHistoryRemoved) parts.push(`склеенных записей истории стадий удалено: ${restored.stageHistoryRemoved}`)
+      if (parts.length) msg += ` · восстановлено ${parts.join(', ')}`
+    }
+    if (lostApps > 0) msg += ` · ${lostApps} удалённых заявок восстановить нельзя`
+    toast.success?.(msg)
+    rollbackOpen.value = false
+    rollbackTarget.value = null
+    rollbackReason.value = ''
+    // Если открыта модалка деталей этого же merge — обновим
+    if (detailsData.value && detailsData.value.id === id) {
+      closeDetails()
+    }
+    await refresh()
+  }
+  catch (err: any) {
+    toast.error?.(err.data?.statusMessage || err.message || 'Не удалось откатить слияние')
+  }
+  finally {
+    isRollingBack.value = false
+  }
+}
+
 function statusBadge(item: MergeItem): { text: string; cls: string } {
   if (item.isRolledBack) {
     return { text: 'Откачено', cls: 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400' }
@@ -337,8 +395,9 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
             </button>
             <button
               :disabled="!item.canRollback"
-              :title="item.canRollback ? 'Откат пока не реализован — будет в следующем этапе' : (item.isRolledBack ? 'Уже откачено' : 'Окно отката закрыто')"
+              :title="item.canRollback ? 'Откатить слияние' : (item.isRolledBack ? 'Уже откачено' : 'Окно отката закрыто')"
               class="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              @click="openRollback(item)"
             >
               <RotateCcw class="size-3.5" />
               Откатить
@@ -476,12 +535,97 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
             </div>
           </div>
 
-          <div class="px-6 py-3 border-t border-surface-200 dark:border-surface-800 flex justify-end shrink-0">
+          <div class="px-6 py-3 border-t border-surface-200 dark:border-surface-800 flex justify-end gap-2 shrink-0">
+            <button
+              v-if="detailsData?.canRollback"
+              class="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
+              @click="() => { if (detailsData) { const item = data?.items.find(i => i.id === detailsData!.id); if (item) openRollback(item) } }"
+            >
+              <RotateCcw class="size-4" />
+              Откатить слияние
+            </button>
             <button
               class="rounded-md px-4 py-2 text-sm font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200"
               @click="closeDetails"
             >
               Закрыть
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Rollback confirmation modal -->
+    <Teleport to="body">
+      <div
+        v-if="rollbackOpen"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+        @click.self="closeRollback"
+      >
+        <div class="w-full max-w-lg rounded-xl bg-white dark:bg-surface-900 shadow-2xl border border-surface-200 dark:border-surface-800">
+          <div class="px-6 py-4 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <RotateCcw class="size-5 text-amber-600" />
+              <h2 class="text-base font-semibold text-surface-900 dark:text-surface-50">Откатить слияние?</h2>
+            </div>
+            <button
+              class="rounded-md p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 disabled:opacity-40"
+              :disabled="isRollingBack"
+              @click="closeRollback"
+            >
+              <X class="size-5" />
+            </button>
+          </div>
+
+          <div class="p-6 space-y-4 text-sm">
+            <p class="text-surface-700 dark:text-surface-200">
+              Кандидат <span class="font-medium">{{ rollbackTarget ? formatName(rollbackTarget.merged) : '' }}</span>
+              будет восстановлен как отдельный, а связи (заявки, документы, идентификаторы) вернутся к нему.
+            </p>
+
+            <div class="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+              <div class="font-semibold">⚠️ Важно</div>
+              <ul class="list-disc pl-4 space-y-0.5">
+                <li>Заявки, которые при слиянии были удалены как дубликаты, восстановить нельзя.</li>
+                <li>Откат пишется в журнал отдельной записью — повторно откатить эту пару нельзя.</li>
+                <li>Пара вернётся в очередь дублей со статусом «pending».</li>
+              </ul>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">
+                Причина отката (необязательно)
+              </label>
+              <textarea
+                v-model="rollbackReason"
+                rows="2"
+                maxlength="500"
+                placeholder="Например: ошибочное слияние, разные люди"
+                class="w-full text-sm rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                :disabled="isRollingBack"
+              />
+            </div>
+          </div>
+
+          <div class="px-6 py-3 border-t border-surface-200 dark:border-surface-800 flex justify-end gap-2">
+            <button
+              class="rounded-md px-4 py-2 text-sm font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200 disabled:opacity-40"
+              :disabled="isRollingBack"
+              @click="closeRollback"
+            >
+              Отмена
+            </button>
+            <button
+              class="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="isRollingBack"
+              @click="confirmRollback"
+            >
+              <RotateCcw v-if="!isRollingBack" class="size-4" />
+              <svg v-else class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              {{ isRollingBack ? 'Откатываем…' : 'Откатить' }}
             </button>
           </div>
         </div>
