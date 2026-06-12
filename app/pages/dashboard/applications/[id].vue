@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch, Keyboard, X } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
 
 definePageMeta({
   layout: 'dashboard',
@@ -103,18 +104,9 @@ async function handleTransition(newStatus: string) {
 }
 
 // ─────────────────────────────────────────────
-// Notes editing
-// ─────────────────────────────────────────────
-
-const isEditingNotes = ref(false)
-const notesInput = ref('')
-const isSavingNotes = ref(false)
-
-// ─────────────────────────────────────────────
-// Refs for stage picker + notes textarea focus
+// Refs for stage picker
 // ─────────────────────────────────────────────
 const stagePickerRef = ref<HTMLElement | null>(null)
-const notesTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const showHotkeysModal = ref(false)
 
 // ─────────────────────────────────────────────
@@ -127,32 +119,16 @@ useHotkeys({
     if (btn) (btn as HTMLButtonElement).click()
   },
   c: () => {
-    // C — фокус на поле комментария (заметок)
-    if (!isEditingNotes.value) startEditNotes()
-    nextTick(() => notesTextareaRef.value?.focus())
+    // C — фокус на composer треда
+    const composer = document.querySelector<HTMLTextAreaElement>('[data-comment-composer] textarea')
+    composer?.focus()
   },
   '?': () => {
     showHotkeysModal.value = !showHotkeysModal.value
   },
 })
 
-function startEditNotes() {
-  notesInput.value = application.value?.notes ?? ''
-  isEditingNotes.value = true
-}
 
-async function saveNotes() {
-  isSavingNotes.value = true
-  try {
-    await updateApplication({ notes: notesInput.value || null })
-    isEditingNotes.value = false
-  } catch (err: any) {
-    if (handlePreviewReadOnlyError(err)) return
-    toast.error(t('applications.failedToSaveNotes'), { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
-  } finally {
-    isSavingNotes.value = false
-  }
-}
 
 // ─────────────────────────────────────────────
 // Display helpers
@@ -378,54 +354,9 @@ function formatResponseValue(value: unknown): string {
         </div>
       </div>
 
-      <!-- Notes -->
-      <div class="mt-4 rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 mb-4">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <MessageSquare class="size-4 text-surface-500 dark:text-surface-400" />
-            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('applications.notes') }}</h2>
-          </div>
-          <button
-            v-if="!isEditingNotes"
-            class="cursor-pointer text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
-            @click="startEditNotes"
-          >
-            {{ application.notes ? $t('applications.edit_notes') : $t('applications.add_notes') }}
-          </button>
-        </div>
-
-        <div v-if="isEditingNotes">
-          <textarea
-            ref="notesTextareaRef"
-            v-model="notesInput"
-            rows="4"
-            placeholder="Add notes about this application…"
-            class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
-          />
-          <div class="flex items-center gap-2 mt-2">
-            <button
-              :disabled="isSavingNotes"
-              class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              @click="saveNotes"
-            >
-              {{ isSavingNotes ? $t('applications.saving') : $t('applications.save') }}
-            </button>
-            <button
-              class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-              @click="isEditingNotes = false"
-            >
-              {{ $t('applications.cancel') }}
-            </button>
-          </div>
-        </div>
-
-        <p
-          v-else-if="application.notes"
-          class="text-sm text-surface-600 dark:text-surface-300 whitespace-pre-wrap"
-        >
-          {{ application.notes }}
-        </p>
-        <p v-else class="text-sm text-surface-400 italic">{{ $t('applications.no_notes') }}</p>
+      <!-- Collaboration thread (заменил блок «Заметки») -->
+      <div class="mt-4 mb-4" data-comment-composer>
+        <ApplicationCommentThread :application-id="applicationId" />
       </div>
 
       <!-- Custom properties (Notion-style) -->

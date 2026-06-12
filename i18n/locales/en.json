@@ -1769,5 +1769,38 @@
       "rejectSuccess": "Request rejected",
       "rejectError": "Failed to reject request"
     }
+  },
+  "comments": {
+    "thread_title": "Discussion",
+    "composer_placeholder": "Write a message… Use @ to mention",
+    "send": "Send",
+    "sending": "Sending…",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "edit": "Edit",
+    "delete": "Delete",
+    "reply": "Reply",
+    "edited": "edited",
+    "empty": "No messages yet — start the conversation.",
+    "loading": "Loading thread…",
+    "internal": "Internal",
+    "internal_badge_hint": "Visible to recruiters and admins only",
+    "internal_on": "Internal",
+    "internal_off": "Internal",
+    "hint_shortcut": "Ctrl/Cmd + Enter to send",
+    "delete_title": "Delete this comment?",
+    "delete_message": "This action cannot be undone. The comment will be marked as deleted."
+  },
+  "watchers": {
+    "label": "Watchers",
+    "subscribed": "Subscribed for updates:",
+    "empty": "Nobody is watching yet.",
+    "add_placeholder": "Name or email…",
+    "remove": "Unsubscribe",
+    "source_manual": "added manually",
+    "source_auto_author": "thread author",
+    "source_auto_mention": "mentioned in thread",
+    "source_auto_assignee": "assigned to application"
   }
 }

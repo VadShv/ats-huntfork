@@ -1425,3 +1425,175 @@ export const candidateDuplicateCandidateRelations = relations(candidateDuplicate
   candidateA: one(candidate, { fields: [candidateDuplicateCandidate.candidateIdA], references: [candidate.id], relationName: 'duplicateCandidateA' }),
   candidateB: one(candidate, { fields: [candidateDuplicateCandidate.candidateIdB], references: [candidate.id], relationName: 'duplicateCandidateB' }),
 }))
+
+// ─────────────────────────────────────────────
+// Collaboration Thread — comments, watchers, notifications
+// (migration 0041)
+// ─────────────────────────────────────────────
+
+export const watcherSourceEnum = pgEnum('watcher_source', [
+  'manual',
+  'auto_mention',
+  'auto_author',
+  'auto_assignee',
+])
+
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'mention',
+  'reply',
+  'reaction',
+  'new_comment_on_watched',
+])
+
+export const applicationComment = pgTable(
+  'application_comment',
+  {
+    id:              text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    organizationId:  text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    applicationId:   text('application_id').notNull().references(() => application.id, { onDelete: 'cascade' }),
+    candidateId:     text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
+    authorUserId:    text('author_user_id').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    body:            text('body').notNull(),
+    bodyHtml:        text('body_html'),
+    isInternal:      boolean('is_internal').notNull().default(false),
+    parentCommentId: text('parent_comment_id').references((): any => applicationComment.id, { onDelete: 'set null' }),
+    editedAt:        timestamp('edited_at', { withTimezone: true, mode: 'date' }),
+    createdAt:       timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt:       timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    deletedAt:       timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+  },
+  (t) => ({
+    applicationIdx: index('idx_app_comment_application_id').on(t.applicationId),
+    orgIdx:         index('idx_app_comment_organization_id').on(t.organizationId),
+    authorIdx:      index('idx_app_comment_author').on(t.authorUserId),
+  }),
+)
+
+export const commentMention = pgTable(
+  'comment_mention',
+  {
+    id:              text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    commentId:       text('comment_id').notNull().references(() => applicationComment.id, { onDelete: 'cascade' }),
+    mentionedUserId: text('mentioned_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    readAt:          timestamp('read_at', { withTimezone: true, mode: 'date' }),
+    createdAt:       timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq:    uniqueIndex('uq_comment_mention').on(t.commentId, t.mentionedUserId),
+    userIdx: index('idx_comment_mention_user').on(t.mentionedUserId, t.readAt),
+  }),
+)
+
+export const commentReaction = pgTable(
+  'comment_reaction',
+  {
+    id:        text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    commentId: text('comment_id').notNull().references(() => applicationComment.id, { onDelete: 'cascade' }),
+    userId:    text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    emoji:     text('emoji').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq:       uniqueIndex('uq_comment_reaction').on(t.commentId, t.userId, t.emoji),
+    commentIdx: index('idx_comment_reaction_comment').on(t.commentId),
+  }),
+)
+
+export const commentAttachment = pgTable(
+  'comment_attachment',
+  {
+    id:               text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    commentId:        text('comment_id').notNull().references(() => applicationComment.id, { onDelete: 'cascade' }),
+    fileName:         text('file_name').notNull(),
+    storageKey:       text('storage_key').notNull(),
+    mimeType:         text('mime_type').notNull(),
+    sizeBytes:        integer('size_bytes').notNull(),
+    uploadedByUserId: text('uploaded_by_user_id').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    createdAt:        timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    commentIdx: index('idx_comment_attachment_comment').on(t.commentId),
+  }),
+)
+
+export const applicationWatcher = pgTable(
+  'application_watcher',
+  {
+    id:             text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    applicationId:  text('application_id').notNull().references(() => application.id, { onDelete: 'cascade' }),
+    userId:         text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    source:         watcherSourceEnum('source').notNull().default('manual'),
+    createdAt:      timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq:           uniqueIndex('uq_app_watcher').on(t.applicationId, t.userId),
+    applicationIdx: index('idx_app_watcher_application').on(t.applicationId),
+    userIdx:        index('idx_app_watcher_user').on(t.userId),
+  }),
+)
+
+export const notification = pgTable(
+  'notification',
+  {
+    id:             text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    userId:         text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    type:           notificationTypeEnum('type').notNull(),
+    entityType:     text('entity_type').notNull(),
+    entityId:       text('entity_id').notNull(),
+    commentId:      text('comment_id').references(() => applicationComment.id, { onDelete: 'cascade' }),
+    actorUserId:    text('actor_user_id').references(() => user.id, { onDelete: 'set null' }),
+    readAt:         timestamp('read_at', { withTimezone: true, mode: 'date' }),
+    createdAt:      timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userUnreadIdx:  index('idx_notification_user_unread').on(t.userId, t.readAt),
+    userCreatedIdx: index('idx_notification_user_created').on(t.userId, t.createdAt),
+    orgIdx:         index('idx_notification_organization').on(t.organizationId),
+  }),
+)
+
+// ─────────────────────────────────────────────
+// Relations
+// ─────────────────────────────────────────────
+
+export const applicationCommentRelations = relations(applicationComment, ({ one, many }) => ({
+  organization:  one(organization, { fields: [applicationComment.organizationId], references: [organization.id] }),
+  application:   one(application, { fields: [applicationComment.applicationId], references: [application.id] }),
+  candidate:     one(candidate, { fields: [applicationComment.candidateId], references: [candidate.id] }),
+  author:        one(user, { fields: [applicationComment.authorUserId], references: [user.id] }),
+  parentComment: one(applicationComment, { fields: [applicationComment.parentCommentId], references: [applicationComment.id], relationName: 'parent' }),
+  replies:       many(applicationComment, { relationName: 'parent' }),
+  mentions:      many(commentMention),
+  reactions:     many(commentReaction),
+  attachments:   many(commentAttachment),
+}))
+
+export const commentMentionRelations = relations(commentMention, ({ one }) => ({
+  comment:        one(applicationComment, { fields: [commentMention.commentId], references: [applicationComment.id] }),
+  mentionedUser:  one(user, { fields: [commentMention.mentionedUserId], references: [user.id] }),
+}))
+
+export const commentReactionRelations = relations(commentReaction, ({ one }) => ({
+  comment: one(applicationComment, { fields: [commentReaction.commentId], references: [applicationComment.id] }),
+  user:    one(user, { fields: [commentReaction.userId], references: [user.id] }),
+}))
+
+export const commentAttachmentRelations = relations(commentAttachment, ({ one }) => ({
+  comment:    one(applicationComment, { fields: [commentAttachment.commentId], references: [applicationComment.id] }),
+  uploadedBy: one(user, { fields: [commentAttachment.uploadedByUserId], references: [user.id] }),
+}))
+
+export const applicationWatcherRelations = relations(applicationWatcher, ({ one }) => ({
+  organization: one(organization, { fields: [applicationWatcher.organizationId], references: [organization.id] }),
+  application:  one(application, { fields: [applicationWatcher.applicationId], references: [application.id] }),
+  user:         one(user, { fields: [applicationWatcher.userId], references: [user.id] }),
+}))
+
+export const notificationRelations = relations(notification, ({ one }) => ({
+  organization: one(organization, { fields: [notification.organizationId], references: [organization.id] }),
+  user:         one(user, { fields: [notification.userId], references: [user.id] }),
+  comment:      one(applicationComment, { fields: [notification.commentId], references: [applicationComment.id] }),
+  actor:        one(user, { fields: [notification.actorUserId], references: [user.id] }),
+}))

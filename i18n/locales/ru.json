@@ -1769,5 +1769,38 @@
       "rejectSuccess": "Заявка отклонена",
       "rejectError": "Не удалось отклонить заявку"
     }
+  },
+  "comments": {
+    "thread_title": "Обсуждение",
+    "composer_placeholder": "Напиши сообщение… Используй @ для упоминания",
+    "send": "Отправить",
+    "sending": "Отправка…",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "saving": "Сохранение…",
+    "edit": "Редактировать",
+    "delete": "Удалить",
+    "reply": "Ответить",
+    "edited": "изменено",
+    "empty": "Пока нет сообщений — начни обсуждение.",
+    "loading": "Загружаем тред…",
+    "internal": "Внутреннее",
+    "internal_badge_hint": "Видно только рекрутерам и админам",
+    "internal_on": "Внутреннее",
+    "internal_off": "Внутреннее",
+    "hint_shortcut": "Ctrl/Cmd + Enter — отправить",
+    "delete_title": "Удалить комментарий?",
+    "delete_message": "Это действие нельзя отменить. Комментарий будет помечен как удалённый."
+  },
+  "watchers": {
+    "label": "Подписчики",
+    "subscribed": "Подписаны на обновления:",
+    "empty": "Пока никто не подписан.",
+    "add_placeholder": "Имя или email…",
+    "remove": "Отписать",
+    "source_manual": "добавлен вручную",
+    "source_auto_author": "автор треда",
+    "source_auto_mention": "упомянут в треде",
+    "source_auto_assignee": "назначен на отклик"
   }
 }
