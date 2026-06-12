@@ -19,7 +19,7 @@ const emit = defineEmits<{
 const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const toast = useToast()
 const { track } = useTrack()
-const { t } = useI18n()
+const { t, te } = useI18n()
 const { formatCandidateName } = useOrgSettings()
 
 // Detect if the job sub-nav bar is visible (adds 40px / 2.5rem)
@@ -613,17 +613,17 @@ function formatInterviewDate(dateStr: string) {
                 <div class="flex size-7 items-center justify-center rounded-lg bg-brand-50 dark:bg-brand-950/40">
                   <User class="size-3.5 text-brand-600 dark:text-brand-400" />
                 </div>
-                <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Candidate</h3>
+                <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t('applications.candidate') }}</h3>
               </div>
               <dl class="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">Name</dt>
+                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.name') }}</dt>
                   <dd class="text-surface-800 dark:text-surface-200 font-medium">
                     {{ formatCandidateName(application.candidate) }}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">Email</dt>
+                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.email') }}</dt>
                   <dd class="text-surface-800 dark:text-surface-200 font-medium truncate">
                     <a
                       :href="`mailto:${application.candidate.email}`"
@@ -633,7 +633,7 @@ function formatInterviewDate(dateStr: string) {
                   </dd>
                 </div>
                 <div v-if="application.candidate.phone">
-                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">Phone</dt>
+                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.phone') }}</dt>
                   <dd class="text-surface-800 dark:text-surface-200 font-medium">
                     {{ application.candidate.phone }}
                   </dd>
@@ -647,25 +647,25 @@ function formatInterviewDate(dateStr: string) {
                 <div class="flex size-7 items-center justify-center rounded-lg bg-info-50 dark:bg-info-950/40">
                   <Hash class="size-3.5 text-info-600 dark:text-info-400" />
                 </div>
-                <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Details</h3>
+                <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t('applications.details') }}</h3>
               </div>
               <dl class="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">Score</dt>
+                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.score') }}</dt>
                   <dd class="text-surface-800 dark:text-surface-200 font-medium">
                     {{ application.score ?? '—' }}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">Status</dt>
-                  <dd class="text-surface-800 dark:text-surface-200 font-medium capitalize">
-                    {{ application.status }}
+                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.status') }}</dt>
+                  <dd class="text-surface-800 dark:text-surface-200 font-medium">
+                    {{ te(`dashboard.applications.stages.${application.status}`) ? t(`dashboard.applications.stages.${application.status}`) : application.status }}
                   </dd>
                 </div>
                 <div>
                   <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1 inline-flex items-center gap-1">
                     <Calendar class="size-3.5" />
-                    Applied
+                    {{ t('applications.applied_label') }}
                   </dt>
                   <dd class="text-surface-800 dark:text-surface-200 font-medium">
                     {{ new Date(application.createdAt).toLocaleDateString() }}
@@ -674,7 +674,7 @@ function formatInterviewDate(dateStr: string) {
                 <div>
                   <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1 inline-flex items-center gap-1">
                     <Clock class="size-3.5" />
-                    Updated
+                    {{ t('applications.updated_label') }}
                   </dt>
                   <dd class="text-surface-800 dark:text-surface-200 font-medium">
                     {{ new Date(application.updatedAt).toLocaleDateString() }}
@@ -690,14 +690,14 @@ function formatInterviewDate(dateStr: string) {
                   <div class="flex size-7 items-center justify-center rounded-lg bg-warning-50 dark:bg-warning-950/40">
                     <MessageSquare class="size-3.5 text-warning-600 dark:text-warning-400" />
                   </div>
-                  <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Notes</h3>
+                  <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t('applications.notes') }}</h3>
                 </div>
                 <button
                   v-if="!isEditingNotes"
                   class="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
                   @click="startEditNotes"
                 >
-                  {{ application.notes ? 'Edit' : 'Add Notes' }}
+                  {{ application.notes ? t('applications.edit_notes') : t('applications.add_notes') }}
                 </button>
               </div>
 
@@ -714,13 +714,13 @@ function formatInterviewDate(dateStr: string) {
                     class="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
                     @click="saveNotes"
                   >
-                    {{ isSavingNotes ? 'Saving…' : 'Save' }}
+                    {{ isSavingNotes ? t('applications.saving') : t('applications.save') }}
                   </button>
                   <button
                     class="rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                     @click="isEditingNotes = false"
                   >
-                    Cancel
+                    {{ t('applications.cancel') }}
                   </button>
                 </div>
               </div>
@@ -731,7 +731,7 @@ function formatInterviewDate(dateStr: string) {
               >
                 {{ application.notes }}
               </p>
-              <p v-else class="text-sm text-surface-400 italic">No notes yet.</p>
+              <p v-else class="text-sm text-surface-400 italic">{{ t('applications.no_notes') }}</p>
             </div>
 
             <!-- Scheduled interviews -->

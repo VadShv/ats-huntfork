@@ -13,7 +13,7 @@ const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const toast = useToast()
 
 const { application, status: fetchStatus, error, refresh, updateApplication } = useApplication(applicationId)
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 /** Reactive stage state — updated optimistically when picker emits */
 const localStageId = ref<string | null>(null)
@@ -233,10 +233,10 @@ function formatResponseValue(value: unknown): string {
             class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
             :class="statusBadgeClasses[application.status] ?? 'bg-surface-100 text-surface-600'"
           >
-            {{ application.status }}
+            {{ te(`dashboard.applications.stages.${application.status}`) ? t(`dashboard.applications.stages.${application.status}`) : application.status }}
           </span>
           <TimelineDateLink :date="application.createdAt" class="text-sm text-surface-500 dark:text-surface-400">
-            Applied {{ new Date(application.createdAt).toLocaleDateString() }}
+            {{ t('applications.applied_label') }} {{ new Date(application.createdAt).toLocaleDateString() }}
           </TimelineDateLink>
         </div>
       </div>
@@ -326,7 +326,7 @@ function formatResponseValue(value: unknown): string {
             </div>
             <div>
               <dt class="text-surface-400">{{ t('applications.job_status') }}</dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium capitalize">{{ application.job.status }}</dd>
+              <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ te(`dashboard.jobs.status.${application.job.status}`) ? t(`dashboard.jobs.status.${application.job.status}`) : application.job.status }}</dd>
             </div>
           </dl>
         </div>
@@ -354,7 +354,7 @@ function formatResponseValue(value: unknown): string {
             </div>
             <div v-if="!localStageId">
               <dt class="text-surface-400">{{ t('applications.status') }}</dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium capitalize">{{ application.status }}</dd>
+              <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ te(`dashboard.applications.stages.${application.status}`) ? t(`dashboard.applications.stages.${application.status}`) : application.status }}</dd>
             </div>
             <div>
               <dt class="text-surface-400 inline-flex items-center gap-1">
