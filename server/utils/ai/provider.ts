@@ -11,6 +11,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import type { z } from 'zod'
 import { decrypt } from '../encryption'
+import { createYandexFetch } from './yandexFetch'
 
 export type SupportedProvider = 'openai' | 'anthropic' | 'google' | 'openai_compatible' | 'yandex'
 
@@ -155,9 +156,13 @@ export function createLanguageModel(config: ProviderConfig) {
       // The Authorization header accepts both `Bearer <key>` and `Api-Key <key>` formats.
       // IMPORTANT: use the legacy Chat Completions API (`.chat()`), not the new Responses API
       // (default for `openai(model)`), since Yandex does not implement `/v1/responses`.
+      // Wrap fetch to repair non-conformant SSE tool-call deltas Yandex emits
+      // for Qwen3-family models (empty `type` / `id` first chunk). See
+      // server/utils/ai/yandexFetch.ts for the full rationale.
       const openai = createOpenAI({
         apiKey,
         baseURL: config.baseUrl || 'https://llm.api.cloud.yandex.net/v1',
+        fetch: createYandexFetch(),
       })
       return openai.chat(config.model)
     }

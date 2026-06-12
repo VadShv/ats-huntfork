@@ -264,6 +264,11 @@ export default defineEventHandler(async (event) => {
     tools,
     stopWhen: stepCountIs(8),
     temperature: agentTemperature ?? 0.2,
+    onError({ error }) {
+      // Surface model/transport errors to server logs (they're already
+      // forwarded to the client via the `error` part of the stream).
+      console.error('[chatbot] streamText error:', error instanceof Error ? error.message : error)
+    },
     ...(body.thinking
       ? { providerOptions: { anthropic: { thinking: { type: 'enabled', budgetTokens: 4000 } } } }
       : {}),
