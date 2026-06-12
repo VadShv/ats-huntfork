@@ -68,10 +68,12 @@ export interface Watcher {
 }
 
 export function useApplicationComments(applicationId: string) {
-  const comments = ref<ThreadComment[]>([])
-  const watchers = ref<Watcher[]>([])
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+  // Use Nuxt useState to share state across components mounted for the same applicationId
+  // (e.g. Composer + Thread, or page + drawer) so optimistic updates propagate.
+  const comments = useState<ThreadComment[]>(`app-comments:${applicationId}`, () => [])
+  const watchers = useState<Watcher[]>(`app-watchers:${applicationId}`, () => [])
+  const loading = useState<boolean>(`app-comments-loading:${applicationId}`, () => false)
+  const error = useState<string | null>(`app-comments-error:${applicationId}`, () => null)
   const toast = useToast()
 
   async function fetchComments() {

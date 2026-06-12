@@ -9,6 +9,7 @@ import {
 } from 'lucide-vue-next'
 import type { PropertyEntry, PropertyFilter } from '~~/shared/properties'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
 
 const { t, te } = useI18n()
 import { APPLICATION_STATUS_TRANSITIONS, INTERVIEW_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
@@ -1869,18 +1870,13 @@ function closeDocPreview() {
 
               <!-- PROFILE SECTION (overview only) -->
               <div v-if="showSection.profile" ref="overviewRef" class="space-y-5 max-w-4xl mx-auto">
-                <!-- Notes -->
-                <div class="rounded-xl border border-surface-200/80 bg-white p-5 shadow-sm shadow-surface-900/[0.03] dark:border-surface-800/60 dark:bg-surface-900 dark:shadow-none">
-                  <div class="flex items-center gap-2.5 mb-4">
-                    <div class="flex size-7 items-center justify-center rounded-lg bg-warning-50 dark:bg-warning-950/40">
-                      <MessageSquare class="size-3.5 text-warning-600 dark:text-warning-400" />
-                    </div>
-                    <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t('dashboard.jobs.detail.notes') }}</h3>
-                  </div>
-                  <p class="text-sm leading-relaxed text-surface-600 dark:text-surface-300 whitespace-pre-wrap">
-                    {{ currentSummary.notes || t('dashboard.jobs.detail.noNotes') }}
-                  </p>
-                </div>
+                <!-- Collaboration thread (заменяет старые заметки) -->
+                <ApplicationCommentThread
+                  v-if="currentSummary?.id"
+                  :key="currentSummary.id"
+                  :application-id="currentSummary.id"
+                  :compact="true"
+                />
 
                 <!-- Quick links -->
                 <div class="flex items-center gap-4 pt-1">

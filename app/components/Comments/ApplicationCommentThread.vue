@@ -56,6 +56,8 @@ onMounted(async () => {
 
 function onSubmitted() {
   replyTo.value = null
+  // Re-fetch to get authoritative state (mentions w/ names, server timestamps)
+  void fetchComments()
 }
 function onCancelReply() {
   replyTo.value = null
