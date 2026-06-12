@@ -113,11 +113,11 @@ const jobTabs = computed(() => {
   if (!activeJobId.value) return []
   const base = `/dashboard/jobs/${activeJobId.value}`
   return [
-    { label: 'Pipeline', to: base, icon: Kanban, exact: true },
-    { label: 'Table', to: `${base}/candidates`, icon: Table2, exact: true },
-    { label: 'Application Form', to: `${base}/application-form`, icon: FileText, exact: true },
-    { label: 'AI Analysis', to: `${base}/ai-analysis`, icon: Sparkles, exact: true },
-    { label: 'Settings', to: `${base}/settings`, icon: Settings, exact: true },
+    { label: t('dashboard.jobs.tabs.pipeline'), to: base, icon: Kanban, exact: true },
+    { label: t('dashboard.jobs.tabs.table'), to: `${base}/candidates`, icon: Table2, exact: true },
+    { label: t('dashboard.jobs.tabs.applicationForm'), to: `${base}/application-form`, icon: FileText, exact: true },
+    { label: t('dashboard.jobs.tabs.aiAnalysis'), to: `${base}/ai-analysis`, icon: Sparkles, exact: true },
+    { label: t('dashboard.jobs.tabs.settings'), to: `${base}/settings`, icon: Settings, exact: true },
   ]
 })
 
@@ -125,7 +125,7 @@ const jobTabs = computed(() => {
 // Main navigation
 // ─────────────────────────────────────────────
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 const mainNav = computed<Array<{ label: string; to: string; icon: typeof Briefcase; exact: boolean; comingSoon?: boolean }>>(() => [
   { label: t('dashboard.nav.dashboard'), to: '/dashboard', icon: LayoutDashboard, exact: true },
@@ -392,7 +392,7 @@ onUnmounted(() => {
             @click="handleNewJobClick"
           >
             <Plus class="size-3.5" />
-            New Job
+            {{ t('dashboard.nav.newJob') }}
           </button>
 
           <!-- Org Switcher -->
@@ -569,7 +569,7 @@ onUnmounted(() => {
             class="hidden sm:flex items-center gap-1 text-xs font-medium text-surface-400 dark:text-surface-500 hover:text-surface-600 dark:hover:text-surface-300 transition-colors no-underline shrink-0"
           >
             <ChevronLeft class="size-3.5" />
-            All Jobs
+            {{ t('dashboard.nav.allJobs') }}
           </NuxtLink>
 
           <div class="hidden sm:block w-px h-4 bg-surface-200 dark:bg-surface-700 shrink-0" />
@@ -584,7 +584,7 @@ onUnmounted(() => {
               class="inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold capitalize ring-1 ring-inset"
               :class="jobStatusBadgeClasses[activeJobStatus] ?? 'bg-surface-50 text-surface-600 ring-surface-200'"
             >
-              {{ activeJobStatus }}
+              {{ te(`dashboard.jobs.status.${activeJobStatus}`) ? t(`dashboard.jobs.status.${activeJobStatus}`) : activeJobStatus }}
             </span>
           </div>
 
@@ -639,7 +639,7 @@ onUnmounted(() => {
               v-if="item.comingSoon"
               class="ml-auto inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-200/60 dark:ring-amber-800/40"
             >
-              Soon
+              {{ t('common.soon') }}
             </span>
           </NuxtLink>
 
@@ -648,7 +648,7 @@ onUnmounted(() => {
             @click="handleNewJobClick(); showMobileMenu = false"
           >
             <Plus class="size-4" />
-            New Job
+            {{ t('dashboard.nav.newJob') }}
           </button>
 
           <!-- Get Started CTA (demo mode, mobile) -->

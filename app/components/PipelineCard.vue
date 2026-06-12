@@ -16,14 +16,16 @@ const emit = defineEmits<{
   (e: 'transition', status: string): void
 }>()
 
-const transitionLabels: Record<string, string> = {
-  new: 'Re-open',
-  screening: 'Screening',
-  interview: 'Interview',
-  offer: 'Offer',
-  hired: 'Hired',
-  rejected: 'Reject',
-}
+const { t } = useI18n()
+
+const transitionLabels = computed<Record<string, string>>(() => ({
+  new: t('dashboard.pipeline.transitions.reopen'),
+  screening: t('dashboard.pipeline.transitions.toScreening'),
+  interview: t('dashboard.pipeline.transitions.toInterview'),
+  offer: t('dashboard.pipeline.transitions.toOffer'),
+  hired: t('dashboard.pipeline.transitions.toHired'),
+  rejected: t('dashboard.pipeline.transitions.reject'),
+}))
 
 const transitionClasses: Record<string, string> = {
   new: 'text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700',
@@ -71,7 +73,7 @@ const { formatPersonName, formatDateTime } = useOrgSettings()
             ? 'bg-warning-50 text-warning-700 ring-warning-200 dark:bg-warning-950 dark:text-warning-300 dark:ring-warning-800'
             : 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950 dark:text-danger-300 dark:ring-danger-800'"
       >
-        {{ score }}pts
+        {{ score }} {{ t('common.points') }}
       </span>
     </div>
 

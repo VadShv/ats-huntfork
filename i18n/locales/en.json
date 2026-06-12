@@ -3,7 +3,14 @@
     "language": "Language",
     "selectLanguage": "Select language",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "timeAgo": {
+      "minutes": "{n}m ago",
+      "hours": "{n}h ago",
+      "days": "{n}d ago"
+    },
+    "soon": "Soon",
+    "points": "pts"
   },
   "home": {
     "nav": {
@@ -62,7 +69,9 @@
       "aiAnalysis": "AI Analysis",
       "assistant": "Assistant",
       "settings": "Settings",
-      "updates": "Updates"
+      "updates": "Updates",
+      "allJobs": "All Jobs",
+      "newJob": "New Job"
     },
     "topbar": {
       "newJob": "New Job",
@@ -1014,6 +1023,13 @@
         "pipelineSystemSuffix": "(System)",
         "pipelineDefaultSuffix": "(Default)",
         "pipelineLocked": "Cannot change pipeline: this job has {count} active candidates. Close or move them before switching pipelines."
+      },
+      "tabs": {
+        "pipeline": "Pipeline",
+        "table": "Table",
+        "applicationForm": "Application Form",
+        "aiAnalysis": "AI Analysis",
+        "settings": "Settings"
       }
     },
     "candidates": {
@@ -1202,6 +1218,84 @@
       "notPublished": "Not published",
       "unknown": "Unknown",
       "noData": "No data"
+    },
+    "scoreBreakdown": {
+      "compositeScore": "Composite Score",
+      "reScore": "Re-score",
+      "reScoring": "Re-scoring…"
+    },
+    "properties": {
+      "addOrgWide": "Add org-wide property",
+      "manageJobSpecific": "Manage job-specific properties"
+    },
+    "candidateDrawer": {
+      "applyToJob": "Apply to Job",
+      "applicationsTab": "Applications",
+      "documentsTab": "Documents",
+      "emailLabel": "Email",
+      "properties": "Properties",
+      "appliedOn": "Applied {date}",
+      "noApplications": "No applications yet.",
+      "noDocuments": "No documents yet.",
+      "clickToPreview": "Click to preview",
+      "previewPdf": "Preview PDF",
+      "download": "Download",
+      "documentPreviewTitle": "Document preview",
+      "docTypes": {
+        "resume": "Resume",
+        "cover_letter": "Cover Letter",
+        "other": "Other"
+      },
+      "appliedLabel": "Applied"
+    },
+    "pipeline": {
+      "transitions": {
+        "reopen": "Re-open",
+        "toScreening": "To screening",
+        "toInterview": "To interview",
+        "toOffer": "To offer",
+        "toHired": "Hire",
+        "reject": "Reject"
+      }
+    },
+    "aiAnalysis": {
+      "failedToLoad": "Failed to load AI analysis data.",
+      "retry": "Retry",
+      "subtitle": "Overview of AI scoring runs and token usage",
+      "totalRuns": "Total Runs",
+      "successRate": "Success Rate",
+      "promptTokens": "Prompt Tokens",
+      "promptTokensDesc": "Input tokens sent",
+      "completionTokens": "Completion Tokens",
+      "completionTokensDesc": "Output tokens generated",
+      "totalCost": "Total Cost",
+      "estimatedFromUsage": "Estimated from token usage",
+      "setPricing": "Set pricing",
+      "setPricingSuffix": "to track costs",
+      "usageTitle": "Usage — Last 30 Days",
+      "usageDesc": "Daily run counts and token consumption",
+      "runsPerDay": "Runs per Day",
+      "tokensPerDay": "Tokens per Day",
+      "modelBreakdown": "Model Breakdown",
+      "modelBreakdownDesc": "Usage per AI provider and model",
+      "cols": {
+        "provider": "Provider",
+        "model": "Model",
+        "runs": "Runs",
+        "prompt": "Prompt",
+        "completion": "Completion",
+        "totalTokens": "Total Tokens",
+        "cost": "Cost",
+        "status": "Status",
+        "candidate": "Candidate",
+        "job": "Job",
+        "score": "Score",
+        "tokens": "Tokens",
+        "date": "Date"
+      },
+      "recentRuns": "Recent Runs",
+      "recentRunsDesc": "Latest AI scoring activity",
+      "noRuns": "No AI analysis runs yet"
     }
   },
   "components": {

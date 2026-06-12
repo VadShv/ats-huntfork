@@ -3,7 +3,14 @@
     "language": "Язык",
     "selectLanguage": "Выбор языка",
     "save": "Сохранить",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "timeAgo": {
+      "minutes": "{n} мин назад",
+      "hours": "{n} ч назад",
+      "days": "{n} дн назад"
+    },
+    "soon": "Скоро",
+    "points": "баллов"
   },
   "home": {
     "nav": {
@@ -62,7 +69,9 @@
       "aiAnalysis": "ИИ-анализ",
       "assistant": "Ассистент",
       "settings": "Настройки",
-      "updates": "Обновления"
+      "updates": "Обновления",
+      "allJobs": "Все вакансии",
+      "newJob": "Новая вакансия"
     },
     "topbar": {
       "newJob": "Новая вакансия",
@@ -450,7 +459,7 @@
         "draft": "Черновик",
         "open": "Открыта",
         "closed": "Закрыта",
-        "archived": "В архиве"
+        "archived": "Архив"
       },
       "type": {
         "full_time": "Полная занятость",
@@ -1014,6 +1023,13 @@
         "pipelineSystemSuffix": "(Системная)",
         "pipelineDefaultSuffix": "(По умолчанию)",
         "pipelineLocked": "Нельзя сменить воронку: у вакансии {count} активных кандидатов. Закройте или перенесите их перед сменой воронки."
+      },
+      "tabs": {
+        "pipeline": "Воронка",
+        "table": "Таблица",
+        "applicationForm": "Форма заявки",
+        "aiAnalysis": "ИИ-анализ",
+        "settings": "Настройки"
       }
     },
     "candidates": {
@@ -1202,6 +1218,84 @@
       "notPublished": "Не опубликовано",
       "unknown": "Неизвестно",
       "noData": "Нет данных"
+    },
+    "scoreBreakdown": {
+      "compositeScore": "Сводный балл",
+      "reScore": "Пересчитать",
+      "reScoring": "Пересчёт…"
+    },
+    "properties": {
+      "addOrgWide": "Добавить общее свойство",
+      "manageJobSpecific": "Свойства вакансии"
+    },
+    "candidateDrawer": {
+      "applyToJob": "Добавить к вакансии",
+      "applicationsTab": "Отклики",
+      "documentsTab": "Документы",
+      "emailLabel": "Email",
+      "properties": "Свойства",
+      "appliedOn": "Подал заявку {date}",
+      "noApplications": "Откликов пока нет.",
+      "noDocuments": "Документов пока нет.",
+      "clickToPreview": "Открыть превью",
+      "previewPdf": "Просмотр PDF",
+      "download": "Скачать",
+      "documentPreviewTitle": "Превью документа",
+      "docTypes": {
+        "resume": "Резюме",
+        "cover_letter": "Сопроводительное",
+        "other": "Другое"
+      },
+      "appliedLabel": "Подал заявку"
+    },
+    "pipeline": {
+      "transitions": {
+        "reopen": "Переоткрыть",
+        "toScreening": "В скрининг",
+        "toInterview": "На интервью",
+        "toOffer": "На оффер",
+        "toHired": "Нанять",
+        "reject": "Отклонить"
+      }
+    },
+    "aiAnalysis": {
+      "failedToLoad": "Не удалось загрузить данные ИИ-анализа.",
+      "retry": "Повторить",
+      "subtitle": "Обзор запусков ИИ-скоринга и расхода токенов",
+      "totalRuns": "Всего запусков",
+      "successRate": "Доля успешных",
+      "promptTokens": "Промпт-токены",
+      "promptTokensDesc": "Входные токены",
+      "completionTokens": "Сгенерированные токены",
+      "completionTokensDesc": "Выходные токены",
+      "totalCost": "Суммарная стоимость",
+      "estimatedFromUsage": "Оценка по расходу токенов",
+      "setPricing": "Задайте цены",
+      "setPricingSuffix": "для отслеживания затрат",
+      "usageTitle": "Использование за последние 30 дней",
+      "usageDesc": "Запуски и расход токенов по дням",
+      "runsPerDay": "Запусков в день",
+      "tokensPerDay": "Токенов в день",
+      "modelBreakdown": "Разбивка по моделям",
+      "modelBreakdownDesc": "Использование по провайдеру и модели",
+      "cols": {
+        "provider": "Провайдер",
+        "model": "Модель",
+        "runs": "Запуски",
+        "prompt": "Промпт",
+        "completion": "Ответ",
+        "totalTokens": "Всего токенов",
+        "cost": "Стоимость",
+        "status": "Статус",
+        "candidate": "Кандидат",
+        "job": "Вакансия",
+        "score": "Балл",
+        "tokens": "Токены",
+        "date": "Дата"
+      },
+      "recentRuns": "Последние запуски",
+      "recentRunsDesc": "Последняя активность ИИ-скоринга",
+      "noRuns": "Пока нет запусков ИИ-анализа"
     }
   },
   "components": {

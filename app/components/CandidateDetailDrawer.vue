@@ -16,7 +16,7 @@ const toast = useToast()
 
 const { candidate, status: fetchStatus, error, refresh } = useCandidate(() => props.candidateId)
 const { formatCandidateName, formatDate } = useOrgSettings()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -105,11 +105,11 @@ const genderLabels: Record<string, string> = {
   prefer_not_to_say: 'Prefer not to say',
 }
 
-const documentTypeLabels: Record<string, string> = {
-  resume: 'Resume',
-  cover_letter: 'Cover Letter',
-  other: 'Other',
-}
+const documentTypeLabels = computed<Record<string, string>>(() => ({
+  resume: t('dashboard.candidateDrawer.docTypes.resume'),
+  cover_letter: t('dashboard.candidateDrawer.docTypes.cover_letter'),
+  other: t('dashboard.candidateDrawer.docTypes.other'),
+}))
 
 function formatFileSize(bytes: number | null | undefined): string {
   if (!bytes) return '—'
@@ -225,7 +225,7 @@ onUnmounted(() => {
               <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-3">Контакты и профиль</h3>
               <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
-                  <dt class="text-surface-400">Email</dt>
+                  <dt class="text-surface-400">{{ t('dashboard.candidateDrawer.emailLabel') }}</dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium truncate">
                     <a
                       :href="`mailto:${candidate.email}`"
@@ -333,7 +333,7 @@ onUnmounted(() => {
 
             <!-- Properties -->
             <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4">
-              <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-2 px-2">Properties</h3>
+              <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-2 px-2">{{ t('dashboard.candidateDrawer.properties') }}</h3>
               <PropertyBlock
                 entity-type="candidate"
                 :entity-id="candidateId"
@@ -352,7 +352,7 @@ onUnmounted(() => {
                     : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
                   @click="activeTab = 'applications'"
                 >
-                  Applications ({{ candidate.applications?.length ?? 0 }})
+                  {{ t('dashboard.candidateDrawer.applicationsTab') }} ({{ candidate.applications?.length ?? 0 }})
                 </button>
                 <button
                   class="cursor-pointer px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
@@ -361,7 +361,7 @@ onUnmounted(() => {
                     : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
                   @click="activeTab = 'documents'"
                 >
-                  Documents ({{ candidate.documents?.length ?? 0 }})
+                  {{ t('dashboard.candidateDrawer.documentsTab') }} ({{ candidate.documents?.length ?? 0 }})
                 </button>
               </div>
             </div>
@@ -374,7 +374,7 @@ onUnmounted(() => {
                   @click="showApplyModal = true"
                 >
                   <Plus class="size-3.5" />
-                  Apply to Job
+                  {{ t('dashboard.candidateDrawer.applyToJob') }}
                 </button>
               </div>
 
@@ -383,7 +383,7 @@ onUnmounted(() => {
                 class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-8 text-center"
               >
                 <Briefcase class="size-8 text-surface-300 dark:text-surface-600 mx-auto mb-2" />
-                <p class="text-sm text-surface-500 dark:text-surface-400">No applications yet.</p>
+                <p class="text-sm text-surface-500 dark:text-surface-400">{{ t('dashboard.candidateDrawer.noApplications') }}</p>
               </div>
 
               <div v-else class="space-y-2">
@@ -400,7 +400,7 @@ onUnmounted(() => {
                       {{ app.job.title }}
                     </h4>
                     <span class="text-xs text-surface-400">
-                      Applied <TimelineDateLink :date="app.createdAt">{{ new Date(app.createdAt).toLocaleDateString() }}</TimelineDateLink>
+                      {{ t('dashboard.candidateDrawer.appliedLabel') }} <TimelineDateLink :date="app.createdAt">{{ new Date(app.createdAt).toLocaleDateString() }}</TimelineDateLink>
                     </span>
                   </NuxtLink>
                   <div class="flex items-center gap-2 shrink-0 sm:ml-3">
@@ -416,7 +416,7 @@ onUnmounted(() => {
                       class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
                       :class="applicationStatusClasses[app.status] ?? 'bg-surface-100 text-surface-600'"
                     >
-                      {{ app.status }}
+                      {{ te(`dashboard.applications.stages.${app.status}`) ? t(`dashboard.applications.stages.${app.status}`) : app.status }}
                     </span>
                   </div>
                 </div>
@@ -438,7 +438,7 @@ onUnmounted(() => {
                     <button
                       v-if="previewDocId"
                       class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                      title="Download"
+                      :title="t('dashboard.candidateDrawer.download')"
                       @click="handleDownload(previewDocId!)"
                     >
                       <Download class="size-4" />
@@ -458,7 +458,7 @@ onUnmounted(() => {
                   :src="previewUrl"
                   class="w-full rounded-lg border border-surface-200 dark:border-surface-800"
                   style="height: 60vh;"
-                  title="Document preview"
+                  :title="t('dashboard.candidateDrawer.documentPreviewTitle')"
                 />
               </template>
 
@@ -469,7 +469,7 @@ onUnmounted(() => {
                   class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-8 text-center"
                 >
                   <FileText class="size-8 text-surface-300 dark:text-surface-600 mx-auto mb-2" />
-                  <p class="text-sm text-surface-500 dark:text-surface-400">No documents yet.</p>
+                  <p class="text-sm text-surface-500 dark:text-surface-400">{{ t('dashboard.candidateDrawer.noDocuments') }}</p>
                 </div>
 
                 <div v-else class="space-y-2">
@@ -489,7 +489,7 @@ onUnmounted(() => {
                         <span class="text-xs text-surface-400">
                           {{ documentTypeLabels[doc.type] ?? doc.type }}
                           · <TimelineDateLink :date="doc.createdAt">{{ new Date(doc.createdAt).toLocaleDateString() }}</TimelineDateLink>
-                          <template v-if="doc.mimeType === 'application/pdf'"> · <span class="text-brand-500 dark:text-brand-400">Click to preview</span></template>
+                          <template v-if="doc.mimeType === 'application/pdf'"> · <span class="text-brand-500 dark:text-brand-400">{{ t('dashboard.candidateDrawer.clickToPreview') }}</span></template>
                         </span>
                       </div>
                     </div>
@@ -497,14 +497,14 @@ onUnmounted(() => {
                       <button
                         v-if="doc.mimeType === 'application/pdf'"
                         class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                        title="Preview PDF"
+                        :title="t('dashboard.candidateDrawer.previewPdf')"
                         @click="handlePreview(doc.id, doc.mimeType)"
                       >
                         <Eye class="size-4" />
                       </button>
                       <button
                         class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                        title="Download"
+                        :title="t('dashboard.candidateDrawer.download')"
                         @click="handleDownload(doc.id)"
                       >
                         <Download class="size-4" />

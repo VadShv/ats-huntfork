@@ -19,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const { track } = useTrack()
+const { t } = useI18n()
 const isAnalyzing = ref(false)
 const analyzeError = ref<string | null>(null)
 const parseFailedDocId = ref<string | null>(null)
@@ -185,7 +186,7 @@ async function retryParse() {
             <div class="flex size-7 items-center justify-center rounded-lg bg-brand-50 dark:bg-brand-950/40">
               <BarChart3 class="size-3.5 text-brand-600 dark:text-brand-400" />
             </div>
-            <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Composite Score</h3>
+            <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t('dashboard.scoreBreakdown.compositeScore') }}</h3>
           </div>
           <div class="flex items-center gap-1.5">
             <select
@@ -202,7 +203,7 @@ async function retryParse() {
               class="text-xs text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-50"
               @click="runAnalysis"
             >
-              {{ isAnalyzing ? 'Re-scoring…' : 'Re-score' }}
+              {{ isAnalyzing ? t('dashboard.scoreBreakdown.reScoring') : t('dashboard.scoreBreakdown.reScore') }}
             </button>
           </div>
         </div>

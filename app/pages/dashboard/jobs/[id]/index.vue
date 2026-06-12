@@ -10,7 +10,7 @@ import {
 import type { PropertyEntry, PropertyFilter } from '~~/shared/properties'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 import { APPLICATION_STATUS_TRANSITIONS, INTERVIEW_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 
 definePageMeta({
@@ -642,7 +642,8 @@ const transitionClasses: Record<string, string> = {
 }
 
 function formatStatusLabel(status: string) {
-  return status.charAt(0).toUpperCase() + status.slice(1)
+  const key = `dashboard.applications.stages.${status}`
+  return te(key) ? t(key) : status.charAt(0).toUpperCase() + status.slice(1)
 }
 
 function formatResponseValue(value: unknown): string {
@@ -666,11 +667,11 @@ function getCandidateInitials(firstName?: string, lastName?: string) {
 function timeAgo(date: string | Date) {
   const diff = Date.now() - new Date(date).getTime()
   const mins = Math.floor(diff / 60_000)
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 60) return t('common.timeAgo.minutes', { n: mins })
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
+  if (hrs < 24) return t('common.timeAgo.hours', { n: hrs })
   const days = Math.floor(hrs / 24)
-  if (days < 30) return `${days}d ago`
+  if (days < 30) return t('common.timeAgo.days', { n: days })
   return new Date(date).toLocaleDateString()
 }
 
@@ -1546,7 +1547,7 @@ function closeDocPreview() {
                       'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950/60 dark:text-danger-400 dark:ring-danger-800': app.score < 40,
                     }"
                   >
-                    {{ app.score }} pts
+                    {{ app.score }} {{ t('common.points') }}
                   </span>
                   <span class="text-[11px] text-surface-400 dark:text-surface-500">{{ timeAgo(app.createdAt) }}</span>
                   <span v-if="applicationsWithInterviews.has(app.id)" class="inline-flex items-center text-warning-500 dark:text-warning-400" :title="t('dashboard.jobs.detail.interviewScheduledHint')">
@@ -1624,7 +1625,7 @@ function closeDocPreview() {
                           'bg-surface-100 text-surface-500 ring-surface-200 dark:bg-surface-800/50 dark:text-surface-400 dark:ring-surface-700': currentSummary.status === 'rejected',
                         }"
                       >
-                        {{ currentSummary.status }}
+                        {{ formatStatusLabel(currentSummary.status) }}
                       </span>
                     </div>
                     <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-surface-500 dark:text-surface-400">
@@ -1651,7 +1652,7 @@ function closeDocPreview() {
                           'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950/60 dark:text-danger-400 dark:ring-danger-800': currentSummary.score < 40,
                         }"
                       >
-                        {{ currentSummary.score }} pts
+                        {{ currentSummary.score }} {{ t('common.points') }}
                       </span>
                       <button
                         :disabled="isScoringIndividual"
@@ -2425,12 +2426,12 @@ function closeDocPreview() {
                           <span class="text-[13px] font-medium text-surface-900 dark:text-surface-100 shrink-0">{{ timelineActionLabels[item.action] ?? item.action }}</span>
                           <span class="text-[13px] text-surface-500 dark:text-surface-400">{{ item.resourceType }}</span>
                           <template v-if="item.action === 'status_changed' && item.metadata">
-                            <span v-if="item.metadata.from_status || item.metadata.fromStatus" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getTimelineStatusBadge(String(item.metadata.from_status ?? item.metadata.fromStatus))">{{ item.metadata.from_status ?? item.metadata.fromStatus }}</span>
+                            <span v-if="item.metadata.from_status || item.metadata.fromStatus" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getTimelineStatusBadge(String(item.metadata.from_status ?? item.metadata.fromStatus))">{{ formatStatusLabel(String(item.metadata.from_status ?? item.metadata.fromStatus)) }}</span>
                             <ArrowRight class="size-2.5 text-surface-400 dark:text-surface-500 shrink-0" />
-                            <span v-if="item.metadata.to_status || item.metadata.toStatus" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getTimelineStatusBadge(String(item.metadata.to_status ?? item.metadata.toStatus))">{{ item.metadata.to_status ?? item.metadata.toStatus }}</span>
+                            <span v-if="item.metadata.to_status || item.metadata.toStatus" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getTimelineStatusBadge(String(item.metadata.to_status ?? item.metadata.toStatus))">{{ formatStatusLabel(String(item.metadata.to_status ?? item.metadata.toStatus)) }}</span>
                           </template>
                           <template v-else-if="item.action === 'scored' && item.metadata?.score">
-                            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none bg-accent-100 text-accent-700 dark:bg-accent-900/60 dark:text-accent-300">{{ item.metadata.score }} pts</span>
+                            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none bg-accent-100 text-accent-700 dark:bg-accent-900/60 dark:text-accent-300">{{ item.metadata.score }} {{ t('common.points') }}</span>
                           </template>
                         </div>
                         <div class="flex items-center gap-2 mt-0.5">
@@ -2502,7 +2503,7 @@ function closeDocPreview() {
                     'text-danger-600 dark:text-danger-400': app.score < 40,
                   }"
                 >
-                  {{ app.score }}pts
+                  {{ app.score }} {{ t('common.points') }}
                 </span>
                 <span class="text-[10px] text-surface-400 dark:text-surface-500">{{ timeAgo(app.createdAt) }}</span>
               </div>

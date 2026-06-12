@@ -272,14 +272,14 @@ const statusDotClasses: Record<string, string> = {
   rejected: 'bg-surface-400 dark:bg-surface-500',
 }
 
-const statusLabels: Record<Status, string> = {
-  new: 'New',
-  screening: 'Screening',
-  interview: 'Interview',
-  offer: 'Offer',
-  hired: 'Hired',
-  rejected: 'Rejected',
-}
+const statusLabels = computed<Record<Status, string>>(() => ({
+  new: t('dashboard.applications.stages.new'),
+  screening: t('dashboard.applications.stages.screening'),
+  interview: t('dashboard.applications.stages.interview'),
+  offer: t('dashboard.applications.stages.offer'),
+  hired: t('dashboard.applications.stages.hired'),
+  rejected: t('dashboard.applications.stages.rejected'),
+}))
 
 // ── Drawer + Saved Views ──────────────────────────────────────────────────────
 

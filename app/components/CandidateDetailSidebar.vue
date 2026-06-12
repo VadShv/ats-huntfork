@@ -19,6 +19,7 @@ const emit = defineEmits<{
 const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const toast = useToast()
 const { track } = useTrack()
+const { t } = useI18n()
 const { formatCandidateName } = useOrgSettings()
 
 // Detect if the job sub-nav bar is visible (adds 40px / 2.5rem)
@@ -78,14 +79,14 @@ const documents = computed(() => candidateData.value?.documents ?? [])
 // ─────────────────────────────────────────────
 import { APPLICATION_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 
-const transitionLabels: Record<string, string> = {
-  new: 'Re-open',
-  screening: 'Screening',
-  interview: 'Interview',
-  offer: 'Offer',
-  hired: 'Hired',
-  rejected: 'Reject',
-}
+const transitionLabels = computed<Record<string, string>>(() => ({
+  new: t('dashboard.pipeline.transitions.reopen'),
+  screening: t('dashboard.pipeline.transitions.toScreening'),
+  interview: t('dashboard.pipeline.transitions.toInterview'),
+  offer: t('dashboard.pipeline.transitions.toOffer'),
+  hired: t('dashboard.pipeline.transitions.toHired'),
+  rejected: t('dashboard.pipeline.transitions.reject'),
+}))
 
 const transitionClasses: Record<string, string> = {
   new: 'border border-surface-300 dark:border-surface-600 text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800',
