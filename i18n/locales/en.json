@@ -1772,7 +1772,7 @@
   },
   "comments": {
     "thread_title": "Discussion",
-    "composer_placeholder": "Write a message… Use @ to mention",
+    "composer_placeholder": "Write a message… Use {'@'} to mention",
     "send": "Send",
     "sending": "Sending…",
     "cancel": "Cancel",
