@@ -30,6 +30,8 @@ const BARE_MENTION_RE = /@([\p{L}\p{N}][\p{L}\p{N}._-]*)/gu
 const CODE_RE = /`([^`\n]+)`/g
 const BOLD_RE = /\*([^*\n]+)\*/g
 const ITALIC_RE = /(^|[\s(])_([^_\n]+)_(?=[\s.,!?;:)\]]|$)/g
+// Stickers (после escapeHtml скобки не меняются): :sticker[fox_thumbs_up]:
+const STICKER_RE = /:sticker\[([a-z0-9_]{1,40})\]:/g
 
 export function renderMarkdown(body: string): string {
   if (!body) return ''
@@ -40,6 +42,15 @@ export function renderMarkdown(body: string): string {
   html = html.replace(CODE_RE, (_, code) => {
     codeStash.push(`<code>${code}</code>`)
     return `\u0000CODE${codeStash.length - 1}\u0000`
+  })
+
+  // Stickers — stash too so URL/inline-formatting passes don't touch them.
+  const stickerStash: string[] = []
+  html = html.replace(STICKER_RE, (_, id) => {
+    stickerStash.push(
+      `<img class="sticker" src="/stickers/${id}.webp" alt="sticker:${id}" loading="lazy" decoding="async" />`,
+    )
+    return `\u0000S${stickerStash.length - 1}\u0000`
   })
 
   // Mentions — process BEFORE inline formatting so bare-mention regex doesn't
@@ -67,6 +78,7 @@ export function renderMarkdown(body: string): string {
 
   // Restore stashes
   html = html.replace(/\u0000M(\d+)\u0000/g, (_, i) => mentionStash[Number(i)] ?? '')
+  html = html.replace(/\u0000S(\d+)\u0000/g, (_, i) => stickerStash[Number(i)] ?? '')
   html = html.replace(/\u0000CODE(\d+)\u0000/g, (_, i) => codeStash[Number(i)] ?? '')
 
   return html

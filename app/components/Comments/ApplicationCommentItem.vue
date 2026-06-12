@@ -174,7 +174,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
       <!-- Rendered body -->
       <div
         v-else
-        class="prose prose-sm dark:prose-invert max-w-none text-sm text-surface-800 dark:text-surface-200 break-words [&_.mention]:bg-brand-100 [&_.mention]:dark:bg-brand-900/40 [&_.mention]:text-brand-700 [&_.mention]:dark:text-brand-300 [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium [&_a]:text-brand-600 [&_a]:dark:text-brand-400 [&_a]:underline"
+        class="prose prose-sm dark:prose-invert max-w-none text-sm text-surface-800 dark:text-surface-200 break-words [&_.mention]:bg-brand-100 [&_.mention]:dark:bg-brand-900/40 [&_.mention]:text-brand-700 [&_.mention]:dark:text-brand-300 [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium [&_a]:text-brand-600 [&_a]:dark:text-brand-400 [&_a]:underline [&_.sticker]:inline-block [&_.sticker]:my-1 [&_.sticker]:h-32 [&_.sticker]:w-32 [&_.sticker]:object-contain [&_.sticker]:rounded-md"
         v-html="comment.bodyHtml || comment.body"
       />
 

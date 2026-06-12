@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "stickers": [
+    {
+      "id": "fox_thumbs_up",
+      "name": "Лисёнок одобряет",
+      "url": "/stickers/fox_thumbs_up.webp",
+      "tags": ["thumbs_up", "ok", "approve", "good", "одобрено", "лайк"]
+    },
+    {
+      "id": "fox_overwhelmed",
+      "name": "Завал резюме",
+      "url": "/stickers/fox_overwhelmed.webp",
+      "tags": ["busy", "overwhelmed", "many_resumes", "stress", "завал", "усталость"]
+    }
+  ]
+}

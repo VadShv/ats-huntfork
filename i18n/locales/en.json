@@ -1841,5 +1841,11 @@
       "hours": "{n} h ago",
       "days": "{n} d ago"
     }
+  },
+  "stickers": {
+    "add": "Sticker",
+    "search_placeholder": "Search sticker…",
+    "loading": "Loading stickers…",
+    "empty": "No stickers found"
   }
 }

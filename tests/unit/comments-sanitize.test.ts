@@ -56,9 +56,36 @@ describe('renderMarkdown', () => {
 
   it('never produces unescaped < or > outside of generated tags', () => {
     const html = renderMarkdown('text with <tag> inside')
-    // any < or > should belong only to the rendered <br>, <a>, <code>, <span>, <strong>, <em> tags
+    // any < or > should belong only to the rendered <br>, <a>, <code>, <span>, <strong>, <em>, <img class="sticker"> tags
     const stripped = html
-      .replace(/<\/?(br|a|code|span|strong|em)([^>]*)>/g, '')
+      .replace(/<\/?(br|a|code|span|strong|em|img)([^>]*)>/g, '')
     expect(stripped).not.toMatch(/[<>]/)
+  })
+
+  describe('stickers', () => {
+    it('renders :sticker[id]: as <img class="sticker">', () => {
+      const html = renderMarkdown('Отличный кандидат! :sticker[fox_thumbs_up]:')
+      expect(html).toContain('<img class="sticker"')
+      expect(html).toContain('src="/stickers/fox_thumbs_up.webp"')
+      expect(html).toContain('alt="sticker:fox_thumbs_up"')
+    })
+
+    it('rejects invalid sticker id (uppercase / special chars)', () => {
+      expect(renderMarkdown(':sticker[Fox]:')).not.toContain('<img')
+      expect(renderMarkdown(':sticker[../etc/passwd]:')).not.toContain('<img')
+      expect(renderMarkdown(':sticker[a b]:')).not.toContain('<img')
+    })
+
+    it('handles multiple stickers in one comment', () => {
+      const html = renderMarkdown(':sticker[a_one]: text :sticker[b_two]:')
+      const matches = html.match(/<img class="sticker"/g) ?? []
+      expect(matches.length).toBe(2)
+    })
+
+    it('does not render sticker inside code spans', () => {
+      const html = renderMarkdown('`:sticker[fox_thumbs_up]:`')
+      expect(html).toContain('<code>')
+      expect(html).not.toContain('<img class="sticker"')
+    })
   })
 })

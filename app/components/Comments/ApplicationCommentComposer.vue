@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
-import { Send, Lock, Paperclip, X, File as FileIcon } from 'lucide-vue-next'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import { Send, Lock, Paperclip, X, File as FileIcon, Smile } from 'lucide-vue-next'
 import ApplicationMentionAutocomplete from './ApplicationMentionAutocomplete.vue'
+import StickerPicker from './StickerPicker.vue'
 import { useApplicationComments, type OrgMember } from '~/composables/useApplicationComments'
 
 const props = defineProps<{
@@ -207,6 +208,42 @@ function focus() {
   textareaRef.value?.focus()
 }
 defineExpose({ focus })
+
+// ── Sticker picker ──
+const showStickerPicker = ref(false)
+
+function insertSticker(s: { id: string }) {
+  const ta = textareaRef.value
+  const token = `:sticker[${s.id}]:`
+  if (!ta) {
+    body.value = body.value ? `${body.value} ${token}` : token
+  } else {
+    const start = ta.selectionStart ?? body.value.length
+    const end = ta.selectionEnd ?? start
+    const before = body.value.slice(0, start)
+    const after = body.value.slice(end)
+    const needLeadSpace = before.length > 0 && !/\s$/.test(before)
+    const needTrailSpace = after.length > 0 && !/^\s/.test(after)
+    const insert = `${needLeadSpace ? ' ' : ''}${token}${needTrailSpace ? ' ' : ''}`
+    body.value = `${before}${insert}${after}`
+    nextTick(() => {
+      const newPos = before.length + insert.length
+      ta.focus()
+      ta.setSelectionRange(newPos, newPos)
+    })
+  }
+  showStickerPicker.value = false
+}
+
+function onDocClick(e: MouseEvent) {
+  if (!showStickerPicker.value) return
+  const target = e.target as HTMLElement
+  if (!target.closest('[data-sticker-anchor]')) {
+    showStickerPicker.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', onDocClick))
+onUnmounted(() => document.removeEventListener('click', onDocClick))
 </script>
 
 <template>
@@ -278,6 +315,24 @@ defineExpose({ focus })
             <Paperclip class="size-3" />
             <span class="hidden sm:inline">{{ t('attachments.add') }}</span>
           </button>
+          <div data-sticker-anchor class="relative">
+            <button
+              type="button"
+              class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer border-0 bg-transparent"
+              :class="showStickerPicker ? 'bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-200' : ''"
+              :title="t('stickers.add')"
+              :aria-label="t('stickers.add')"
+              @click="showStickerPicker = !showStickerPicker"
+            >
+              <Smile class="size-3" />
+              <span class="hidden sm:inline">{{ t('stickers.add') }}</span>
+            </button>
+            <StickerPicker
+              v-if="showStickerPicker"
+              @pick="insertSticker"
+              @close="showStickerPicker = false"
+            />
+          </div>
           <input
             ref="fileInputRef"
             type="file"
