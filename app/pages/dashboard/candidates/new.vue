@@ -39,6 +39,12 @@ const form = ref({
   phone: '',
   gender: '' as '' | 'male' | 'female' | 'other' | 'prefer_not_to_say',
   dateOfBirth: '',
+  // Sprint 3.3 (P2.2): явный город для более точного fuzzy-дедупа
+  city: '',
+  // Sprint 3.4 (P2.3): social-идентификаторы
+  linkedin: '',
+  telegram: '',
+  github: '',
 })
 
 // Source field — UI only, not persisted to DB yet
@@ -274,6 +280,12 @@ const formSchema = z.object({
       return !isNaN(d.getTime()) && d.getFullYear() >= 1900 && d <= new Date()
     }, 'Must be a valid past date')
     .optional(),
+  // Sprint 3.3 (P2.2): город — свободный текст до 100 символов, опциональный
+  city: z.string().max(100).optional(),
+  // Sprint 3.4 (P2.3): social-идентификаторы
+  linkedin: z.string().max(255).optional(),
+  telegram: z.string().max(100).optional(),
+  github: z.string().max(100).optional(),
 })
 
 function validate(): boolean {
@@ -282,6 +294,10 @@ function validate(): boolean {
     gender: form.value.gender || undefined,
     dateOfBirth: form.value.dateOfBirth || undefined,
     displayName: form.value.displayName || undefined,
+    city: form.value.city || undefined,
+    linkedin: form.value.linkedin || undefined,
+    telegram: form.value.telegram || undefined,
+    github: form.value.github || undefined,
   })
   if (!result.success) {
     errors.value = {}
@@ -319,6 +335,10 @@ async function doSubmit(force = false) {
       phone: form.value.phone || undefined,
       gender: (form.value.gender as 'male' | 'female' | 'other' | 'prefer_not_to_say') || undefined,
       dateOfBirth: form.value.dateOfBirth || undefined,
+      city: form.value.city || undefined,
+      linkedin: form.value.linkedin || undefined,
+      telegram: form.value.telegram || undefined,
+      github: form.value.github || undefined,
       force,
     })
 
@@ -643,6 +663,63 @@ function candidateLink(id: string) {
                 :class="errors.dateOfBirth ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
               />
               <p v-if="errors.dateOfBirth" class="mt-1 text-xs text-danger-600 dark:text-danger-400">{{ errors.dateOfBirth }}</p>
+            </div>
+          </div>
+
+          <!-- Sprint 3.3 (P2.2): Город -->
+          <div>
+            <label for="city" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+              {{ $t('dashboard.candidates.fields.city') }}
+            </label>
+            <input
+              id="city"
+              v-model="form.city"
+              type="text"
+              :placeholder="$t('dashboard.candidates.fields.cityPlaceholder')"
+              autocomplete="address-level2"
+              class="w-full rounded-lg border px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              :class="errors.city ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
+            />
+            <p v-if="errors.city" class="mt-1 text-xs text-danger-600 dark:text-danger-400">{{ errors.city }}</p>
+          </div>
+
+          <!-- Sprint 3.4 (P2.3): social-идентификаторы -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label for="linkedin" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                {{ $t('dashboard.candidates.fields.linkedin') }}
+              </label>
+              <input
+                id="linkedin"
+                v-model="form.linkedin"
+                type="text"
+                placeholder="linkedin.com/in/..."
+                class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              />
+            </div>
+            <div>
+              <label for="telegram" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                {{ $t('dashboard.candidates.fields.telegram') }}
+              </label>
+              <input
+                id="telegram"
+                v-model="form.telegram"
+                type="text"
+                placeholder="@username или t.me/username"
+                class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              />
+            </div>
+            <div>
+              <label for="github" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                {{ $t('dashboard.candidates.fields.github') }}
+              </label>
+              <input
+                id="github"
+                v-model="form.github"
+                type="text"
+                placeholder="github.com/username"
+                class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              />
             </div>
           </div>
 

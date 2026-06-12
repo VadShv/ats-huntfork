@@ -1,7 +1,16 @@
-import { normalizeEmail, normalizeHhOwnerId, normalizeHhResumeId, normalizeLinkedinUrl, normalizePhone } from './normalize'
+import {
+  normalizeEmail,
+  normalizeGithub,
+  normalizeHhOwnerId,
+  normalizeHhResumeId,
+  normalizeLinkedinUrl,
+  normalizePhone,
+  normalizeTelegram,
+} from './normalize'
 
 export interface IdentitySignal {
-  kind: 'email' | 'phone' | 'hh_owner' | 'hh_resume' | 'linkedin' | 'telegram' | 'manual_external'
+  /** Sprint 3.4 (P2.3): добавлен 'github' */
+  kind: 'email' | 'phone' | 'hh_owner' | 'hh_resume' | 'linkedin' | 'telegram' | 'github' | 'manual_external'
   valueRaw: string
   valueNormalized: string
   confidence: 'verified' | 'claimed' | 'inferred'
@@ -127,6 +136,10 @@ export function extractIdentitiesFromCandidateRow(c: {
   phone?: string | null
   hhResumeId?: string | null
   hhResumeRaw?: Record<string, unknown> | null
+  /** Sprint 3.4 (P2.3): явные идентификаторы */
+  linkedin?: string | null
+  telegram?: string | null
+  github?: string | null
 }): IdentitySignal[] {
   const out: IdentitySignal[] = []
   const eNorm = normalizeEmail(c.email)
@@ -147,6 +160,37 @@ export function extractIdentitiesFromCandidateRow(c: {
       valueNormalized: pNorm,
       confidence: 'claimed',
       source: 'import',
+    })
+  }
+  // Sprint 3.4: linkedin/telegram/github — явные поля
+  const linkedinNorm = normalizeLinkedinUrl(c.linkedin)
+  if (c.linkedin && linkedinNorm) {
+    out.push({
+      kind: 'linkedin',
+      valueRaw: c.linkedin,
+      valueNormalized: linkedinNorm,
+      confidence: 'claimed',
+      source: 'manual',
+    })
+  }
+  const telegramNorm = normalizeTelegram(c.telegram)
+  if (c.telegram && telegramNorm) {
+    out.push({
+      kind: 'telegram',
+      valueRaw: c.telegram,
+      valueNormalized: telegramNorm,
+      confidence: 'claimed',
+      source: 'manual',
+    })
+  }
+  const githubNorm = normalizeGithub(c.github)
+  if (c.github && githubNorm) {
+    out.push({
+      kind: 'github',
+      valueRaw: c.github,
+      valueNormalized: githubNorm,
+      confidence: 'claimed',
+      source: 'manual',
     })
   }
   // hh resume payload — даст owner + resume_id + ещё email/phone (могут дублировать)

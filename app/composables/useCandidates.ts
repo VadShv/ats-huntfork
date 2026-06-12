@@ -44,6 +44,12 @@ export function useCandidates(options?: {
     phone?: string
     gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say'
     dateOfBirth?: string
+    /** Sprint 3.3 (P2.2): явный город кандидата */
+    city?: string
+    /** Sprint 3.4 (P2.3): соцсети — для identity-сигналов */
+    linkedin?: string
+    telegram?: string
+    github?: string
     /** Подтверждённый fuzzy-дубль — создать всё равно (не обходит hard-блок по email/phone) */
     force?: boolean
   }) {

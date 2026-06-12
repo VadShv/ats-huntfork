@@ -1,10 +1,9 @@
 import { candidate } from '../../database/schema'
 import { findDuplicatesForDraft } from '../../utils/dedup/check'
-import { normalizeEmail, normalizePhone } from '../../utils/dedup/normalize'
+import { extractIdentitiesFromCandidateRow } from '../../utils/dedup/extract'
 import { getOrgGroupId, upsertCandidateIdentities } from '../../utils/dedup/resolve'
 import { enqueueFuzzyDetect } from '../../utils/dedup/workers/fuzzy-job'
 import { createCandidateSchema } from '../../utils/schemas/candidate'
-import type { IdentitySignal } from '../../utils/dedup/extract'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { candidate: ['create'] })
@@ -62,6 +61,12 @@ export default defineEventHandler(async (event) => {
     gender: body.gender ?? null,
     dateOfBirth: body.dateOfBirth ?? null,
     quickNotes: body.quickNotes ?? null,
+    // Sprint 3.3 (P2.2)
+    city: body.city ?? null,
+    // Sprint 3.4 (P2.3): соцсети
+    linkedin: body.linkedin ?? null,
+    telegram: body.telegram ?? null,
+    github: body.github ?? null,
   }).returning({
     id: candidate.id,
     firstName: candidate.firstName,
@@ -71,6 +76,10 @@ export default defineEventHandler(async (event) => {
     phone: candidate.phone,
     gender: candidate.gender,
     dateOfBirth: candidate.dateOfBirth,
+    city: candidate.city,
+    linkedin: candidate.linkedin,
+    telegram: candidate.telegram,
+    github: candidate.github,
     createdAt: candidate.createdAt,
     updatedAt: candidate.updatedAt,
   })
@@ -79,28 +88,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create candidate' })
   }
 
-  // ─── 5. Identity-записи (email + phone) — чтобы кандидат участвовал в дедупе в будущем
-  const signals: IdentitySignal[] = []
-  const emailNorm = normalizeEmail(body.email)
-  if (emailNorm) {
-    signals.push({
-      kind: 'email',
-      valueRaw: body.email,
-      valueNormalized: emailNorm,
-      confidence: 'claimed',
-      source: 'manual',
-    })
-  }
-  const phoneNorm = normalizePhone(body.phone)
-  if (phoneNorm && body.phone) {
-    signals.push({
-      kind: 'phone',
-      valueRaw: body.phone,
-      valueNormalized: phoneNorm,
-      confidence: 'claimed',
-      source: 'manual',
-    })
-  }
+  // ─── 5. Identity-записи (email/phone/linkedin/telegram/github) — для участия в дедупе
+  const signals = extractIdentitiesFromCandidateRow({
+    email: body.email,
+    phone: body.phone ?? null,
+    linkedin: body.linkedin ?? null,
+    telegram: body.telegram ?? null,
+    github: body.github ?? null,
+  })
   const groupId = await getOrgGroupId(orgId)
   if (signals.length > 0) {
     try {

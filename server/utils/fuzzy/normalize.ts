@@ -122,3 +122,53 @@ export function dobSimilarity(a: Date | string | null | undefined, b: Date | str
   const dB = typeof b === 'string' ? b.slice(0, 10) : b.toISOString().slice(0, 10)
   return dA === dB ? 100 : 0
 }
+
+/**
+ * Нормализация названия организации/работодателя.
+ * Убираем правовые формы (ООО, ПАО, ЗАО, OJSC, LLC, Ltd, Inc, Corp, GmbH),
+ * кавычки, лишние пробелы.
+ */
+export function normalizeOrg(input: string | null | undefined): string {
+  if (!input) return ''
+  let s = input.toLowerCase().replace(/ё/g, 'е').trim()
+  // Кавычки и спецсимволы приводим к пробелам
+  s = s.replace(/[«»"'`]+/g, ' ')
+  // Правовые формы — \b не работает для кириллицы в JS,
+  // используем явные lookahead/lookbehind по пробелам/границам.
+  s = s.replace(/(^|\s)(ооо|оао|зао|пао|нпп|нпо|ип|ао|ано|ук|нко|фгуп|муп|тоо)(?=\s|$)/g, '$1')
+  s = s.replace(/(^|\s)(llc|ltd|inc|corp|corporation|gmbh|sa|ag|plc|co|company|holding)(?=\s|\.|$)\.?/g, '$1')
+  // Дублирующиеся знаки и пробелы
+  s = s.replace(/[.,;:]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return s
+}
+
+/**
+ * Сравнение двух наборов работодателей/учебных заведений (массивы названий).
+ * Возвращает 100 если хотя бы одна пара совпадает на ≥85% (Jaccard-like).
+ * Возвращает 0 если хотя бы один из массивов пуст.
+ *
+ * Используется как 4-й сигнал в fuzzy-матчинге (Sprint 3.2).
+ */
+export function orgListSimilarity(
+  a: Array<string | null | undefined> | null | undefined,
+  b: Array<string | null | undefined> | null | undefined,
+): number {
+  if (!a || !b || a.length === 0 || b.length === 0) return 0
+  const setA = a.map(normalizeOrg).filter(Boolean)
+  const setB = b.map(normalizeOrg).filter(Boolean)
+  if (setA.length === 0 || setB.length === 0) return 0
+
+  let bestPair = 0
+  for (const x of setA) {
+    for (const y of setB) {
+      const sim = levenshteinSimilarity(x, y)
+      if (sim > bestPair) bestPair = sim
+    }
+  }
+  // Хотя бы одна сильная пара — даём 100.
+  // Слабые пары (≤60) не считаем сигналом — слишком много ложных совпадений.
+  if (bestPair >= 85) return 100
+  if (bestPair >= 70) return Math.round(bestPair) // частичное совпадение
+  return 0
+}
+

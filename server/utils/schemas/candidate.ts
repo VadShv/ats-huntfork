@@ -33,6 +33,12 @@ export const createCandidateSchema = z.object({
   gender: z.enum(genderValues).optional(),
   dateOfBirth: dobSchema.optional(),
   quickNotes: z.string().max(1000).optional(),
+  /** Sprint 3.3 (P2.2): явный город для более точного fuzzy-дедупа. */
+  city: z.string().max(100).optional(),
+  /** Sprint 3.4 (P2.3): соцсети — используются как identity-сигналы в дедупе. */
+  linkedin: z.string().max(255).optional(),
+  telegram: z.string().max(100).optional(),
+  github: z.string().max(100).optional(),
   /**
    * `force=true` «пробивает» fuzzy-блок (высоковероятный дубль) — recruiter явно подтвердил в модалке.
    * НИКОГДА не обходит жёсткий exact-match по email/phone — там всегда 409.
@@ -55,6 +61,12 @@ export const updateCandidateSchema = z.object({
   gender: z.enum(genderValues).nullish(),
   dateOfBirth: dobSchema.nullish(),
   quickNotes: z.string().max(1000).nullish(),
+  /** Sprint 3.3 (P2.2): явный город. */
+  city: z.string().max(100).nullish(),
+  /** Sprint 3.4 (P2.3): соцсети. */
+  linkedin: z.string().max(255).nullish(),
+  telegram: z.string().max(100).nullish(),
+  github: z.string().max(100).nullish(),
 })
 
 /** Schema for candidate list query params */

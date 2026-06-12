@@ -104,6 +104,14 @@ export const candidate = pgTable('candidate', {
   dateOfBirth: text('date_of_birth'),
   /** Quick notes visible inline on the candidates list */
   quickNotes: text('quick_notes'),
+  /** Sprint 3.3 (P2.2): явный город кандидата. Для hh-кандидатов может быть null — в этом случае
+   *  fuzzy-матчер использует hh_resume_raw.area.name. */
+  city: text('city'),
+  /** Sprint 3.4 (P2.3): явные идентификаторы. Храним оригинальный raw,
+   *  нормализация ложится в candidate_identity для дедупа. */
+  linkedin: text('linkedin'),
+  telegram: text('telegram'),
+  github: text('github'),
   // ─── hh.ru resume snapshot ('бэкап резюме' — даже если кандидат удалил его на hh) ───
   /** Id резюме на hh.ru — последний пришедший для этого кандидата. */
   hhResumeId: text('hh_resume_id'),

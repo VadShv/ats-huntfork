@@ -30,8 +30,8 @@ describe('computePairScore', () => {
       { firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15' },
       { firstName: 'Иван', lastName: 'Петров', city: 'Казань', dateOfBirth: '1990-05-15' },
     )
-    // ФИО 100*0.55 + ДР 100*0.25 = 80 баллов гарантировано
-    expect(score).toBeGreaterThanOrEqual(80)
+    // Sprint 3.2: ФИО 100*0.50 + ДР 100*0.20 = 70 баллов гарантировано
+    expect(score).toBeGreaterThanOrEqual(70)
   })
 
   it('одинаковые ФИО, разные даты → попадает в зону ревью', () => {
@@ -39,8 +39,8 @@ describe('computePairScore', () => {
       { firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15' },
       { firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1985-01-01' },
     )
-    // ФИО 100*0.55 + Город 100*0.20 = 75 баллов
-    expect(score).toBeGreaterThanOrEqual(70)
+    // Sprint 3.2: ФИО 100*0.50 + Город 100*0.15 = 65 баллов
+    expect(score).toBeGreaterThanOrEqual(60)
     expect(score).toBeLessThan(FUZZY_AUTOMERGE_THRESHOLD)
   })
 
@@ -59,9 +59,9 @@ describe('computePairScore', () => {
       { firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15' },
       { firstName: 'Ivan', lastName: 'Petrov', city: 'Moscow', dateOfBirth: '1990-05-15' },
     )
-    // ФИО 100 после транслита; город Moscow vs Москва — разные строки → низкий
-    // Но ФИО+ДР = 55+25 = 80 → всё равно review-зона
-    expect(score).toBeGreaterThanOrEqual(75)
+    // ФИО 100 после транслита; город Moscow vs Москва — разные строки
+    // Sprint 3.2: ФИО 50 + ДР 20 = 70 баллов
+    expect(score).toBeGreaterThanOrEqual(65)
   })
 
   it('опечатка в одной букве фамилии → скор около automerge', () => {
@@ -69,8 +69,8 @@ describe('computePairScore', () => {
       { firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15' },
       { firstName: 'Иван', lastName: 'Петрав', city: 'Москва', dateOfBirth: '1990-05-15' },
     )
-    // ФИО ~93*0.55=51 + Город 20 + ДР 25 = ~96
-    expect(score).toBeGreaterThanOrEqual(FUZZY_REVIEW_THRESHOLD)
+    // Sprint 3.2: ФИО ~93*0.50=47 + Город 15 + ДР 20 = ~82 → почти review
+    expect(score).toBeGreaterThanOrEqual(75)
   })
 
   it('одинаковое ФИО, разные ДР и города → ниже порога ревью', () => {
@@ -78,7 +78,7 @@ describe('computePairScore', () => {
       { firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15' },
       { firstName: 'Иван', lastName: 'Петров', city: 'Сочи', dateOfBirth: '1980-01-01' },
     )
-    // ФИО 55, дальше 0+0 → итого 55 → ниже review (85)
+    // Sprint 3.2: ФИО ~50, дальше 0+0+0 → итого ~50 → ниже review (85)
     expect(score).toBeLessThan(FUZZY_REVIEW_THRESHOLD)
   })
 
@@ -87,8 +87,8 @@ describe('computePairScore', () => {
       { firstName: 'Иван', lastName: 'Петров', city: null, dateOfBirth: null },
       { firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15' },
     )
-    // ФИО 100*0.55 = 55, без подтверждения городом или ДР
-    expect(score).toBeGreaterThanOrEqual(50)
+    // Sprint 3.2: ФИО 100*0.50 = 50, без подтверждения городом/ДР/employer
+    expect(score).toBeGreaterThanOrEqual(45)
     expect(score).toBeLessThan(FUZZY_REVIEW_THRESHOLD)
   })
 
@@ -106,5 +106,45 @@ describe('computePairScore', () => {
     expect(signals).toHaveProperty('name')
     expect(signals).toHaveProperty('city')
     expect(signals).toHaveProperty('dob')
+    expect(signals).toHaveProperty('employer')
+  })
+
+  // Sprint 3.2 (P2.1): 4-й сигнал — работодатель/образование
+  it('совпадающий работодатель добавляет сигнал employer=100', () => {
+    const { score, signals } = computePairScore(
+      {
+        firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15',
+        organizations: ['ООО «Яндекс»', 'МГУ'],
+      },
+      {
+        firstName: 'Иван', lastName: 'Петров', city: 'Казань', dateOfBirth: '1990-05-15',
+        organizations: ['Яндекс', 'СПбГУ'],
+      },
+    )
+    expect(signals.employer).toBe(100)
+    // ФИО 50 + ДР 20 + employer 15 = 85+
+    expect(score).toBeGreaterThanOrEqual(80)
+  })
+
+  it('разные работодатели → employer=0', () => {
+    const { signals } = computePairScore(
+      {
+        firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15',
+        organizations: ['КловерМедиа'],
+      },
+      {
+        firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15',
+        organizations: ['SAP'],
+      },
+    )
+    expect(signals.employer).toBe(0)
+  })
+
+  it('пустые organizations → employer=0', () => {
+    const { signals } = computePairScore(
+      { firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15' },
+      { firstName: 'Иван', lastName: 'Петров', city: 'Москва', dateOfBirth: '1990-05-15' },
+    )
+    expect(signals.employer).toBe(0)
   })
 })

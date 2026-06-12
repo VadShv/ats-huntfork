@@ -7,13 +7,18 @@ import type { IdentitySignal } from './extract'
  * Используется когда разные сигналы привели к разным кандидатам:
  *   выигрывает наиболее «сильный» источник.
  */
+/**
+ * P2.5: hh_owner имеет НАИБОЛЬШИЙ приоритет (железный ключ «это один hh-пользователь»).
+ * hh_resume понижен ниже phone/linkedin/email — сам по себе слабая гарантия.
+ */
 const KIND_PRIORITY: Record<IdentitySignal['kind'], number> = {
-  hh_resume: 100,
-  hh_owner: 90,
+  hh_owner: 100,
   phone: 80,
   linkedin: 70,
   email: 60,
   telegram: 50,
+  github: 45,
+  hh_resume: 40,
   manual_external: 10,
 }
 
@@ -88,6 +93,52 @@ export async function resolveCandidateBySignals(
     ...r,
     candidateId: redirect.get(r.candidateId) ?? r.candidateId,
   }))
+
+  // P2.5: «hh_owner_id обязательный для resume-exact».
+  //
+  // Проблема: hh_resume.id в теории уникален, но практика показывает ошибки маппинга (ревизии hh, пересоздание резюме
+  // одним пользователем, переимпорт). Сам по себе матч только по hh_resume — это слабая гарантия.
+  //
+  // Правило: если во входящих сигналах есть hh_owner — мы доверяем hh_resume-совпадению ТОЛЬКО если у этого же
+  // кандидата в БД тоже есть совпадающий hh_owner. Иначе — hh_resume матч отбрасываем (он уйдёт в fuzzy).
+  // Если hh_owner во входящих НЕТ — оставляем hh_resume как было (беквард-совместимость).
+  const incomingOwners = (valuesByKind.get('hh_owner') ?? [])
+  if (incomingOwners.length > 0) {
+    const resumeMatchedIds = new Set(
+      resolved.filter(r => r.kind === 'hh_resume').map(r => r.candidateId),
+    )
+    if (resumeMatchedIds.size > 0) {
+      // Для каждого резюме-матченного кандидата проверяем hh_owner.
+      const ownersOfMatched = await db
+        .select({
+          candidateId: candidateIdentity.candidateId,
+          valueNormalized: candidateIdentity.valueNormalized,
+        })
+        .from(candidateIdentity)
+        .where(and(
+          inArray(candidateIdentity.candidateId, Array.from(resumeMatchedIds)),
+          eq(candidateIdentity.kind, 'hh_owner'),
+        ))
+
+      // Кандидаты у которых hh_owner СОВПАДАЕТ с одним из incomingOwners
+      const ownerSet = new Set(incomingOwners)
+      const okIds = new Set(
+        ownersOfMatched.filter(o => ownerSet.has(o.valueNormalized)).map(o => o.candidateId),
+      )
+
+      // Убираем hh_resume-строки, у которых нет подтверждения hh_owner.
+      // (Прочие типы сигналов остаются.)
+      for (let i = resolved.length - 1; i >= 0; i--) {
+        const row = resolved[i]
+        if (!row) continue
+        if (row.kind === 'hh_resume' && !okIds.has(row.candidateId)) {
+          resolved.splice(i, 1)
+        }
+      }
+    }
+  }
+
+  if (resolved.length === 0) return { candidateId: null, hasConflict: false, matches: [] }
 
   // Группируем: какой candidate-id даёт какой kind
   const idsSet = new Set(resolved.map(r => r.candidateId))
