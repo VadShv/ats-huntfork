@@ -260,6 +260,20 @@
       "when": 1785000000000,
       "tag": "0037_dedup_hot_path_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1786000000000,
+      "tag": "0038_candidate_city",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1787000000000,
+      "tag": "0039_candidate_social_identifiers",
+      "breakpoints": true
     }
   ]
 }
