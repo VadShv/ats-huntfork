@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
-import { Send, Lock } from 'lucide-vue-next'
+import { Send, Lock, Paperclip, X, File as FileIcon } from 'lucide-vue-next'
 import ApplicationMentionAutocomplete from './ApplicationMentionAutocomplete.vue'
 import { useApplicationComments, type OrgMember } from '~/composables/useApplicationComments'
 
@@ -19,12 +19,73 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { createComment, searchMembers } = useApplicationComments(props.applicationId)
+const toast = useToast()
+const { createComment, uploadAttachment, searchMembers } = useApplicationComments(props.applicationId)
 
 const body = ref('')
 const isInternal = ref(false)
 const submitting = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const pendingFiles = ref<File[]>([])
+const isDragOver = ref(false)
+
+const MAX_FILES = 10
+const MAX_FILE_BYTES = 10 * 1024 * 1024
+
+function prettySize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} Б`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`
+  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
+}
+
+function addFiles(list: FileList | File[] | null) {
+  if (!list) return
+  const incoming = Array.from(list)
+  for (const f of incoming) {
+    if (pendingFiles.value.length >= MAX_FILES) {
+      toast.error('Достигнут лимит файлов', { message: `Максимум ${MAX_FILES} файлов на комментарий` })
+      break
+    }
+    if (f.size > MAX_FILE_BYTES) {
+      toast.error('Файл слишком большой', { message: `${f.name} — максимум 10 МБ` })
+      continue
+    }
+    pendingFiles.value.push(f)
+  }
+}
+
+function removeFile(idx: number) {
+  pendingFiles.value.splice(idx, 1)
+}
+
+function onFilePick(e: Event) {
+  const target = e.target as HTMLInputElement
+  addFiles(target.files)
+  // reset so re-picking the same file fires change
+  target.value = ''
+}
+
+function onDragEnter(e: DragEvent) {
+  e.preventDefault()
+  isDragOver.value = true
+}
+function onDragLeave(e: DragEvent) {
+  e.preventDefault()
+  // only clear when leaving the composer, not when crossing inner elements
+  if (e.currentTarget === e.target) isDragOver.value = false
+}
+function onDragOver(e: DragEvent) {
+  e.preventDefault()
+  isDragOver.value = true
+}
+function onDrop(e: DragEvent) {
+  e.preventDefault()
+  isDragOver.value = false
+  if (e.dataTransfer?.files?.length) {
+    addFiles(e.dataTransfer.files)
+  }
+}
 
 // ── Mention autocomplete state ──
 const mentionQuery = ref<string | null>(null)
@@ -112,16 +173,28 @@ function onKeydown(e: KeyboardEvent) {
 
 async function submit() {
   const trimmed = body.value.trim()
-  if (!trimmed || submitting.value) return
+  if ((!trimmed && pendingFiles.value.length === 0) || submitting.value) return
   submitting.value = true
   try {
-    await createComment({
-      body: trimmed,
+    // server requires body.min(1); when only files are attached, use a minimal default body
+    const finalBody = trimmed.length > 0
+      ? trimmed
+      : (pendingFiles.value.length === 1 ? pendingFiles.value[0]!.name : t('attachments.files_attached', { n: pendingFiles.value.length }))
+
+    const created = await createComment({
+      body: finalBody,
       isInternal: isInternal.value,
       parentCommentId: props.parentCommentId ?? undefined,
     })
+    if (created?.id && pendingFiles.value.length > 0) {
+      // upload sequentially to keep ordering & avoid spike on the bucket
+      for (const f of pendingFiles.value) {
+        await uploadAttachment(created.id, f)
+      }
+    }
     body.value = ''
     isInternal.value = false
+    pendingFiles.value = []
     emit('submitted')
   } catch {
     // toast already shown
@@ -137,8 +210,17 @@ defineExpose({ focus })
 </script>
 
 <template>
-  <div class="relative">
-    <div class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-colors">
+  <div
+    class="relative"
+    @dragenter="onDragEnter"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+  >
+    <div
+      class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-colors"
+      :class="isDragOver ? 'ring-2 ring-brand-500/60 border-brand-500' : ''"
+    >
       <textarea
         ref="textareaRef"
         :value="body"
@@ -148,6 +230,30 @@ defineExpose({ focus })
         @input="onInput"
         @keydown="onKeydown"
       />
+      <!-- Pending files row -->
+      <div
+        v-if="pendingFiles.length > 0"
+        class="flex flex-wrap gap-1.5 border-t border-surface-100 dark:border-surface-800 px-2 py-2"
+      >
+        <div
+          v-for="(f, idx) in pendingFiles"
+          :key="`${f.name}-${idx}`"
+          class="inline-flex items-center gap-1.5 rounded-md bg-surface-100 dark:bg-surface-800 px-2 py-1 text-xs text-surface-700 dark:text-surface-300 max-w-[220px]"
+        >
+          <FileIcon class="size-3 text-surface-500 flex-shrink-0" />
+          <span class="truncate" :title="f.name">{{ f.name }}</span>
+          <span class="text-[10px] text-surface-400 flex-shrink-0">{{ prettySize(f.size) }}</span>
+          <button
+            type="button"
+            class="flex-shrink-0 rounded p-0.5 text-surface-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer border-0 bg-transparent"
+            :title="t('attachments.remove')"
+            @click="removeFile(idx)"
+          >
+            <X class="size-3" />
+          </button>
+        </div>
+      </div>
+
       <div class="flex items-center justify-between gap-2 border-t border-surface-100 dark:border-surface-800 px-2 py-1.5">
         <div class="flex items-center gap-2">
           <button
@@ -162,7 +268,25 @@ defineExpose({ focus })
             <Lock class="size-3" />
             {{ isInternal ? t('comments.internal_on') : t('comments.internal_off') }}
           </button>
-          <span class="text-xs text-surface-400 hidden sm:inline">{{ t('comments.hint_shortcut') }}</span>
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer border-0 bg-transparent"
+            :title="t('attachments.add')"
+            :aria-label="t('attachments.add')"
+            @click="fileInputRef?.click()"
+          >
+            <Paperclip class="size-3" />
+            <span class="hidden sm:inline">{{ t('attachments.add') }}</span>
+          </button>
+          <input
+            ref="fileInputRef"
+            type="file"
+            multiple
+            class="sr-only"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.webp,.gif"
+            @change="onFilePick"
+          >
+          <span class="text-xs text-surface-400 hidden md:inline">{{ t('comments.hint_shortcut') }}</span>
         </div>
         <div class="flex items-center gap-2">
           <button
@@ -175,7 +299,7 @@ defineExpose({ focus })
           </button>
           <button
             type="button"
-            :disabled="!body.trim() || submitting"
+            :disabled="(!body.trim() && pendingFiles.length === 0) || submitting"
             class="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
             @click="submit"
           >

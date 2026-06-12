@@ -161,6 +161,82 @@ export function useApplicationComments(applicationId: string) {
     }
   }
 
+  async function toggleReaction(commentId: string, emoji: string, currentUserId: string) {
+    const comment = comments.value.find(c => c.id === commentId)
+    if (!comment) return
+    const existing = comment.reactions.find(r => r.emoji === emoji)
+    const reactedByMe = !!existing?.reactedByMe
+
+    // optimistic update
+    if (reactedByMe) {
+      // remove
+      if (existing) {
+        existing.count = Math.max(0, existing.count - 1)
+        existing.userIds = existing.userIds.filter(uid => uid !== currentUserId)
+        existing.reactedByMe = false
+        if (existing.count === 0) {
+          comment.reactions = comment.reactions.filter(r => r.emoji !== emoji)
+        }
+      }
+      try {
+        await $fetch(
+          `/api/applications/${applicationId}/comments/${commentId}/reactions/${encodeURIComponent(emoji)}`,
+          { method: 'DELETE' },
+        )
+      } catch (e: any) {
+        toast.error('Не удалось убрать реакцию', { message: e?.data?.statusMessage ?? e?.message })
+        await fetchComments()
+      }
+    } else {
+      if (existing) {
+        existing.count += 1
+        existing.userIds.push(currentUserId)
+        existing.reactedByMe = true
+      } else {
+        comment.reactions.push({ emoji, count: 1, userIds: [currentUserId], reactedByMe: true })
+      }
+      try {
+        await $fetch(
+          `/api/applications/${applicationId}/comments/${commentId}/reactions`,
+          { method: 'POST', body: { emoji } },
+        )
+      } catch (e: any) {
+        toast.error('Не удалось добавить реакцию', { message: e?.data?.statusMessage ?? e?.message })
+        await fetchComments()
+      }
+    }
+  }
+
+  async function uploadAttachment(commentId: string, file: File): Promise<CommentAttachment | null> {
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const created = await $fetch<CommentAttachment>(
+        `/api/applications/${applicationId}/comments/${commentId}/attachments`,
+        { method: 'POST', body: form },
+      )
+      const comment = comments.value.find(c => c.id === commentId)
+      if (comment) comment.attachments.push(created)
+      return created
+    } catch (e: any) {
+      toast.error('Не удалось загрузить файл', { message: e?.data?.statusMessage ?? e?.message })
+      return null
+    }
+  }
+
+  async function deleteAttachment(commentId: string, attachmentId: string) {
+    try {
+      await $fetch(
+        `/api/applications/${applicationId}/comments/${commentId}/attachments/${attachmentId}`,
+        { method: 'DELETE' },
+      )
+      const comment = comments.value.find(c => c.id === commentId)
+      if (comment) comment.attachments = comment.attachments.filter(a => a.id !== attachmentId)
+    } catch (e: any) {
+      toast.error('Не удалось удалить файл', { message: e?.data?.statusMessage ?? e?.message })
+    }
+  }
+
   async function searchMembers(q: string): Promise<OrgMember[]> {
     try {
       const res = await $fetch<{ data: OrgMember[] }>(
@@ -188,6 +264,9 @@ export function useApplicationComments(applicationId: string) {
     deleteComment,
     addWatcher,
     removeWatcher,
+    toggleReaction,
+    uploadAttachment,
+    deleteAttachment,
     searchMembers,
   }
 }

@@ -464,6 +464,9 @@ onUnmounted(() => {
             </Transition>
           </div>
 
+          <!-- Notification bell -->
+          <NotificationBell class="hidden sm:block" />
+
           <!-- Divider -->
           <div class="hidden sm:block w-px h-6 bg-surface-200 dark:bg-surface-700 mx-0.5" />
 

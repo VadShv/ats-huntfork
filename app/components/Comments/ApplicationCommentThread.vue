@@ -36,8 +36,13 @@ const {
   fetchWatchers,
   addWatcher,
   removeWatcher,
+  toggleReaction,
   searchMembers,
 } = useApplicationComments(props.applicationId)
+
+function onReactionToggle(commentId: string, emoji: string) {
+  void toggleReaction(commentId, emoji, currentUserId.value)
+}
 
 const canSeeInternal = computed(() => ['owner', 'admin', 'recruiter'].includes(currentRole.value))
 const canDeleteAny = computed(() => ['owner', 'admin'].includes(currentRole.value))
@@ -196,6 +201,7 @@ const watcherCandidates = computed(() =>
           :can-delete-any="canDeleteAny"
           :can-reply="false"
           @reply="onReply"
+          @reaction-toggle="onReactionToggle"
         />
       </div>
 

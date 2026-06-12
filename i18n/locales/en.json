@@ -1802,5 +1802,44 @@
     "source_auto_author": "thread author",
     "source_auto_mention": "mentioned in thread",
     "source_auto_assignee": "assigned to application"
+  },
+  "reactions": {
+    "add": "Add reaction",
+    "you": "you reacted"
+  },
+  "attachments": {
+    "add": "Attach",
+    "remove": "Remove file",
+    "download": "Download",
+    "files_attached": "Files attached: {n}"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Activity on applications you watch",
+    "empty": "No notifications yet.",
+    "empty_unread": "No unread notifications.",
+    "loading": "Loading notifications…",
+    "mark_all_read": "Mark all read",
+    "see_all": "See all notifications",
+    "someone": "Someone",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {n}",
+    "filter": {
+      "all": "All",
+      "unread": "Unread"
+    },
+    "types": {
+      "mention": "mentioned you in a thread",
+      "reply": "replied to your comment",
+      "reaction": "reacted to your comment",
+      "new_comment": "left a new comment on an application you watch"
+    },
+    "time": {
+      "now": "just now",
+      "minutes": "{n} min ago",
+      "hours": "{n} h ago",
+      "days": "{n} d ago"
+    }
   }
 }

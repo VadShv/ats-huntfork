@@ -14,10 +14,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   reply: [parentCommentId: string]
+  reactionToggle: [commentId: string, emoji: string]
 }>()
 
 const { t, locale } = useI18n()
-const { updateComment, deleteComment } = useApplicationComments(props.applicationId)
+const { updateComment, deleteComment, deleteAttachment } = useApplicationComments(props.applicationId)
 const { ask } = useConfirm()
 
 const isEditing = ref(false)
@@ -175,6 +176,31 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         v-else
         class="prose prose-sm dark:prose-invert max-w-none text-sm text-surface-800 dark:text-surface-200 break-words [&_.mention]:bg-brand-100 [&_.mention]:dark:bg-brand-900/40 [&_.mention]:text-brand-700 [&_.mention]:dark:text-brand-300 [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium [&_a]:text-brand-600 [&_a]:dark:text-brand-400 [&_a]:underline"
         v-html="comment.bodyHtml || comment.body"
+      />
+
+      <!-- Attachments -->
+      <div
+        v-if="!isEditing && comment.attachments.length > 0"
+        class="mt-2 flex flex-wrap gap-2"
+      >
+        <AttachmentPreview
+          v-for="a in comment.attachments"
+          :key="a.id"
+          :application-id="applicationId"
+          :comment-id="comment.id"
+          :attachment="a"
+          :can-delete="isAuthor || canDeleteAny"
+          @remove="(aid) => deleteAttachment(comment.id, aid)"
+        />
+      </div>
+
+      <!-- Reactions -->
+      <CommentReactions
+        v-if="!isEditing"
+        :comment-id="comment.id"
+        :reactions="comment.reactions"
+        :current-user-id="currentUserId"
+        @toggle="(cid, emoji) => emit('reactionToggle', cid, emoji)"
       />
     </div>
   </div>
