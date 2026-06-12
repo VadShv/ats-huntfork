@@ -1718,7 +1718,32 @@
     "not_found": "Отклик не найден.",
     "failed_to_load": "Не удалось загрузить отклик.",
     "job_status": "Статус вакансии",
-    "applied": "Подал заявку"
+    "applied": "Подал заявку",
+    "loading": "Загрузка отклика…",
+    "candidate": "Кандидат",
+    "job": "Вакансия",
+    "name": "Имя",
+    "email": "Email",
+    "phone": "Телефон",
+    "title": "Название",
+    "details": "Детали",
+    "score": "Балл",
+    "status": "Статус",
+    "applied_label": "Подана",
+    "updated_label": "Обновлена",
+    "notes": "Заметки",
+    "responses_count": "Ответы заявки",
+    "unknown_question": "Неизвестный вопрос",
+    "transitions": {
+      "new": "Открыть заново",
+      "screening": "В скрининг",
+      "interview": "В интервью",
+      "offer": "Сделать оффер",
+      "hired": "Отметить нанятым",
+      "rejected": "Отклонить"
+    },
+    "failedToUpdateStatus": "Не удалось обновить статус",
+    "failedToSaveNotes": "Не удалось сохранить заметки"
   },
   "auth": {
     "pendingApproval": {

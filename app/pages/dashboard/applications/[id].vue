@@ -55,14 +55,14 @@ useSeoMeta({
 // ─────────────────────────────────────────────
 import { APPLICATION_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 
-const transitionLabels: Record<string, string> = {
-  new: 'Re-open',
-  screening: 'Move to Screening',
-  interview: 'Move to Interview',
-  offer: 'Make Offer',
-  hired: 'Mark Hired',
-  rejected: 'Reject',
-}
+const transitionLabels = computed<Record<string, string>>(() => ({
+  new: t('applications.transitions.new'),
+  screening: t('applications.transitions.screening'),
+  interview: t('applications.transitions.interview'),
+  offer: t('applications.transitions.offer'),
+  hired: t('applications.transitions.hired'),
+  rejected: t('applications.transitions.rejected'),
+}))
 
 const transitionClasses: Record<string, string> = {
   new: 'border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 text-surface-700 dark:text-surface-300 hover:border-surface-400 dark:hover:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800',
@@ -96,7 +96,7 @@ async function handleTransition(newStatus: string) {
     await updateApplication({ status: newStatus as any })
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to update status', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+    toast.error(t('applications.failedToUpdateStatus'), { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   } finally {
     isTransitioning.value = false
   }
@@ -148,7 +148,7 @@ async function saveNotes() {
     isEditingNotes.value = false
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to save notes', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+    toast.error(t('applications.failedToSaveNotes'), { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   } finally {
     isSavingNotes.value = false
   }
@@ -182,12 +182,12 @@ function formatResponseValue(value: unknown): string {
       class="mb-4 inline-flex items-center gap-1 rounded-full border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-3 py-1.5 text-sm text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
     >
       <ArrowLeft class="size-4" />
-      Back to Applications
+      {{ t('applications.back_to_applications') }}
     </NuxtLink>
 
     <!-- Loading -->
     <div v-if="fetchStatus === 'pending'" class="text-center py-12 text-surface-400">
-      Loading application…
+      {{ t('applications.loading') }}
     </div>
 
     <!-- Error / not found -->
@@ -195,8 +195,8 @@ function formatResponseValue(value: unknown): string {
       v-else-if="error"
       class="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700"
     >
-      {{ error.statusCode === 404 ? 'Application not found.' : 'Failed to load application.' }}
-      <NuxtLink :to="$localePath('/dashboard/applications')" class="underline ml-1">Back to Applications</NuxtLink>
+      {{ error.statusCode === 404 ? t('applications.not_found') : t('applications.failed_to_load') }}
+      <NuxtLink :to="$localePath('/dashboard/applications')" class="underline ml-1">{{ t('applications.back_to_applications') }}</NuxtLink>
     </div>
 
     <!-- Application detail -->
@@ -258,6 +258,7 @@ function formatResponseValue(value: unknown): string {
               :class="transitionDotClasses[nextStatus] ?? 'bg-surface-400 dark:bg-surface-500'"
             />
             {{ transitionLabels[nextStatus] ?? nextStatus }}
+
           </button>
           <button
             class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
@@ -274,11 +275,11 @@ function formatResponseValue(value: unknown): string {
         <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
           <div class="flex items-center gap-2 mb-3">
             <User class="size-4 text-surface-500 dark:text-surface-400" />
-            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Candidate</h2>
+            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('applications.candidate') }}</h2>
           </div>
           <dl class="grid grid-cols-1 gap-3 text-sm">
             <div>
-              <dt class="text-surface-400">Name</dt>
+              <dt class="text-surface-400">{{ t('applications.name') }}</dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium">
                 <NuxtLink
                   :to="$localePath(`/dashboard/candidates/${application.candidate.id}`)"
@@ -289,7 +290,7 @@ function formatResponseValue(value: unknown): string {
               </dd>
             </div>
             <div>
-              <dt class="text-surface-400">Email</dt>
+              <dt class="text-surface-400">{{ t('applications.email') }}</dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium">
                 <a
                   :href="`mailto:${application.candidate.email}`"
@@ -299,7 +300,7 @@ function formatResponseValue(value: unknown): string {
               </dd>
             </div>
             <div v-if="application.candidate.phone">
-              <dt class="text-surface-400">Phone</dt>
+              <dt class="text-surface-400">{{ t('applications.phone') }}</dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ application.candidate.phone }}</dd>
             </div>
           </dl>
@@ -309,11 +310,11 @@ function formatResponseValue(value: unknown): string {
         <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
           <div class="flex items-center gap-2 mb-3">
             <Briefcase class="size-4 text-surface-500 dark:text-surface-400" />
-            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Job</h2>
+            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('applications.job') }}</h2>
           </div>
           <dl class="grid grid-cols-1 gap-3 text-sm">
             <div>
-              <dt class="text-surface-400">Title</dt>
+              <dt class="text-surface-400">{{ t('applications.title') }}</dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium">
                 <NuxtLink
                   :to="$localePath(`/dashboard/jobs/${application.job.id}`)"
@@ -324,7 +325,7 @@ function formatResponseValue(value: unknown): string {
               </dd>
             </div>
             <div>
-              <dt class="text-surface-400">Job Status</dt>
+              <dt class="text-surface-400">{{ t('applications.job_status') }}</dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium capitalize">{{ application.job.status }}</dd>
             </div>
           </dl>
@@ -334,11 +335,11 @@ function formatResponseValue(value: unknown): string {
         <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 md:col-span-2">
           <div class="flex items-center gap-2 mb-3">
             <Hash class="size-4 text-surface-500 dark:text-surface-400" />
-            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Details</h2>
+            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('applications.details') }}</h2>
           </div>
           <dl class="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt class="text-surface-400">Score</dt>
+              <dt class="text-surface-400">{{ t('applications.score') }}</dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ application.score ?? '—' }}</dd>
             </div>
             <div>
@@ -352,13 +353,13 @@ function formatResponseValue(value: unknown): string {
               </dd>
             </div>
             <div v-if="!localStageId">
-              <dt class="text-surface-400">Status</dt>
+              <dt class="text-surface-400">{{ t('applications.status') }}</dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium capitalize">{{ application.status }}</dd>
             </div>
             <div>
               <dt class="text-surface-400 inline-flex items-center gap-1">
                 <Calendar class="size-3.5" />
-                Applied
+                {{ t('applications.applied_label') }}
               </dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium">
                 <TimelineDateLink :date="application.createdAt">{{ new Date(application.createdAt).toLocaleDateString() }}</TimelineDateLink>
@@ -367,7 +368,7 @@ function formatResponseValue(value: unknown): string {
             <div>
               <dt class="text-surface-400 inline-flex items-center gap-1">
                 <Clock class="size-3.5" />
-                Updated
+                {{ t('applications.updated_label') }}
               </dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium">
                 <TimelineDateLink :date="application.updatedAt">{{ new Date(application.updatedAt).toLocaleDateString() }}</TimelineDateLink>
@@ -382,7 +383,7 @@ function formatResponseValue(value: unknown): string {
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
             <MessageSquare class="size-4 text-surface-500 dark:text-surface-400" />
-            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Notes</h2>
+            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('applications.notes') }}</h2>
           </div>
           <button
             v-if="!isEditingNotes"
@@ -429,7 +430,7 @@ function formatResponseValue(value: unknown): string {
 
       <!-- Custom properties (Notion-style) -->
       <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4 mb-4">
-        <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-2 px-2">Properties</h2>
+        <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-2 px-2">{{ t('applications.properties') }}</h2>
         <PropertyBlock
           entity-type="application"
           :entity-id="applicationId"
@@ -460,7 +461,7 @@ function formatResponseValue(value: unknown): string {
         <div class="flex items-center gap-2 mb-3">
           <FileText class="size-4 text-surface-500 dark:text-surface-400" />
           <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-            Application Responses ({{ application.responses.length }})
+            {{ t('applications.responses_count') }} ({{ application.responses.length }})
           </h2>
         </div>
         <div class="space-y-3">
@@ -470,7 +471,7 @@ function formatResponseValue(value: unknown): string {
             class="border-b border-surface-100 dark:border-surface-800 pb-3 last:border-0 last:pb-0"
           >
             <dt class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-0.5">
-              {{ response.question?.label ?? 'Unknown question' }}
+              {{ response.question?.label ?? t('applications.unknown_question') }}
             </dt>
             <dd class="text-sm text-surface-700 dark:text-surface-200">
               {{ formatResponseValue(response.value) }}

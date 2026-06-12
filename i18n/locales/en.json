@@ -1718,7 +1718,32 @@
     "not_found": "Application not found.",
     "failed_to_load": "Failed to load application.",
     "job_status": "Job Status",
-    "applied": "Applied"
+    "applied": "Applied",
+    "loading": "Loading application…",
+    "candidate": "Candidate",
+    "job": "Job",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "title": "Title",
+    "details": "Details",
+    "score": "Score",
+    "status": "Status",
+    "applied_label": "Applied",
+    "updated_label": "Updated",
+    "notes": "Notes",
+    "responses_count": "Application Responses",
+    "unknown_question": "Unknown question",
+    "transitions": {
+      "new": "Re-open",
+      "screening": "Move to Screening",
+      "interview": "Move to Interview",
+      "offer": "Make Offer",
+      "hired": "Mark Hired",
+      "rejected": "Reject"
+    },
+    "failedToUpdateStatus": "Failed to update status",
+    "failedToSaveNotes": "Failed to save notes"
   },
   "auth": {
     "pendingApproval": {

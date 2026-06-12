@@ -1786,7 +1786,7 @@ function closeDocPreview() {
                     : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:text-surface-400 dark:hover:text-surface-300 dark:hover:border-surface-600'"
                   @click="detailTab = 'ai-analysis'"
                 >
-                  AI Analysis
+                  {{ t('dashboard.jobs.tabs.aiAnalysis') }}
                 </button>
                 <button
                   class="cursor-pointer px-3.5 py-2.5 text-sm font-medium transition-all duration-150 border-b-2 -mb-px"
