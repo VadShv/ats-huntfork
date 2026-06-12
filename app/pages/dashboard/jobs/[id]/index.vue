@@ -714,6 +714,7 @@ const isMutating = ref(false)
 // Interview scheduling sidebar
 // ─────────────────────────────────────────────
 
+const showCandidateDrawer = ref(false)
 const showInterviewSidebar = ref(false)
 const interviewTargetApplication = ref<{ id: string; name: string } | null>(null)
 
@@ -1664,6 +1665,15 @@ function closeDocPreview() {
                         <Brain v-else class="size-3" />
                         {{ isScoringIndividual ? t('dashboard.jobs.detail.scoring') : (currentSummary.score != null ? t('dashboard.jobs.detail.rescore') : t('dashboard.jobs.detail.scoreCandidate')) }}
                       </button>
+                      <button
+                        v-if="resolvedCurrentApplication?.candidate?.id"
+                        class="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium text-surface-500 transition-all duration-150 hover:text-brand-600 hover:bg-brand-50 dark:text-surface-400 dark:hover:text-brand-400 dark:hover:bg-brand-950/40"
+                        title="Открыть карточку кандидата"
+                        @click="showCandidateDrawer = true"
+                      >
+                        <UserRound class="size-3" />
+                        Карточка
+                      </button>
                       <TimelineDateLink :date="currentSummary.createdAt" class="inline-flex items-center gap-1 text-[11px] text-surface-400 dark:text-surface-500">
                         <Clock class="size-3" />
                         {{ t('dashboard.jobs.detail.applied') }} {{ new Date(currentSummary.createdAt).toLocaleDateString() }}
@@ -2522,6 +2532,13 @@ function closeDocPreview() {
     <!-- ═══════════════════════════════════════ -->
     <!-- MODALS                                   -->
     <!-- ═══════════════════════════════════════ -->
+
+    <!-- Candidate Detail Drawer -->
+    <CandidateDetailDrawer
+      v-if="showCandidateDrawer && resolvedCurrentApplication?.candidate?.id"
+      :candidate-id="resolvedCurrentApplication.candidate.id"
+      @close="showCandidateDrawer = false"
+    />
 
     <!-- Interview Schedule Sidebar -->
     <InterviewScheduleSidebar

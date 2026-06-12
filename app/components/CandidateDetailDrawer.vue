@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X, ExternalLink, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Download, Eye, AlertTriangle } from 'lucide-vue-next'
+import { X, ExternalLink, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Download, Eye, AlertTriangle, MapPin, Linkedin, Github, Send } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
 const props = defineProps<{
@@ -21,6 +21,10 @@ const { t } = useI18n()
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const activeTab = ref<'applications' | 'documents'>('applications')
+
+// ─── Resume version ───────────────────────────────────────────────────────────
+
+const selectedResumeVersionId = ref<string | null>(null)
 
 // ─── Apply to job modal ───────────────────────────────────────────────────────
 
@@ -161,14 +165,14 @@ onUnmounted(() => {
       >
         <!-- Header -->
         <header class="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-200 dark:border-surface-800 shrink-0">
-          <span class="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">Candidate Detail</span>
+          <span class="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">Карточка кандидата</span>
           <div class="flex items-center gap-2 shrink-0">
             <NuxtLink
               :to="localePath(`/dashboard/candidates/${candidateId}`)"
               class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
             >
               <ExternalLink class="size-3.5" />
-              Open full page
+              Полная страница
             </NuxtLink>
             <button
               class="rounded-lg p-1.5 text-surface-500 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
@@ -183,7 +187,7 @@ onUnmounted(() => {
         <div class="flex-1 overflow-y-auto p-5 space-y-4">
           <!-- Loading -->
           <div v-if="fetchStatus === 'pending'" class="text-center py-12 text-surface-400">
-            Loading candidate…
+            Загружаем…
           </div>
 
           <!-- Error -->
@@ -191,7 +195,7 @@ onUnmounted(() => {
             v-else-if="error"
             class="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700"
           >
-            {{ error.statusCode === 404 ? 'Candidate not found.' : 'Failed to load candidate.' }}
+            {{ error.statusCode === 404 ? 'Кандидат не найден.' : 'Не удалось загрузить кандидата.' }}
           </div>
 
           <template v-else-if="candidate">
@@ -218,11 +222,11 @@ onUnmounted(() => {
 
             <!-- Contact details -->
             <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
-              <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-3">Details</h3>
+              <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-3">Контакты и профиль</h3>
               <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
                   <dt class="text-surface-400">Email</dt>
-                  <dd class="text-surface-700 dark:text-surface-200 font-medium">
+                  <dd class="text-surface-700 dark:text-surface-200 font-medium truncate">
                     <a
                       :href="`mailto:${candidate.email}`"
                       target="_blank"
@@ -231,29 +235,66 @@ onUnmounted(() => {
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-surface-400">Phone</dt>
+                  <dt class="text-surface-400">Телефон</dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ candidate.phone || '—' }}</dd>
                 </div>
+                <div v-if="(candidate as any).city">
+                  <dt class="text-surface-400 inline-flex items-center gap-1">
+                    <MapPin class="size-3.5" />Город
+                  </dt>
+                  <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ (candidate as any).city }}</dd>
+                </div>
                 <div v-if="candidate.gender">
-                  <dt class="text-surface-400">Gender</dt>
+                  <dt class="text-surface-400">Пол</dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">
                     {{ genderLabels[candidate.gender] ?? candidate.gender }}
                   </dd>
                 </div>
                 <div v-if="candidate.dateOfBirth">
-                  <dt class="text-surface-400">Date of Birth</dt>
+                  <dt class="text-surface-400">Дата рождения</dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">
                     {{ formatDate(candidate.dateOfBirth) }}
                   </dd>
                 </div>
-                <div v-if="candidate.displayName">
-                  <dt class="text-surface-400">Display Name</dt>
-                  <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ candidate.displayName }}</dd>
+                <div v-if="(candidate as any).linkedin" class="sm:col-span-2">
+                  <dt class="text-surface-400 inline-flex items-center gap-1">
+                    <Linkedin class="size-3.5" />LinkedIn
+                  </dt>
+                  <dd class="text-surface-700 dark:text-surface-200 font-medium truncate">
+                    <a
+                      :href="(candidate as any).linkedin.startsWith('http') ? (candidate as any).linkedin : `https://${(candidate as any).linkedin}`"
+                      target="_blank"
+                      class="hover:text-brand-600 dark:hover:text-brand-400 hover:underline"
+                    >{{ (candidate as any).linkedin }}</a>
+                  </dd>
+                </div>
+                <div v-if="(candidate as any).telegram">
+                  <dt class="text-surface-400 inline-flex items-center gap-1">
+                    <Send class="size-3.5" />Telegram
+                  </dt>
+                  <dd class="text-surface-700 dark:text-surface-200 font-medium truncate">
+                    <a
+                      :href="`https://t.me/${(candidate as any).telegram.replace(/^@/, '')}`"
+                      target="_blank"
+                      class="hover:text-brand-600 dark:hover:text-brand-400 hover:underline"
+                    >{{ (candidate as any).telegram }}</a>
+                  </dd>
+                </div>
+                <div v-if="(candidate as any).github">
+                  <dt class="text-surface-400 inline-flex items-center gap-1">
+                    <Github class="size-3.5" />GitHub
+                  </dt>
+                  <dd class="text-surface-700 dark:text-surface-200 font-medium truncate">
+                    <a
+                      :href="(candidate as any).github.startsWith('http') ? (candidate as any).github : `https://github.com/${(candidate as any).github.replace(/^@/, '')}`"
+                      target="_blank"
+                      class="hover:text-brand-600 dark:hover:text-brand-400 hover:underline"
+                    >{{ (candidate as any).github }}</a>
+                  </dd>
                 </div>
                 <div>
                   <dt class="text-surface-400 inline-flex items-center gap-1">
-                    <Calendar class="size-3.5" />
-                    {{ $t('dashboard.candidates.fields.added') }}
+                    <Calendar class="size-3.5" />Добавлен
                   </dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">
                     <TimelineDateLink :date="candidate.createdAt">{{ new Date(candidate.createdAt).toLocaleDateString() }}</TimelineDateLink>
@@ -261,14 +302,33 @@ onUnmounted(() => {
                 </div>
                 <div>
                   <dt class="text-surface-400 inline-flex items-center gap-1">
-                    <Clock class="size-3.5" />
-                    Updated
+                    <Clock class="size-3.5" />Обновлён
                   </dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">
                     <TimelineDateLink :date="candidate.updatedAt">{{ new Date(candidate.updatedAt).toLocaleDateString() }}</TimelineDateLink>
                   </dd>
                 </div>
               </dl>
+            </div>
+
+            <!-- Резюме с hh.ru -->
+            <div
+              v-if="(candidate as any).hhResumeId"
+              class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5"
+            >
+              <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-3 flex items-center justify-between gap-2">
+                <span>Резюме с hh.ru</span>
+                <CandidateResumeVersionSelector
+                  :candidate-id="candidateId"
+                  v-model="selectedResumeVersionId"
+                />
+              </h3>
+              <CandidateHhResumeView
+                :candidate-id="candidateId"
+                :has-snapshot="true"
+                :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
+                :version-id="selectedResumeVersionId"
+              />
             </div>
 
             <!-- Properties -->
