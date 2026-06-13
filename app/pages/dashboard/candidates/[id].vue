@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge } from 'lucide-vue-next'
+import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall } from 'lucide-vue-next'
 import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
@@ -455,6 +455,37 @@ async function removeFraudFlag() {
     isUpdatingFraud.value = false
   }
 }
+
+// ── Раскрытие контактов hh.ru (тратит платную квоту) ───────────────────────
+const isOpeningHhContacts = ref(false)
+
+// Показываем кнопку, если у кандидата есть hh-резюме И контакты ещё «закрыты»
+// (плейсхолдер ФИО или email вида hh-*@noemail.local).
+const canOpenHhContacts = computed(() => {
+  const c = candidate.value
+  if (!c || !c.hhResumeId) return false
+  const placeholderName = c.firstName === 'Кандидат hh.ru'
+  const placeholderEmail = !!c.email && c.email.startsWith('hh-') && c.email.endsWith('@noemail.local')
+  return placeholderName || placeholderEmail
+})
+
+async function openHhContacts() {
+  if (isOpeningHhContacts.value) return
+  if (!confirm('Открыть контакты hh.ru? Будет списан 1 платный просмотр контактов.')) return
+  isOpeningHhContacts.value = true
+  try {
+    await $fetch(`/api/candidates/${candidateId}/open-hh-contacts`, { method: 'POST' })
+    await refresh()
+    toast.success?.('Контакты hh.ru открыты')
+  }
+  catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error('Не удалось открыть контакты hh.ru', { message: err.data?.statusMessage })
+  }
+  finally {
+    isOpeningHhContacts.value = false
+  }
+}
 </script>
 
 <template>
@@ -545,7 +576,17 @@ async function removeFraudFlag() {
               </div>
             </div>
 
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+              <button
+                v-if="canOpenHhContacts"
+                :disabled="isOpeningHhContacts"
+                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-950 px-3 py-1.5 text-sm font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900 transition-colors disabled:opacity-50"
+                title="Раскрыть ФИО, email и телефон с hh.ru — списывает 1 платный просмотр"
+                @click="openHhContacts"
+              >
+                <PhoneCall class="size-3.5" />
+                {{ isOpeningHhContacts ? 'Открываем…' : 'Открыть контакты hh.ru' }}
+              </button>
               <button
                 class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 title="Слить в этого кандидата другого"

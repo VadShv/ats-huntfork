@@ -122,26 +122,17 @@ export default defineEventHandler(async (event) => {
   }
   const hhAccountId = searchRow[0]!.hhAccountId
 
-  // 3. Тянем полное резюме (тратит квоту контактов, если есть платная подписка)
+  // 3. Тянем полное резюме hh.ru БЕЗ раскрытия контактов (квота НЕ тратится).
   //
-  // Алгоритм:
-  //   а) Тянем краткое /resumes/{id} — там могут лежать `actions.get_with_contacts.url`.
-  //   б) Если есть — дёргаем эту ссылку: hh откроет контакты и спишет квоту.
-  //   в) Если ссылки нет (нет подписки «Доступ к базе резюме») — работаем
-  //      с тем, что отдало hh: ФИО будут null, контакты тоже.
-  //      Импорт всё равно проходит — рекрутер видит полное резюме без контактов.
+  // Раньше здесь автоматически дёргался `actions.get_with_contacts.url` — это
+  // сжигало платные просмотры контактов. Теперь импорт всегда дешёвый:
+  // получаем публичные данные резюме (опыт, навыки, образование, заголовок),
+  // а ФИО и контакты остаются «закрытыми». Рекрутер потом сам нажимает
+  // кнопку «Открыть контакты hh.ru» на странице кандидата — там и тратится квота.
   const accessToken = await getValidAccessToken(hhAccountId)
   let resume: HhResumeFull
   try {
-    const baseResume = await apiGet<HhResumeFull>(`/resumes/${sc.hhResumeId}`, accessToken)
-    const contactsUrl = baseResume.actions?.get_with_contacts?.url
-    if (contactsUrl) {
-      // Платная подписка → раскрываем контакты. Это и есть «потрачена квота».
-      resume = await apiGet<HhResumeFull>(contactsUrl, accessToken)
-    } else {
-      // Бесплатный аккаунт hh — используем то, что есть.
-      resume = baseResume
-    }
+    resume = await apiGet<HhResumeFull>(`/resumes/${sc.hhResumeId}`, accessToken)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     await db.insert(hhActionLog).values({
