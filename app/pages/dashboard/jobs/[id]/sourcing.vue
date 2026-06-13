@@ -237,6 +237,17 @@ async function toggleAutoRun(search: SavedSearch) {
 }
 
 // ─── Лента кандидатов ───
+interface ExistingCandidateInfo {
+  id: string
+  firstName: string
+  lastName: string
+  /** Источник последнего application: 'hh' | 'hh_sourcing' | 'manual' | 'api' | null */
+  lastApplicationSource: string | null
+  applicationCount: number
+  hasApplicationOnThisJob: boolean
+  lastApplicationCreatedAt: string | null
+}
+
 interface SourcingCandidate {
   id: string
   savedSearchId: string
@@ -259,6 +270,8 @@ interface SourcingCandidate {
   reviewNote: string | null
   firstSeenAt: string
   lastSeenAt: string
+  /** Sprint 1: если этот резюме уже есть в БД организации — инфо о кандидате/откликах. */
+  existingCandidate: ExistingCandidateInfo | null
 }
 
 // 'Активные' по умолчанию — это рабочий список рекрутера: новые + просмотренные + одобренные.
@@ -314,7 +327,21 @@ async function approveCandidate(c: SourcingCandidate) {
 const importingId = ref<string | null>(null)
 async function importToPipeline(c: SourcingCandidate) {
   if (importingId.value) return
-  if (!confirm('Импортировать в воронку? Будет потрачен лимит контактов hh.ru на получение резюме.')) return
+  // Sprint 1: если кандидат уже в БД и на этой же вакансии — не импортируем, открываем карточку.
+  if (c.existingCandidate?.hasApplicationOnThisJob) {
+    navigateTo(`/dashboard/candidates/${c.existingCandidate.id}`)
+    return
+  }
+  // Если кандидат уже в БД (но не на этой вакансии) — предупреждаем.
+  if (c.existingCandidate) {
+    const ec = c.existingCandidate
+    const fio = `${ec.firstName} ${ec.lastName}`.trim() || 'этот кандидат'
+    const word = ec.applicationCount === 1 ? 'отклик' : (ec.applicationCount >= 2 && ec.applicationCount <= 4 ? 'отклика' : 'откликов')
+    const msg = `Этот кандидат уже есть в вашей базе: ${fio} (${ec.applicationCount} ${word}). Добавить его на текущую вакансию? Будет потрачен лимит контактов hh.ru.`
+    if (!confirm(msg)) return
+  } else {
+    if (!confirm('Импортировать в воронку? Будет потрачен лимит контактов hh.ru на получение резюме.')) return
+  }
   importingId.value = c.id
   try {
     const res = await $fetch(`/api/sourcing-candidates/${c.id}/import`, { method: 'POST' })
@@ -557,6 +584,23 @@ const stateBadgeClass: Record<string, string> = {
                   <span v-if="c.score !== null" class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
                     Score: {{ c.score }}
                   </span>
+                  <!-- Sprint 1: бейджи дубля — красный, если уже на этой вакансии; жёлтый, если в базе по другой. -->
+                  <span
+                    v-if="c.existingCandidate?.hasApplicationOnThisJob"
+                    class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800"
+                    :title="`Уже в воронке этой вакансии: ${c.existingCandidate.firstName} ${c.existingCandidate.lastName}`"
+                  >
+                    <AlertTriangle class="h-3 w-3" />
+                    Уже в воронке
+                  </span>
+                  <span
+                    v-else-if="c.existingCandidate"
+                    class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900"
+                    :title="`Уже в базе: ${c.existingCandidate.firstName} ${c.existingCandidate.lastName}, откликов: ${c.existingCandidate.applicationCount}`"
+                  >
+                    <AlertTriangle class="h-3 w-3" />
+                    Уже в базе
+                  </span>
                 </div>
                 <div class="text-sm text-slate-600 mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
                   <span v-if="c.snapshot.areaName">📍 {{ c.snapshot.areaName }}</span>
@@ -573,8 +617,17 @@ const stateBadgeClass: Record<string, string> = {
                 </div>
               </div>
               <div class="flex flex-col gap-1.5">
+                <!-- Sprint 1: если уже на этой вакансии — ведём на карточку кандидата (импорт не нужен). -->
+                <NuxtLink
+                  v-if="c.state !== 'imported' && c.existingCandidate?.hasApplicationOnThisJob"
+                  :to="`/dashboard/candidates/${c.existingCandidate.id}`"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium bg-slate-800 text-white hover:bg-slate-900"
+                >
+                  <ExternalLink class="h-3.5 w-3.5" />
+                  Открыть карточку
+                </NuxtLink>
                 <button
-                  v-if="c.state !== 'imported'"
+                  v-else-if="c.state !== 'imported'"
                   class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
                   :disabled="importingId === c.id"
                   @click="importToPipeline(c)"
