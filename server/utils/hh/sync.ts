@@ -17,7 +17,7 @@
  *
  * Все шаги делаем «best-effort»: ошибка одного отклика не валит весь синк.
  */
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import {
   application, applicationStageHistory, candidate, document, hhAccount,
   hhNegotiation, hhVacancyLink, job,
@@ -540,11 +540,25 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
   }
 
   // ── 4. Финальный апдейт link ─────────────────────────────────────────
+  // importedCount = АБСОЛЮТНОЕ количество hh_negotiation для этого линка.
+  // Раньше тут было (link.importedCount ?? 0) + result.created — но эта
+  // семантика ломалась в двух кейсах:
+  //   а) первый синк после ребинда: negotiations могли остаться от старого
+  //      линка (если каскад не отрабатывал), и тогда все попадали в ветку
+  //      `existing` (result.updated), а result.created оставался 0 — счётчик
+  //      навсегда фиксировался на нуле, пользователь видел "0 откликов";
+  //   б) бэкфилл невозможен — мы никогда не пересчитываем фактическое число.
+  // Теперь источник истины — реальный COUNT(*) из hh_negotiation.
+  const [{ cnt: actualImportedCount } = { cnt: 0 }] = await db
+    .select({ cnt: sql<number>`COUNT(*)::int` })
+    .from(hhNegotiation)
+    .where(eq(hhNegotiation.hhVacancyLinkId, link.id))
+
   await db.update(hhVacancyLink).set({
     lastSyncAt: new Date(),
     lastSyncStatus: result.failed === 0 ? 'ok' : 'partial',
     lastSyncError: null,
-    importedCount: (link.importedCount ?? 0) + result.created,
+    importedCount: actualImportedCount,
     updatedAt: new Date(),
   }).where(eq(hhVacancyLink.id, link.id))
 
