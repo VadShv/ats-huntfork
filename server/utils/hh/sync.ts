@@ -31,7 +31,7 @@ import { getOrgGroupId, resolveCandidateBySignals, upsertCandidateIdentities } f
 import { appendResumeVersionIfChanged } from '../resume-version/append'
 import { enqueueFuzzyDetect } from '../dedup/workers/fuzzy-job'
 
-interface HhResumeApi {
+export interface HhResumeApi {
   id: string
   first_name?: string
   last_name?: string
@@ -76,7 +76,7 @@ interface HhNegotiationsPage {
 }
 
 /** Превращаем структурированное резюме hh.ru в плоский текст для AI-скоринга. */
-function resumeToText(r: HhResumeApi): string {
+export function resumeToText(r: HhResumeApi): string {
   const lines: string[] = []
   const fullName = [r.last_name, r.first_name, r.middle_name].filter(Boolean).join(' ').trim()
   if (fullName) lines.push(fullName)
@@ -111,7 +111,7 @@ function resumeToText(r: HhResumeApi): string {
 }
 
 /** Извлекаем email/phone из contact[]. */
-function extractContacts(r: HhResumeApi): { email?: string, phone?: string } {
+export function extractContacts(r: HhResumeApi): { email?: string, phone?: string } {
   let email: string | undefined
   let phone: string | undefined
   for (const c of r.contact || []) {
