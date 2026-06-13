@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Users, SlidersHorizontal, X, Check, ChevronsUpDown, ChevronUp, ChevronDown, UserRound, Sparkles, Loader2, ChevronDown as ChevronDownIcon, Snowflake } from 'lucide-vue-next'
+import { Users, SlidersHorizontal, X, Check, ChevronsUpDown, ChevronUp, ChevronDown, UserRound, Sparkles, Loader2, ChevronDown as ChevronDownIcon, Snowflake, Link2, Unlink2 } from 'lucide-vue-next'
 import { useLocalStorageState } from '~/composables/useLocalStorageState'
 import { getApplicationSourceMeta, type ApplicationSource } from '~/composables/useApplicationSource'
 
@@ -319,6 +319,123 @@ async function runBatchScore(mode: 'all' | 'rescore_all' | 'selected') {
   }
 }
 
+// Статус подключения hh.ru — нужен, чтобы показывать кнопку «Привязать»
+// только когда у пользователя есть активный OAuth-аккаунт.
+const { data: hhStatusData } = useFetch<{ configured: boolean, connected: boolean }>('/api/hh/status', {
+  key: `hh-status-${jobId}`,
+  headers: useRequestHeaders(['cookie']),
+  default: () => ({ configured: false, connected: false }),
+})
+const hhConnected = computed(() => !!hhStatusData.value?.connected)
+
+// ── Привязка существующей вакансии к hh.ru ────────────────────────────────
+const linkModalOpen = ref(false)
+const linkUrlInput = ref('')
+const linkError = ref('')
+const isLinking = ref(false)
+const linkPreview = ref<null | { id: string, url: string, title: string }>(null)
+
+function openLinkModal() {
+  linkUrlInput.value = ''
+  linkError.value = ''
+  linkPreview.value = null
+  linkModalOpen.value = true
+}
+
+function closeLinkModal() {
+  if (isLinking.value) return
+  linkModalOpen.value = false
+}
+
+async function previewVacancy() {
+  linkError.value = ''
+  const url = linkUrlInput.value.trim()
+  if (!url) {
+    linkError.value = 'Вставьте ссылку на вакансию hh.ru'
+    return
+  }
+  isLinking.value = true
+  try {
+    const parsed = await $fetch<{
+      hhVacancyId: string
+      hhVacancyUrl: string
+      title: string
+    }>('/api/hh/parse-vacancy', { method: 'POST', body: { url } })
+    linkPreview.value = {
+      id: parsed.hhVacancyId,
+      url: parsed.hhVacancyUrl,
+      title: parsed.title,
+    }
+  }
+  catch (err: any) {
+    linkError.value = err?.data?.statusMessage || err?.message || 'Не удалось распознать вакансию'
+  }
+  finally {
+    isLinking.value = false
+  }
+}
+
+async function confirmLink() {
+  const preview = linkPreview.value
+  if (!preview) return
+  isLinking.value = true
+  try {
+    await $fetch('/api/hh/link-vacancy', {
+      method: 'POST',
+      body: {
+        jobId,
+        hhVacancyId: preview.id,
+        hhVacancyUrl: preview.url,
+        hhVacancyTitle: preview.title,
+      },
+    })
+    toast.add({
+      title: 'Вакансия привязана к hh.ru',
+      description: `«${preview.title}» (#${preview.id}). Запускаем первый синк…`,
+      color: 'success',
+    })
+    linkModalOpen.value = false
+    await refreshHhLink()
+    // Автоматически запустим синк, чтобы сразу подтянуть отклики
+    const link = hhLink.value
+    if (link) {
+      isSyncingHh.value = true
+      try {
+        await $fetch(`/api/hh/sync/${link.id}`, { method: 'POST' })
+        await Promise.all([refreshHhLink(), refreshApps()])
+      }
+      catch { /* молча — пользователь увидит плашку и может синкнуть руками */ }
+      finally { isSyncingHh.value = false }
+    }
+  }
+  catch (err: any) {
+    linkError.value = err?.data?.statusMessage || err?.message || 'Не удалось привязать'
+  }
+  finally {
+    isLinking.value = false
+  }
+}
+
+const isUnlinking = ref(false)
+async function unlinkVacancy() {
+  const link = hhLink.value
+  if (!link || isUnlinking.value) return
+  if (!confirm(`Отвязать вакансию от hh.ru?\n\nИмпортированные отклики останутся в Huntfork, но автосинк прекратится.`)) return
+  isUnlinking.value = true
+  try {
+    await $fetch(`/api/hh-vacancy-links/${link.id}`, { method: 'DELETE' })
+    toast.add({ title: 'Вакансия отвязана от hh.ru', color: 'success' })
+    await refreshHhLink()
+  }
+  catch (err: any) {
+    const msg = err?.data?.statusMessage || err?.message || 'Не удалось отвязать'
+    toast.add({ title: 'Ошибка', description: msg, color: 'error' })
+  }
+  finally {
+    isUnlinking.value = false
+  }
+}
+
 // Ручной синк откликов с hh.ru по этой вакансии (тянет по всем коллекциям)
 async function runHhSync() {
   const link = hhLink.value
@@ -619,6 +736,42 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
           >
             <span>🔍 Сорсинг</span>
           </NuxtLink>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-2.5 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-50 hover:text-danger-700 dark:hover:bg-surface-800 dark:hover:text-danger-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="isUnlinking"
+            title="Отвязать вакансию от hh.ru (отклики останутся)"
+            @click="unlinkVacancy"
+          >
+            <Loader2 v-if="isUnlinking" class="size-3.5 animate-spin" />
+            <Unlink2 v-else class="size-3.5" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Плашка «Привязать к hh.ru» — показываем, когда связи нет и OAuth подключён -->
+      <div
+        v-else-if="hhConnected"
+        class="mb-4 flex flex-col gap-3 rounded-xl border border-dashed border-red-200/80 bg-red-50/30 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/10 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div class="flex items-start gap-3 min-w-0">
+          <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold text-xs">
+            hh
+          </div>
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-surface-900 dark:text-surface-100">Эта вакансия не связана с hh.ru</div>
+            <div class="text-xs text-surface-600 dark:text-surface-400 mt-0.5">Привяжите её к оригиналу на hh.ru, чтобы включить импорт откликов и сорсинг.</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-medium transition-colors"
+            @click="openLinkModal"
+          >
+            <Link2 class="size-3.5" />
+            <span>Привязать к hh.ru</span>
+          </button>
         </div>
       </div>
 
@@ -1109,5 +1262,97 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
       @close="closeSidebar"
       @updated="handleSidebarUpdated"
     />
+
+    <!-- Модалка привязки вакансии к hh.ru -->
+    <div
+      v-if="linkModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      @click.self="closeLinkModal"
+    >
+      <div class="w-full max-w-lg rounded-2xl bg-white dark:bg-surface-900 shadow-2xl border border-surface-200 dark:border-surface-800 overflow-hidden">
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-200 dark:border-surface-800">
+          <div class="flex items-center gap-2.5">
+            <div class="flex size-8 items-center justify-center rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold text-xs">hh</div>
+            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Привязать вакансию к hh.ru</h2>
+          </div>
+          <button
+            type="button"
+            class="inline-flex size-7 items-center justify-center rounded-md text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors disabled:opacity-60"
+            :disabled="isLinking"
+            @click="closeLinkModal"
+          >
+            <X class="size-4" />
+          </button>
+        </div>
+
+        <div class="px-5 py-4 space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1.5">Ссылка на вакансию на hh.ru</label>
+            <input
+              v-model="linkUrlInput"
+              type="url"
+              placeholder="https://hh.ru/vacancy/12345678"
+              class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-950 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:border-red-400 focus:ring-2 focus:ring-red-200 dark:focus:ring-red-900/40 focus:outline-none transition-colors"
+              :disabled="isLinking || !!linkPreview"
+              @keydown.enter.prevent="linkPreview ? confirmLink() : previewVacancy()"
+            >
+            <p class="mt-1 text-[11px] text-surface-500 dark:text-surface-400">Поддерживаются форматы: hh.ru/vacancy/123, spb.hh.ru/vacancy/123 или просто цифровой ID.</p>
+          </div>
+
+          <div
+            v-if="linkError"
+            class="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-xs text-danger-700 dark:border-danger-800/60 dark:bg-danger-950/40 dark:text-danger-300"
+          >
+            {{ linkError }}
+          </div>
+
+          <div
+            v-if="linkPreview"
+            class="rounded-lg border border-success-200 bg-success-50 px-3 py-3 dark:border-success-800/60 dark:bg-success-950/30"
+          >
+            <div class="flex items-start gap-2.5">
+              <Check class="size-4 mt-0.5 text-success-700 dark:text-success-300 shrink-0" />
+              <div class="min-w-0">
+                <div class="text-sm font-semibold text-success-900 dark:text-success-100 break-words">{{ linkPreview.title }}</div>
+                <div class="text-[11px] text-success-700 dark:text-success-400 mt-0.5">ID: #{{ linkPreview.id }}</div>
+                <a :href="linkPreview.url" target="_blank" rel="noopener" class="text-[11px] text-success-700 dark:text-success-400 underline decoration-dotted mt-0.5 inline-block">Открыть на hh.ru</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-surface-200 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-950/30">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors disabled:opacity-60"
+            :disabled="isLinking"
+            @click="closeLinkModal"
+          >
+            Отмена
+          </button>
+          <button
+            v-if="!linkPreview"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="isLinking || !linkUrlInput.trim()"
+            @click="previewVacancy"
+          >
+            <Loader2 v-if="isLinking" class="size-3.5 animate-spin" />
+            <span>Проверить</span>
+          </button>
+          <button
+            v-else
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="isLinking"
+            @click="confirmLink"
+          >
+            <Loader2 v-if="isLinking" class="size-3.5 animate-spin" />
+            <Link2 v-else class="size-3.5" />
+            <span>Привязать</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
