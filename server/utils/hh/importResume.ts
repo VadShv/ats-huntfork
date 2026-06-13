@@ -16,7 +16,7 @@
  *   • не вызывает auto-scoring (его триггерит вызывающий код, если нужно)
  */
 import { and, eq } from 'drizzle-orm'
-import { db } from '../../database/client'
+import { db } from '../db'
 import {
   application, applicationStageHistory, candidate, document, hhAccount, job,
 } from '../../database/schema'
