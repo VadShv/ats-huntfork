@@ -459,6 +459,31 @@ async function removeFraudFlag() {
 // ── Раскрытие контактов hh.ru (тратит платную квоту) ───────────────────────
 const isOpeningHhContacts = ref(false)
 
+// Sprint 2: после раскрытия контактов показываем модалку возможных дублей (по свежему email/phone/ФИО+ДР+город).
+interface PossibleDuplicate {
+  candidateId: string
+  firstName: string | null
+  lastName: string | null
+  email: string | null
+  phone: string | null
+  matchKind: 'exact-email' | 'exact-phone' | 'fuzzy'
+  score: number | null
+  crossOrg: boolean
+}
+const possibleDuplicates = ref<PossibleDuplicate[]>([])
+const showDuplicatesModal = ref(false)
+
+function duplicateMatchLabel(d: PossibleDuplicate): string {
+  if (d.matchKind === 'exact-email') return 'Совпадение по email'
+  if (d.matchKind === 'exact-phone') return 'Совпадение по телефону'
+  return `Похож по ФИО/ДР (score ${d.score})`
+}
+
+function openMergeFromDuplicates() {
+  showDuplicatesModal.value = false
+  showMergeModal.value = true
+}
+
 // Показываем кнопку, если у кандидата есть hh-резюме И контакты ещё «закрыты»
 // (плейсхолдер ФИО или email вида hh-*@noemail.local).
 const canOpenHhContacts = computed(() => {
@@ -474,9 +499,22 @@ async function openHhContacts() {
   if (!confirm('Открыть контакты hh.ru? Будет списан 1 платный просмотр контактов.')) return
   isOpeningHhContacts.value = true
   try {
-    await $fetch(`/api/candidates/${candidateId}/open-hh-contacts`, { method: 'POST' })
+    const res = await $fetch<{
+      ok: true
+      candidateId: string
+      firstName?: string
+      lastName?: string
+      email?: string
+      phone?: string | null
+      possibleDuplicates?: PossibleDuplicate[]
+    }>(`/api/candidates/${candidateId}/open-hh-contacts`, { method: 'POST' })
     await refresh()
     toast.success?.('Контакты hh.ru открыты')
+    // Sprint 2: показываем модалку возможных дублей, если нашлись похожие по свежим контактам.
+    if (res.possibleDuplicates && res.possibleDuplicates.length > 0) {
+      possibleDuplicates.value = res.possibleDuplicates
+      showDuplicatesModal.value = true
+    }
   }
   catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
@@ -858,6 +896,79 @@ async function openHhContacts() {
           @close="showMergeModal = false"
           @merged="handleMerged"
         />
+
+        <!-- Sprint 2: Модалка возможных дублей после раскрытия контактов hh.ru -->
+        <Teleport to="body">
+          <div
+            v-if="showDuplicatesModal"
+            class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+            @click.self="showDuplicatesModal = false"
+          >
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+              <div class="flex items-center justify-between p-5 border-b border-slate-200">
+                <div class="flex items-center gap-2">
+                  <AlertTriangle class="size-5 text-amber-500" />
+                  <h3 class="text-lg font-semibold text-slate-900">Найдены возможные дубли</h3>
+                </div>
+                <button class="text-slate-400 hover:text-slate-800" @click="showDuplicatesModal = false">
+                  <X class="size-5" />
+                </button>
+              </div>
+              <div class="p-5 overflow-y-auto">
+                <p class="text-sm text-slate-600 mb-4">
+                  После раскрытия контактов мы проверили базу и нашли похожих кандидатов по email, телефону или ФИО+ДР+город. Сверьте данные и, если это один и тот же человек, выполните слияние.
+                </p>
+                <ul class="space-y-2">
+                  <li
+                    v-for="d in possibleDuplicates"
+                    :key="d.candidateId"
+                    class="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3"
+                  >
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-medium text-slate-900">{{ d.firstName }} {{ d.lastName }}</span>
+                        <span
+                          class="text-xs px-2 py-0.5 rounded-full"
+                          :class="d.matchKind === 'fuzzy' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'"
+                        >
+                          {{ duplicateMatchLabel(d) }}
+                        </span>
+                        <span v-if="d.crossOrg" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                          Другая организация
+                        </span>
+                      </div>
+                      <div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-3">
+                        <span v-if="d.email">✉ {{ d.email }}</span>
+                        <span v-if="d.phone">☎ {{ d.phone }}</span>
+                      </div>
+                    </div>
+                    <NuxtLink
+                      :to="$localePath(`/dashboard/candidates/${d.candidateId}`)"
+                      target="_blank"
+                      class="text-xs text-blue-600 hover:text-blue-800 underline whitespace-nowrap"
+                    >
+                      Открыть
+                    </NuxtLink>
+                  </li>
+                </ul>
+              </div>
+              <div class="flex items-center justify-end gap-2 p-5 border-t border-slate-200 bg-slate-50">
+                <button
+                  class="px-4 py-2 rounded text-sm text-slate-700 hover:bg-slate-200"
+                  @click="showDuplicatesModal = false"
+                >
+                  Скрыть
+                </button>
+                <button
+                  class="px-4 py-2 rounded text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
+                  @click="openMergeFromDuplicates"
+                >
+                  Открыть слияние
+                </button>
+              </div>
+            </div>
+          </div>
+        </Teleport>
 
         <!-- Interview Schedule Sidebar -->
         <InterviewScheduleSidebar

@@ -24,6 +24,7 @@ import {
   hhSavedSearch,
   hhSourcingCandidate,
 } from '../../../database/schema'
+import { findDuplicatesForDraft } from '../../../utils/dedup/check'
 import { apiGet } from '../../../utils/hh/client'
 import { getValidAccessToken } from '../../../utils/hh/tokens'
 
@@ -264,12 +265,80 @@ export default defineEventHandler(async (event) => {
     } as Record<string, unknown>,
   })
 
+  // 7. Sprint 2: после раскрытия контактов ищем возможные дубли по свежему email/phone/ФИО+ДР+город.
+  // Не создаём жёстких candidate_duplicate_candidate пар — только показываем в UI модалку merge/dismiss.
+  // Исключаем кандидата самого себя и merged-пары.
+  const draftFirstName = (patch.firstName as string | undefined) ?? cand.firstName
+  const draftLastName = (patch.lastName as string | undefined) ?? cand.lastName
+  const draftEmail = (patch.email as string | undefined) ?? cand.email
+  const draftPhone = (patch.phone as string | undefined) ?? cand.phone
+  const draftDob = cand.dateOfBirth ?? null
+  // Город на этом этапе берём из hh resume.area.name (поле похоже лежит в candidate.city)
+  const draftCity = cand.city ?? null
+
+  let possibleDuplicates: Array<{
+    candidateId: string
+    firstName: string | null
+    lastName: string | null
+    email: string | null
+    phone: string | null
+    matchKind: 'exact-email' | 'exact-phone' | 'fuzzy'
+    score: number | null
+    crossOrg: boolean
+  }> = []
+
+  try {
+    const dups = await findDuplicatesForDraft(orgId, {
+      firstName: draftFirstName,
+      lastName: draftLastName,
+      email: draftEmail,
+      phone: draftPhone,
+      dateOfBirth: draftDob,
+      city: draftCity,
+    })
+    const seen = new Set<string>()
+    for (const e of dups.exact) {
+      if (e.candidateId === id) continue
+      if (seen.has(e.candidateId)) continue
+      seen.add(e.candidateId)
+      possibleDuplicates.push({
+        candidateId: e.candidateId,
+        firstName: e.firstName,
+        lastName: e.lastName,
+        email: e.email,
+        phone: e.phone,
+        matchKind: e.kind === 'email' ? 'exact-email' : 'exact-phone',
+        score: null,
+        crossOrg: e.crossOrg,
+      })
+    }
+    for (const f of dups.fuzzy) {
+      if (f.candidateId === id) continue
+      if (seen.has(f.candidateId)) continue
+      seen.add(f.candidateId)
+      possibleDuplicates.push({
+        candidateId: f.candidateId,
+        firstName: f.firstName,
+        lastName: f.lastName,
+        email: f.email,
+        phone: f.phone,
+        matchKind: 'fuzzy',
+        score: f.score,
+        crossOrg: f.crossOrg,
+      })
+    }
+  } catch (err) {
+    // Не блокируем основной ответ из-за ошибки дедупа.
+    console.error('[open-hh-contacts] dedup failed:', err)
+  }
+
   return {
     ok: true as const,
     candidateId: id,
-    firstName: (patch.firstName as string | undefined) ?? cand.firstName,
-    lastName: (patch.lastName as string | undefined) ?? cand.lastName,
-    email: (patch.email as string | undefined) ?? cand.email,
-    phone: (patch.phone as string | undefined) ?? cand.phone ?? null,
+    firstName: draftFirstName,
+    lastName: draftLastName,
+    email: draftEmail,
+    phone: draftPhone ?? null,
+    possibleDuplicates,
   }
 })
