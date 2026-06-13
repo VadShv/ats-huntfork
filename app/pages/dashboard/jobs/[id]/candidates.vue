@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Users, SlidersHorizontal, X, Check, ChevronsUpDown, ChevronUp, ChevronDown, UserRound, Sparkles, Loader2, ChevronDown as ChevronDownIcon } from 'lucide-vue-next'
+import { Users, SlidersHorizontal, X, Check, ChevronsUpDown, ChevronUp, ChevronDown, UserRound, Sparkles, Loader2, ChevronDown as ChevronDownIcon, Snowflake } from 'lucide-vue-next'
+import { useLocalStorageState } from '~/composables/useLocalStorageState'
+import { getApplicationSourceMeta, type ApplicationSource } from '~/composables/useApplicationSource'
 
 const { t } = useI18n()
 
@@ -46,10 +48,14 @@ const selectedStageId = useState<string | undefined>(`cand-filter-stageId-${jobI
 const visibleCols = useState(`cand-visible-cols-${jobId}`, () => ({
   email: true,
   score: true,
+  source: true,
   stage: true,
   status: true,
   createdAt: true,
 }))
+
+// Тумблер «Скрыть холодных» (hh_sourcing) для таблицы кандидатов вакансии
+const hideColdInTable = useLocalStorageState<boolean>(`cand-hide-cold-${jobId}`, false)
 
 // ── Pipeline stages for this job (for stage filter) ────────────────────────────
 
@@ -101,6 +107,7 @@ interface AppRow {
   candidateEmail?: string | null
   status: string
   score?: number | null
+  source?: ApplicationSource | string | null
   currentStageId?: string | null
   createdAt: string
   [k: string]: unknown
@@ -397,6 +404,7 @@ const activeFilterCount = computed(() => {
   if (scoreMin.value != null) n++
   if (scoreMax.value != null) n++
   if (selectedStageId.value != null) n++
+  if (hideColdInTable.value) n++
   return n
 })
 
@@ -405,6 +413,7 @@ function clearFilters() {
   scoreMin.value = undefined
   scoreMax.value = undefined
   selectedStageId.value = undefined
+  hideColdInTable.value = false
 }
 
 // ─────────────────────────────────────────────
@@ -431,12 +440,27 @@ function toggleSort(key: SortKey) {
 // Filtered + sorted list
 // ─────────────────────────────────────────────
 
+// Счётчики по источникам (для тулбара)
+const sourceCounts = computed(() => {
+  const c = { total: applications.value.length, hh: 0, cold: 0, manual: 0, api: 0, other: 0 }
+  for (const a of applications.value) {
+    const s = (a as any).source as string | null | undefined
+    if (s === 'hh') c.hh++
+    else if (s === 'hh_sourcing') c.cold++
+    else if (s === 'manual') c.manual++
+    else if (s === 'api') c.api++
+    else c.other++
+  }
+  return c
+})
+
 const sorted = computed(() => {
   return [...applications.value]
     .filter((app) => {
       if (selectedStatuses.value.length > 1 && !selectedStatuses.value.includes(app.status as Status)) return false
       if (scoreMin.value != null && (app.score ?? 0) < scoreMin.value) return false
       if (scoreMax.value != null && (app.score ?? 0) > scoreMax.value) return false
+      if (hideColdInTable.value && (app as any).source === 'hh_sourcing') return false
       return true
     })
     .sort((a, b) => {
@@ -629,6 +653,7 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                   v-for="col in ([
                     { key: 'email', label: $t('dashboard.jobs.candidates.colEmail') },
                     { key: 'score', label: $t('dashboard.jobs.candidates.colScore') },
+                    { key: 'source', label: 'Источник' },
                     { key: 'stage', label: $t('applications.stage.label') },
                     { key: 'status', label: $t('dashboard.jobs.candidates.colStatus') },
                     { key: 'createdAt', label: $t('dashboard.jobs.candidates.colApplied') },
@@ -822,6 +847,30 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
           </div>
         </div>
 
+        <!-- Счётчики источников + тумблер «Скрыть холодных» -->
+        <div class="ml-auto flex items-center gap-2 flex-wrap">
+          <span
+            v-if="sourceCounts.cold > 0"
+            class="hidden md:inline-flex items-center gap-1.5 text-xs text-surface-500 dark:text-surface-400"
+            :title="`hh: ${sourceCounts.hh} · холодные: ${sourceCounts.cold} · вручную: ${sourceCounts.manual} · API: ${sourceCounts.api}`"
+          >
+            всего {{ sourceCounts.total }} · hh {{ sourceCounts.hh }} · холодные {{ sourceCounts.cold }}
+          </span>
+          <button
+            v-if="sourceCounts.cold > 0"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors"
+            :class="hideColdInTable
+              ? 'border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300'
+              : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
+            :title="hideColdInTable ? 'Показать холодных (из сорсинга)' : 'Скрыть холодных (из сорсинга)'"
+            @click="hideColdInTable = !hideColdInTable"
+          >
+            <Snowflake class="size-3.5" />
+            {{ hideColdInTable ? 'Показать холодных' : 'Скрыть холодных' }}
+          </button>
+        </div>
+
         <!-- Active filter pills -->
         <template v-if="selectedStatuses.length > 0">
           <span
@@ -917,6 +966,9 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                     <ChevronsUpDown v-else class="size-3 opacity-40" />
                   </button>
                 </th>
+                <th v-if="visibleCols.source" class="px-4 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide select-none">
+                  Источник
+                </th>
                 <th v-if="visibleCols.stage" class="px-4 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide select-none">
                   {{ $t('applications.stage.label') }}
                 </th>
@@ -996,6 +1048,19 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                     {{ app.score }} pts
                   </span>
                   <span v-else class="text-surface-400 dark:text-surface-500 text-xs">—</span>
+                </td>
+                <td v-if="visibleCols.source" class="px-4 py-3 whitespace-nowrap">
+                  <span
+                    class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium"
+                    :class="getApplicationSourceMeta((app as any).source).badgeClass"
+                    :title="getApplicationSourceMeta((app as any).source).tooltip"
+                  >
+                    <component
+                      :is="getApplicationSourceMeta((app as any).source).icon"
+                      :class="['size-3.5', getApplicationSourceMeta((app as any).source).iconClass]"
+                    />
+                    {{ getApplicationSourceMeta((app as any).source).label }}
+                  </span>
                 </td>
                 <td v-if="visibleCols.stage" class="px-4 py-3" @click.stop>
                   <ApplicationStagePicker

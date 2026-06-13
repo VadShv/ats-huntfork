@@ -55,6 +55,8 @@ export default defineEventHandler(async (event) => {
       score: true,
       notes: true,
       coverLetterText: true,
+      // Sprint 3: source нужен в UI для бейджей (hh / hh_sourcing / manual / api)
+      source: true,
       createdAt: true,
       updatedAt: true,
     },

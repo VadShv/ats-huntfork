@@ -2,6 +2,7 @@
 import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall } from 'lucide-vue-next'
 import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
 
 definePageMeta({
   layout: 'dashboard',
@@ -864,6 +865,17 @@ async function openHhContacts() {
                   <Calendar class="size-3" />
                   {{ t('candidate.applications.schedule') }}
                 </button>
+                <span
+                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium shrink-0"
+                  :class="getApplicationSourceMeta((app as any).source).badgeClass"
+                  :title="getApplicationSourceMeta((app as any).source).tooltip"
+                >
+                  <component
+                    :is="getApplicationSourceMeta((app as any).source).icon"
+                    :class="['size-3', getApplicationSourceMeta((app as any).source).iconClass]"
+                  />
+                  {{ getApplicationSourceMeta((app as any).source).label }}
+                </span>
                 <span
                   class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
                   :class="applicationStatusClasses[app.status] ?? 'bg-surface-100 text-surface-600'"

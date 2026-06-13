@@ -86,6 +86,8 @@ export default defineEventHandler(async (event) => {
         status: application.status,
         score: application.score,
         notes: application.notes,
+        // Sprint 3: source нужен в UI для бейджей (hh / hh_sourcing / manual / api) и фильтра «Скрыть холодных»
+        source: application.source,
         createdAt: application.createdAt,
         updatedAt: application.updatedAt,
         candidateId: application.candidateId,

@@ -3,6 +3,7 @@ import { X, ExternalLink, User, Briefcase, Calendar, Clock, Hash, FileText } fro
 import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
 import { APPLICATION_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
 
 const props = defineProps<{
   applicationId: string
@@ -190,6 +191,17 @@ onUnmounted(() => {
                   :class="statusBadgeClasses[application.status] ?? 'bg-surface-100 text-surface-600'"
                 >
                   {{ application.status }}
+                </span>
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="getApplicationSourceMeta((application as any).source).badgeClass"
+                  :title="getApplicationSourceMeta((application as any).source).tooltip"
+                >
+                  <component
+                    :is="getApplicationSourceMeta((application as any).source).icon"
+                    :class="['size-3.5', getApplicationSourceMeta((application as any).source).iconClass]"
+                  />
+                  {{ getApplicationSourceMeta((application as any).source).label }}
                 </span>
                 <TimelineDateLink :date="application.createdAt" class="text-sm text-surface-500 dark:text-surface-400">
                   Applied {{ new Date(application.createdAt).toLocaleDateString() }}

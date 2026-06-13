@@ -6,9 +6,12 @@ import {
   Video, Building2, Code2, UsersRound, Save, Check, MapPin, Users, Plus,
   CheckCircle2, XCircle, AlertTriangle, ArrowUpDown, ListFilter,
   Maximize2, Minimize2, Brain, Loader2, History, SlidersHorizontal,
+  Inbox, Snowflake, UserPlus,
 } from 'lucide-vue-next'
+import { useLocalStorageState } from '~/composables/useLocalStorageState'
 import type { PropertyEntry, PropertyFilter } from '~~/shared/properties'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+import { getApplicationSourceMeta, type ApplicationSource } from '~/composables/useApplicationSource'
 import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
 
 const { t, te } = useI18n()
@@ -153,12 +156,20 @@ const interviewFilter = ref<InterviewFilter>('all')
 const propertyFilters = ref<PropertyFilter[]>([])
 const showSortPanel = ref(false)
 const showFilterPanel = ref(false)
+// Sprint 3: тумблер «Скрыть холодных (hh_sourcing)» — по умолчанию OFF, сохраняем в localStorage.
+const hideColdSourcing = useLocalStorageState<boolean>('kanban-hide-cold', false)
 
-const hasActiveFilters = computed(() => scoreFilter.value !== 'all' || interviewFilter.value !== 'all' || propertyFilters.value.length > 0)
+const hasActiveFilters = computed(() =>
+  scoreFilter.value !== 'all'
+  || interviewFilter.value !== 'all'
+  || propertyFilters.value.length > 0
+  || hideColdSourcing.value,
+)
 const activeFilterCount = computed(() => {
   let count = 0
   if (scoreFilter.value !== 'all') count++
   if (interviewFilter.value !== 'all') count++
+  if (hideColdSourcing.value) count++
   count += propertyFilters.value.length
   return count
 })
@@ -242,6 +253,11 @@ const filteredApplications = computed(() => {
     })
   }
 
+  // Sprint 3: «Скрыть холодных» — прячем application'ы с source='hh_sourcing'.
+  if (hideColdSourcing.value) {
+    result = result.filter((app) => (app as any).source !== 'hh_sourcing')
+  }
+
   // Property filters
   if (propertyFilters.value.length > 0) {
     result = result.filter((app) => {
@@ -307,6 +323,21 @@ const statusCounts = computed(() => {
     }
   }
   return counts
+})
+
+// Sprint 3: разбивка по источнику — все/отклики/холодные/ручные.
+const sourceCounts = computed(() => {
+  const c = { total: 0, hh: 0, cold: 0, manual: 0, api: 0, other: 0 }
+  for (const a of applications.value) {
+    c.total += 1
+    const s = (a as any).source as ApplicationSource
+    if (s === 'hh') c.hh += 1
+    else if (s === 'hh_sourcing') c.cold += 1
+    else if (s === 'manual') c.manual += 1
+    else if (s === 'api') c.api += 1
+    else c.other += 1
+  }
+  return c
 })
 
 const currentIndex = ref(0)
@@ -1307,15 +1338,44 @@ function closeDocPreview() {
             </span>
           </button>
 
-          <!-- Fullscreen toggle -->
-          <button
-            class="ml-auto flex shrink-0 cursor-pointer items-center justify-center rounded-lg p-2 text-surface-400 hover:bg-surface-100 hover:text-surface-600 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300 transition-all duration-200 focus:outline-none"
-            :title="isFullscreen ? t('dashboard.jobs.detail.exitFocusMode') : t('dashboard.jobs.detail.focusMode')"
-            @click="toggleFullscreen"
-          >
-            <Minimize2 v-if="isFullscreen" class="size-4" />
-            <Maximize2 v-else class="size-4" />
-          </button>
+          <!-- Sprint 3: счётчики источников + тумблер «Скрыть холодных» -->
+          <div class="ml-auto flex items-center gap-2">
+            <div
+              class="hidden md:flex items-center gap-2 text-[11px] text-surface-500 dark:text-surface-400"
+              :title="`Всего: ${sourceCounts.total} · Отклики hh: ${sourceCounts.hh} · Холодные: ${sourceCounts.cold} · Вручную: ${sourceCounts.manual} · API: ${sourceCounts.api}`"
+            >
+              <span class="font-semibold text-surface-700 dark:text-surface-200">{{ sourceCounts.total }}</span>
+              <span class="inline-flex items-center gap-0.5" :class="sourceCounts.hh > 0 ? 'text-blue-600 dark:text-blue-400' : ''">
+                <Inbox class="size-3" />{{ sourceCounts.hh }}
+              </span>
+              <span class="inline-flex items-center gap-0.5" :class="sourceCounts.cold > 0 ? 'text-sky-600 dark:text-sky-400' : ''">
+                <Snowflake class="size-3" />{{ sourceCounts.cold }}
+              </span>
+              <span class="inline-flex items-center gap-0.5" :class="sourceCounts.manual > 0 ? 'text-slate-600 dark:text-slate-300' : ''">
+                <UserPlus class="size-3" />{{ sourceCounts.manual }}
+              </span>
+            </div>
+            <button
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all duration-200"
+              :class="hideColdSourcing
+                ? 'bg-sky-100 text-sky-800 hover:bg-sky-200 dark:bg-sky-950 dark:text-sky-300'
+                : 'text-surface-500 hover:bg-surface-100 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-800'"
+              :title="hideColdSourcing ? 'Холодные скрыты. Нажмите чтобы показать.' : 'Скрыть hh-сорсинг-кандидатов (показать только отклики и ручные)'"
+              @click="hideColdSourcing = !hideColdSourcing"
+            >
+              <Snowflake class="size-3.5" />
+              <span class="hidden sm:inline">{{ hideColdSourcing ? 'Показать холодных' : 'Скрыть холодных' }}</span>
+            </button>
+            <!-- Fullscreen toggle -->
+            <button
+              class="flex shrink-0 cursor-pointer items-center justify-center rounded-lg p-2 text-surface-400 hover:bg-surface-100 hover:text-surface-600 dark:text-surface-500 dark:hover:bg-surface-800 dark:hover:text-surface-300 transition-all duration-200 focus:outline-none"
+              :title="isFullscreen ? t('dashboard.jobs.detail.exitFocusMode') : t('dashboard.jobs.detail.focusMode')"
+              @click="toggleFullscreen"
+            >
+              <Minimize2 v-if="isFullscreen" class="size-4" />
+              <Maximize2 v-else class="size-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1539,6 +1599,12 @@ function closeDocPreview() {
                 </p>
                 <p class="mt-0.5 block truncate text-xs text-surface-500 dark:text-surface-400">{{ app.candidateEmail }}</p>
                 <div class="mt-1.5 flex items-center gap-2">
+                  <!-- Sprint 3: иконка источника application (отклик/холодный/ручной/внешний) -->
+                  <component
+                    :is="getApplicationSourceMeta((app as any).source).icon"
+                    :class="['size-3.5', getApplicationSourceMeta((app as any).source).iconClass]"
+                    :title="getApplicationSourceMeta((app as any).source).tooltip"
+                  />
                   <span
                     v-if="app.score != null"
                     class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset"
