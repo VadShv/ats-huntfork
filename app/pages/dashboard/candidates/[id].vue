@@ -849,12 +849,28 @@ async function openHhContacts() {
                 :to="$localePath(`/dashboard/applications/${app.id}`)"
                 class="min-w-0 flex-1 block"
               >
-                <h4 class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-600 transition-colors truncate">
-                  {{ app.job.title }}
-                </h4>
-                <span class="text-xs text-surface-400">
-                  {{ t('candidate.applications.applied') }} <TimelineDateLink :date="app.createdAt">{{ new Date(app.createdAt).toLocaleDateString() }}</TimelineDateLink>
-                </span>
+                <div class="flex items-center gap-2 min-w-0">
+                  <component
+                    :is="getApplicationSourceMeta((app as any).source).icon"
+                    :class="['size-3.5 shrink-0', getApplicationSourceMeta((app as any).source).iconClass]"
+                    :title="getApplicationSourceMeta((app as any).source).tooltip"
+                  />
+                  <h4 class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-600 transition-colors truncate min-w-0">
+                    {{ app.job.title }}
+                  </h4>
+                </div>
+                <div class="mt-0.5 flex items-center gap-1.5 text-xs text-surface-400">
+                  <span
+                    class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none"
+                    :class="getApplicationSourceMeta((app as any).source).badgeClass"
+                  >
+                    {{ getApplicationSourceMeta((app as any).source).label }}
+                  </span>
+                  <span class="text-surface-300 dark:text-surface-700">·</span>
+                  <span>
+                    {{ t('candidate.applications.applied') }} <TimelineDateLink :date="app.createdAt">{{ new Date(app.createdAt).toLocaleDateString() }}</TimelineDateLink>
+                  </span>
+                </div>
               </NuxtLink>
               <div class="flex items-center gap-2 shrink-0 sm:ml-3">
                 <button
@@ -865,17 +881,6 @@ async function openHhContacts() {
                   <Calendar class="size-3" />
                   {{ t('candidate.applications.schedule') }}
                 </button>
-                <span
-                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium shrink-0"
-                  :class="getApplicationSourceMeta((app as any).source).badgeClass"
-                  :title="getApplicationSourceMeta((app as any).source).tooltip"
-                >
-                  <component
-                    :is="getApplicationSourceMeta((app as any).source).icon"
-                    :class="['size-3', getApplicationSourceMeta((app as any).source).iconClass]"
-                  />
-                  {{ getApplicationSourceMeta((app as any).source).label }}
-                </span>
                 <span
                   class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
                   :class="applicationStatusClasses[app.status] ?? 'bg-surface-100 text-surface-600'"
