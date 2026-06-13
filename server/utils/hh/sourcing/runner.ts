@@ -17,7 +17,7 @@
  *   - hh.ru допускает ~1500 запросов/мин для search/resume; делаем паузу 150мс
  *     между страницами как страховку.
  */
-import { and, eq, isNotNull, lte } from 'drizzle-orm'
+import { and, eq, isNotNull, lte, sql } from 'drizzle-orm'
 import { hhSavedSearch, hhSourcingCandidate } from '../../../database/schema'
 import { apiGet } from '../client'
 import { getValidAccessToken } from '../tokens'
@@ -136,12 +136,25 @@ export async function runSourcingSearch(savedSearchId: string): Promise<Sourcing
     const accessToken = await getValidAccessToken(search.hhAccountId)
     const query = search.query as SourcingQuery
 
+    // Сколько уже набрано по этому поиску (все состояния, кроме rejected).
+    // Это лимитирующий только живых кандидатов.
+    const cntRows = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(hhSourcingCandidate)
+      .where(and(
+        eq(hhSourcingCandidate.savedSearchId, search.id),
+        sql`${hhSourcingCandidate.state} <> 'rejected'`,
+      ))
+    let currentCount = cntRows[0]?.c ?? 0
+    const maxCandidates = search.maxCandidates
+
     let pageNum = 0
     let totalFound = 0
     let newCount = 0
+    let limitReached = currentCount >= maxCandidates
     const maxPages = search.maxPagesPerRun
 
-    while (pageNum < maxPages) {
+    while (pageNum < maxPages && !limitReached) {
       const params = expandQueryForHhApi(query, pageNum, query.perPage ?? 50)
       const resp = await apiGet<HhResumeListResponse>('/resumes', accessToken, params)
 
@@ -170,6 +183,11 @@ export async function runSourcingSearch(savedSearchId: string): Promise<Sourcing
 
         if (inserted.length > 0) {
           newCount++
+          currentCount++
+          if (currentCount >= maxCandidates) {
+            limitReached = true
+            break
+          }
         } else {
           // Уже есть — обновим lastSeenAt
           await db.update(hhSourcingCandidate)
@@ -188,19 +206,20 @@ export async function runSourcingSearch(savedSearchId: string): Promise<Sourcing
       await new Promise((r) => setTimeout(r, PAGE_DELAY_MS))
     }
 
-    // Финальный апдейт
-    const nextRunAt = search.autoRunEnabled && search.scheduleMinutes
+    // Финальный апдейт. Если лимит исчерпан — сбрасываем автозапуск, никаких новых тиков.
+    const nextRunAt = !limitReached && search.autoRunEnabled && search.scheduleMinutes
       ? new Date(Date.now() + search.scheduleMinutes * 60_000)
       : null
 
     await db.update(hhSavedSearch)
       .set({
         lastRunAt: new Date(),
-        lastRunStatus: 'ok',
+        lastRunStatus: limitReached ? 'limit_reached' : 'ok',
         lastRunError: null,
         lastRunFound: totalFound,
         lastRunNew: newCount,
         nextRunAt,
+        autoRunEnabled: limitReached ? false : search.autoRunEnabled,
         updatedAt: new Date(),
       })
       .where(eq(hhSavedSearch.id, savedSearchId))
@@ -247,11 +266,13 @@ export async function runSourcingSearch(savedSearchId: string): Promise<Sourcing
  * Best-effort: ошибка в одном не блокирует остальные.
  */
 export async function runDueSourcingSearches(): Promise<SourcingRunResult[]> {
+  // Семантика: nextRunAt выставляется всегда при создании/run-now/PATCH.
+  // autoRunEnabled влияет только на ПОСЛЕДУЮЩИЕ прогоны — первый прогон и ad-hoc run-now
+  // идут всегда, даже если auto выключён.
   const due = await db
     .select({ id: hhSavedSearch.id })
     .from(hhSavedSearch)
     .where(and(
-      eq(hhSavedSearch.autoRunEnabled, true),
       eq(hhSavedSearch.isArchived, false),
       isNotNull(hhSavedSearch.nextRunAt),
       lte(hhSavedSearch.nextRunAt, new Date()),

@@ -18,6 +18,24 @@ import type { HhQueryParams } from '../client'
 /** Period filter values understood by hh.ru (days). */
 export const HH_PERIODS = [1, 3, 7, 14, 30, 60, 365] as const
 
+/**
+ * Нормализует текст поисковой строки для hh.ru:
+ *   «» / “” / ‘’ → прямые кавычки "
+ *   — / – → пробел (hh иногда воспринимает это как минус в booleam-синтаксе)
+ *   Множественные пробелы → один.
+ *
+ * hh интерпретирует «» буквально и не выполняет поиск фраз.
+ */
+export function normalizeHhQueryText(text: string | undefined | null): string | undefined {
+  if (!text) return undefined
+  const out = text
+    .replace(/[«»“”‘’„‚]/g, '"')
+    .replace(/[—–]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return out.length > 0 ? out : undefined
+}
+
 /** Schedule values per hh.ru dictionaries (/dictionaries → "schedule"). */
 export const HH_SCHEDULES = [
   'fullDay',

@@ -1259,6 +1259,9 @@ export const hhSavedSearch = pgTable('hh_saved_search', {
   scheduleMinutes: integer('schedule_minutes'),
   autoRunEnabled: boolean('auto_run_enabled').notNull().default(true),
   maxPagesPerRun: integer('max_pages_per_run').notNull().default(10),
+  // Сколько кандидатов максимум может набрать этот поиск (1..500).
+  // При достижении лимита воркер остановит обход и сбросит автозапуск.
+  maxCandidates: integer('max_candidates').notNull().default(200),
   lastRunAt: timestamp('last_run_at'),
   lastRunStatus: text('last_run_status'),
   lastRunError: text('last_run_error'),

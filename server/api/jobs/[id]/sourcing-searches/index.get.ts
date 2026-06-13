@@ -34,6 +34,7 @@ export default defineEventHandler(async (event) => {
       scheduleMinutes: hhSavedSearch.scheduleMinutes,
       autoRunEnabled: hhSavedSearch.autoRunEnabled,
       maxPagesPerRun: hhSavedSearch.maxPagesPerRun,
+      maxCandidates: hhSavedSearch.maxCandidates,
       lastRunAt: hhSavedSearch.lastRunAt,
       lastRunStatus: hhSavedSearch.lastRunStatus,
       lastRunError: hhSavedSearch.lastRunError,

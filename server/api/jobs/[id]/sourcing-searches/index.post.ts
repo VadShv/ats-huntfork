@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { hhAccount, hhSavedSearch, job } from '../../../../database/schema'
 import { getHhAccountForUser } from '../../../../utils/hh/tokens'
 import {
+  normalizeHhQueryText,
   parseHhSearchUrl,
   sourcingQuerySchema,
 } from '../../../../utils/hh/sourcing/query'
@@ -34,6 +35,7 @@ const bodySchema = z.discriminatedUnion('mode', [
     scheduleMinutes: z.number().int().min(60).max(43_200).nullable().optional(),
     autoRunEnabled: z.boolean().optional(),
     maxPagesPerRun: z.number().int().min(1).max(40).optional(),
+    maxCandidates: z.number().int().min(1).max(500).optional(),
   }),
   z.object({
     mode: z.literal('url'),
@@ -42,6 +44,7 @@ const bodySchema = z.discriminatedUnion('mode', [
     scheduleMinutes: z.number().int().min(60).max(43_200).nullable().optional(),
     autoRunEnabled: z.boolean().optional(),
     maxPagesPerRun: z.number().int().min(1).max(40).optional(),
+    maxCandidates: z.number().int().min(1).max(500).optional(),
   }),
   z.object({
     mode: z.literal('ai'),
@@ -49,6 +52,7 @@ const bodySchema = z.discriminatedUnion('mode', [
     scheduleMinutes: z.number().int().min(60).max(43_200).nullable().optional(),
     autoRunEnabled: z.boolean().optional(),
     maxPagesPerRun: z.number().int().min(1).max(40).optional(),
+    maxCandidates: z.number().int().min(1).max(500).optional(),
   }),
 ])
 
@@ -114,16 +118,20 @@ export default defineEventHandler(async (event) => {
     query = result.query
   }
 
+  // Нормализуем text — hh не любит «» / — (бывают в AI-ответах и при copy-paste)
+  if (query.text) {
+    query = { ...query, text: normalizeHhQueryText(query.text) }
+  }
+
   // Дефолты планировщика
   const scheduleMinutes = body.scheduleMinutes === undefined ? 1440 : body.scheduleMinutes
   const autoRunEnabled = body.autoRunEnabled ?? true
   const maxPagesPerRun = body.maxPagesPerRun ?? 10
+  const maxCandidates = body.maxCandidates ?? 200
 
-  // Вычисляем nextRunAt — если auto + schedule установлены, запускаем сразу (через минуту)
-  let nextRunAt: Date | null = null
-  if (autoRunEnabled && scheduleMinutes !== null) {
-    nextRunAt = new Date(Date.now() + 60_000)
-  }
+  // При создании всегда делаем первый прогон через минуту — иначе пользователь
+  // не увидит результаты. Дальнейшие прогоны — только если включён auto.
+  const nextRunAt: Date | null = new Date(Date.now() + 60_000)
 
   const id = crypto.randomUUID()
   await db.insert(hhSavedSearch).values({
@@ -138,6 +146,7 @@ export default defineEventHandler(async (event) => {
     scheduleMinutes,
     autoRunEnabled,
     maxPagesPerRun,
+    maxCandidates,
     nextRunAt,
   })
 
@@ -149,6 +158,7 @@ export default defineEventHandler(async (event) => {
     scheduleMinutes,
     autoRunEnabled,
     maxPagesPerRun,
+    maxCandidates,
     nextRunAt,
   }
 })

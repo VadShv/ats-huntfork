@@ -185,7 +185,8 @@ export default defineEventHandler(async (event) => {
       organizationId: orgId,
       candidateId,
       jobId: sc.jobId,
-      status: 'applied',
+      // application_status enum: new|screening|interview|offer|hired|rejected
+      status: 'new',
       currentStageId: entryStageId,
       stageChangedAt: entryStageId ? new Date() : null,
       source: 'hh_sourcing',
