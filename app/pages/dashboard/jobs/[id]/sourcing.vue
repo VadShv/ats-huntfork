@@ -261,7 +261,9 @@ interface SourcingCandidate {
   lastSeenAt: string
 }
 
-const stateFilter = ref<'all' | 'new' | 'reviewed' | 'approved' | 'rejected' | 'imported'>('new')
+// 'Активные' по умолчанию — это рабочий список рекрутера: новые + просмотренные + одобренные.
+// Одобренные не исчезают из списка — они лист ожидания для импорта в воронку с раскрытием контактов.
+const stateFilter = ref<'all' | 'active' | 'new' | 'reviewed' | 'approved' | 'rejected' | 'imported'>('active')
 
 const candidatesUrl = computed(() => {
   const params = new URLSearchParams()
@@ -318,7 +320,11 @@ async function importToPipeline(c: SourcingCandidate) {
     const res = await $fetch(`/api/sourcing-candidates/${c.id}/import`, { method: 'POST' })
     toast.success?.('Кандидат добавлен в воронку')
     await refreshCandidates()
-    if (res.applicationId) {
+    // Открываем страницу кандидата — там рендерится полное резюме hh.ru (CandidateHhResumeView),
+    // а не анонимный сниппет application.
+    if (res.candidateId) {
+      navigateTo(`/dashboard/candidates/${res.candidateId}`)
+    } else if (res.applicationId) {
       navigateTo(`/dashboard/applications/${res.applicationId}`)
     }
   }
@@ -514,12 +520,13 @@ const stateBadgeClass: Record<string, string> = {
         <!-- Фильтр по статусу -->
         <div class="flex items-center gap-2 mb-4">
           <div class="text-sm text-slate-600">Статус:</div>
-          <div class="flex gap-1">
-            <button v-for="s in (['new', 'reviewed', 'approved', 'rejected', 'imported', 'all'] as const)" :key="s"
+          <div class="flex gap-1 flex-wrap">
+            <button v-for="s in (['active', 'new', 'reviewed', 'approved', 'rejected', 'imported', 'all'] as const)" :key="s"
               class="px-3 py-1 rounded-full text-xs font-medium"
               :class="stateFilter === s ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+              :title="s === 'active' ? 'Новые + просмотренные + одобренные (рабочий список)' : undefined"
               @click="stateFilter = s">
-              {{ s === 'all' ? 'Все' : stateLabel[s] }}
+              {{ s === 'all' ? 'Все' : s === 'active' ? 'Активные' : stateLabel[s] }}
             </button>
           </div>
           <button class="ml-auto text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1"
@@ -584,9 +591,9 @@ const stateBadgeClass: Record<string, string> = {
                   Открыть отклик
                 </NuxtLink>
                 <button
-                  v-if="c.state === 'new'"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm bg-slate-100 hover:bg-slate-200"
-                  :title="'Пометить как одобренный (без импорта в воронку и без раскрытия контактов)'"
+                  v-if="c.state === 'new' || c.state === 'reviewed'"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                  :title="'Добавить в лист ожидания. Кандидат останется в списке с пометкой «Одобрен» — потом можно будет импортировать в воронку с раскрытием контактов.'"
                   @click="approveCandidate(c)"
                 >
                   <Check class="h-3.5 w-3.5" />
@@ -793,7 +800,7 @@ const stateBadgeClass: Record<string, string> = {
             />
             <pre v-else class="text-xs font-mono bg-slate-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap">{{ JSON.stringify(detailsSearch.query, null, 2) }}</pre>
             <div v-if="editMode" class="text-xs text-slate-500 mt-1">
-              Основные поля: <code>text</code>, <code>area</code>, <code>experience</code>, <code>schedule</code>, <code>employment</code>, <code>salary_from</code>, <code>currency</code>, <code>label</code>, <code>relocation</code>, <code>period</code>, <code>order_by</code>.
+              Основные поля: <code>text</code> (поддерживает AND/OR/NOT, кавычки, *), <code>textLogic</code>, <code>textField</code>, <code>area</code>, <code>experience</code>, <code>workFormat</code>, <code>employmentForm</code>, <code>professionalRole</code>, <code>salaryFrom</code>, <code>currency</code>, <code>period</code>, <code>orderBy</code>.
             </div>
           </div>
 

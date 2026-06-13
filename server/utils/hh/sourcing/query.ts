@@ -10,7 +10,10 @@
  * We persist the validated `SourcingQuery` as JSON in `hh_saved_search.query`,
  * then expand it into a flat `HhQueryParams` for the hh.ru REST call.
  *
- * Spec reference: https://github.com/hhru/api/blob/master/docs/resumes_search.md
+ * Spec reference:
+ *   - https://api.hh.ru/openapi/redoc (resume search section)
+ *   - https://github.com/hhru/api/blob/master/docs/resumes_search.md
+ *   - https://hh.ru/article/1175 (search language: AND/OR/NOT, quotes, parentheses)
  */
 import { z } from 'zod'
 import type { HhQueryParams } from '../client'
@@ -36,7 +39,7 @@ export function normalizeHhQueryText(text: string | undefined | null): string | 
   return out.length > 0 ? out : undefined
 }
 
-/** Schedule values per hh.ru dictionaries (/dictionaries → "schedule"). */
+/** Schedule values per hh.ru dictionaries (/dictionaries → "schedule"). DEPRECATED, см. workFormat. */
 export const HH_SCHEDULES = [
   'fullDay',
   'shift',
@@ -45,7 +48,7 @@ export const HH_SCHEDULES = [
   'flyInFlyOut',
 ] as const
 
-/** Employment values per hh.ru dictionaries (/dictionaries → "employment"). */
+/** Employment values per hh.ru dictionaries (/dictionaries → "employment"). DEPRECATED, см. employmentForm. */
 export const HH_EMPLOYMENT = [
   'full',
   'part',
@@ -82,37 +85,108 @@ export const HH_ORDER_BY = [
   'salary_desc',
 ] as const
 
+/**
+ * Логика интерпретации text.
+ * https://api.hh.ru/openapi/redoc#tag/Poisk-rezyume/operation/get-resumes
+ */
+export const HH_TEXT_LOGIC = ['all', 'any', 'phrase', 'except'] as const
+
+/**
+ * В какой части резюме искать text. По умолчанию hh ищет 'everywhere'.
+ */
+export const HH_TEXT_FIELD = [
+  'everywhere',
+  'title',
+  'education',
+  'skills',
+  'experience',
+  'experience_company',
+  'experience_position',
+  'experience_description',
+] as const
+
+/** Период публикации/обновления резюме как enum (для поля text.period). */
+export const HH_TEXT_PERIOD = ['all_time', 'last_year', 'last_three_years', 'last_six_years'] as const
+
+/**
+ * Современные значения формата работы (заменяют устаревший `schedule`).
+ * /dictionaries → "work_format".
+ */
+export const HH_WORK_FORMAT = [
+  'ON_SITE',
+  'REMOTE',
+  'HYBRID',
+  'FIELD_WORK',
+] as const
+
+/**
+ * Современные значения формы занятости (заменяют устаревший `employment`).
+ * /dictionaries → "employment_form".
+ */
+export const HH_EMPLOYMENT_FORM = [
+  'FULL',
+  'PART',
+  'PROJECT',
+  'FLY_IN_FLY_OUT',
+] as const
+
 export const sourcingQuerySchema = z
   .object({
-    /** Free-text query. */
+    /** Free-text query. Поддерживает язык поиска hh.ru: AND/OR/NOT, "фразы", (группы), * как суффикс. */
     text: z.string().max(2000).optional(),
+    /**
+     * Логика обработки text.
+     *   all     — все слова (по умолчанию)
+     *   any     — любое из слов
+     *   phrase  — точная фраза
+     *   except  — исключить эти слова
+     */
+    textLogic: z.enum(HH_TEXT_LOGIC).optional(),
+    /** В какой части резюме искать text. По умолчанию everywhere. */
+    textField: z.enum(HH_TEXT_FIELD).optional(),
+    /** Период публикации/обновления резюме (enum, отдельно от числового period). */
+    textPeriod: z.enum(HH_TEXT_PERIOD).optional(),
     /** Region IDs (hh /areas). */
     area: z.array(z.string()).max(50).optional(),
     /** Metro station IDs. */
     metro: z.array(z.string()).max(20).optional(),
     /** Experience level codes. */
     experience: z.array(z.enum(HH_EXPERIENCE)).optional(),
-    /** Employment types. */
+    /** DEPRECATED: legacy employment types. Используй employmentForm. Оставлено для совместимости со старыми сохранёнными запросами и parseHhSearchUrl. */
     employment: z.array(z.enum(HH_EMPLOYMENT)).optional(),
-    /** Work schedule. */
+    /** DEPRECATED: legacy work schedule. Используй workFormat. */
     schedule: z.array(z.enum(HH_SCHEDULES)).optional(),
+    /** Современный формат работы (REMOTE/HYBRID/...). */
+    workFormat: z.array(z.enum(HH_WORK_FORMAT)).optional(),
+    /** Современная форма занятости (FULL/PART/...). */
+    employmentForm: z.array(z.enum(HH_EMPLOYMENT_FORM)).optional(),
     /** Education level. */
     educationLevel: z.array(z.enum(HH_EDUCATION)).optional(),
+    /**
+     * Профессиональные роли. ID из /professional_roles. Не строки!
+     * Числа кодируем как строки, потому что hh API принимает их как ?professional_role=156.
+     */
+    professionalRole: z.array(z.string()).max(20).optional(),
     /** Min salary. Pair with `currency`. */
     salaryFrom: z.number().int().min(0).max(100_000_000).optional(),
     /** Max salary. */
     salaryTo: z.number().int().min(0).max(100_000_000).optional(),
     /** Salary currency (ISO code, defaults to RUR). */
     currency: z.string().length(3).optional(),
-    /** Days the resume was last updated within. */
+    /** Days the resume was last updated within (числовой период, см. также textPeriod). */
     period: z.number().refine(
       (v) => HH_PERIODS.includes(v as typeof HH_PERIODS[number]),
       { message: 'period must be one of 1,3,7,14,30,60,365' },
     ).optional(),
     /** Languages required (e.g. ["eng.b2", "deu.a1"]). */
     language: z.array(z.string()).max(10).optional(),
-    /** Skill labels (free-form, hh matches). */
-    skill: z.array(z.string().max(100)).max(30).optional(),
+    /**
+     * Skill IDs из hh.ru словаря (НЕ строки!). Этот фильтр работает только с числовыми
+     * идентификаторами из /suggests/skills. AI и UI обычно его не заполняют — оставлено
+     * только для совместимости с parseHhSearchUrl, когда юзер вставил URL с ?skill=123.
+     * Передавать сюда произвольные строки вроде "Python" — нельзя, hh ответит 400.
+     */
+    skill: z.array(z.string().max(20)).max(30).optional(),
     /** Has photo. */
     label: z.array(z.string()).optional(),
     /** Relocation readiness ("relocation_possible" / "living_or_relocation"). */
@@ -149,12 +223,18 @@ export function expandQueryForHhApi(
   }
 
   if (query.text) out.text = query.text
+  if (query.textLogic) out['text.logic'] = query.textLogic
+  if (query.textField) out['text.field'] = query.textField
+  if (query.textPeriod) out['text.period'] = query.textPeriod
   if (query.area?.length) out.area = query.area
   if (query.metro?.length) out.metro = query.metro
   if (query.experience?.length) out.experience = query.experience
   if (query.employment?.length) out.employment = query.employment
   if (query.schedule?.length) out.schedule = query.schedule
+  if (query.workFormat?.length) out.work_format = query.workFormat
+  if (query.employmentForm?.length) out.employment_form = query.employmentForm
   if (query.educationLevel?.length) out.education_level = query.educationLevel
+  if (query.professionalRole?.length) out.professional_role = query.professionalRole
   if (query.salaryFrom !== undefined) out.salary_from = query.salaryFrom
   if (query.salaryTo !== undefined) out.salary_to = query.salaryTo
   if (query.currency) out.currency = query.currency
@@ -194,6 +274,12 @@ export function parseHhSearchUrl(url: string): SourcingQuery {
   // Free-text ------------------------------------------------------------
   const text = params.get('text')
   if (text) raw.text = text
+  const textLogic = params.get('text.logic')
+  if (textLogic) raw.textLogic = textLogic
+  const textField = params.get('text.field')
+  if (textField) raw.textField = textField
+  const textPeriod = params.get('text.period')
+  if (textPeriod) raw.textPeriod = textPeriod
 
   // Multi-value strings --------------------------------------------------
   const multi: Array<[string, string]> = [
@@ -202,7 +288,10 @@ export function parseHhSearchUrl(url: string): SourcingQuery {
     ['experience', 'experience'],
     ['employment', 'employment'],
     ['schedule', 'schedule'],
+    ['work_format', 'workFormat'],
+    ['employment_form', 'employmentForm'],
     ['education_level', 'educationLevel'],
+    ['professional_role', 'professionalRole'],
     ['language', 'language'],
     ['skill', 'skill'],
     ['label', 'label'],

@@ -29,16 +29,41 @@ const paramsSchema = z.object({ id: z.string().min(1) })
 
 interface HhResumeFull {
   id: string
-  first_name?: string
-  last_name?: string
-  middle_name?: string
-  title?: string
+  first_name?: string | null
+  last_name?: string | null
+  middle_name?: string | null
+  title?: string | null
+  can_view_full_info?: boolean
+  /** Платная подписка → дёрнем `actions.get_with_contacts.url`, чтобы раскрыть контакты. */
+  actions?: {
+    get_with_contacts?: { url?: string }
+  }
   contact?: Array<{
     type?: { id?: string, name?: string }
     value?: string | { formatted?: string, country?: string, city?: string, number?: string }
     preferred?: boolean
   }>
   alternate_url?: string
+}
+
+/**
+ * Имя кандидата для записи в БД: last_name first_name → title резюме → fallback.
+ * Раньше дефолт был «Без / имени» — теперь даём осмысленное имя из резюме hh,
+ * а если совсем ничего нет — используем заголовок резюме или короткий ID.
+ */
+function extractName(resume: HhResumeFull, hhResumeId: string): { firstName: string, lastName: string } {
+  const last = (resume.last_name ?? '').trim()
+  const first = (resume.first_name ?? '').trim()
+  if (first || last) {
+    return { firstName: first || '—', lastName: last || '—' }
+  }
+  // Подписки нет → first/last hh не отдал. Пытаемся title резюме.
+  const title = (resume.title ?? '').trim()
+  if (title) {
+    return { firstName: 'Кандидат hh.ru', lastName: title.slice(0, 80) }
+  }
+  // Совсем ничего нет → короткий fallback.
+  return { firstName: 'Кандидат hh.ru', lastName: `#${hhResumeId.slice(-6)}` }
 }
 
 function extractEmail(resume: HhResumeFull): string | null {
@@ -97,11 +122,26 @@ export default defineEventHandler(async (event) => {
   }
   const hhAccountId = searchRow[0]!.hhAccountId
 
-  // 3. Тянем полное резюме (тратит квоту контактов)
+  // 3. Тянем полное резюме (тратит квоту контактов, если есть платная подписка)
+  //
+  // Алгоритм:
+  //   а) Тянем краткое /resumes/{id} — там могут лежать `actions.get_with_contacts.url`.
+  //   б) Если есть — дёргаем эту ссылку: hh откроет контакты и спишет квоту.
+  //   в) Если ссылки нет (нет подписки «Доступ к базе резюме») — работаем
+  //      с тем, что отдало hh: ФИО будут null, контакты тоже.
+  //      Импорт всё равно проходит — рекрутер видит полное резюме без контактов.
   const accessToken = await getValidAccessToken(hhAccountId)
   let resume: HhResumeFull
   try {
-    resume = await apiGet<HhResumeFull>(`/resumes/${sc.hhResumeId}`, accessToken)
+    const baseResume = await apiGet<HhResumeFull>(`/resumes/${sc.hhResumeId}`, accessToken)
+    const contactsUrl = baseResume.actions?.get_with_contacts?.url
+    if (contactsUrl) {
+      // Платная подписка → раскрываем контакты. Это и есть «потрачена квота».
+      resume = await apiGet<HhResumeFull>(contactsUrl, accessToken)
+    } else {
+      // Бесплатный аккаунт hh — используем то, что есть.
+      resume = baseResume
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     await db.insert(hhActionLog).values({
@@ -120,8 +160,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const firstName = resume.first_name ?? 'Без'
-  const lastName = resume.last_name ?? 'имени'
+  const { firstName, lastName } = extractName(resume, sc.hhResumeId)
   const email = extractEmail(resume) ?? `hh-${sc.hhResumeId}@noemail.local`
   const phone = extractPhone(resume)
 

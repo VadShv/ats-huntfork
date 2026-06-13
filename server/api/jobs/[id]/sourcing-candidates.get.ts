@@ -5,11 +5,13 @@
  *
  * Query params:
  *   savedSearchId? — фильтр по конкретному поиску
- *   state?         — фильтр: new | reviewed | approved | imported | rejected | contacted
+ *   state?         — фильтр одного статуса: new | reviewed | approved | imported | rejected | contacted
+ *                    либо «виртуальный» статус 'active' = new + reviewed + approved
+ *                    (рабочий список рекрутера: только что найденные, просмотренные и одобренные).
  *   limit?         — default 50, max 200
  *   offset?        — default 0
  */
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { hhSourcingCandidate, job } from '../../../database/schema'
 
@@ -17,7 +19,7 @@ const paramsSchema = z.object({ id: z.string().min(1) })
 
 const querySchema = z.object({
   savedSearchId: z.string().min(1).optional(),
-  state: z.enum(['new', 'reviewed', 'approved', 'imported', 'rejected', 'contacted']).optional(),
+  state: z.enum(['new', 'reviewed', 'approved', 'imported', 'rejected', 'contacted', 'active']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 })
@@ -42,7 +44,12 @@ export default defineEventHandler(async (event) => {
     eq(hhSourcingCandidate.organizationId, orgId),
   ]
   if (q.savedSearchId) conditions.push(eq(hhSourcingCandidate.savedSearchId, q.savedSearchId))
-  if (q.state) conditions.push(eq(hhSourcingCandidate.state, q.state))
+  if (q.state === 'active') {
+    // Активный рабочий список: ещё не импортирован и не отклонён.
+    conditions.push(inArray(hhSourcingCandidate.state, ['new', 'reviewed', 'approved']))
+  } else if (q.state) {
+    conditions.push(eq(hhSourcingCandidate.state, q.state))
+  }
 
   const rows = await db
     .select({

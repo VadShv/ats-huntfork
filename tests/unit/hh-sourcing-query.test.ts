@@ -128,4 +128,87 @@ describe('sourcingQuerySchema', () => {
   it('strict mode — отвергает unknown поля', () => {
     expect(() => sourcingQuerySchema.parse({ unknownField: 'x' })).toThrow()
   })
+
+  it('принимает textLogic, textField, textPeriod', () => {
+    const q = sourcingQuerySchema.parse({
+      text: 'python',
+      textLogic: 'all',
+      textField: 'title',
+      textPeriod: 'last_year',
+    })
+    expect(q.textLogic).toBe('all')
+    expect(q.textField).toBe('title')
+    expect(q.textPeriod).toBe('last_year')
+  })
+
+  it('отвергает невалидный textLogic', () => {
+    expect(() => sourcingQuerySchema.parse({ textLogic: 'fuzzy' })).toThrow()
+  })
+
+  it('принимает workFormat REMOTE/HYBRID', () => {
+    const q = sourcingQuerySchema.parse({ workFormat: ['REMOTE', 'HYBRID'] })
+    expect(q.workFormat).toEqual(['REMOTE', 'HYBRID'])
+  })
+
+  it('принимает employmentForm FULL', () => {
+    const q = sourcingQuerySchema.parse({ employmentForm: ['FULL'] })
+    expect(q.employmentForm).toEqual(['FULL'])
+  })
+
+  it('принимает professionalRole как массив ID-строк', () => {
+    const q = sourcingQuerySchema.parse({ professionalRole: ['96', '36'] })
+    expect(q.professionalRole).toEqual(['96', '36'])
+  })
+})
+
+describe('expandQueryForHhApi — новые поля hh.ru', () => {
+  it('маппит textLogic/textField/textPeriod в text.logic/text.field/text.period', () => {
+    const params = expandQueryForHhApi(
+      { text: 'python', textLogic: 'all', textField: 'title', textPeriod: 'last_year' },
+      0,
+    )
+    expect(params['text.logic']).toBe('all')
+    expect(params['text.field']).toBe('title')
+    expect(params['text.period']).toBe('last_year')
+  })
+
+  it('маппит workFormat → work_format, employmentForm → employment_form', () => {
+    const params = expandQueryForHhApi(
+      { workFormat: ['REMOTE'], employmentForm: ['FULL'] },
+      0,
+    )
+    expect(params.work_format).toEqual(['REMOTE'])
+    expect(params.employment_form).toEqual(['FULL'])
+  })
+
+  it('маппит professionalRole → professional_role', () => {
+    const params = expandQueryForHhApi({ professionalRole: ['96', '36'] }, 0)
+    expect(params.professional_role).toEqual(['96', '36'])
+  })
+})
+
+describe('parseHhSearchUrl — новые поля', () => {
+  it('парсит text.logic/text.field/text.period', () => {
+    const q = parseHhSearchUrl(
+      'https://hh.ru/search/resume?text=python&text.logic=all&text.field=title&text.period=last_year',
+    )
+    expect(q.textLogic).toBe('all')
+    expect(q.textField).toBe('title')
+    expect(q.textPeriod).toBe('last_year')
+  })
+
+  it('парсит work_format и employment_form как массивы', () => {
+    const q = parseHhSearchUrl(
+      'https://hh.ru/search/resume?work_format=REMOTE&work_format=HYBRID&employment_form=FULL',
+    )
+    expect(q.workFormat).toEqual(['REMOTE', 'HYBRID'])
+    expect(q.employmentForm).toEqual(['FULL'])
+  })
+
+  it('парсит professional_role как массив ID-строк', () => {
+    const q = parseHhSearchUrl(
+      'https://hh.ru/search/resume?professional_role=96&professional_role=36',
+    )
+    expect(q.professionalRole).toEqual(['96', '36'])
+  })
 })
