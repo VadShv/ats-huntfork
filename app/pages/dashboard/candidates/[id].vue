@@ -843,36 +843,30 @@ async function openHhContacts() {
             <div
               v-for="app in candidate.applications"
               :key="app.id"
-              class="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-4 py-3 hover:border-surface-300 dark:hover:border-surface-700 hover:shadow-sm transition-all group gap-2"
+              class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-4 py-3 hover:border-surface-300 dark:hover:border-surface-700 hover:shadow-sm transition-all group"
             >
+              <!-- 1. Название вакансии (полностью, без truncate) -->
               <NuxtLink
                 :to="$localePath(`/dashboard/applications/${app.id}`)"
-                class="min-w-0 flex-1 block"
+                class="block"
               >
-                <div class="flex items-center gap-2 min-w-0">
-                  <component
-                    :is="getApplicationSourceMeta((app as any).source).icon"
-                    :class="['size-3.5 shrink-0', getApplicationSourceMeta((app as any).source).iconClass]"
-                    :title="getApplicationSourceMeta((app as any).source).tooltip"
-                  />
-                  <h4 class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-600 transition-colors truncate min-w-0">
-                    {{ app.job.title }}
-                  </h4>
-                </div>
-                <div class="mt-0.5 flex items-center gap-1.5 text-xs text-surface-400">
-                  <span
-                    class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none"
-                    :class="getApplicationSourceMeta((app as any).source).badgeClass"
-                  >
-                    {{ getApplicationSourceMeta((app as any).source).label }}
-                  </span>
-                  <span class="text-surface-300 dark:text-surface-700">·</span>
-                  <span>
-                    {{ t('candidate.applications.applied') }} <TimelineDateLink :date="app.createdAt">{{ new Date(app.createdAt).toLocaleDateString() }}</TimelineDateLink>
-                  </span>
-                </div>
+                <h4 class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-600 transition-colors break-words">
+                  {{ app.job.title }}
+                </h4>
               </NuxtLink>
-              <div class="flex items-center gap-2 shrink-0 sm:ml-3">
+
+              <!-- 2. Бейдж статуса/этапа -->
+              <div class="mt-2">
+                <span
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="applicationStatusClasses[app.status] ?? 'bg-surface-100 text-surface-600'"
+                >
+                  {{ app.status }}
+                </span>
+              </div>
+
+              <!-- 3. Кнопка «Запланировать» -->
+              <div class="mt-2">
                 <button
                   class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-400 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all cursor-pointer"
                   :title="t('candidate.applications.scheduleInterview')"
@@ -881,11 +875,23 @@ async function openHhContacts() {
                   <Calendar class="size-3" />
                   {{ t('candidate.applications.schedule') }}
                 </button>
+              </div>
+
+              <!-- 4. Источник + дата -->
+              <div class="mt-2 flex items-center gap-2">
                 <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
-                  :class="applicationStatusClasses[app.status] ?? 'bg-surface-100 text-surface-600'"
+                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium shrink-0"
+                  :class="getApplicationSourceMeta((app as any).source).badgeClass"
+                  :title="getApplicationSourceMeta((app as any).source).tooltip"
                 >
-                  {{ app.status }}
+                  <component
+                    :is="getApplicationSourceMeta((app as any).source).icon"
+                    :class="['size-3.5', getApplicationSourceMeta((app as any).source).iconClass]"
+                  />
+                  {{ getApplicationSourceMeta((app as any).source).label }}
+                </span>
+                <span class="text-xs text-surface-500 dark:text-surface-400">
+                  <TimelineDateLink :date="app.createdAt">{{ new Date(app.createdAt).toLocaleDateString() }}</TimelineDateLink>
                 </span>
               </div>
             </div>
