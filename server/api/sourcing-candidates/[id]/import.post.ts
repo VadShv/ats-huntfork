@@ -34,9 +34,14 @@ interface HhResumeFull {
   middle_name?: string | null
   title?: string | null
   can_view_full_info?: boolean
-  /** Платная подписка → дёрнем `actions.get_with_contacts.url`, чтобы раскрыть контакты. */
+  /**
+   * hh.ru actions: `get_with_contact` (БЕЗ s) — платный URL раскрытия контактов,
+   * `url` — бесплатный URL если контакт уже был открыт. На этапе импорта мы
+   * ничего из этого не дёргаем — раскрытие идёт через POST /api/candidates/:id/open-hh-contacts.
+   */
   actions?: {
-    get_with_contacts?: { url?: string }
+    get_with_contact?: { url?: string }
+    url?: string
   }
   contact?: Array<{
     type?: { id?: string, name?: string }

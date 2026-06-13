@@ -36,8 +36,19 @@ interface HhResumeFull {
   middle_name?: string | null
   title?: string | null
   can_view_full_info?: boolean
+  /**
+   * hh.ru actions:
+   *   - `get_with_contact.url` (БЕЗ s!) — платный URL для раскрытия контактов.
+   *     Есть только если у работодателя платный доступ И контакт ещё не
+   *     открывался на эту компанию. Фетч этого URL спишет 1 платный просмотр.
+   *   - `url` — бесплатный URL для повторного просмотра. Появляется,
+   *     если контакт уже открывали ранее — резюме с контактами можно тянуть бесплатно.
+   *   - `download` — скачивание PDF.
+   */
   actions?: {
-    get_with_contacts?: { url?: string }
+    get_with_contact?: { url?: string }
+    url?: string
+    download?: { pdf?: { url?: string } }
   }
   contact?: Array<{
     type?: { id?: string, name?: string }
@@ -149,7 +160,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const contactsUrl = resumeShort.actions?.get_with_contacts?.url
+  // hh.ru: ключ actions называется `get_with_contact` (БЕЗ s).
+  // Если он есть — контакт ещё не открывался, фетч спишет квоту.
+  // Если его нет, но есть `actions.url` — контакт уже открыт на нашу
+  // компанию (другой менеджер уже списал платный просмотр) — фетчим бесплатно.
+  // Если нет ни того, ни другого — платного доступа к этому резюме нет.
+  const paidUrl = resumeShort.actions?.get_with_contact?.url
+  const freeUrl = resumeShort.actions?.url
+  const contactsUrl = paidUrl ?? freeUrl
+  const wouldBurnQuota = !!paidUrl
+
   if (!contactsUrl) {
     await db.insert(hhActionLog).values({
       organizationId: orgId,
@@ -158,11 +178,11 @@ export default defineEventHandler(async (event) => {
       actionType: 'open_contacts',
       hhResumeId: cand.hhResumeId,
       requestPayload: { candidateId: id } as Record<string, unknown>,
-      error: 'no_get_with_contacts_action',
+      error: 'no_get_with_contact_and_no_actions_url',
     })
     throw createError({
       statusCode: 402,
-      statusMessage: 'У аккаунта hh.ru нет платного доступа к контактам (или резюме недоступно)',
+      statusMessage: 'У аккаунта hh.ru нет доступа к этому резюме (нет ни actions.get_with_contact, ни actions.url)',
     })
   }
 
@@ -234,12 +254,13 @@ export default defineEventHandler(async (event) => {
     performedByUserId: userId,
     actionType: 'open_contacts',
     hhResumeId: cand.hhResumeId,
-    requestPayload: { candidateId: id } as Record<string, unknown>,
+    requestPayload: { candidateId: id, wouldBurnQuota } as Record<string, unknown>,
     responseStatus: 200,
     responseBody: {
       ok: true,
       hasEmail: !!email,
       hasPhone: !!phone,
+      quotaBurned: wouldBurnQuota,
     } as Record<string, unknown>,
   })
 
