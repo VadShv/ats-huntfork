@@ -3,6 +3,7 @@ import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, Fil
 import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
+import { isHhContactsClosed } from '~~/shared/hh-placeholders'
 
 definePageMeta({
   layout: 'dashboard',
@@ -486,14 +487,9 @@ function openMergeFromDuplicates() {
 }
 
 // Показываем кнопку, если у кандидата есть hh-резюме И контакты ещё «закрыты»
-// (плейсхолдер ФИО или email вида hh-*@noemail.local).
-const canOpenHhContacts = computed(() => {
-  const c = candidate.value
-  if (!c || !c.hhResumeId) return false
-  const placeholderName = c.firstName === 'Кандидат hh.ru'
-  const placeholderEmail = !!c.email && c.email.startsWith('hh-') && c.email.endsWith('@noemail.local')
-  return placeholderName || placeholderEmail
-})
+// (placeholder ФИО или email — поддерживаем обе исторические конвенции).
+// См. shared/hh-placeholders.ts.
+const canOpenHhContacts = computed(() => isHhContactsClosed(candidate.value ?? {}))
 
 async function openHhContacts() {
   if (isOpeningHhContacts.value) return

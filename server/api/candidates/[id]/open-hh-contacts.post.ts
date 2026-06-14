@@ -27,6 +27,10 @@ import {
 import { findDuplicatesForDraft } from '../../../utils/dedup/check'
 import { apiGet } from '../../../utils/hh/client'
 import { getValidAccessToken } from '../../../utils/hh/tokens'
+import {
+  isHhPlaceholderFirstName,
+  isHhPlaceholderEmail,
+} from '../../../../shared/hh-placeholders'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 
@@ -225,19 +229,23 @@ export default defineEventHandler(async (event) => {
   const email = extractEmail(resume)
   const phone = extractPhone(resume)
 
-  const isPlaceholderName = cand.firstName === 'Кандидат hh.ru'
-  const isPlaceholderEmail = !!cand.email && cand.email.startsWith('hh-') && cand.email.endsWith('@noemail.local')
+  // Поддерживаем обе исторические конвенции placeholder'ов — см. shared/hh-placeholders.ts.
+  const wasPlaceholderName = isHhPlaceholderFirstName(cand.firstName)
+  const wasPlaceholderEmail = isHhPlaceholderEmail(cand.email)
 
   const patch: Record<string, unknown> = {
     hhResumeRaw: resume as unknown as Record<string, unknown>,
     hhResumeFetchedAt: new Date(),
     updatedAt: new Date(),
   }
-  if (isPlaceholderName && (firstName !== 'Кандидат hh.ru' || lastName !== cand.lastName)) {
+  // Если имя было placeholder И hh вернул реальное имя (extractName при пустом
+  // first_name возвращает 'Кандидат hh.ru' — такое не пишем) — перезаписываем.
+  const gotRealName = !isHhPlaceholderFirstName(firstName)
+  if (wasPlaceholderName && gotRealName) {
     patch.firstName = firstName
     patch.lastName = lastName
   }
-  if (email && isPlaceholderEmail) {
+  if (email && wasPlaceholderEmail) {
     patch.email = email
   }
   if (phone && !cand.phone) {
