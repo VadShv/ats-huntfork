@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Shield, Database, Users, Briefcase, ArrowRight } from 'lucide-vue-next'
+import { Shield, Database, Users, ArrowRight } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -84,15 +84,6 @@ definePageMeta({ layout: false })
 
       <!-- ── Footer ── -->
       <footer class="hero-animate hero-delay-5 mt-28 flex flex-col items-center gap-4 text-center">
-        <div class="flex items-center gap-5">
-          <NuxtLink
-            :to="localePath('/jobs')"
-            class="flex items-center gap-1.5 text-[13px] text-surface-500 transition hover:text-surface-700 dark:hover:text-surface-300"
-          >
-            <Briefcase class="h-3.5 w-3.5" />
-            {{ $t('home.nav.openPositions') }}
-          </NuxtLink>
-        </div>
         <p class="text-[12px] text-surface-500 dark:text-surface-600">
           {{ isAstraBrand ? '«Huntfork» — рекрутинговая платформа Группы Астра' : $t('home.footer.tagline') }}
         </p>

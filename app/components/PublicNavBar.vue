@@ -37,13 +37,6 @@ const isAstraBrand = useAstraBrand()
 
       <!-- Center nav links (desktop) -->
       <div class="hidden items-center gap-1 md:flex">
-        <NuxtLink
-          :to="localePath('/jobs')"
-          class="rounded-md px-3 py-1.5 text-[13px] font-medium transition"
-          :class="activePage === 'jobs' ? 'text-surface-900 dark:text-white' : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'"
-        >
-          {{ t('home.nav.openPositions') }}
-        </NuxtLink>
         <a
           v-if="!isAstraBrand"
           href="https://github.com/reqcore-inc/reqcore"
