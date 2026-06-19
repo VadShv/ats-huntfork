@@ -97,6 +97,21 @@ export default defineNuxtConfig({
 
   css: ["~/assets/css/main.css"],
 
+  // ────────────────────────────────────────────
+  // Components auto-import — фундамент дизайн-системы
+  // ────────────────────────────────────────────
+  // Базовые UI-компоненты в app/components/ui/ именуются по образцу Ui*
+  // (UiButton.vue, UiInput.vue и т.д.). Чтобы Nuxt не добавлял лишний префикс
+  // из имени папки (получилось бы <UiUiButton>), выключаем pathPrefix.
+  // Другие папки (например candidate/, application/) остаются по дефолту
+  // — Nuxt всё равно сканирует app/components/** рекурсивно.
+  components: [
+    // Без префикса: файлы в app/components/ui/ уже именуются Ui*.
+    { path: '~/components/ui', pathPrefix: false },
+    // Остальные папки — дефолтное поведение: <CandidateXxx>, <ApplicationXxx> и т.д.
+    { path: '~/components' },
+  ],
+
   // ─────────────────────────────────────────────
   // PostHog — privacy-focused product analytics & feature flags
   // ─────────────────────────────────────────────
