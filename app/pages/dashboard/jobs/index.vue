@@ -372,7 +372,7 @@ const sortDirOptions = computed(() => [
         </p>
       </div>
       <UiButton :to="$localePath('/dashboard/jobs/new')" :icon-left="Plus">
-        {{ $t('dashboard.jobs.new') }}
+        {{ $t('dashboard.jobs.new.createJob') }}
       </UiButton>
     </div>
 
