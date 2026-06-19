@@ -43,14 +43,20 @@ function getStageCount(pipeline: any, key: string): number {
 const { jobs, total, fetchStatus, error, refresh } = useJobs()
 
 // ─────────────────────────────────────────────
-// Job status config
+// Job status → UiBadge tone mapping
 // ─────────────────────────────────────────────
 
-const statusBadgeClasses: Record<string, string> = {
-  draft: 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400',
-  open: 'bg-success-50 text-success-700 dark:bg-success-950 dark:text-success-400',
-  closed: 'bg-warning-50 text-warning-700 dark:bg-warning-950 dark:text-warning-400',
-  archived: 'bg-surface-100 text-surface-400 dark:bg-surface-800 dark:text-surface-500',
+type JobStatus = 'draft' | 'open' | 'closed' | 'archived'
+
+const statusToneMap: Record<JobStatus, 'neutral' | 'success' | 'warning'> = {
+  draft: 'neutral',
+  open: 'success',
+  closed: 'warning',
+  archived: 'neutral',
+}
+
+function statusTone(s: string) {
+  return (statusToneMap[s as JobStatus] ?? 'neutral')
 }
 
 const typeLabels: Record<string, string> = {
@@ -338,6 +344,21 @@ function onUpdateView(id: string) {
 
 const isEmpty = computed(() => jobs.value.length === 0)
 const noResults = computed(() => !isEmpty.value && filteredJobs.value.length === 0)
+
+// Sort options for UiSelect inside FilterDrawer
+const sortKeyOptions = computed(() => [
+  { value: 'created', label: t('dashboard.jobs.sort.dateCreated') },
+  { value: 'title', label: t('dashboard.jobs.sort.title') },
+  { value: 'status', label: t('dashboard.jobs.sort.status') },
+  { value: 'type', label: t('dashboard.jobs.sort.employmentType') },
+  { value: 'location', label: t('dashboard.jobs.sort.location') },
+  { value: 'new', label: t('dashboard.jobs.sort.newApplicants') },
+  { value: 'active', label: t('dashboard.jobs.sort.activeCandidates') },
+])
+const sortDirOptions = computed(() => [
+  { value: 'asc', label: t('dashboard.jobs.sort.ascending') },
+  { value: 'desc', label: t('dashboard.jobs.sort.descending') },
+])
 </script>
 
 <template>
@@ -350,13 +371,9 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
           {{ activeOrg.name }}
         </p>
       </div>
-      <NuxtLink
-        :to="$localePath('/dashboard/jobs/new')"
-        class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors no-underline"
-      >
-        <Plus class="size-4" />
+      <UiButton :to="$localePath('/dashboard/jobs/new')" :icon-left="Plus">
         {{ $t('dashboard.jobs.new') }}
-      </NuxtLink>
+      </UiButton>
     </div>
 
     <!-- ─── Loading ─── -->
@@ -381,17 +398,21 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
     </div>
 
     <!-- ─── Error ─── -->
-    <div
+    <UiCard
       v-else-if="error"
-      class="rounded-lg border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950 p-4 text-sm text-danger-700 dark:text-danger-400"
+      variant="tinted"
+      tone="danger"
+      radius="md"
+      padding="sm"
+      class="text-sm text-danger-700 dark:text-danger-400"
     >
       {{ $t('dashboard.jobs.failedToLoad') }}
       <button class="underline ml-1 cursor-pointer" @click="refresh()">{{ $t('dashboard.jobs.retry') }}</button>
-    </div>
+    </UiCard>
 
     <!-- ─── Empty state ─── -->
     <div v-else-if="isEmpty" class="flex flex-col items-center justify-center py-20">
-      <div class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-10 text-center max-w-md">
+      <UiCard padding="lg" class="text-center max-w-md">
         <Briefcase class="size-12 text-brand-400 mx-auto mb-4" />
         <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-2">
           {{ $t('dashboard.jobs.welcomeTitle') }}
@@ -399,27 +420,22 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
         <p class="text-sm text-surface-500 dark:text-surface-400 mb-6 leading-relaxed">
           {{ $t('dashboard.jobs.welcomeDesc') }}
         </p>
-        <NuxtLink
-          :to="$localePath('/dashboard/jobs/new')"
-          class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors no-underline"
-        >
-          <Plus class="size-4" />
+        <UiButton :to="$localePath('/dashboard/jobs/new')" :icon-left="Plus">
           {{ $t('dashboard.jobs.createFirst') }}
-        </NuxtLink>
-      </div>
+        </UiButton>
+      </UiCard>
     </div>
 
     <!-- ─── Jobs content ─── -->
     <template v-else>
       <!-- ─── Toolbar: Search + Views + Filters + View Toggle ─── -->
       <div class="flex items-center gap-2 mb-4">
-        <div class="relative flex-1">
-          <Search class="size-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
+        <div class="flex-1">
+          <UiInput
             v-model="search"
             type="search"
             :placeholder="$t('dashboard.jobs.searchPlaceholder')"
-            class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 pl-9 pr-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+            :icon-left="Search"
           />
         </div>
 
@@ -483,10 +499,9 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
         >
           <SlidersHorizontal class="size-4" />
           {{ $t('dashboard.jobs.filters') }}
-          <span
-            v-if="activeFilterCount > 0"
-            class="inline-flex items-center justify-center size-4 rounded-full bg-surface-700 dark:bg-surface-300 text-white dark:text-surface-900 text-xs font-semibold"
-          >{{ activeFilterCount }}</span>
+          <UiBadge v-if="activeFilterCount > 0" variant="solid" tone="neutral" size="sm">
+            {{ activeFilterCount }}
+          </UiBadge>
         </button>
 
         <!-- Clear filters -->
@@ -592,39 +607,24 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">{{ $t('dashboard.jobs.filter.sortBy') }}</label>
             <div class="flex gap-2">
-              <select
-                v-model="sortKey"
-                class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
-              >
-                <option value="created">{{ $t('dashboard.jobs.sort.dateCreated') }}</option>
-                <option value="title">{{ $t('dashboard.jobs.sort.title') }}</option>
-                <option value="status">{{ $t('dashboard.jobs.sort.status') }}</option>
-                <option value="type">{{ $t('dashboard.jobs.sort.employmentType') }}</option>
-                <option value="location">{{ $t('dashboard.jobs.sort.location') }}</option>
-                <option value="new">{{ $t('dashboard.jobs.sort.newApplicants') }}</option>
-                <option value="active">{{ $t('dashboard.jobs.sort.activeCandidates') }}</option>
-              </select>
-              <select
-                v-model="sortDir"
-                class="w-32 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
-              >
-                <option value="asc">{{ $t('dashboard.jobs.sort.ascending') }}</option>
-                <option value="desc">{{ $t('dashboard.jobs.sort.descending') }}</option>
-              </select>
+              <UiSelect v-model="sortKey" :options="sortKeyOptions" />
+              <UiSelect v-model="sortDir" :options="sortDirOptions" :block="false" class="w-32" />
             </div>
           </div>
         </div>
       </FilterDrawer>
 
       <!-- ─── No-results state ─── -->
-      <div
+      <UiCard
         v-if="noResults"
-        class="rounded-xl border border-dashed border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-10 text-center"
+        variant="dashed"
+        padding="lg"
+        class="text-center"
       >
         <Search class="size-8 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
         <p class="text-sm text-surface-600 dark:text-surface-300 mb-1">{{ $t('dashboard.jobs.noResults') }}</p>
         <p class="text-xs text-surface-400 dark:text-surface-500">{{ $t('dashboard.jobs.noResultsHint') }}</p>
-      </div>
+      </UiCard>
 
       <!-- ═══════════════════════════════════
            TABLE VIEW
@@ -708,26 +708,18 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
                     >
                       {{ j.title }}
                     </NuxtLink>
-                    <span
-                      v-if="(j.pipeline?.new ?? 0) > 0"
-                      class="inline-flex items-center justify-center rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 text-[10px] font-bold px-1.5 py-0.5 shrink-0"
-                    >
+                    <UiBadge v-if="(j.pipeline?.new ?? 0) > 0" tone="warning">
                       {{ j.pipeline.new }} new
-                    </span>
-                    <span
+                    </UiBadge>
+                    <UiBadge
                       v-if="j.hhLinked"
-                      class="inline-flex items-center justify-center rounded-full bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-[10px] font-bold px-1.5 py-0.5 shrink-0"
+                      tone="danger"
                       :title="`Связано с hh.ru · #${j.hhVacancyId} · ${j.hhImportedCount} откликов`"
-                    >hh</span>
+                    >hh</UiBadge>
                   </div>
                 </td>
                 <td class="px-4 py-3">
-                  <span
-                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize"
-                    :class="statusBadgeClasses[j.status] ?? 'bg-surface-100 text-surface-600'"
-                  >
-                    {{ j.status }}
-                  </span>
+                  <UiBadge :tone="statusTone(j.status)" class="capitalize">{{ j.status }}</UiBadge>
                 </td>
                 <td class="px-4 py-3 text-surface-500 dark:text-surface-400 hidden sm:table-cell whitespace-nowrap">
                   {{ typeLabels[j.type] ?? j.type }}
@@ -786,17 +778,12 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
                 {{ j.title }}
               </span>
               <div class="flex items-center gap-1.5 shrink-0">
-                <span
+                <UiBadge
                   v-if="j.hhLinked"
-                  class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-[10px] font-bold px-1.5 py-0.5"
+                  tone="danger"
                   :title="`Связано с hh.ru · #${j.hhVacancyId} · ${j.hhImportedCount} откликов`"
-                >hh</span>
-                <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize mt-0.5"
-                  :class="statusBadgeClasses[j.status] ?? 'bg-surface-100 text-surface-600'"
-                >
-                  {{ j.status }}
-                </span>
+                >hh</UiBadge>
+                <UiBadge :tone="statusTone(j.status)" class="capitalize mt-0.5">{{ j.status }}</UiBadge>
               </div>
             </div>
 
@@ -878,12 +865,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
                       >
                         {{ j.title }}
                       </NuxtLink>
-                      <span
-                        class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 capitalize"
-                        :class="statusBadgeClasses[j.status]"
-                      >
-                        {{ j.status }}
-                      </span>
+                      <UiBadge :tone="statusTone(j.status)" class="capitalize shrink-0">{{ j.status }}</UiBadge>
                     </div>
                     <div class="flex items-center gap-3 text-xs text-surface-400">
                       <span>{{ typeLabels[j.type] ?? j.type }}</span>
@@ -919,13 +901,13 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
                 <span class="text-xs font-medium text-warning-700 dark:text-warning-400 mr-auto">
                   {{ j.pipeline.new }} new application{{ j.pipeline.new === 1 ? '' : 's' }} to review
                 </span>
-                <NuxtLink
+                <UiButton
                   :to="$localePath(`/dashboard/jobs/${j.id}`)"
-                  class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 transition-colors no-underline"
+                  size="xs"
+                  :icon-left="Kanban"
                 >
-                  <Kanban class="size-3" />
                   {{ $t('dashboard.jobs.actions.reviewInPipeline') }}
-                </NuxtLink>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -957,12 +939,7 @@ const noResults = computed(() => !isEmpty.value && filteredJobs.value.length ===
                 >
                   {{ j.title }}
                 </NuxtLink>
-                <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 capitalize"
-                  :class="statusBadgeClasses[j.status] ?? 'bg-surface-100 text-surface-600'"
-                >
-                  {{ j.status }}
-                </span>
+                <UiBadge :tone="statusTone(j.status)" class="capitalize shrink-0">{{ j.status }}</UiBadge>
               </div>
               <div class="flex items-center gap-3 text-xs text-surface-400 mb-3">
                 <span>{{ typeLabels[j.type] ?? j.type }}</span>
