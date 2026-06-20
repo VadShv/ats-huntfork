@@ -14,12 +14,13 @@ import { applyAutoRejectIfNeeded } from './autoReject'
 import type { SupportedProvider } from './provider'
 import { loadAiConfig } from './loadConfig'
 import { extractResumeText } from '../resume-parser'
+import { resumeToText as hhResumeToText, type HhResumeApi } from '../hh/sync'
 
 export async function autoScoreApplication(applicationId: string, orgId: string) {
   const app = await db.query.application.findFirst({
     where: and(eq(application.id, applicationId), eq(application.organizationId, orgId)),
     with: {
-      candidate: { columns: { id: true, firstName: true, lastName: true } },
+      candidate: { columns: { id: true, firstName: true, lastName: true, hhResumeRaw: true } },
       job: { columns: { id: true, title: true, description: true } },
     },
   })
@@ -44,7 +45,12 @@ export async function autoScoreApplication(applicationId: string, orgId: string)
     .where(and(eq(document.candidateId, app.candidate.id), eq(document.organizationId, orgId)))
 
   const resumeDoc = docs.find(d => d.type === 'resume')
-  const resumeText = extractResumeText(resumeDoc?.parsedContent)
+  let resumeText = extractResumeText(resumeDoc?.parsedContent)
+  // Fallback для холодных кандидатов hh.ru-сорсинга
+  if (!resumeText && app.candidate.hhResumeRaw) {
+    const fromHh = hhResumeToText(app.candidate.hhResumeRaw as unknown as HhResumeApi)
+    if (fromHh && fromHh.trim().length > 0) resumeText = fromHh
+  }
   if (!resumeText) return
 
   if (!app.job.description) return

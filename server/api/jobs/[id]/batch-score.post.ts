@@ -20,6 +20,7 @@ import { z } from 'zod'
 import {
   analysisRun,
   application,
+  candidate,
   criterionScore,
   document,
   job,
@@ -31,6 +32,7 @@ import { computeCompositeScore, scoreApplication } from '../../../utils/ai/scori
 import type { CriterionDefinition } from '../../../utils/ai/scoring'
 import { applyAutoRejectIfNeeded } from '../../../utils/ai/autoReject'
 import { extractResumeText } from '../../../utils/resume-parser'
+import { resumeToText as hhResumeToText, type HhResumeApi } from '../../../utils/hh/sync'
 import { createRateLimiter } from '../../../utils/rateLimit'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
@@ -194,6 +196,24 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Доп. fallback: для холодных кандидатов из hh-сорсинга берём hhResumeRaw.
+  const hhResumeRawByCandidate = new Map<string, HhResumeApi>()
+  const candidatesWithoutDoc = candidateIds.filter(cid => !resumeByCandidate.has(cid))
+  if (candidatesWithoutDoc.length > 0) {
+    const cands = await db
+      .select({ id: candidate.id, hhResumeRaw: candidate.hhResumeRaw })
+      .from(candidate)
+      .where(and(
+        inArray(candidate.id, candidatesWithoutDoc),
+        eq(candidate.organizationId, orgId),
+      ))
+    for (const c of cands) {
+      if (c.hhResumeRaw) {
+        hhResumeRawByCandidate.set(c.id, c.hhResumeRaw as unknown as HhResumeApi)
+      }
+    }
+  }
+
   // 5. Параллельный пайплайн с CONCURRENCY=3
   const queue = applications.slice()
   const results: Array<{
@@ -208,7 +228,14 @@ export default defineEventHandler(async (event) => {
       const app = queue.shift()
       if (!app) break
 
-      const resumeText = extractResumeText(resumeByCandidate.get(app.candidateId))
+      let resumeText = extractResumeText(resumeByCandidate.get(app.candidateId))
+      if (!resumeText) {
+        const raw = hhResumeRawByCandidate.get(app.candidateId)
+        if (raw) {
+          const fromHh = hhResumeToText(raw)
+          if (fromHh && fromHh.trim().length > 0) resumeText = fromHh
+        }
+      }
       if (!resumeText) {
         results.push({
           applicationId: app.id,

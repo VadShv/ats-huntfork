@@ -895,7 +895,12 @@
         "autoRejectSafety1": "Candidates flagged as “Manual review only” will not be auto-rejected.",
         "autoRejectSafety2": "If AI confidence is low (< 50%), the candidate is marked “AI uncertain” and is NOT rejected — manual review is required.",
         "autoRejectSafety3": "If a recruiter has already moved the candidate in the pipeline — auto-reject is not applied.",
-        "autoRejectSafety4": "Auto-reject does not send emails to candidates — it only changes the pipeline stage."
+        "autoRejectSafety4": "Auto-reject does not send emails to candidates — it only changes the pipeline stage.",
+        "automationSection": "Automation",
+        "automationSectionHint": "AI automations for this job: automatic candidate scoring and auto-reject based on scoring results.",
+        "appOptionsSectionHint": "Control what candidates must provide when applying.",
+        "requireResumeHint": "Candidates must upload a resume file.",
+        "requireCoverLetterHint": "Candidates can write a cover letter."
       },
       "appForm": {
         "pageTitle": "Application Form",
@@ -1763,7 +1768,12 @@
       "rejected": "Reject"
     },
     "failedToUpdateStatus": "Failed to update status",
-    "failedToSaveNotes": "Failed to save notes"
+    "failedToSaveNotes": "Failed to save notes",
+    "manualReviewOnly": "Manual review only",
+    "manualReviewOnlyHint": "If enabled, auto-rules (auto-scoring and auto-reject) will NOT be applied to this candidate on any job.",
+    "manualOnlyEnabled": "Manual mode enabled",
+    "manualOnlyDisabled": "Manual mode disabled",
+    "failedToUpdateManualOnly": "Failed to toggle manual mode"
   },
   "auth": {
     "pendingApproval": {

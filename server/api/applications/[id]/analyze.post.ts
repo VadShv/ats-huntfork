@@ -9,6 +9,7 @@ import { applyAutoRejectIfNeeded } from '../../../utils/ai/autoReject'
 import type { SupportedProvider } from '../../../utils/ai/provider'
 import { loadAiConfig } from '../../../utils/ai/loadConfig'
 import { extractResumeText } from '../../../utils/resume-parser'
+import { resumeToText as hhResumeToText, type HhResumeApi } from '../../../utils/hh/sync'
 import { createRateLimiter } from '../../../utils/rateLimit'
 import { z } from 'zod'
 
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
     where: and(eq(application.id, applicationId), eq(application.organizationId, orgId)),
     with: {
       candidate: {
-        columns: { id: true, firstName: true, lastName: true },
+        columns: { id: true, firstName: true, lastName: true, hhResumeRaw: true },
       },
       job: {
         columns: { id: true, title: true, description: true },
@@ -83,7 +84,16 @@ export default defineEventHandler(async (event) => {
     ))
 
   const resumeDoc = docs.find(d => d.type === 'resume')
-  const resumeText = extractResumeText(resumeDoc?.parsedContent)
+  let resumeText = extractResumeText(resumeDoc?.parsedContent)
+
+  // Fallback для холодных кандидатов из сорсинга hh.ru:
+  // если документа resume нет, но есть candidate.hhResumeRaw — конвертим JSON в текст.
+  if (!resumeText && app.candidate.hhResumeRaw) {
+    const fromHh = hhResumeToText(app.candidate.hhResumeRaw as unknown as HhResumeApi)
+    if (fromHh && fromHh.trim().length > 0) {
+      resumeText = fromHh
+    }
+  }
 
   if (!resumeText) {
     // Resume document exists but parsing failed or was incomplete

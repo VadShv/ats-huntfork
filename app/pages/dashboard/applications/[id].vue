@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch, Keyboard, X } from 'lucide-vue-next'
+import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch, Keyboard, X, ShieldCheck } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
 
@@ -100,6 +100,28 @@ async function handleTransition(newStatus: string) {
     toast.error(t('applications.failedToUpdateStatus'), { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   } finally {
     isTransitioning.value = false
+  }
+}
+
+// «Только ручная обработка» — отключает все авто-правила для этого кандидата.
+const isUpdatingManualOnly = ref(false)
+async function toggleManualReviewOnly() {
+  if (!application.value || isUpdatingManualOnly.value) return
+  const candidateId = application.value.candidate.id
+  const next = !(application.value.candidate as any).manualReviewOnly
+  isUpdatingManualOnly.value = true
+  try {
+    await $fetch(`/api/candidates/${candidateId}`, {
+      method: 'PATCH',
+      body: { manualReviewOnly: next },
+    })
+    await refresh()
+    toast.success?.(next ? t('applications.manualOnlyEnabled') : t('applications.manualOnlyDisabled'))
+  } catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error(t('applications.failedToUpdateManualOnly'), { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+  } finally {
+    isUpdatingManualOnly.value = false
   }
 }
 
@@ -280,6 +302,26 @@ function formatResponseValue(value: unknown): string {
               <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ application.candidate.phone }}</dd>
             </div>
           </dl>
+
+          <!-- «Только ручная обработка» — флаг кандидата против авто-правил -->
+          <div class="mt-4 pt-4 border-t border-surface-100 dark:border-surface-800">
+            <label class="flex items-start gap-3 cursor-pointer select-none" :class="{ 'opacity-60': isUpdatingManualOnly }">
+              <input
+                type="checkbox"
+                :checked="!!(application.candidate as any).manualReviewOnly"
+                :disabled="isUpdatingManualOnly"
+                class="mt-0.5 size-4 rounded border-surface-300 dark:border-surface-600 text-info-600 focus:ring-info-500"
+                @change="toggleManualReviewOnly"
+              />
+              <div class="flex-1">
+                <div class="flex items-center gap-1.5">
+                  <ShieldCheck class="size-3.5 text-info-600 dark:text-info-400" />
+                  <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ t('applications.manualReviewOnly') }}</span>
+                </div>
+                <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">{{ t('applications.manualReviewOnlyHint') }}</p>
+              </div>
+            </label>
+          </div>
         </div>
 
         <!-- Job info -->

@@ -550,36 +550,13 @@ function onSalaryMaxChange(e: Event) {
         </section>
 
         <!-- ═══════════════════════════════════════ -->
-        <!-- SECTION: Application Options             -->
+        <!-- SECTION: Automation                     -->
         <!-- ═══════════════════════════════════════ -->
         <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
-          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ $t('dashboard.jobs.settings.appOptionsSection') }}</h2>
-          <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">
-            Control what candidates must provide when applying.
-          </p>
+          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ $t('dashboard.jobs.settings.automationSection') }}</h2>
+          <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">{{ $t('dashboard.jobs.settings.automationSectionHint') }}</p>
           <div class="space-y-3">
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input
-                v-model="form.requireResume"
-                type="checkbox"
-                class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
-              />
-              <div>
-                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.requireResume') }}</span>
-                <p class="text-xs text-surface-400 dark:text-surface-500">Candidates must upload a resume file.</p>
-              </div>
-            </label>
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input
-                v-model="form.requireCoverLetter"
-                type="checkbox"
-                class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
-              />
-              <div>
-                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.requireCoverLetter') }}</span>
-                <p class="text-xs text-surface-400 dark:text-surface-500">Candidates can write a cover letter.</p>
-              </div>
-            </label>
+            <!-- Автооценка при отклике -->
             <label class="flex items-center gap-3 cursor-pointer">
               <input
                 v-model="form.autoScoreOnApply"
@@ -663,6 +640,40 @@ function onSalaryMaxChange(e: Event) {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- SECTION: Application Options             -->
+        <!-- ═══════════════════════════════════════ -->
+        <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
+          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ $t('dashboard.jobs.settings.appOptionsSection') }}</h2>
+          <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">
+            {{ $t('dashboard.jobs.settings.appOptionsSectionHint') }}
+          </p>
+          <div class="space-y-3">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input
+                v-model="form.requireResume"
+                type="checkbox"
+                class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
+              />
+              <div>
+                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.requireResume') }}</span>
+                <p class="text-xs text-surface-400 dark:text-surface-500">{{ $t('dashboard.jobs.settings.requireResumeHint') }}</p>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input
+                v-model="form.requireCoverLetter"
+                type="checkbox"
+                class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
+              />
+              <div>
+                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.requireCoverLetter') }}</span>
+                <p class="text-xs text-surface-400 dark:text-surface-500">{{ $t('dashboard.jobs.settings.requireCoverLetterHint') }}</p>
+              </div>
+            </label>
           </div>
         </section>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall, ShieldCheck } from 'lucide-vue-next'
+import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall } from 'lucide-vue-next'
 import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
@@ -458,30 +458,6 @@ async function removeFraudFlag() {
   }
 }
 
-// ── VIP-флаг: кандидат обрабатывается только вручную (никаких авто-правил) ───────────────────────────────
-const isUpdatingManualOnly = ref(false)
-async function toggleManualReviewOnly() {
-  if (!candidate.value || isUpdatingManualOnly.value) return
-  const next = !(candidate.value as any).manualReviewOnly
-  isUpdatingManualOnly.value = true
-  try {
-    await $fetch(`/api/candidates/${candidateId}`, {
-      method: 'PATCH',
-      body: { manualReviewOnly: next },
-    })
-    await refresh()
-    toast.success?.(next
-      ? 'Ручной режим включён: авто-правила к этому кандидату не применяются'
-      : 'Ручной режим выключен')
-  }
-  catch (err: any) {
-    if (handlePreviewReadOnlyError(err)) return
-    toast.error('Не удалось переключить ручной режим', { message: err.data?.statusMessage })
-  }
-  finally {
-    isUpdatingManualOnly.value = false
-  }
-}
 
 // ── Раскрытие контактов hh.ru (тратит платную квоту) ───────────────────────
 const isOpeningHhContacts = ref(false)
@@ -654,21 +630,6 @@ async function openHhContacts() {
               >
                 <GitMerge class="size-3.5" />
                 Слить
-              </button>
-              <!-- VIP-тоггл: только вручную (авто-правила обходят) -->
-              <button
-                :disabled="isUpdatingManualOnly"
-                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-                :class="(candidate as any).manualReviewOnly
-                  ? 'border-info-300 dark:border-info-700 bg-info-50 dark:bg-info-950 text-info-700 dark:text-info-300 hover:bg-info-100 dark:hover:bg-info-900'
-                  : 'border-surface-300 dark:border-surface-700 text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800'"
-                :title="(candidate as any).manualReviewOnly
-                  ? 'Иконка «выключена»: к этому кандидату не применяются авто-отказы'
-                  : 'Включить ручной режим: авто-отказы будут пропускаться'"
-                @click="toggleManualReviewOnly"
-              >
-                <ShieldCheck class="size-3.5" />
-                {{ (candidate as any).manualReviewOnly ? 'Только вручную' : 'Вкл. ручной режим' }}
               </button>
               <button
                 v-if="!candidate.fraudFlag"
