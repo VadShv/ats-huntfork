@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Users, SlidersHorizontal, X, Check, ChevronsUpDown, ChevronUp, ChevronDown, UserRound, Sparkles, Loader2, ChevronDown as ChevronDownIcon, Snowflake, Link2, Unlink2 } from 'lucide-vue-next'
+import { Users, SlidersHorizontal, X, Check, ChevronsUpDown, ChevronUp, ChevronDown, UserRound, Sparkles, Loader2, ChevronDown as ChevronDownIcon, Snowflake, Link2, Unlink2, ShieldCheck, AlertTriangle } from 'lucide-vue-next'
 import { useLocalStorageState } from '~/composables/useLocalStorageState'
 import { getApplicationSourceMeta, type ApplicationSource } from '~/composables/useApplicationSource'
 
@@ -56,6 +56,8 @@ const visibleCols = useState(`cand-visible-cols-${jobId}`, () => ({
 
 // Тумблер «Скрыть холодных» (hh_sourcing) для таблицы кандидатов вакансии
 const hideColdInTable = useLocalStorageState<boolean>(`cand-hide-cold-${jobId}`, false)
+// Показывать только заявки, помеченные «AI не уверен» — рекрутёру нужно проверить ручно.
+const needsReviewOnly = useLocalStorageState<boolean>(`cand-needs-review-only-${jobId}`, false)
 
 // ── Pipeline stages for this job (for stage filter) ────────────────────────────
 
@@ -522,6 +524,7 @@ const activeFilterCount = computed(() => {
   if (scoreMax.value != null) n++
   if (selectedStageId.value != null) n++
   if (hideColdInTable.value) n++
+  if (needsReviewOnly.value) n++
   return n
 })
 
@@ -531,6 +534,7 @@ function clearFilters() {
   scoreMax.value = undefined
   selectedStageId.value = undefined
   hideColdInTable.value = false
+  needsReviewOnly.value = false
 }
 
 // ─────────────────────────────────────────────
@@ -575,6 +579,7 @@ const sorted = computed(() => {
   return [...applications.value]
     .filter((app) => {
       if (selectedStatuses.value.length > 1 && !selectedStatuses.value.includes(app.status as Status)) return false
+      if (needsReviewOnly.value && !(app as any).needsManualReview) return false
       if (scoreMin.value != null && (app.score ?? 0) < scoreMin.value) return false
       if (scoreMax.value != null && (app.score ?? 0) > scoreMax.value) return false
       if (hideColdInTable.value && (app as any).source === 'hh_sourcing') return false
@@ -1022,6 +1027,19 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
             <Snowflake class="size-3.5" />
             {{ hideColdInTable ? 'Показать холодных' : 'Скрыть холодных' }}
           </button>
+          <!-- Фильтр «Только требующие ручной проверки» -->
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors"
+            :class="needsReviewOnly
+              ? 'border-warning-300 dark:border-warning-700 bg-warning-50 dark:bg-warning-950/40 text-warning-800 dark:text-warning-300'
+              : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
+            :title="$t('dashboard.jobs.candidates.needsReviewFilterHint')"
+            @click="needsReviewOnly = !needsReviewOnly"
+          >
+            <AlertTriangle class="size-3.5" />
+            {{ $t('dashboard.jobs.candidates.needsReviewFilter') }}
+          </button>
         </div>
 
         <!-- Active filter pills -->
@@ -1180,9 +1198,29 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                     >
                       {{ getCandidateInitials(app.candidateFirstName, app.candidateLastName) }}
                     </div>
-                    <span class="font-medium text-surface-900 dark:text-surface-100">
-                      {{ formatPersonName(app.candidateFirstName, app.candidateLastName) }}
-                    </span>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="font-medium text-surface-900 dark:text-surface-100">
+                        {{ formatPersonName(app.candidateFirstName, app.candidateLastName) }}
+                      </span>
+                      <!-- VIP-флаг кандидата: авто-правила не применяются -->
+                      <span
+                        v-if="(app as any).candidateManualReviewOnly"
+                        class="inline-flex items-center gap-1 rounded-md bg-info-50 dark:bg-info-950/60 text-info-700 dark:text-info-300 ring-1 ring-inset ring-info-200 dark:ring-info-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                        :title="$t('dashboard.jobs.candidates.badgeManualOnlyHint')"
+                      >
+                        <ShieldCheck class="size-3" />
+                        {{ $t('dashboard.jobs.candidates.badgeManualOnly') }}
+                      </span>
+                      <!-- AI не уверен — требует ручной проверки -->
+                      <span
+                        v-if="(app as any).needsManualReview"
+                        class="inline-flex items-center gap-1 rounded-md bg-warning-50 dark:bg-warning-950/60 text-warning-700 dark:text-warning-300 ring-1 ring-inset ring-warning-200 dark:ring-warning-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                        :title="$t('dashboard.jobs.candidates.badgeNeedsReviewHint')"
+                      >
+                        <AlertTriangle class="size-3" />
+                        {{ $t('dashboard.jobs.candidates.badgeNeedsReview') }}
+                      </span>
+                    </div>
                   </div>
                 </td>
                 <td v-if="visibleCols.email" class="hidden sm:table-cell px-4 py-3 text-surface-600 dark:text-surface-300 max-w-[220px] truncate">

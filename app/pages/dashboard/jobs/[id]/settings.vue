@@ -47,6 +47,10 @@ const form = ref({
   requireResume: false,
   requireCoverLetter: false,
   autoScoreOnApply: false,
+  // Авто-отклонение по AI-скору
+  autoRejectEnabled: false,
+  autoRejectBelowScore: null as number | null,
+  autoRejectReasonNote: '',
   pipelineId: null as string | null,
 })
 
@@ -69,6 +73,9 @@ watch(job, (j) => {
       requireResume: j.requireResume ?? false,
       requireCoverLetter: j.requireCoverLetter ?? false,
       autoScoreOnApply: j.autoScoreOnApply ?? false,
+      autoRejectEnabled: (j as any).autoRejectEnabled ?? false,
+      autoRejectBelowScore: (j as any).autoRejectBelowScore ?? null,
+      autoRejectReasonNote: (j as any).autoRejectReasonNote ?? '',
       pipelineId: (j as any).pipelineId ?? null,
     }
   }
@@ -128,6 +135,9 @@ const editSchema = z.object({
   requireResume: z.boolean().optional(),
   requireCoverLetter: z.boolean().optional(),
   autoScoreOnApply: z.boolean().optional(),
+  autoRejectEnabled: z.boolean().optional(),
+  autoRejectBelowScore: z.number().int().min(0).max(100).nullable().optional(),
+  autoRejectReasonNote: z.string().max(500).optional(),
 })
 
 const errors = ref<Record<string, string>>({})
@@ -157,6 +167,9 @@ async function handleSave() {
       requireResume: form.value.requireResume,
       requireCoverLetter: form.value.requireCoverLetter,
       autoScoreOnApply: form.value.autoScoreOnApply,
+      autoRejectEnabled: form.value.autoRejectEnabled,
+      autoRejectBelowScore: form.value.autoRejectEnabled ? (form.value.autoRejectBelowScore ?? null) : null,
+      autoRejectReasonNote: form.value.autoRejectReasonNote?.trim() ? form.value.autoRejectReasonNote.trim() : null,
       salaryNegotiable: form.value.salaryNegotiable,
       // Always send salary fields so cleared values write null to the DB
       salaryMin: form.value.salaryNegotiable ? null : (form.value.salaryMin ?? null),
@@ -575,9 +588,81 @@ function onSalaryMaxChange(e: Event) {
               />
               <div>
                 <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.autoScore') }}</span>
-                <p class="text-xs text-surface-400 dark:text-surface-500">Automatically run AI scoring when a candidate applies.</p>
+                <p class="text-xs text-surface-400 dark:text-surface-500">{{ $t('dashboard.jobs.settings.autoScoreHint') }}</p>
               </div>
             </label>
+
+            <!-- Авто-отклонение по AI-скору -->
+            <div class="pt-3 mt-1 border-t border-surface-100 dark:border-surface-800">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input
+                  v-model="form.autoRejectEnabled"
+                  type="checkbox"
+                  class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
+                />
+                <div>
+                  <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.autoReject') }}</span>
+                  <p class="text-xs text-surface-400 dark:text-surface-500">{{ $t('dashboard.jobs.settings.autoRejectHint') }}</p>
+                </div>
+              </label>
+
+              <div
+                v-if="form.autoRejectEnabled"
+                class="mt-4 ml-7 space-y-4 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50/60 dark:bg-surface-900/40 p-4"
+              >
+                <!-- Порог -->
+                <div>
+                  <label for="settings-auto-reject-threshold" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                    {{ $t('dashboard.jobs.settings.autoRejectThreshold') }}
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <input
+                      id="settings-auto-reject-threshold"
+                      v-model.number="form.autoRejectBelowScore"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      placeholder="50"
+                      class="w-28 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                    />
+                    <span class="text-sm text-surface-500 dark:text-surface-400">{{ $t('dashboard.jobs.settings.autoRejectThresholdSuffix') }}</span>
+                  </div>
+                  <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">
+                    {{ $t('dashboard.jobs.settings.autoRejectThresholdHint') }}
+                  </p>
+                </div>
+
+                <!-- Причина (опционально) -->
+                <div>
+                  <label for="settings-auto-reject-note" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                    {{ $t('dashboard.jobs.settings.autoRejectNote') }}
+                  </label>
+                  <textarea
+                    id="settings-auto-reject-note"
+                    v-model="form.autoRejectReasonNote"
+                    rows="2"
+                    maxlength="500"
+                    :placeholder="$t('dashboard.jobs.settings.autoRejectNotePlaceholder')"
+                    class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-y"
+                  />
+                  <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">
+                    {{ $t('dashboard.jobs.settings.autoRejectNoteHint') }}
+                  </p>
+                </div>
+
+                <!-- Инфо о защитах -->
+                <div class="rounded-md bg-warning-50 dark:bg-warning-950/40 border border-warning-200 dark:border-warning-900 px-3 py-2.5 text-xs text-warning-800 dark:text-warning-200">
+                  <div class="font-medium mb-1">{{ $t('dashboard.jobs.settings.autoRejectSafetyTitle') }}</div>
+                  <ul class="list-disc list-inside space-y-0.5 leading-relaxed">
+                    <li>{{ $t('dashboard.jobs.settings.autoRejectSafety1') }}</li>
+                    <li>{{ $t('dashboard.jobs.settings.autoRejectSafety2') }}</li>
+                    <li>{{ $t('dashboard.jobs.settings.autoRejectSafety3') }}</li>
+                    <li>{{ $t('dashboard.jobs.settings.autoRejectSafety4') }}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

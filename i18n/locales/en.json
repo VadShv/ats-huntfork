@@ -782,7 +782,13 @@
         "statusRejected": "Rejected",
         "count": "{shown} of {total} candidate(s)",
         "noMatchFilters": "No candidates match the current filters.",
-        "counter": "{shown} of {total} candidates"
+        "counter": "{shown} of {total} candidates",
+        "badgeManualOnly": "Manual only",
+        "badgeManualOnlyHint": "This candidate is flagged for manual review only — auto-rules do not apply.",
+        "badgeNeedsReview": "AI uncertain",
+        "badgeNeedsReviewHint": "AI score is below threshold, but model confidence is low. Manual review required.",
+        "needsReviewFilter": "Needs review only",
+        "needsReviewFilterHint": "Show only candidates flagged as “AI uncertain”."
       },
       "settings": {
         "pageTitle": "Job Settings",
@@ -875,7 +881,21 @@
         "applicationLink": "Application Link",
         "deleteThisJob": "Delete this Job",
         "confirmDelete": "Yes, Delete",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "autoScoreHint": "If enabled, AI scores candidates automatically upon application. Otherwise you need to press “Score with AI” manually.",
+        "autoReject": "Auto-reject by AI score",
+        "autoRejectHint": "Automatically reject candidates whose AI score is below the threshold. Applies only when “Auto-score on apply” is enabled or after manual scoring.",
+        "autoRejectThreshold": "Rejection threshold",
+        "autoRejectThresholdSuffix": "/100",
+        "autoRejectThresholdHint": "Candidates with a score strictly below this value will be rejected automatically.",
+        "autoRejectNote": "Auto-reject comment (optional)",
+        "autoRejectNotePlaceholder": "E.g.: does not meet mandatory stack requirements.",
+        "autoRejectNoteHint": "This comment will be added to the stage history along with the AI score and confidence.",
+        "autoRejectSafetyTitle": "Safety guarantees:",
+        "autoRejectSafety1": "Candidates flagged as “Manual review only” will not be auto-rejected.",
+        "autoRejectSafety2": "If AI confidence is low (< 50%), the candidate is marked “AI uncertain” and is NOT rejected — manual review is required.",
+        "autoRejectSafety3": "If a recruiter has already moved the candidate in the pipeline — auto-reject is not applied.",
+        "autoRejectSafety4": "Auto-reject does not send emails to candidates — it only changes the pipeline stage."
       },
       "appForm": {
         "pageTitle": "Application Form",

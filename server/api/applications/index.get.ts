@@ -97,6 +97,7 @@ export default defineEventHandler(async (event) => {
         candidateFirstName: candidate.firstName,
         candidateLastName: candidate.lastName,
         candidateEmail: candidate.email,
+        candidateManualReviewOnly: candidate.manualReviewOnly,
         jobId: application.jobId,
         jobTitle: job.title,
         jobStatus: job.status,
