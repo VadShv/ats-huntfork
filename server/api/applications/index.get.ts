@@ -38,6 +38,9 @@ export default defineEventHandler(async (event) => {
   if (query.status) {
     conditions.push(eq(application.status, query.status))
   }
+  if (query.needsManualReview) {
+    conditions.push(eq(application.needsManualReview, true))
+  }
   if (query.stageId) {
     // Exact stage match — directly filter on the FK column
     conditions.push(eq(application.currentStageId, query.stageId))
@@ -100,6 +103,7 @@ export default defineEventHandler(async (event) => {
         currentStageId: application.currentStageId,
         currentStageName: pipelineStage.name,
         currentStageColor: pipelineStage.color,
+        needsManualReview: application.needsManualReview,
       })
       .from(application)
       .innerJoin(candidate, eq(candidate.id, application.candidateId))

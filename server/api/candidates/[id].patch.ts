@@ -63,6 +63,7 @@ export default defineEventHandler(async (event) => {
       linkedin: candidate.linkedin,
       telegram: candidate.telegram,
       github: candidate.github,
+      manualReviewOnly: candidate.manualReviewOnly,
       createdAt: candidate.createdAt,
       updatedAt: candidate.updatedAt,
     })

@@ -5,6 +5,7 @@ import {
 } from '../../../database/schema'
 import { scoreApplication, computeCompositeScore } from '../../../utils/ai/scoring'
 import type { CriterionDefinition } from '../../../utils/ai/scoring'
+import { applyAutoRejectIfNeeded } from '../../../utils/ai/autoReject'
 import type { SupportedProvider } from '../../../utils/ai/provider'
 import { loadAiConfig } from '../../../utils/ai/loadConfig'
 import { extractResumeText } from '../../../utils/resume-parser'
@@ -213,11 +214,18 @@ export default defineEventHandler(async (event) => {
     },
   })
 
+  // Авто-отклонение: применяем правило после записи новых скоров.
+  const autoRejectResult = await applyAutoRejectIfNeeded(applicationId, orgId, {
+    criteria: criteriaDefinitions,
+    evaluations: result.scoring.evaluations,
+  })
+
   return {
     compositeScore,
     evaluations: result.scoring.evaluations,
     summary: result.scoring.summary,
     analysisRunId: run!.id,
     usage: result.usage,
+    autoReject: autoRejectResult,
   }
 })

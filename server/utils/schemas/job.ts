@@ -59,6 +59,12 @@ export const updateJobSchema = z.object({
   requireCoverLetter: z.boolean().optional(),
   /** Whether to automatically run AI scoring when a candidate applies */
   autoScoreOnApply: z.boolean().optional(),
+  /** Авто-отклонение: включено ли правило для этой вакансии */
+  autoRejectEnabled: z.boolean().optional(),
+  /** Порог (0-100). При score < porog и confidence >= 50% — авто-отказ */
+  autoRejectBelowScore: z.coerce.number().int().min(0).max(100).nullable().optional(),
+  /** Шаблон причины отказа, попадает в историю этапов */
+  autoRejectReasonNote: z.string().max(500).nullable().optional(),
   /** Experience level required for this role */
   experienceLevel: z.enum(['junior', 'mid', 'senior', 'lead']).nullable().optional(),
   status: z.enum(['draft', 'open', 'closed', 'archived']).optional(),

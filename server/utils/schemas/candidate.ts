@@ -67,6 +67,8 @@ export const updateCandidateSchema = z.object({
   linkedin: z.string().max(255).nullish(),
   telegram: z.string().max(100).nullish(),
   github: z.string().max(100).nullish(),
+  /** VIP-флаг: к этому кандидату никогда не применяются авто-правила (всё вручную). */
+  manualReviewOnly: z.boolean().optional(),
 })
 
 /** Schema for candidate list query params */

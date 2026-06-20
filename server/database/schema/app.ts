@@ -79,6 +79,12 @@ export const job = pgTable('job', {
   requireCoverLetter: boolean('require_cover_letter').notNull().default(false),
   // ── AI scoring settings ──
   autoScoreOnApply: boolean('auto_score_on_apply').notNull().default(false),
+  /** Если true, заявки с composite-score ниже autoRejectBelowScore автоматически уходят в reject-terminal. */
+  autoRejectEnabled: boolean('auto_reject_enabled').notNull().default(false),
+  /** Порог автоматического отклонения (0-100). Срабатывает только при autoRejectEnabled = true. */
+  autoRejectBelowScore: integer('auto_reject_below_score'),
+  /** Опц. шаблон причины авто-отказа, попадает в applicationStageHistory.reason metadata. */
+  autoRejectReasonNote: text('auto_reject_reason_note'),
   // ── Timestamps ──
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -136,6 +142,8 @@ export const candidate = pgTable('candidate', {
   fraudFlaggedAt: timestamp('fraud_flagged_at'),
   fraudFlaggedByUserId: text('fraud_flagged_by_user_id'),
   fraudNotes: text('fraud_notes'),
+  /** «Ручная обработка»: если true, авто-правила (включая авто-отказ) никогда не трогают заявки этого кандидата. */
+  manualReviewOnly: boolean('manual_review_only').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
@@ -170,10 +178,13 @@ export const application = pgTable('application', {
   externalUrl: text('external_url'),
   /** Опциональный «жёсткий» признак причины отказа: blacklist | security_incident | fake_data | other_fraud. */
   fraudReason: text('fraud_reason'),
+  /** True, когда AI хотел бы отклонить (score < threshold), но confidence низкий — рекрутёр должен глянуть вручную. */
+  needsManualReview: boolean('needs_manual_review').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   index('application_organization_id_idx').on(t.organizationId),
+  index('application_needs_manual_review_idx').on(t.organizationId, t.needsManualReview),
   index('application_candidate_id_idx').on(t.candidateId),
   index('application_job_id_idx').on(t.jobId),
   uniqueIndex('application_org_candidate_job_idx').on(t.organizationId, t.candidateId, t.jobId),

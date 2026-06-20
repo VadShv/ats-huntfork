@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
       fraudNotes: true,
       mergeStatus: true,
       mergedIntoId: true,
+      manualReviewOnly: true,
       createdAt: true,
       updatedAt: true,
     },

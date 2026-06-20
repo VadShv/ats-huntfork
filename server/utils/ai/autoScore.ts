@@ -10,6 +10,7 @@ import {
 } from '../../database/schema'
 import { scoreApplication, computeCompositeScore } from './scoring'
 import type { CriterionDefinition } from './scoring'
+import { applyAutoRejectIfNeeded } from './autoReject'
 import type { SupportedProvider } from './provider'
 import { loadAiConfig } from './loadConfig'
 import { extractResumeText } from '../resume-parser'
@@ -128,5 +129,12 @@ export async function autoScoreApplication(applicationId: string, orgId: string)
       promptTokens: result.usage.promptTokens,
       completionTokens: result.usage.completionTokens,
     })
+  })
+
+  // Авто-отклонение: применяем правило (если включено для вакансии).
+  // Передаём criteria + evaluations, чтобы не дёргать БД повторно ради confidence.
+  await applyAutoRejectIfNeeded(applicationId, orgId, {
+    criteria: criteriaDefinitions,
+    evaluations: result.scoring.evaluations,
   })
 }

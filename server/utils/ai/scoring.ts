@@ -294,3 +294,32 @@ export function computeCompositeScore(
   if (totalWeight === 0) return 0
   return Math.round(totalWeightedScore / totalWeight)
 }
+
+/**
+ * Средняя взвешенная уверенность AI (0–100) по всем критериям.
+ *
+ * Используется в правиле авто-отказа: если composite confidence < 50%,
+ * заявку НЕ отклоняем автоматически, а подсвечиваем бэджем «AI не уверен» и отдаём рекрутёру
+ * на ручную проверку.
+ *
+ * Веса критериев — те же самые, что в computeCompositeScore: значимый критерий
+ * сильнее влияет на итоговую уверенность.
+ */
+export function computeCompositeConfidence(
+  criteria: CriterionDefinition[],
+  evaluations: CriterionEvaluation[],
+): number {
+  let totalWeightedConfidence = 0
+  let totalWeight = 0
+
+  for (const criterion of criteria) {
+    const evaluation = evaluations.find(e => e.criterionKey === criterion.key)
+    if (!evaluation) continue
+
+    totalWeightedConfidence += evaluation.confidence * criterion.weight
+    totalWeight += criterion.weight
+  }
+
+  if (totalWeight === 0) return 0
+  return Math.round(totalWeightedConfidence / totalWeight)
+}

@@ -40,6 +40,8 @@ export const applicationQuerySchema = z.object({
    * Ignored when stageId is present.
    */
   stageType: z.string().min(1).optional(),
+  /** Отображать только заявки, требующие ручной проверки (AI не уверен в отказе). */
+  needsManualReview: z.coerce.boolean().optional(),
 })
 
 /** Reusable schema for `:id` route params */

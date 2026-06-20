@@ -29,6 +29,7 @@ import { loadAiConfig } from '../../../utils/ai/loadConfig'
 import type { SupportedProvider } from '../../../utils/ai/provider'
 import { computeCompositeScore, scoreApplication } from '../../../utils/ai/scoring'
 import type { CriterionDefinition } from '../../../utils/ai/scoring'
+import { applyAutoRejectIfNeeded } from '../../../utils/ai/autoReject'
 import { extractResumeText } from '../../../utils/resume-parser'
 import { createRateLimiter } from '../../../utils/rateLimit'
 
@@ -265,7 +266,18 @@ export default defineEventHandler(async (event) => {
           })
         })
 
-        results.push({ applicationId: app.id, status: 'scored', compositeScore })
+        // Авто-отклонение: проверяем правило для каждой заявки после записи скоров.
+        const autoRejectResult = await applyAutoRejectIfNeeded(app.id, orgId, {
+          criteria: criteriaDefinitions,
+          evaluations: result.scoring.evaluations,
+        })
+
+        results.push({
+          applicationId: app.id,
+          status: 'scored',
+          compositeScore,
+          autoReject: autoRejectResult.outcome,
+        })
       }
       catch (err: any) {
         try {
