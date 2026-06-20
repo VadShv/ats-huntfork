@@ -1618,7 +1618,13 @@
       "cancel": "Cancel",
       "deleteTitle": "Delete Candidate",
       "deleteBody": "Are you sure you want to delete? This will also delete all their applications and documents. This action cannot be undone.",
-      "deleting": "Deleting…"
+      "deleting": "Deleting…",
+      "more": "More",
+      "mergeAction": "Merge with another candidate",
+      "fraudAction": "Flag as fraud",
+      "fraudRemoveAction": "Remove fraud flag",
+      "manualReviewOnly": "Manual review only",
+      "manualReviewOnlyOn": "Manual review: on"
     }
   },
   "pipelines": {

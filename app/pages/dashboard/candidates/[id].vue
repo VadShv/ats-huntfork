@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall } from 'lucide-vue-next'
+import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall, MoreHorizontal, ShieldCheck } from 'lucide-vue-next'
 import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
@@ -458,6 +458,42 @@ async function removeFraudFlag() {
   }
 }
 
+// ── Ручная проверка (manual-review only) ───────────────────────────────────
+const isUpdatingManualOnly = ref(false)
+async function toggleManualReviewOnly() {
+  if (!candidate.value || isUpdatingManualOnly.value) return
+  const next = !(candidate.value as any).manualReviewOnly
+  isUpdatingManualOnly.value = true
+  try {
+    await $fetch(`/api/candidates/${candidateId}`, {
+      method: 'PATCH',
+      body: { manualReviewOnly: next },
+    })
+    await refresh()
+    toast.success?.(next ? 'Ручной режим включён: авто-правила к этому кандидату не применяются' : 'Ручной режим выключен')
+  }
+  catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error('Не удалось переключить ручной режим', { message: err.data?.statusMessage })
+  }
+  finally {
+    isUpdatingManualOnly.value = false
+  }
+}
+
+// ── Dropdown «Другое» в шапке кандидата ────────────────────────────────────
+const isMoreMenuOpen = ref(false)
+const moreMenuRef = useTemplateRef<HTMLElement>('moreMenuRoot')
+
+function onMoreMenuClickOutside(e: MouseEvent) {
+  if (moreMenuRef.value && !moreMenuRef.value.contains(e.target as Node)) {
+    isMoreMenuOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', onMoreMenuClickOutside))
+onUnmounted(() => document.removeEventListener('click', onMoreMenuClickOutside))
+
 
 // ── Раскрытие контактов hh.ru (тратит платную квоту) ───────────────────────
 const isOpeningHhContacts = ref(false)
@@ -623,33 +659,70 @@ async function openHhContacts() {
                 <PhoneCall class="size-3.5" />
                 {{ isOpeningHhContacts ? 'Открываем…' : 'Открыть контакты hh.ru' }}
               </button>
-              <button
-                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-                title="Слить в этого кандидата другого"
-                @click="openMergeModal"
-              >
-                <GitMerge class="size-3.5" />
-                Слить
-              </button>
-              <button
-                v-if="!candidate.fraudFlag"
-                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-300 dark:border-amber-700 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
-                title="Пометить как фрод"
-                @click="openFraudDialog"
-              >
-                <AlertTriangle class="size-3.5" />
-                Пометить фрод
-              </button>
-              <button
-                v-else
-                :disabled="isUpdatingFraud"
-                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-300 dark:border-amber-700 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors disabled:opacity-50"
-                title="Снять фрод-флаг"
-                @click="removeFraudFlag"
-              >
-                <AlertTriangle class="size-3.5" />
-                Снять фрод
-              </button>
+              <!-- Меню «Другое»: Слить / Фрод / Ручная проверка -->
+              <div ref="moreMenuRoot" class="relative">
+                <button
+                  type="button"
+                  class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+                  :class="(candidate as any).manualReviewOnly
+                    ? 'border-info-300 dark:border-info-700 bg-info-50 dark:bg-info-950 text-info-700 dark:text-info-300 hover:bg-info-100 dark:hover:bg-info-900'
+                    : 'border-surface-300 dark:border-surface-700 text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800'"
+                  :title="t('candidate.detail.more')"
+                  @click="isMoreMenuOpen = !isMoreMenuOpen"
+                >
+                  <MoreHorizontal class="size-3.5" />
+                  {{ t('candidate.detail.more') }}
+                  <ShieldCheck v-if="(candidate as any).manualReviewOnly" class="size-3.5" />
+                </button>
+                <div
+                  v-if="isMoreMenuOpen"
+                  class="absolute top-[calc(100%+4px)] right-0 min-w-[220px] bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg z-50 overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+                    @click="isMoreMenuOpen = false; openMergeModal()"
+                  >
+                    <GitMerge class="size-4 shrink-0" />
+                    <span>{{ t('candidate.detail.mergeAction') }}</span>
+                  </button>
+                  <button
+                    v-if="!candidate.fraudFlag"
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer"
+                    @click="isMoreMenuOpen = false; openFraudDialog()"
+                  >
+                    <AlertTriangle class="size-4 shrink-0" />
+                    <span>{{ t('candidate.detail.fraudAction') }}</span>
+                  </button>
+                  <button
+                    v-else
+                    type="button"
+                    :disabled="isUpdatingFraud"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer disabled:opacity-50"
+                    @click="isMoreMenuOpen = false; removeFraudFlag()"
+                  >
+                    <AlertTriangle class="size-4 shrink-0" />
+                    <span>{{ t('candidate.detail.fraudRemoveAction') }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="isUpdatingManualOnly"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer disabled:opacity-50"
+                    :class="(candidate as any).manualReviewOnly
+                      ? 'text-info-700 dark:text-info-300 bg-info-50/40 dark:bg-info-950/40 hover:bg-info-50 dark:hover:bg-info-950'
+                      : 'text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'"
+                    @click="isMoreMenuOpen = false; toggleManualReviewOnly()"
+                  >
+                    <ShieldCheck class="size-4 shrink-0" />
+                    <span class="flex-1">
+                      {{ (candidate as any).manualReviewOnly
+                        ? t('candidate.detail.manualReviewOnlyOn')
+                        : t('candidate.detail.manualReviewOnly') }}
+                    </span>
+                  </button>
+                </div>
+              </div>
               <button
                 class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 @click="startEdit"
