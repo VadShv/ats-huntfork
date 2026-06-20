@@ -281,18 +281,24 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
 
     search_candidates: tool({
       description:
-        'ПОИСК КАНДИДАТОВ в организации. Ищет по ФИО, email И по всему тексту резюме кандидата ' +
-        '(навыки, должности, инструменты, города). ' +
-        'Примеры query: "Python", "React", "Senior ПМ Москва", "Иванов". ' +
-        'Можно фильтровать по статусу отклика (new/screening/interview/offer/hired/rejected). ' +
-        'Результаты ранжируются по релевантности текста резюме запросу.',
+        'ПОИСК КАНДИДАТОВ в организации по тексту резюме (full-text), ФИО и email. ' +
+        'ОБЯЗАТЕЛЬНО передавай параметр `query` со словом для поиска. ' +
+        'Примеры правильных вызовов: ' +
+        '{"query":"Python"}, {"query":"React Native"}, {"query":"DevOps Kubernetes Москва"}, {"query":"Иванов"}. ' +
+        'Извлекай ключевое слово прямо из запроса пользователя: ' +
+        '"кандидаты с опытом на питоне" → query="Python"; ' +
+        '"подбери React-разработчиков" → query="React"; ' +
+        '"найди Иванова" → query="Иванов". ' +
+        'Дополнительно можно фильтровать по статусу отклика (new/screening/interview/offer/hired/rejected). ' +
+        'Результаты ранжируются по релевантности резюме.',
       inputSchema: z.object({
         query: z.string().min(1).optional().describe(
-          'Поисковая фраза: навык/должность/имя/email. Например: "Python", "React Native", ' +
-          '"DevOps Kubernetes", "Иванов". Необязательно если указан фильтр по статусу или вы в скоупе вакансии.'
+          'Поисковая фраза. ОБЯЗАТЕЛЬНА если пользователь упомянул навык/должность/имя. ' +
+          'Примеры: "Python", "React Native", "DevOps Kubernetes", "Иванов". ' +
+          'Можно опустить ТОЛЬКО если задан status или ты находишься в скоупе конкретной вакансии.'
         ),
         status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional().describe(
-          'Фильтр по стадии воронки. Оставьте пустым для поиска по всем стадиям.'
+          'Фильтр по стадии воронки. Оставь пустым если пользователь не уточнил стадию.'
         ),
         limit: z.number().int().min(1).max(50).default(20),
       }),
@@ -302,10 +308,15 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         const hasStatus = !!status
         const inJobScope = ctx.scope.kind === 'job' && !!ctx.scope.jobId
         if (!hasQuery && !hasStatus && !inJobScope) {
-          throw new Error(
-            'Укажите query (навык/должность/имя, например "Python") или status воронки. ' +
-            'Без фильтра возвращать всех кандидатов нельзя — их слишком много.'
-          )
+          // Возвращаем результат, а не throw — модель лучше реагирует на text-result, чем на exception.
+          // Также не повторяй один и тот же пустой вызов — извлеки ключевое слово из реплики пользователя.
+          return {
+            error: 'missing_query',
+            message: 'Параметр query обязателен. Извлеки ключевое слово из запроса пользователя '
+              + '(например, "Python", "React", "DevOps", имя кандидата) и вызови search_candidates снова с query="...". '
+              + 'НЕ повторяй вызов с теми же пустыми параметрами — это даст ту же ошибку.',
+            example: { query: 'Python' },
+          }
         }
 
         // Собираем id-шники по статусу (если указан) — это сужает поисковую выборку.
