@@ -263,6 +263,7 @@ export default defineEventHandler(async (event) => {
     orgId,
     scope: body.scope,
     attachments: attachmentRecords,
+    lastUserMessage: lastUser.content,
   })
 
   const modelMessages: ModelMessage[] = body.messages.map((m) => ({
