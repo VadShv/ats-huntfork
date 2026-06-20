@@ -303,6 +303,8 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         limit: z.number().int().min(1).max(50).default(20),
       }),
       execute: async ({ query, status, limit }) => {
+        // Диагностика: логируем фактический input от модели.
+        console.log('[search_candidates] input:', JSON.stringify({ query, status, limit, scope: ctx.scope }))
         // Friendly error: модель должна дать либо query, либо status, или быть в scope.
         const hasQuery = query && query.trim().length > 0
         const hasStatus = !!status
@@ -345,51 +347,74 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           // Падаем на ILIKE по ФИО/email как fallback (для коротких подстрок вроде "Ив").
           const q = query!.trim()
           const like = `%${q}%`
-          const result = await db.execute<{
-            id: string
-            first_name: string
-            last_name: string
-            email: string
-            phone: string | null
-            city: string | null
-            rank: number
-          }>(sql`
-            SELECT
-              c.id,
-              c.first_name,
-              c.last_name,
-              c.email,
-              c.phone,
-              c.city,
-              GREATEST(
-                COALESCE(ts_rank(c.search_tsv, plainto_tsquery('simple', ${q})), 0),
-                CASE
-                  WHEN c.first_name ILIKE ${like} OR c.last_name ILIKE ${like} OR c.email ILIKE ${like}
-                    THEN 0.01
-                  ELSE 0
-                END
-              ) AS rank
-            FROM "candidate" c
-            WHERE c.organization_id = ${ctx.orgId}
-              AND (
-                c.search_tsv @@ plainto_tsquery('simple', ${q})
-                OR c.first_name ILIKE ${like}
-                OR c.last_name ILIKE ${like}
-                OR c.email ILIKE ${like}
-              )
-            ORDER BY rank DESC, c.created_at DESC
-            LIMIT ${limit * 3}
-          `)
-          rows = (result as unknown as Array<{
-            id: string, first_name: string, last_name: string, email: string, phone: string | null, city: string | null
-          }>).map((r) => ({
-            id: r.id,
-            firstName: r.first_name,
-            lastName: r.last_name,
-            email: r.email,
-            phone: r.phone,
-            city: r.city,
-          }))
+          try {
+            const result = await db.execute<{
+              id: string
+              first_name: string
+              last_name: string
+              email: string
+              phone: string | null
+              city: string | null
+              rank: number
+            }>(sql`
+              SELECT
+                c.id,
+                c.first_name,
+                c.last_name,
+                c.email,
+                c.phone,
+                c.city,
+                GREATEST(
+                  COALESCE(ts_rank(c.search_tsv, plainto_tsquery('simple', ${q})), 0),
+                  CASE
+                    WHEN c.first_name ILIKE ${like} OR c.last_name ILIKE ${like} OR c.email ILIKE ${like}
+                      THEN 0.01
+                    ELSE 0
+                  END
+                ) AS rank
+              FROM "candidate" c
+              WHERE c.organization_id = ${ctx.orgId}
+                AND (
+                  c.search_tsv @@ plainto_tsquery('simple', ${q})
+                  OR c.first_name ILIKE ${like}
+                  OR c.last_name ILIKE ${like}
+                  OR c.email ILIKE ${like}
+                )
+              ORDER BY rank DESC, c.created_at DESC
+              LIMIT ${limit * 3}
+            `)
+            const arr = Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows ?? []
+            rows = (arr as Array<{
+              id: string, first_name: string, last_name: string, email: string, phone: string | null, city: string | null
+            }>).map((r) => ({
+              id: r.id,
+              firstName: r.first_name,
+              lastName: r.last_name,
+              email: r.email,
+              phone: r.phone,
+              city: r.city,
+            }))
+            console.log('[search_candidates] q=%s rows=%d', q, rows.length)
+          }
+          catch (err) {
+            console.error('[search_candidates] SQL error for q=%s:', q, err instanceof Error ? err.message : err)
+            // Fallback на чистый ILIKE через Drizzle — без search_tsv.
+            const base = await db.query.candidate.findMany({
+              where: and(
+                eq(candidate.organizationId, ctx.orgId),
+                or(
+                  ilike(candidate.firstName, like),
+                  ilike(candidate.lastName, like),
+                  ilike(candidate.email, like),
+                ),
+                candidateIdsByStatus ? inArray(candidate.id, Array.from(candidateIdsByStatus)) : undefined,
+              ),
+              orderBy: [desc(candidate.createdAt)],
+              limit: limit * 3,
+              columns: { id: true, firstName: true, lastName: true, email: true, phone: true, city: true },
+            })
+            rows = base
+          }
         }
         else {
           // Без query — просто свежие кандидаты в рамках фильтров.
