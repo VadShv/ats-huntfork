@@ -362,7 +362,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional().describe(
           'Фильтр по стадии воронки. Оставь пустым если пользователь не уточнил стадию.'
         ),
-        limit: z.number().int().min(1).max(50).default(20),
+        limit: z.number().int().min(1).max(20).default(5),
       }),
       execute: async ({ query, status, limit }) => {
         // Диагностика: логируем фактический input от модели.
@@ -452,7 +452,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
                   OR c.email ILIKE ${like}
                 )
               ORDER BY rank DESC, c.created_at DESC
-              LIMIT ${limit * 3}
+              LIMIT ${limit}
             `)
             const arr = Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows ?? []
             rows = (arr as Array<{
@@ -481,7 +481,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
                 candidateIdsByStatus ? inArray(candidate.id, Array.from(candidateIdsByStatus)) : undefined,
               ),
               orderBy: [desc(candidate.createdAt)],
-              limit: limit * 3,
+              limit,
               columns: { id: true, firstName: true, lastName: true, email: true, phone: true, city: true },
             })
             rows = base
@@ -495,7 +495,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
               candidateIdsByStatus ? inArray(candidate.id, Array.from(candidateIdsByStatus)) : undefined,
             ),
             orderBy: [desc(candidate.createdAt)],
-            limit: limit * 3,
+            limit,
             columns: { id: true, firstName: true, lastName: true, email: true, phone: true, city: true },
           })
           rows = base.map((c) => ({
@@ -527,13 +527,15 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           rows = rows.filter((c) => allowed.has(c.id))
         }
 
-        return rows.slice(0, limit).map((c) => ({
+        // Минимальный payload для модели — только имя и id. Слабые модели (Qwen)
+        // теряются в больших JSON. email/phone/city видны в карточке кандидата.
+        const finalRows = rows.slice(0, limit).map((c) => ({
           id: c.id,
           name: `${c.firstName} ${c.lastName}`.trim(),
-          email: c.email,
-          phone: c.phone,
-          city: c.city,
         }))
+        const payload = { count: finalRows.length, candidates: finalRows }
+        console.log('[search_candidates] payload bytes=%d count=%d', JSON.stringify(payload).length, finalRows.length)
+        return payload
       },
     }),
 
