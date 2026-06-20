@@ -11,6 +11,7 @@ import {
   sanitizeFilename,
 } from '../../../../utils/schemas/document'
 import { parseDocument } from '../../../../utils/resume-parser'
+import { refreshCandidateSearchTsv } from '../../../../utils/candidateSearchText'
 
 /**
  * POST /api/candidates/:id/documents
@@ -181,6 +182,14 @@ export default defineEventHandler(async (event) => {
       resourceType: 'document',
       resourceId: created.id,
       metadata: { candidateId, filename: created.originalFilename, type: created.type },
+    })
+
+    // Sprint 11: обновляем full-text индекс поиска в фоне (не блокируем ответ).
+    refreshCandidateSearchTsv({ orgId, candidateId }).catch((err) => {
+      logWarn('candidate.search_tsv_refresh_failed', {
+        candidate_id: candidateId,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
     })
 
     setResponseStatus(event, 201)

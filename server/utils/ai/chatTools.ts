@@ -281,55 +281,151 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
 
     search_candidates: tool({
       description:
-        'Search candidates across the organization by name or email. ' +
-        'Returns id, name, email, and matched application count.',
+        'ПОИСК КАНДИДАТОВ в организации. Ищет по ФИО, email И по всему тексту резюме кандидата ' +
+        '(навыки, должности, инструменты, города). ' +
+        'Примеры query: "Python", "React", "Senior ПМ Москва", "Иванов". ' +
+        'Можно фильтровать по статусу отклика (new/screening/interview/offer/hired/rejected). ' +
+        'Результаты ранжируются по релевантности текста резюме запросу.',
       inputSchema: z.object({
-        query: z.string().min(1).describe('Substring to match against name or email.'),
+        query: z.string().min(1).optional().describe(
+          'Поисковая фраза: навык/должность/имя/email. Например: "Python", "React Native", ' +
+          '"DevOps Kubernetes", "Иванов". Необязательно если указан фильтр по статусу или вы в скоупе вакансии.'
+        ),
+        status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional().describe(
+          'Фильтр по стадии воронки. Оставьте пустым для поиска по всем стадиям.'
+        ),
         limit: z.number().int().min(1).max(50).default(20),
       }),
-      execute: async ({ query, limit }) => {
-        const like = `%${query}%`
-        const rows = await db.query.candidate.findMany({
-          where: and(
-            eq(candidate.organizationId, ctx.orgId),
-            or(
-              ilike(candidate.firstName, like),
-              ilike(candidate.lastName, like),
-              ilike(candidate.email, like),
-            ),
-          ),
-          orderBy: [desc(candidate.createdAt)],
-          limit,
-          columns: { id: true, firstName: true, lastName: true, email: true, phone: true },
-        })
+      execute: async ({ query, status, limit }) => {
+        // Friendly error: модель должна дать либо query, либо status, или быть в scope.
+        const hasQuery = query && query.trim().length > 0
+        const hasStatus = !!status
+        const inJobScope = ctx.scope.kind === 'job' && !!ctx.scope.jobId
+        if (!hasQuery && !hasStatus && !inJobScope) {
+          throw new Error(
+            'Укажите query (навык/должность/имя, например "Python") или status воронки. ' +
+            'Без фильтра возвращать всех кандидатов нельзя — их слишком много.'
+          )
+        }
 
-        // If we're scoped to a job, filter to candidates who applied to it.
-        if (ctx.scope.kind === 'job' && ctx.scope.jobId) {
-          if (rows.length === 0) return []
+        // Собираем id-шники по статусу (если указан) — это сужает поисковую выборку.
+        let candidateIdsByStatus: Set<string> | null = null
+        if (hasStatus) {
+          const appConds = [
+            eq(application.organizationId, ctx.orgId),
+            eq(application.status, status!),
+          ]
+          if (inJobScope) appConds.push(eq(application.jobId, ctx.scope.jobId!))
+          const apps = await db.query.application.findMany({
+            where: and(...appConds),
+            columns: { candidateId: true },
+          })
+          candidateIdsByStatus = new Set(apps.map((a) => a.candidateId))
+          if (candidateIdsByStatus.size === 0) return []
+        }
+
+        // Если есть query — идём через full-text с ранжированием ts_rank по search_tsv.
+        // Иначе просто отдаём свежих кандидатов по фильтру.
+        type Row = { id: string, firstName: string, lastName: string, email: string, phone: string | null, city: string | null }
+        let rows: Row[]
+
+        if (hasQuery) {
+          // plainto_tsquery без ошибок на любой ввод (в отличие от to_tsquery).
+          // Падаем на ILIKE по ФИО/email как fallback (для коротких подстрок вроде "Ив").
+          const q = query!.trim()
+          const like = `%${q}%`
+          const result = await db.execute<{
+            id: string
+            first_name: string
+            last_name: string
+            email: string
+            phone: string | null
+            city: string | null
+            rank: number
+          }>(sql`
+            SELECT
+              c.id,
+              c.first_name,
+              c.last_name,
+              c.email,
+              c.phone,
+              c.city,
+              GREATEST(
+                COALESCE(ts_rank(c.search_tsv, plainto_tsquery('simple', ${q})), 0),
+                CASE
+                  WHEN c.first_name ILIKE ${like} OR c.last_name ILIKE ${like} OR c.email ILIKE ${like}
+                    THEN 0.01
+                  ELSE 0
+                END
+              ) AS rank
+            FROM "candidate" c
+            WHERE c.organization_id = ${ctx.orgId}
+              AND (
+                c.search_tsv @@ plainto_tsquery('simple', ${q})
+                OR c.first_name ILIKE ${like}
+                OR c.last_name ILIKE ${like}
+                OR c.email ILIKE ${like}
+              )
+            ORDER BY rank DESC, c.created_at DESC
+            LIMIT ${limit * 3}
+          `)
+          rows = (result as unknown as Array<{
+            id: string, first_name: string, last_name: string, email: string, phone: string | null, city: string | null
+          }>).map((r) => ({
+            id: r.id,
+            firstName: r.first_name,
+            lastName: r.last_name,
+            email: r.email,
+            phone: r.phone,
+            city: r.city,
+          }))
+        }
+        else {
+          // Без query — просто свежие кандидаты в рамках фильтров.
+          const base = await db.query.candidate.findMany({
+            where: and(
+              eq(candidate.organizationId, ctx.orgId),
+              candidateIdsByStatus ? inArray(candidate.id, Array.from(candidateIdsByStatus)) : undefined,
+            ),
+            orderBy: [desc(candidate.createdAt)],
+            limit: limit * 3,
+            columns: { id: true, firstName: true, lastName: true, email: true, phone: true, city: true },
+          })
+          rows = base.map((c) => ({
+            id: c.id,
+            firstName: c.firstName,
+            lastName: c.lastName,
+            email: c.email,
+            phone: c.phone,
+            city: c.city,
+          }))
+        }
+
+        // Применяем status-фильтр (если был) пост-фактум из candidateIdsByStatus.
+        if (candidateIdsByStatus) {
+          rows = rows.filter((c) => candidateIdsByStatus!.has(c.id))
+        }
+
+        // Скоуп-фильтрация по вакансии (если ассистент открыт в контексте вакансии) — остаётся как раньше.
+        if (inJobScope && rows.length > 0) {
           const apps = await db.query.application.findMany({
             where: and(
               eq(application.organizationId, ctx.orgId),
-              eq(application.jobId, ctx.scope.jobId),
+              eq(application.jobId, ctx.scope.jobId!),
               inArray(application.candidateId, rows.map((c) => c.id)),
             ),
             columns: { candidateId: true },
           })
           const allowed = new Set(apps.map((a) => a.candidateId))
-          return rows
-            .filter((c) => allowed.has(c.id))
-            .map((c) => ({
-              id: c.id,
-              name: `${c.firstName} ${c.lastName}`.trim(),
-              email: c.email,
-              phone: c.phone,
-            }))
+          rows = rows.filter((c) => allowed.has(c.id))
         }
 
-        return rows.map((c) => ({
+        return rows.slice(0, limit).map((c) => ({
           id: c.id,
           name: `${c.firstName} ${c.lastName}`.trim(),
           email: c.email,
           phone: c.phone,
+          city: c.city,
         }))
       },
     }),

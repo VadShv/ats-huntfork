@@ -295,6 +295,8 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
 
   // ── 3. Обрабатываем каждый отклик ────────────────────────────────────
   const newApplicationIds: string[] = []
+  // Sprint 11: кандидаты, у которых обновились резюме/данные — переиндексируем full-text в конце синка.
+  const touchedCandidateIds = new Set<string>()
 
   for (const neg of collected) {
     try {
@@ -514,6 +516,7 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
         }
         newApplicationIds.push(applicationId)
       }
+      touchedCandidateIds.add(candidateId)
 
       // hh_negotiation
       await db.insert(hhNegotiation).values({
@@ -568,6 +571,16 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
     for (const appId of newApplicationIds) {
       autoScoreApplication(appId, link.organizationId).catch((e) => {
         console.error('hh sync: autoScore failed for', appId, e)
+      })
+    }
+  }
+
+  // ── 6. Sprint 11: переиндексируем затронутых кандидатов в full-text поиске ──────
+  if (touchedCandidateIds.size > 0) {
+    const { refreshCandidateSearchTsv } = await import('../candidateSearchText')
+    for (const cid of touchedCandidateIds) {
+      refreshCandidateSearchTsv({ orgId: link.organizationId, candidateId: cid }).catch((e) => {
+        console.error('hh sync: search_tsv refresh failed for', cid, e)
       })
     }
   }

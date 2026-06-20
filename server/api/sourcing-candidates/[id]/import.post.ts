@@ -271,6 +271,12 @@ export default defineEventHandler(async (event) => {
     responseBody: { ok: true } as Record<string, unknown>,
   })
 
+  // Sprint 11: переиндексируем full-text поиск (приехало новое hh_resume_raw).
+  const { refreshCandidateSearchTsv } = await import('../../../utils/candidateSearchText')
+  refreshCandidateSearchTsv({ orgId, candidateId }).catch((e) => {
+    console.error('sourcing-candidates import: search_tsv refresh failed for', candidateId, e)
+  })
+
   return {
     applicationId,
     candidateId,

@@ -5,6 +5,7 @@ import { publicApplicationSchema, publicJobSlugSchema } from '../../../../utils/
 import { getEntryStageForPipeline } from '../../../../utils/pipeline-helpers'
 import { createPreviewReadOnlyError } from '../../../../utils/previewReadOnly'
 import { autoScoreApplication } from '../../../../utils/ai/autoScore'
+import { refreshCandidateSearchTsv } from '../../../../utils/candidateSearchText'
 import { parseDocument } from '../../../../utils/resume-parser'
 import {
   ALLOWED_MIME_TYPES,
@@ -658,6 +659,16 @@ export default defineEventHandler(async (event) => {
       logError('application.auto_score_failed', {
         application_id: newApplication.id,
         job_id: jobId,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    })
+  }
+
+  // Sprint 11: обновляем full-text индекс поиска в фоне (не блокируем ответ).
+  if (candidateId) {
+    refreshCandidateSearchTsv({ orgId, candidateId }).catch((err) => {
+      logWarn('candidate.search_tsv_refresh_failed', {
+        candidate_id: candidateId,
         error_message: err instanceof Error ? err.message : String(err),
       })
     })

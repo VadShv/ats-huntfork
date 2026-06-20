@@ -27,6 +27,7 @@ import {
 import { findDuplicatesForDraft } from '../../../utils/dedup/check'
 import { apiGet } from '../../../utils/hh/client'
 import { getValidAccessToken } from '../../../utils/hh/tokens'
+import { refreshCandidateSearchTsv } from '../../../utils/candidateSearchText'
 import {
   isHhPlaceholderFirstName,
   isHhPlaceholderEmail,
@@ -339,6 +340,11 @@ export default defineEventHandler(async (event) => {
     // Не блокируем основной ответ из-за ошибки дедупа.
     console.error('[open-hh-contacts] dedup failed:', err)
   }
+
+  // Sprint 11: обновляем full-text индекс поиска (приехало новое hh_resume_raw + реальное имя).
+  refreshCandidateSearchTsv({ orgId, candidateId: id }).catch((err) => {
+    console.error('[open-hh-contacts] search_tsv refresh failed:', err)
+  })
 
   return {
     ok: true as const,

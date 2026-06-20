@@ -293,6 +293,12 @@ export async function importResumeFromHh(params: ImportResumeParams): Promise<Im
     }
   }
 
+  // Sprint 11: переиндексируем full-text поиск (новое hh-резюме появилось).
+  const { refreshCandidateSearchTsv } = await import('../candidateSearchText')
+  refreshCandidateSearchTsv({ orgId: params.organizationId, candidateId }).catch((e) => {
+    console.error('importResume: search_tsv refresh failed for', candidateId, e)
+  })
+
   return {
     candidateId,
     applicationId,
