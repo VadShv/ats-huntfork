@@ -81,7 +81,6 @@ const BASE_SYSTEM_PROMPT = [
   '- For aggregated questions like "итоги найма", "сколько откликов", "воронка по статусам", "статистика по вакансиям" call `hiring_summary` first — it returns totals and breakdowns in one call.',
   '- `list_applications` works with OR without `jobId`: omit `jobId` to list across the whole organisation. Use `dateFrom`/`dateTo` (ISO strings) to filter by creation date. NEVER call `list_applications` without `jobId` UNLESS you also need per-row details — prefer `hiring_summary` for counts.',
   '- Use `list_jobs` / `search_candidates` to discover IDs, then drill down with `get_*` and `read_resume`.',
-  '- `search_candidates` ВСЕГДА требует параметр `query` (навык/должность/имя), если пользователь не уточнил статус воронки. Извлеки ключевое слово из реплики: "кандидаты с опытом на питоне" → query="Python"; "react-разработчиков" → query="React"; "найди Иванова" → query="Иванов". НЕ вызывай `search_candidates` без `query` несколько раз подряд — если получил ошибку missing_query, СРАЗУ извлеки ключевое слово и вызови с ним.',
   '- When the user uploads files, call `list_attachments` and `read_attachment` to inspect them.',
   '- Cite specific applications, candidates, or jobs by name when relevant. Keep IDs out of the prose unless asked.',
   '',
@@ -263,7 +262,6 @@ export default defineEventHandler(async (event) => {
     orgId,
     scope: body.scope,
     attachments: attachmentRecords,
-    lastUserMessage: lastUser.content,
   })
 
   const modelMessages: ModelMessage[] = body.messages.map((m) => ({

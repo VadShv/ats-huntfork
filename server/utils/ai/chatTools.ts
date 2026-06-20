@@ -37,68 +37,6 @@ export interface ChatbotToolContext {
   scope: ChatbotScope
   /** Attachments uploaded with the current user message. */
   attachments: Array<ChatbotAttachment & { text: string }>
-  /** Последнее сообщение юзера — fallback для слабых моделей (Qwen/Yandex), которые теряют параметры. */
-  lastUserMessage?: string
-}
-
-/**
- * Извлекает ключевое слово для поиска из реплики юзера, если модель не передала query.
- * Нормализует русские сленговые формы в канонические технические термины.
- *
- * ВАЖНО: в JS \b не работает с кириллицей — приходится использовать (?<![\p{L}])...(?![\p{L}]).
- */
-function extractQueryFromUserMessage(msg: string): string | null {
-  if (!msg || msg.trim().length === 0) return null
-  const lower = msg.toLowerCase()
-
-  // Канонические RU→техническое преобразование (частые случаи в HR-запросах).
-  const techMap: Array<[RegExp, string]> = [
-    [/(?<![\p{L}])пито\p{L}*(?![\p{L}])/iu, 'Python'],
-    [/(?<![\p{L}])python\p{L}*(?![\p{L}])/iu, 'Python'],
-    [/(?<![\p{L}])(?:реакт\p{L}*|react\p{L}*)(?![\p{L}])/iu, 'React'],
-    [/(?<![\p{L}])node(?:\.?js)?(?![\p{L}])/iu, 'Node.js'],
-    [/(?<![\p{L}])vue\p{L}*(?![\p{L}])/iu, 'Vue'],
-    [/(?<![\p{L}])angular\p{L}*(?![\p{L}])/iu, 'Angular'],
-    [/(?<![\p{L}])(?:тайпскрипт|typescript)(?![\p{L}])/iu, 'TypeScript'],
-    [/(?<![\p{L}])(?:джаваскрипт|javascript)(?![\p{L}])/iu, 'JavaScript'],
-    [/(?<![\p{L}])(?:джава|java)(?![\p{L}])/iu, 'Java'],
-    [/(?<![\p{L}])(?:котлин|kotlin)\p{L}*(?![\p{L}])/iu, 'Kotlin'],
-    [/(?<![\p{L}])(?:свифт|swift)\p{L}*(?![\p{L}])/iu, 'Swift'],
-    [/(?<![\p{L}])(?:гоу?ланг|golang)(?![\p{L}])/iu, 'Go'],
-    [/(?<![\p{L}])(?:руби|ruby)\p{L}*(?![\p{L}])/iu, 'Ruby'],
-    [/(?<![\p{L}])(?:пхп|php)\p{L}*(?![\p{L}])/iu, 'PHP'],
-    [/(?<![\p{L}])(?:си[\s-]?шарп|c#|csharp)(?![\p{L}])/iu, 'C#'],
-    [/(?<![\p{L}])(?:c\+\+|cpp)(?![\p{L}])/iu, 'C++'],
-    [/(?<![\p{L}])(?:раст|rust)\p{L}*(?![\p{L}])/iu, 'Rust'],
-    [/(?<![\p{L}])devops(?![\p{L}])/iu, 'DevOps'],
-    [/(?<![\p{L}])(?:кубер\p{L}*|kubernetes|k8s)(?![\p{L}])/iu, 'Kubernetes'],
-    [/(?<![\p{L}])(?:докер|docker)\p{L}*(?![\p{L}])/iu, 'Docker'],
-    [/(?<![\p{L}])(?:бухгалтер\p{L}*|бухучёт\p{L}*|бухучет\p{L}*)(?![\p{L}])/iu, 'бухгалтер'],
-    [/(?<![\p{L}])(?:дизайнер\p{L}*|дизайн\p{L}*|designer)(?![\p{L}])/iu, 'дизайнер'],
-    [/(?<![\p{L}])(?:менеджер\p{L}*|manager)(?![\p{L}])/iu, 'менеджер'],
-    [/(?<![\p{L}])(?:аналитик\p{L}*|analyst)(?![\p{L}])/iu, 'аналитик'],
-    [/(?<![\p{L}])(?:тестировщик\p{L}*|qa)(?![\p{L}])/iu, 'QA'],
-    [/(?<![\p{L}])(?:разработчик\p{L}*|developer)(?![\p{L}])/iu, 'разработчик'],
-    [/(?<![\p{L}])(?:рекрут\p{L}*|recruiter)(?![\p{L}])/iu, 'рекрутер'],
-    [/(?<![\p{L}])hr(?![\p{L}])/iu, 'HR'],
-  ]
-  for (const [re, canonical] of techMap) {
-    if (re.test(lower)) return canonical
-  }
-
-  // Имя собственное: слова с заглавной буквы, кроме стоп-слов.
-  const stopWords = new Set([
-    'Найди', 'Найти', 'Покажи', 'Поиск', 'Кандидат', 'Кандидата', 'Кандидаты',
-    'Подбери', 'Резюме', 'Вакансия', 'Сотрудник',
-    'Проанализируй', 'Поищи', 'Поиски', 'Выбери',
-  ])
-  const properNouns = msg.match(/[А-ЯЁ][а-яё]+/g) ?? []
-  const candidates = properNouns.filter(w => !stopWords.has(w))
-  if (candidates.length > 0) {
-    return candidates.slice(0, 2).join(' ')
-  }
-
-  return null
 }
 
 /** Throw if the requested job is outside the active scope. */
@@ -344,42 +282,23 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
     search_candidates: tool({
       description:
         'ПОИСК КАНДИДАТОВ в организации по тексту резюме (full-text), ФИО и email. ' +
-        'ОБЯЗАТЕЛЬНО передавай параметр `query` со словом для поиска. ' +
-        'Примеры правильных вызовов: ' +
-        '{"query":"Python"}, {"query":"React Native"}, {"query":"DevOps Kubernetes Москва"}, {"query":"Иванов"}. ' +
-        'Извлекай ключевое слово прямо из запроса пользователя: ' +
-        '"кандидаты с опытом на питоне" → query="Python"; ' +
-        '"подбери React-разработчиков" → query="React"; ' +
-        '"найди Иванова" → query="Иванов". ' +
-        'Дополнительно можно фильтровать по статусу отклика (new/screening/interview/offer/hired/rejected). ' +
-        'Результаты ранжируются по релевантности резюме.',
+        'Передавай `query` со словом для поиска (навык, должность, фамилия). ' +
+        'Примеры: {"query":"Python"}, {"query":"React Native"}, {"query":"DevOps Kubernetes Москва"}, {"query":"Иванов"}. ' +
+        'Можно опустить `query` если фильтруешь только по статусу отклика в воронке (new/screening/interview/offer/hired/rejected). ' +
+        'Результаты ранжируются по релевантности резюме (ts_rank).',
       inputSchema: z.object({
         query: z.string().min(1).optional().describe(
-          'Поисковая фраза. ОБЯЗАТЕЛЬНА если пользователь упомянул навык/должность/имя. ' +
-          'Примеры: "Python", "React Native", "DevOps Kubernetes", "Иванов". ' +
-          'Можно опустить ТОЛЬКО если задан status или ты находишься в скоупе конкретной вакансии.'
+          'Поисковая фраза: навык, должность или имя. Примеры: "Python", "React Native", "DevOps Kubernetes", "Иванов".'
         ),
         status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional().describe(
           'Фильтр по стадии воронки. Оставь пустым если пользователь не уточнил стадию.'
         ),
-        limit: z.number().int().min(1).max(20).default(5),
+        limit: z.number().int().min(1).max(50).default(20),
       }),
       execute: async ({ query, status, limit }) => {
-        // Диагностика: логируем фактический input от модели.
-        console.log('[search_candidates] input:', JSON.stringify({ query, status, limit, scope: ctx.scope }))
-
-        let effectiveQuery = query?.trim() || ''
+        const effectiveQuery = query?.trim() || ''
         const hasStatus = !!status
         const inJobScope = ctx.scope.kind === 'job' && !!ctx.scope.jobId
-
-        // Fallback для слабых моделей (Qwen через Yandex Cloud часто теряет query): извлекаем сами из реплики юзера.
-        if (!effectiveQuery && !hasStatus && !inJobScope && ctx.lastUserMessage) {
-          const extracted = extractQueryFromUserMessage(ctx.lastUserMessage)
-          if (extracted) {
-            console.log('[search_candidates] fallback extracted query="%s" from user msg', extracted)
-            effectiveQuery = extracted
-          }
-        }
 
         const hasQuery = effectiveQuery.length > 0
         if (!hasQuery && !hasStatus && !inJobScope) {
@@ -389,7 +308,6 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           }
         }
 
-        // Дальше работаем с effectiveQuery, а не с исходным query.
         query = effectiveQuery
 
         // Собираем id-шники по статусу (если указан) — это сужает поисковую выборку.
@@ -527,15 +445,16 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           rows = rows.filter((c) => allowed.has(c.id))
         }
 
-        // Минимальный payload для модели — только имя и id. Слабые модели (Qwen)
-        // теряются в больших JSON. email/phone/city видны в карточке кандидата.
+        // Полный payload: id, ИМЯ, email/phone/city. DeepSeek/GPT-уровень модели хорошо работают с этим объёмом и
+        // могут сразу показывать кандидатов с контактами без второго круга вопросов.
         const finalRows = rows.slice(0, limit).map((c) => ({
           id: c.id,
           name: `${c.firstName} ${c.lastName}`.trim(),
+          email: c.email,
+          phone: c.phone,
+          city: c.city,
         }))
-        const payload = { count: finalRows.length, candidates: finalRows }
-        console.log('[search_candidates] payload bytes=%d count=%d', JSON.stringify(payload).length, finalRows.length)
-        return payload
+        return { count: finalRows.length, candidates: finalRows }
       },
     }),
 
