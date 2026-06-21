@@ -282,14 +282,17 @@ export async function entityIdsMatchingFilters(opts: {
         working = new Set()
         break
       }
-      // Match where the jsonb value array contains any of the needles
+      // Match where the jsonb value array contains any of the needles.
+      // Прежде drizzle рендерил ${needles}::text[] как `($1, $2)::text[]` — это record,
+      // и PG давал `cannot cast type record to text[]`. Нужен ARRAY[$1, $2]::text[].
+      const needleSqls = needles.map((n) => sql`${n}`)
       matchingRows = await db
         .select({ entityId: propertyValue.entityId })
         .from(propertyValue)
         .where(
           and(
             baseWhere,
-            sql`${propertyValue.value} ?| ${needles}::text[]`,
+            sql`${propertyValue.value} ?| ARRAY[${sql.join(needleSqls, sql`, `)}]::text[]`,
           ),
         )
     }
