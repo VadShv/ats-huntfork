@@ -22,9 +22,25 @@ export default defineEventHandler(async (event) => {
   // NB: candidate.search_tsv хранится в БД (миграция 0045), но не экспортирован в Drizzle schema —
   // используем raw SQL ссылку на колонку, чтобы не трогать схему.
   const ftsQuery = query.q && query.q.length > 0 ? query.q : null
+
+  // Sprint 2 hotfix: scope → ts_filter weight-классы. Обычный SQL literal,
+  // потому что enum уже валидирован zod — SQL-injection исключен.
+  // 'all' возвращает null — берём search_tsv без фильтрации.
+  const scopeWeights: Record<typeof query.scope, string | null> = {
+    all: null,
+    labels: '{a}',
+    notes: '{b}',
+    resume: '{c,d}',
+  }
+  const weightFilter = scopeWeights[query.scope]
+  // tsvectorExpr — что используется в @@ и ts_rank_cd (оригинал или отфильтрованный).
+  const tsvectorExpr = weightFilter
+    ? sql`ts_filter("candidate"."search_tsv", ${weightFilter}::"char"[])`
+    : sql`"candidate"."search_tsv"`
+
   if (ftsQuery) {
     conditions.push(
-      sql`"candidate"."search_tsv" @@ websearch_to_tsquery('russian', ${ftsQuery})`,
+      sql`${tsvectorExpr} @@ websearch_to_tsquery('russian', ${ftsQuery})`,
     )
   }
   else if (query.search) {
@@ -99,7 +115,8 @@ export default defineEventHandler(async (event) => {
   }
   if (ftsQuery) {
     // ts_rank_cd — норма по длине документа (флаг 32), короткие не проигрывают длинным.
-    selectMap.score = sql<number>`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('russian', ${ftsQuery}), 32)`
+    // scope!=all: ранжируем по отфильтрованному tsvector — релевантность считается только по выбранным весам.
+    selectMap.score = sql<number>`ts_rank_cd(${tsvectorExpr}, websearch_to_tsquery('russian', ${ftsQuery}), 32)`
     // ts_headline на сыром резюме невозможен (нет хранимого текста), делаем сниппет по быстро доступным полям.
     selectMap.snippet = sql<string | null>`ts_headline(
       'russian',
@@ -110,7 +127,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const orderClause = ftsQuery
-    ? [desc(sql`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('russian', ${ftsQuery}), 32)`), desc(candidate.updatedAt)]
+    ? [desc(sql`ts_rank_cd(${tsvectorExpr}, websearch_to_tsquery('russian', ${ftsQuery}), 32)`), desc(candidate.updatedAt)]
     : [desc(candidate.createdAt)]
 
   const [data, total] = await Promise.all([

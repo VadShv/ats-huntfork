@@ -1062,6 +1062,17 @@
       "new": "New Candidate",
       "add": "Add Candidate",
       "search_placeholder": "Search by name, email...",
+      "search_scope": {
+        "label": "Search in",
+        "all": "Everywhere",
+        "all_hint": "All candidate fields",
+        "labels": "Labels & contacts",
+        "labels_hint": "Name, email, phone, custom label values",
+        "notes": "Notes & summary",
+        "notes_hint": "AI summary, quick notes, city",
+        "resume": "Resume text",
+        "resume_hint": "hh.ru resume and uploaded documents"
+      },
       "failedToLoad": "Failed to load candidates.",
       "retry": "Retry",
       "noResults": "No candidates match your search",

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Users, Plus, Search, Mail, Phone, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, X, StickyNote, Maximize2, Minimize2, Check } from 'lucide-vue-next'
+import { Users, Plus, Search, Mail, Phone, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, X, StickyNote, Maximize2, Minimize2, Check, ChevronDown, Tags, FileText, NotebookText, Globe } from 'lucide-vue-next'
+import type { CandidateSearchScope } from '~/composables/useCandidates'
 
 definePageMeta({
   layout: 'dashboard',
@@ -52,6 +53,52 @@ watch(visibleColumns, (val) => {
 const searchInput = ref('')
 const debouncedSearch = ref<string | undefined>(undefined)
 
+// Sprint 2 hotfix: scope поиска — персистится в localStorage, чтобы выбор не сбрасывался между сессиями.
+const SCOPE_STORAGE_KEY = 'reqcore:candidates:searchScope'
+const searchScope = ref<CandidateSearchScope>('all')
+const scopeMenuOpen = ref(false)
+
+onMounted(() => {
+  try {
+    const raw = window.localStorage.getItem(SCOPE_STORAGE_KEY)
+    if (raw === 'all' || raw === 'labels' || raw === 'notes' || raw === 'resume') {
+      searchScope.value = raw
+    }
+  } catch {}
+})
+
+watch(searchScope, (val) => {
+  if (typeof window === 'undefined') return
+  try { window.localStorage.setItem(SCOPE_STORAGE_KEY, val) } catch {}
+})
+
+const scopeOptions: Array<{ value: CandidateSearchScope, icon: typeof Globe }> = [
+  { value: 'all', icon: Globe },
+  { value: 'labels', icon: Tags },
+  { value: 'notes', icon: NotebookText },
+  { value: 'resume', icon: FileText },
+]
+
+const currentScopeIcon = computed(() => scopeOptions.find((o) => o.value === searchScope.value)?.icon ?? Globe)
+
+function selectScope(value: CandidateSearchScope) {
+  searchScope.value = value
+  scopeMenuOpen.value = false
+}
+
+// Клик вне дропдауна — закрываем.
+const scopeMenuRef = ref<HTMLElement | null>(null)
+onMounted(() => {
+  const onDocClick = (e: MouseEvent) => {
+    if (!scopeMenuOpen.value) return
+    if (scopeMenuRef.value && !scopeMenuRef.value.contains(e.target as Node)) {
+      scopeMenuOpen.value = false
+    }
+  }
+  document.addEventListener('click', onDocClick)
+  onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
+})
+
 let debounceTimer: ReturnType<typeof setTimeout>
 watch(searchInput, (val) => {
   clearTimeout(debounceTimer)
@@ -83,6 +130,7 @@ function clearFilters() {
 
 const { candidates, total, fetchStatus, error, refresh } = useCandidates({
   search: debouncedSearch,
+  scope: searchScope,
   gender: filterGender,
   dobFrom: filterDobFrom,
   dobTo: filterDobTo,
@@ -308,6 +356,46 @@ const selectedCandidateId = ref<string | null>(null)
 
     <!-- Search + Views + Filters -->
     <div class="flex items-center gap-2 mb-4">
+      <!-- Sprint 2 hotfix: scope-переключатель слева от поисковой строки -->
+      <div ref="scopeMenuRef" class="relative">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-3 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+          :title="$t('dashboard.candidates.search_scope.label')"
+          @click.stop="scopeMenuOpen = !scopeMenuOpen"
+        >
+          <component :is="currentScopeIcon" class="size-4" :class="searchScope === 'all' ? 'text-surface-500' : 'text-brand-600 dark:text-brand-400'" />
+          <span>{{ $t(`dashboard.candidates.search_scope.${searchScope}`) }}</span>
+          <ChevronDown class="size-3.5 text-surface-400" />
+        </button>
+        <div
+          v-if="scopeMenuOpen"
+          class="absolute left-0 top-full mt-1 z-30 w-72 rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-lg py-1"
+        >
+          <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-surface-400">
+            {{ $t('dashboard.candidates.search_scope.label') }}
+          </div>
+          <button
+            v-for="opt in scopeOptions"
+            :key="opt.value"
+            type="button"
+            class="w-full flex items-start gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+            :class="searchScope === opt.value ? 'bg-brand-50/40 dark:bg-brand-900/20' : ''"
+            @click="selectScope(opt.value)"
+          >
+            <component :is="opt.icon" class="size-4 mt-0.5 flex-shrink-0" :class="searchScope === opt.value ? 'text-brand-600 dark:text-brand-400' : 'text-surface-400'" />
+            <div class="flex-1 min-w-0">
+              <div class="text-surface-900 dark:text-surface-100 font-medium leading-tight">
+                {{ $t(`dashboard.candidates.search_scope.${opt.value}`) }}
+              </div>
+              <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5 leading-snug">
+                {{ $t(`dashboard.candidates.search_scope.${opt.value}_hint`) }}
+              </div>
+            </div>
+            <Check v-if="searchScope === opt.value" class="size-4 text-brand-600 dark:text-brand-400 flex-shrink-0 mt-0.5" />
+          </button>
+        </div>
+      </div>
       <div class="relative flex-1">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" />
         <input

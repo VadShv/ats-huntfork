@@ -79,6 +79,15 @@ export const candidateQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
   /** Sprint 1A: full-text поиск по search_tsv (websearch_to_tsquery). При наличии перебивает search. */
   q: z.string().trim().max(500).optional(),
+  /**
+   * Sprint 2 hotfix: scope полнотекстового поиска — ограничивает совпадения по weight-классам tsvector.
+   *  - all     → A+B+C+D (default, текущее поведение)
+   *  - labels  → только A (имя/email/телефон/labels кастомных меток)
+   *  - notes   → только B (aiSummary, quickNotes, city)
+   *  - resume  → только C+D (hh_resume_raw + parsed document text)
+   * Игнорируется если q пуст.
+   */
+  scope: z.enum(['all', 'labels', 'notes', 'resume']).optional().default('all'),
   gender: z.enum(genderValues).optional(),
   dobFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dobFrom must be YYYY-MM-DD').optional(),
   dobTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dobTo must be YYYY-MM-DD').optional(),

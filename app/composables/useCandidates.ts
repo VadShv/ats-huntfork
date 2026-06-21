@@ -6,8 +6,12 @@ import type { PropertyFilter } from '~~/shared/properties'
  * Composable for managing the candidates list with search, pagination, and mutations.
  * Wraps `useFetch('/api/candidates')` with a singleton key for shared state.
  */
+export type CandidateSearchScope = 'all' | 'labels' | 'notes' | 'resume'
+
 export function useCandidates(options?: {
   search?: Ref<string | undefined> | string
+  /** Sprint 2 hotfix: ts_filter scope — «везде» / «метки» / «заметки» / «резюме» */
+  scope?: Ref<CandidateSearchScope | undefined> | CandidateSearchScope
   gender?: Ref<string | undefined> | string
   dobFrom?: Ref<string | undefined> | string
   dobTo?: Ref<string | undefined> | string
@@ -17,10 +21,14 @@ export function useCandidates(options?: {
 
   const query = computed(() => {
     const pf = toValue(options?.propertyFilters)
+    const scope = toValue(options?.scope)
+    const q = toValue(options?.search)
     return {
       // Sprint 1A: переходим на q для активации FTS-ветки (websearch_to_tsquery) в /api/candidates.
       // При этом параметр search на бэке сохраняется (старый ILIKE-путь) для обратной совместимости.
-      ...(toValue(options?.search) && { q: toValue(options?.search) }),
+      ...(q && { q }),
+      // Sprint 2 hotfix: scope отправляем только если выбран не-default (экономим парам в URL).
+      ...(q && scope && scope !== 'all' && { scope }),
       ...(toValue(options?.gender) && { gender: toValue(options?.gender) }),
       ...(toValue(options?.dobFrom) && { dobFrom: toValue(options?.dobFrom) }),
       ...(toValue(options?.dobTo) && { dobTo: toValue(options?.dobTo) }),
