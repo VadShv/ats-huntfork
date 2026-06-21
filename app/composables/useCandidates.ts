@@ -18,7 +18,9 @@ export function useCandidates(options?: {
   const query = computed(() => {
     const pf = toValue(options?.propertyFilters)
     return {
-      ...(toValue(options?.search) && { search: toValue(options?.search) }),
+      // Sprint 1A: переходим на q для активации FTS-ветки (websearch_to_tsquery) в /api/candidates.
+      // При этом параметр search на бэке сохраняется (старый ILIKE-путь) для обратной совместимости.
+      ...(toValue(options?.search) && { q: toValue(options?.search) }),
       ...(toValue(options?.gender) && { gender: toValue(options?.gender) }),
       ...(toValue(options?.dobFrom) && { dobFrom: toValue(options?.dobFrom) }),
       ...(toValue(options?.dobTo) && { dobTo: toValue(options?.dobTo) }),

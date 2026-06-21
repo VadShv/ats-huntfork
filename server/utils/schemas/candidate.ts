@@ -75,7 +75,10 @@ export const updateCandidateSchema = z.object({
 export const candidateQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  /** Legacy ILIKE-поиск по ФИО/email — оставлен для обратной совместимости */
   search: z.string().trim().max(200).optional(),
+  /** Sprint 1A: full-text поиск по search_tsv (websearch_to_tsquery). При наличии перебивает search. */
+  q: z.string().trim().max(500).optional(),
   gender: z.enum(genderValues).optional(),
   dobFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dobFrom must be YYYY-MM-DD').optional(),
   dobTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dobTo must be YYYY-MM-DD').optional(),

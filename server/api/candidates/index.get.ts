@@ -17,8 +17,18 @@ export default defineEventHandler(async (event) => {
   const offset = (query.page - 1) * query.limit
   const conditions = [eq(candidate.organizationId, orgId)]
 
-  if (query.search) {
-    // Escape LIKE meta-characters to prevent pattern injection
+  // ─── Sprint 1A: full-text поиск через q (websearch_to_tsquery) ───
+  // Параллельно поддерживаем старый search для обратной совместимости.
+  // NB: candidate.search_tsv хранится в БД (миграция 0045), но не экспортирован в Drizzle schema —
+  // используем raw SQL ссылку на колонку, чтобы не трогать схему.
+  const ftsQuery = query.q && query.q.length > 0 ? query.q : null
+  if (ftsQuery) {
+    conditions.push(
+      sql`"candidate"."search_tsv" @@ websearch_to_tsquery('simple', ${ftsQuery})`,
+    )
+  }
+  else if (query.search) {
+    // Legacy ILIKE путь (вызывается, если q не передан) — ничего не ломаем.
     const escaped = query.search.replace(/[%_\\]/g, '\\$&')
     const pattern = `%${escaped}%`
     conditions.push(
@@ -71,27 +81,46 @@ export default defineEventHandler(async (event) => {
 
   const where = and(...conditions)
 
+  // При full-text запросе — сортируем по релевантности + возвращаем snippet (ts_headline).
+  // При обычном запросе — старая логика по createdAt.
+  const selectMap: Record<string, unknown> = {
+    id: candidate.id,
+    firstName: candidate.firstName,
+    lastName: candidate.lastName,
+    displayName: candidate.displayName,
+    email: candidate.email,
+    phone: candidate.phone,
+    gender: candidate.gender,
+    dateOfBirth: candidate.dateOfBirth,
+    quickNotes: candidate.quickNotes,
+    createdAt: candidate.createdAt,
+    updatedAt: candidate.updatedAt,
+    applicationCount: sql<number>`count(${application.id})::int`,
+  }
+  if (ftsQuery) {
+    // ts_rank_cd — норма по длине документа (флаг 32), короткие не проигрывают длинным.
+    selectMap.score = sql<number>`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('simple', ${ftsQuery}), 32)`
+    // ts_headline на сыром резюме невозможен (нет хранимого текста), делаем сниппет по быстро доступным полям.
+    selectMap.snippet = sql<string | null>`ts_headline(
+      'simple',
+      coalesce(${candidate.aiSummary}, '') || ' ' || coalesce(${candidate.quickNotes}, '') || ' ' || coalesce(${candidate.city}, ''),
+      websearch_to_tsquery('simple', ${ftsQuery}),
+      'StartSel=<mark>, StopSel=</mark>, MaxFragments=2, MaxWords=14, MinWords=4, ShortWord=2'
+    )`
+  }
+
+  const orderClause = ftsQuery
+    ? [desc(sql`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('simple', ${ftsQuery}), 32)`), desc(candidate.updatedAt)]
+    : [desc(candidate.createdAt)]
+
   const [data, total] = await Promise.all([
     db
-      .select({
-        id: candidate.id,
-        firstName: candidate.firstName,
-        lastName: candidate.lastName,
-        displayName: candidate.displayName,
-        email: candidate.email,
-        phone: candidate.phone,
-        gender: candidate.gender,
-        dateOfBirth: candidate.dateOfBirth,
-        quickNotes: candidate.quickNotes,
-        createdAt: candidate.createdAt,
-        updatedAt: candidate.updatedAt,
-        applicationCount: sql<number>`count(${application.id})::int`,
-      })
+      .select(selectMap as Record<string, never>)
       .from(candidate)
       .leftJoin(application, eq(application.candidateId, candidate.id))
       .where(where)
       .groupBy(candidate.id)
-      .orderBy(desc(candidate.createdAt))
+      .orderBy(...orderClause)
       .limit(query.limit)
       .offset(offset),
     db.$count(candidate, where),

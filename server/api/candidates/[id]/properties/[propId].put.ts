@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { candidate, propertyDefinition, propertyValue } from '../../../../database/schema'
+import { refreshCandidateSearchTsv } from '../../../../utils/candidateSearchText'
 import {
   setPropertyValueSchema,
   validateValueForType,
@@ -50,6 +51,12 @@ export default defineEventHandler(async (event) => {
           eq(propertyValue.entityType, 'candidate'),
         ),
       )
+    // Обновляем поисковый tsv если это метка (select / multi_select) — любой отказ не блокирует ответ.
+    if (def.type === 'select' || def.type === 'multi_select') {
+      refreshCandidateSearchTsv({ orgId, candidateId: id }).catch((err) => {
+        console.error('[candidates.properties.put] refresh tsv failed', err)
+      })
+    }
     return { value: null }
   }
 
@@ -67,6 +74,13 @@ export default defineEventHandler(async (event) => {
       set: { value: normalized as never, updatedAt: new Date() },
     })
     .returning({ value: propertyValue.value })
+
+  // Синхронизируем full-text индекс если менялась метка.
+  if (def.type === 'select' || def.type === 'multi_select') {
+    refreshCandidateSearchTsv({ orgId, candidateId: id }).catch((err) => {
+      console.error('[candidates.properties.put] refresh tsv failed', err)
+    })
+  }
 
   return { value: row?.value ?? normalized }
 })

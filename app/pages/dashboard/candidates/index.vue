@@ -163,10 +163,28 @@ function cancelEditNotes() {
   editingNotesId.value = null
 }
 
-// ── Property value lookup helper ──────────────────────────────────────────────
+// ── Property value lookup helper ────────────────────────────────────────────
 // Avoids `as any` in the template and is null-safe.
 function getPropertyValue(entity: { properties?: import('~~/shared/properties').PropertyEntry[] | null }, definitionId: string): unknown {
   return entity.properties?.find((p) => p.definition.id === definitionId)?.value ?? null
+}
+
+// ── Sprint 1A: безопасный рендер FTS snippet ───────────────────────────
+// Сервер возвращает ts_headline с тегами <mark>...</mark> — экранируем всё кроме <mark>.
+// Без DOMPurify (в проекте его нет) и без v-html прямоот из API — все другие теги вырезаются.
+function renderSnippet(snippet: string | null | undefined): string {
+  if (!snippet) return ''
+  // 1) escape всё HTML
+  const escaped = snippet
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+  // 2) вернуть обратно только <mark>...</mark>
+  return escaped
+    .replace(/&lt;mark&gt;/g, '<mark class="bg-yellow-200 dark:bg-yellow-700/40 text-surface-900 dark:text-surface-100 px-0.5 rounded-sm">')
+    .replace(/&lt;\/mark&gt;/g, '</mark>')
 }
 
 // ── Saved Views ──────────────────────────────────────────────────────────────────
@@ -589,6 +607,12 @@ const selectedCandidateId = ref<string | null>(null)
                 >
                   {{ formatCandidateName(c) }}
                 </button>
+                <!-- Sprint 1A: FTS snippet — показываем только если был поиск -->
+                <div
+                  v-if="debouncedSearch && (c as { snippet?: string }).snippet"
+                  class="mt-1 text-xs text-surface-500 dark:text-surface-400 leading-snug line-clamp-2"
+                  v-html="renderSnippet((c as { snippet?: string }).snippet)"
+                />
               </td>
               <td v-if="visibleColumns.email" class="px-4 py-3 text-surface-500 dark:text-surface-400">
                 <a

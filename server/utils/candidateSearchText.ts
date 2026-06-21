@@ -7,8 +7,8 @@
  * Использует конфигурацию tsvector('simple') — без стемминга, безопасно для
  * смешанного RU/EN текста и технических терминов (Python, React, k8s).
  */
-import { and, eq, sql } from 'drizzle-orm'
-import { candidate, document } from '../database/schema'
+import { and, eq, inArray, sql } from 'drizzle-orm'
+import { candidate, document, propertyDefinition, propertyValue } from '../database/schema'
 import { db } from './db'
 import { resumeToText, type HhResumeApi } from './hh/sync'
 
@@ -66,6 +66,41 @@ export async function buildCandidateSearchText(opts: {
       // fallback: JSON dump
       parts.push(JSON.stringify(c.hhResumeRaw))
     }
+  }
+
+  // ── Метки (Sprint 1A) ──
+  // Собираем labels выбранных опций select / multi_select properties этого кандидата.
+  // Нужно чтобы поиск по метке «Сеньор» находил помеченных.
+  try {
+    const values = await db.select({
+      value: propertyValue.value,
+      config: propertyDefinition.config,
+      type: propertyDefinition.type,
+    })
+      .from(propertyValue)
+      .innerJoin(propertyDefinition, eq(propertyDefinition.id, propertyValue.propertyDefinitionId))
+      .where(and(
+        eq(propertyValue.organizationId, opts.orgId),
+        eq(propertyValue.entityType, 'candidate'),
+        eq(propertyValue.entityId, opts.candidateId),
+        inArray(propertyDefinition.type, ['select', 'multi_select']),
+      ))
+
+    for (const row of values) {
+      const cfg = row.config as { options?: Array<{ id: string, label: string }> } | null
+      if (!cfg?.options) continue
+      const selected = row.type === 'multi_select'
+        ? (Array.isArray(row.value) ? row.value as string[] : [])
+        : (typeof row.value === 'string' ? [row.value] : [])
+      for (const optId of selected) {
+        const opt = cfg.options.find(o => o.id === optId)
+        if (opt?.label) parts.push(opt.label)
+      }
+    }
+  }
+  catch (err) {
+    // Не ломаем индексацию из-за проблемы с propertyValue
+    console.error('[buildCandidateSearchText] tags fetch failed', err)
   }
 
   return parts.filter(Boolean).join('\n').slice(0, 1_000_000) // safety cap
