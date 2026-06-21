@@ -1137,6 +1137,10 @@
           "emailRequired": "Email is required",
           "emailInvalid": "Invalid email address"
         }
+      },
+      "fuzzy_badge": {
+        "label": "similar",
+        "tooltip": "Fuzzy match ({percent}%) — possible typo"
       }
     },
     "applications": {

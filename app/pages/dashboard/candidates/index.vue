@@ -688,13 +688,24 @@ const selectedCandidateId = ref<string | null>(null)
               @click="selectedCandidateId = c.id"
             >
               <td class="px-4 py-3">
-                <button
-                  type="button"
-                  class="font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-600 transition-colors whitespace-nowrap text-left"
-                  @click.stop="selectedCandidateId = c.id"
-                >
-                  {{ formatCandidateName(c) }}
-                </button>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    class="font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-600 transition-colors whitespace-nowrap text-left"
+                    @click.stop="selectedCandidateId = c.id"
+                  >
+                    {{ formatCandidateName(c) }}
+                  </button>
+                  <!-- Sprint 4: pg_trgm fuzzy-badge — показываем у похожих, не точных -->
+                  <span
+                    v-if="(c as { matchType?: string }).matchType === 'fuzzy'"
+                    class="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400 ring-1 ring-amber-200 dark:ring-amber-900/60 whitespace-nowrap"
+                    :title="$t('dashboard.candidates.fuzzy_badge.tooltip', { percent: Math.round(((c as { similarity?: number }).similarity ?? 0) * 100) })"
+                    @click.stop
+                  >
+                    ≈ {{ $t('dashboard.candidates.fuzzy_badge.label') }}
+                  </span>
+                </div>
                 <!-- Sprint 1A: FTS snippet — показываем только если был поиск -->
                 <div
                   v-if="debouncedSearch && (c as { snippet?: string }).snippet"

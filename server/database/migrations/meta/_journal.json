@@ -323,6 +323,13 @@
 			"when": 1794000000000,
 			"tag": "0046_candidate_search_tsv_russian",
 			"breakpoints": true
+		},
+		{
+			"idx": 47,
+			"version": "7",
+			"when": 1795000000000,
+			"tag": "0047_candidate_name_trgm",
+			"breakpoints": true
 		}
 	]
 }

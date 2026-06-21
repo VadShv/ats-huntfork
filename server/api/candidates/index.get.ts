@@ -143,14 +143,132 @@ export default defineEventHandler(async (event) => {
     db.$count(candidate, where),
   ])
 
+  // ─── Sprint 4: pg_trgm fuzzy fallback по ФИО ───
+  // Запускаем ТОЛЬКО когда:
+  //   • есть FTS-запрос (q), длиной >= 3 символов
+  //   • запрос — одно слово без операторов (нет пробелов/кавычек/+/-/|)
+  //     иначе булевый запрос всё равно нужно матчить через FTS, а не trgm
+  //   • первая страница (page === 1)
+  //   • основной FTS вернул < 5 результатов
+  //   • scope === 'all' или scope === 'labels' — fuzzy имеет смысл только
+  //     для поиска по ФИО, не по тексту резюме
+  //   • нет property-фильтров с пустым intersection (туда мы уже не дошли)
+  //
+  // matchType: 'exact' добавляется ко всем основным результатам,
+  // 'fuzzy' — к найденным через trgm. similarity — только у fuzzy.
+  const FUZZY_THRESHOLD = 5
+  const FUZZY_MIN_SIM = 0.25 // % оператор по умолчанию pg_trgm.similarity_threshold (0.3),
+                              // 0.25 даёт чуть больше recall для коротких ФИО.
+  const canFuzzy =
+    ftsQuery &&
+    ftsQuery.length >= 3 &&
+    !/[\s"+\-|()]/.test(ftsQuery) &&
+    query.page === 1 &&
+    data.length < FUZZY_THRESHOLD &&
+    (query.scope === 'all' || query.scope === 'labels')
+
+  type Row = (typeof data)[number] & {
+    matchType?: 'exact' | 'fuzzy'
+    similarity?: number
+    score?: number
+    snippet?: string | null
+  }
+  const exactRows: Row[] = data.map((c) => ({ ...(c as Row), matchType: 'exact' as const }))
+
+  let fuzzyRows: Row[] = []
+  if (canFuzzy) {
+    const needle = ftsQuery!.toLowerCase()
+    const existingIds = exactRows.map((r) => r.id)
+    const limit = FUZZY_THRESHOLD - data.length
+
+    // pg_trgm: индекс на lower(first||' '||last||' '||display) gin_trgm_ops (миграция 0047).
+    // % использует similarity_threshold (по умолчанию 0.3) — индекс работает.
+    // Дополнительно фильтруем similarity() >= FUZZY_MIN_SIM на случай если threshold меняли в сессии.
+    // organizationId — критично, иначе утечка между орг.
+    const nameExpr = sql`lower(coalesce(${candidate.firstName}, '') || ' ' || coalesce(${candidate.lastName}, '') || ' ' || coalesce(${candidate.displayName}, ''))`
+    const fuzzyConditions = [
+      eq(candidate.organizationId, orgId),
+      sql`${nameExpr} % ${needle}`,
+      sql`similarity(${nameExpr}, ${needle}) >= ${FUZZY_MIN_SIM}`,
+    ]
+    if (existingIds.length > 0) {
+      fuzzyConditions.push(sql`${candidate.id} NOT IN (${sql.join(existingIds.map((id) => sql`${id}`), sql`, `)})`)
+    }
+    // Учитываем property filters, если они были (intersection уже посчитан, conditions содержат inArray).
+    // Простейший путь: переиспользовать matching ids — но они уже сужены до условий FTS+property.
+    // Здесь property filter уже применён через conditions выше; повторим через тот же inArray, если был.
+    if (propertyFilters.length > 0) {
+      // matching посчитан выше — но переменная вне scope. Перевычислять дорого; вместо этого
+      // полагаемся на то, что conditions[*] уже содержит inArray(candidate.id, [...matching]).
+      // Извлекаем те же id из exactRows + считаем что fuzzy будет ограничен теми же intersection.
+      // Для корректности — пересчитываем intersection.
+      const matching = await entityIdsMatchingFilters({
+        organizationId: orgId,
+        entityType: 'candidate',
+        filters: propertyFilters,
+      })
+      if (!matching || matching.size === 0) {
+        fuzzyRows = []
+      } else {
+        fuzzyConditions.push(inArray(candidate.id, [...matching]))
+      }
+    }
+
+    // dob-фильтры тоже учитываем — fuzzy не должен «расширять» seach за их пределы.
+    if (query.gender) fuzzyConditions.push(eq(candidate.gender, query.gender))
+    if (query.dobFrom) fuzzyConditions.push(gte(candidate.dateOfBirth, query.dobFrom))
+    if (query.dobTo) fuzzyConditions.push(lte(candidate.dateOfBirth, query.dobTo))
+
+    try {
+      const fuzzyData = await db
+        .select({
+          id: candidate.id,
+          firstName: candidate.firstName,
+          lastName: candidate.lastName,
+          displayName: candidate.displayName,
+          email: candidate.email,
+          phone: candidate.phone,
+          gender: candidate.gender,
+          dateOfBirth: candidate.dateOfBirth,
+          quickNotes: candidate.quickNotes,
+          createdAt: candidate.createdAt,
+          updatedAt: candidate.updatedAt,
+          applicationCount: sql<number>`count(${application.id})::int`,
+          similarity: sql<number>`similarity(${nameExpr}, ${needle})`,
+        })
+        .from(candidate)
+        .leftJoin(application, eq(application.candidateId, candidate.id))
+        .where(and(...fuzzyConditions))
+        .groupBy(candidate.id)
+        .orderBy(desc(sql`similarity(${nameExpr}, ${needle})`))
+        .limit(limit)
+      fuzzyRows = fuzzyData.map((c) => ({
+        ...(c as unknown as Row),
+        matchType: 'fuzzy' as const,
+        // округление до 2 знаков, чтобы фронту проще было показывать %
+        similarity: Math.round((c.similarity as number) * 100) / 100,
+      }))
+    } catch (err) {
+      // Если pg_trgm extension не установлен (миграция ещё не применена) —
+      // не валим основной поиск, просто пропускаем fallback.
+      console.warn('[candidates] trgm fallback failed:', (err as Error).message)
+      fuzzyRows = []
+    }
+  }
+
+  const combined: Row[] = [...exactRows, ...fuzzyRows]
+
   // Bulk-attach properties for the current page
-  const ids = data.map((c) => c.id)
+  const ids = combined.map((c) => c.id)
   const propertyMap = await loadPropertyEntriesForEntities({
     organizationId: orgId,
     entityType: 'candidate',
     entityIds: ids,
   })
-  const enriched = data.map((c) => ({ ...c, properties: propertyMap.get(c.id) ?? [] }))
+  const enriched = combined.map((c) => ({ ...c, properties: propertyMap.get(c.id) ?? [] }))
 
+  // total отражает только основной FTS — fuzzy не входит в пагинацию,
+  // это «бонусные» подсказки сверх. Иначе пользователь увидит total=8, но
+  // переключится на page=2 и получит пусто (fuzzy показываем только на page=1).
   return { data: enriched, total, page: query.page, limit: query.limit }
 })

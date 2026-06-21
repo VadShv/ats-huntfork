@@ -1405,6 +1405,10 @@
           "emailRequired": "Email обязателен",
           "emailInvalid": "Некорректный email"
         }
+      },
+      "fuzzy_badge": {
+        "label": "похожее",
+        "tooltip": "Совпадение по похожести ({percent}%) — возможно опечатка"
       }
     },
     "applications": {
