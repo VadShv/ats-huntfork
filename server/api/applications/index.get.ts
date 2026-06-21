@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
     const pattern = `%${escapedIlike}%`
     conditions.push(
       or(
-        sql`"candidate"."search_tsv" @@ websearch_to_tsquery('simple', ${ftsQuery})`,
+        sql`"candidate"."search_tsv" @@ websearch_to_tsquery('russian', ${ftsQuery})`,
         ilike(job.title, pattern),
       )!,
     )
@@ -122,17 +122,17 @@ export default defineEventHandler(async (event) => {
   }
   if (ftsQuery) {
     // ts_rank_cd по search_tsv кандидата. Для матчей только по job.title score будет 0 — такие попадут в хвост.
-    selectMap.score_fts = sql<number>`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('simple', ${ftsQuery}), 32)`
+    selectMap.score_fts = sql<number>`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('russian', ${ftsQuery}), 32)`
     selectMap.snippet = sql<string | null>`ts_headline(
-      'simple',
+      'russian',
       coalesce(${candidate.aiSummary}, '') || ' ' || coalesce(${candidate.quickNotes}, '') || ' ' || coalesce(${candidate.city}, '') || ' ' || coalesce(${job.title}, ''),
-      websearch_to_tsquery('simple', ${ftsQuery}),
+      websearch_to_tsquery('russian', ${ftsQuery}),
       'StartSel=<mark>, StopSel=</mark>, MaxFragments=2, MaxWords=14, MinWords=4, ShortWord=2'
     )`
   }
 
   const orderClause = ftsQuery
-    ? [desc(sql`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('simple', ${ftsQuery}), 32)`), desc(application.createdAt)]
+    ? [desc(sql`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('russian', ${ftsQuery}), 32)`), desc(application.createdAt)]
     : [desc(application.createdAt)]
 
   // Когда в WHERE есть ссылки на candidate/job (FTS ветка или stageType-filter),

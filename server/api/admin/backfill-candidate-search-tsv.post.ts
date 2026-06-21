@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { candidate } from '../../database/schema'
-import { buildCandidateSearchText } from '../../utils/candidateSearchText'
+import { refreshCandidateSearchTsv } from '../../utils/candidateSearchText'
 import { db } from '../../utils/db'
 
 const bodySchema = z.object({
@@ -19,9 +19,9 @@ const bodySchema = z.object({
 /**
  * POST /api/admin/backfill-candidate-search-tsv
  *
- * Идемпотентный бэкфил полнотекстового индекса для search_candidates (Sprint 11).
- * Проходит кандидатов активной организации, собирает текст из всех резюме и
- * пишет в candidate.search_tsv через to_tsvector('simple', …).
+ * Идемпотентный бэкфил полнотекстового индекса (Sprint 11 → Sprint 2).
+ * Проходит кандидатов активной организации и переиндексирует их search_tsv
+ * через refreshCandidateSearchTsv (Sprint 2: russian config + setweight A/B/C/D).
  *
  * Можно запускать многократно — без forceReindex затронет только новых.
  */
@@ -54,14 +54,10 @@ export default defineEventHandler(async (event) => {
     for (const r of chunk) {
       processed++
       try {
-        const text = await buildCandidateSearchText({ orgId, candidateId: r.id })
         if (!body.dryRun) {
-          await db.execute(sql`
-            UPDATE "candidate"
-               SET "search_tsv" = to_tsvector('simple', ${text})
-             WHERE "organization_id" = ${orgId}
-               AND "id" = ${r.id}
-          `)
+          // refreshCandidateSearchTsv выполняет сбор + setweight + UPDATE.
+          // Sprint 2: russian config + веса A/B/C/D.
+          await refreshCandidateSearchTsv({ orgId, candidateId: r.id })
         }
         updated++
       }

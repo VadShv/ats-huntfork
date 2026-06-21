@@ -1,11 +1,17 @@
 /**
- * Сбор текста для full-text поиска кандидатов (Sprint 11).
+ * Сбор текста для full-text поиска кандидатов (Sprint 11 → Sprint 1A → Sprint 2).
  *
  * Объединяет: ФИО, email, phone, city, текст всех резюме кандидата
- * (document.parsedContent.text где type='resume') + hh_resume_raw → текст.
+ * (document.parsedContent.text где type='resume') + hh_resume_raw → текст
+ * + labels select / multi_select меток.
  *
- * Использует конфигурацию tsvector('simple') — без стемминга, безопасно для
- * смешанного RU/EN текста и технических терминов (Python, React, k8s).
+ * Sprint 2: текст разбит на группы A/B/C/D, индексация через setweight для
+ * ранжирования (имя/email/метка > summary/city > hhResumeRaw > длинное резюме).
+ * Конфигурация tsvector переключена с 'simple' на 'russian' (стемминг + stopwords).
+ *
+ * Обратная совместимость: buildCandidateSearchText() возвращает склеенный текст
+ * как раньше (для legacy callers — backfill endpoint). Новая функция
+ * buildCandidateSearchGroups() возвращает структуру по весам.
  */
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { candidate, document, propertyDefinition, propertyValue } from '../database/schema'
@@ -13,12 +19,29 @@ import { db } from './db'
 import { resumeToText, type HhResumeApi } from './hh/sync'
 
 /**
- * Собрать единый текст для кандидата из всех доступных источников.
+ * Группы текста по весам для tsvector_setweight.
+ *
+ * A (вес 1.0): высокоприоритетный сигнал — ФИО, email, phone, displayName, labels меток.
+ *              Запрос «Иван» сначала покажет кандидатов с именем Иван, а не тех у кого
+ *              в резюме упомянут какой-то Иван.
+ * B (вес 0.4): структурированные метаданные — aiSummary, quickNotes, city.
+ *              Это короткие, сфокусированные тексты — релевантнее длинных резюме.
+ * C (вес 0.2): сериализованное hh_resume_raw (JSON-дамп) — менее организованный,
+ *              но содержательный сигнал.
+ * D (вес 0.1): сырой текст резюме (document.parsedContent.text) — длинный, шумный.
+ *              Совпадение здесь — слабый сигнал по сравнению с ФИО/skills.
  */
-export async function buildCandidateSearchText(opts: {
+export interface CandidateSearchGroups {
+  a: string
+  b: string
+  c: string
+  d: string
+}
+
+export async function buildCandidateSearchGroups(opts: {
   orgId: string
   candidateId: string
-}): Promise<string> {
+}): Promise<CandidateSearchGroups> {
   const c = await db.query.candidate.findFirst({
     where: and(
       eq(candidate.organizationId, opts.orgId),
@@ -36,7 +59,7 @@ export async function buildCandidateSearchText(opts: {
       hhResumeRaw: true,
     },
   })
-  if (!c) return ''
+  if (!c) return { a: '', b: '', c: '', d: '' }
 
   const docs = await db.query.document.findMany({
     where: and(
@@ -47,30 +70,17 @@ export async function buildCandidateSearchText(opts: {
     columns: { parsedContent: true },
   })
 
-  const parts: string[] = []
-  parts.push(c.firstName, c.lastName, c.displayName ?? '', c.email, c.phone ?? '', c.city ?? '')
-  if (c.quickNotes) parts.push(c.quickNotes)
-  if (c.aiSummary) parts.push(c.aiSummary)
+  // ── A: высокий приоритет ──
+  const aParts: string[] = [
+    c.firstName,
+    c.lastName,
+    c.displayName ?? '',
+    c.email,
+    c.phone ?? '',
+  ]
 
-  for (const d of docs) {
-    const text = (d.parsedContent as { text?: string } | null)?.text
-    if (text) parts.push(text)
-  }
-
-  if (c.hhResumeRaw) {
-    try {
-      const t = resumeToText(c.hhResumeRaw as unknown as HhResumeApi)
-      if (t) parts.push(t)
-    }
-    catch {
-      // fallback: JSON dump
-      parts.push(JSON.stringify(c.hhResumeRaw))
-    }
-  }
-
-  // ── Метки (Sprint 1A) ──
-  // Собираем labels выбранных опций select / multi_select properties этого кандидата.
-  // Нужно чтобы поиск по метке «Сеньор» находил помеченных.
+  // Метки (Sprint 1A) — тоже сильный сигнал. Запрос «Сеньор» должен ловить
+  // помеченных «Сеньор» в первую очередь.
   try {
     const values = await db.select({
       value: propertyValue.value,
@@ -94,31 +104,77 @@ export async function buildCandidateSearchText(opts: {
         : (typeof row.value === 'string' ? [row.value] : [])
       for (const optId of selected) {
         const opt = cfg.options.find(o => o.id === optId)
-        if (opt?.label) parts.push(opt.label)
+        if (opt?.label) aParts.push(opt.label)
       }
     }
   }
   catch (err) {
-    // Не ломаем индексацию из-за проблемы с propertyValue
-    console.error('[buildCandidateSearchText] tags fetch failed', err)
+    console.error('[buildCandidateSearchGroups] tags fetch failed', err)
   }
 
-  return parts.filter(Boolean).join('\n').slice(0, 1_000_000) // safety cap
+  // ── B: средний приоритет ──
+  const bParts: string[] = []
+  if (c.aiSummary) bParts.push(c.aiSummary)
+  if (c.quickNotes) bParts.push(c.quickNotes)
+  if (c.city) bParts.push(c.city)
+
+  // ── C: низкий приоритет ──
+  const cParts: string[] = []
+  if (c.hhResumeRaw) {
+    try {
+      const t = resumeToText(c.hhResumeRaw as unknown as HhResumeApi)
+      if (t) cParts.push(t)
+    }
+    catch {
+      cParts.push(JSON.stringify(c.hhResumeRaw))
+    }
+  }
+
+  // ── D: самый низкий приоритет (длинные сырые резюме) ──
+  const dParts: string[] = []
+  for (const d of docs) {
+    const text = (d.parsedContent as { text?: string } | null)?.text
+    if (text) dParts.push(text)
+  }
+
+  // Safety cap по группам — суммарно ~1Mb для всех.
+  return {
+    a: aParts.filter(Boolean).join('\n').slice(0, 50_000),
+    b: bParts.filter(Boolean).join('\n').slice(0, 100_000),
+    c: cParts.filter(Boolean).join('\n').slice(0, 300_000),
+    d: dParts.filter(Boolean).join('\n').slice(0, 600_000),
+  }
 }
 
 /**
- * Обновить candidate.search_tsv текущего кандидата.
- * Вызывается из мест, где меняется содержимое резюме (sync hh, upload document,
- * importResume, edit-candidate).
+ * Legacy: вернуть склеенный текст всех групп (для совместимости с backfill endpoint,
+ * который до Sprint 2 индексировал через simple to_tsvector). Используется только для
+ * fallback-путей. Основной путь — refreshCandidateSearchTsv через setweight.
+ */
+export async function buildCandidateSearchText(opts: {
+  orgId: string
+  candidateId: string
+}): Promise<string> {
+  const groups = await buildCandidateSearchGroups(opts)
+  return [groups.a, groups.b, groups.c, groups.d].filter(Boolean).join('\n').slice(0, 1_000_000)
+}
+
+/**
+ * Обновить candidate.search_tsv через setweight по группам.
+ * Sprint 2: russian config + веса A/B/C/D.
  */
 export async function refreshCandidateSearchTsv(opts: {
   orgId: string
   candidateId: string
 }): Promise<void> {
-  const text = await buildCandidateSearchText(opts)
+  const g = await buildCandidateSearchGroups(opts)
   await db.execute(sql`
     UPDATE "candidate"
-       SET "search_tsv" = to_tsvector('simple', ${text})
+       SET "search_tsv" =
+         setweight(to_tsvector('russian', ${g.a}), 'A') ||
+         setweight(to_tsvector('russian', ${g.b}), 'B') ||
+         setweight(to_tsvector('russian', ${g.c}), 'C') ||
+         setweight(to_tsvector('russian', ${g.d}), 'D')
      WHERE "organization_id" = ${opts.orgId}
        AND "id" = ${opts.candidateId}
   `)

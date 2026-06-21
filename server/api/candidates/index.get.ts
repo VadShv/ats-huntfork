@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   const ftsQuery = query.q && query.q.length > 0 ? query.q : null
   if (ftsQuery) {
     conditions.push(
-      sql`"candidate"."search_tsv" @@ websearch_to_tsquery('simple', ${ftsQuery})`,
+      sql`"candidate"."search_tsv" @@ websearch_to_tsquery('russian', ${ftsQuery})`,
     )
   }
   else if (query.search) {
@@ -99,18 +99,18 @@ export default defineEventHandler(async (event) => {
   }
   if (ftsQuery) {
     // ts_rank_cd — норма по длине документа (флаг 32), короткие не проигрывают длинным.
-    selectMap.score = sql<number>`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('simple', ${ftsQuery}), 32)`
+    selectMap.score = sql<number>`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('russian', ${ftsQuery}), 32)`
     // ts_headline на сыром резюме невозможен (нет хранимого текста), делаем сниппет по быстро доступным полям.
     selectMap.snippet = sql<string | null>`ts_headline(
-      'simple',
+      'russian',
       coalesce(${candidate.aiSummary}, '') || ' ' || coalesce(${candidate.quickNotes}, '') || ' ' || coalesce(${candidate.city}, ''),
-      websearch_to_tsquery('simple', ${ftsQuery}),
+      websearch_to_tsquery('russian', ${ftsQuery}),
       'StartSel=<mark>, StopSel=</mark>, MaxFragments=2, MaxWords=14, MinWords=4, ShortWord=2'
     )`
   }
 
   const orderClause = ftsQuery
-    ? [desc(sql`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('simple', ${ftsQuery}), 32)`), desc(candidate.updatedAt)]
+    ? [desc(sql`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('russian', ${ftsQuery}), 32)`), desc(candidate.updatedAt)]
     : [desc(candidate.createdAt)]
 
   const [data, total] = await Promise.all([
