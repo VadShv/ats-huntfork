@@ -17,6 +17,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { candidate, document, propertyDefinition, propertyValue } from '../database/schema'
 import { db } from './db'
 import { resumeToText, type HhResumeApi } from './hh/sync'
+import { expandSynonyms } from './searchSynonyms'
 
 /**
  * Sprint 4.5: раскрываем дефисные компаунды перед to_tsvector.
@@ -192,14 +193,17 @@ export async function buildCandidateSearchGroups(opts: {
   }
 
   // Safety cap по группам — суммарно ~1Mb для всех.
-  // Sprint 4.5: expandHyphenCompounds() до среза по длине.
-  // Раскрытие увеличивает длину в ~1.5–2х в худшем случае (если весь текст дефисный).
-  // Срезаем ПОСЛЕ раскрытия, чтобы сохранить суммарный бюджет tsvector.
+  // Pipeline обогащения (до среза по длине):
+  //   1. expandHyphenCompounds (Sprint 4.5) — 'python-разработчик' → +'python разработчик'
+  //   2. expandSynonyms (Sprint 5) — 'python' → +'питон', 'питон' → +'python', и т.д.
+  // Порядок важен: сначала разбиваем дефисы (чтобы 'python' из 'python-разработчик'
+  // попал под синонимы), потом расширяем синонимы. Срезаем ПОСЛЕ обогащения.
+  const enrich = (s: string) => expandSynonyms(expandHyphenCompounds(s))
   return {
-    a: expandHyphenCompounds(aParts.filter(Boolean).join('\n')).slice(0, 50_000),
-    b: expandHyphenCompounds(bParts.filter(Boolean).join('\n')).slice(0, 100_000),
-    c: expandHyphenCompounds(cParts.filter(Boolean).join('\n')).slice(0, 300_000),
-    d: expandHyphenCompounds(dParts.filter(Boolean).join('\n')).slice(0, 600_000),
+    a: enrich(aParts.filter(Boolean).join('\n')).slice(0, 50_000),
+    b: enrich(bParts.filter(Boolean).join('\n')).slice(0, 100_000),
+    c: enrich(cParts.filter(Boolean).join('\n')).slice(0, 300_000),
+    d: enrich(dParts.filter(Boolean).join('\n')).slice(0, 600_000),
   }
 }
 
