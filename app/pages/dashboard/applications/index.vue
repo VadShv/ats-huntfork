@@ -235,6 +235,21 @@ function clearAllFilters() {
   propertyFilters.value = []
 }
 
+// ── Sprint 1B: безопасный рендер FTS snippet ──
+// Сервер возвращает ts_headline с тегами <mark>...</mark>. Экранируем всё HTML, потом возвращаем только <mark>.
+function renderSnippet(snippet: string | null | undefined): string {
+  if (!snippet) return ''
+  const escaped = snippet
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+  return escaped
+    .replace(/&lt;mark&gt;/g, '<mark class="bg-yellow-200 dark:bg-yellow-700/40 text-surface-900 dark:text-surface-100 px-0.5 rounded-sm">')
+    .replace(/&lt;\/mark&gt;/g, '</mark>')
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function timeAgo(date: string | Date) {
@@ -874,6 +889,12 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
                 >
                   {{ formatPersonName(app.candidateFirstName, app.candidateLastName) }}
                 </button>
+                <!-- Sprint 1B: FTS snippet под именем, только при активном поиске -->
+                <div
+                  v-if="debouncedSearch && (app as { snippet?: string }).snippet"
+                  class="mt-1 text-xs text-surface-500 dark:text-surface-400 leading-snug line-clamp-2"
+                  v-html="renderSnippet((app as { snippet?: string }).snippet)"
+                />
               </td>
               <td v-if="visibleColumns.email" class="px-4 py-3 text-surface-500 dark:text-surface-400 hidden lg:table-cell">
                 <span class="inline-flex items-center gap-1.5">

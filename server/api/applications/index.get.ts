@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray } from 'drizzle-orm'
+import { eq, and, or, ilike, desc, sql, inArray, count } from 'drizzle-orm'
 import { application, candidate, job, pipelineStage, pipelineStageTypeEnum } from '../../database/schema'
 import { applicationQuerySchema } from '../../utils/schemas/application'
 import { propertyFiltersArraySchema } from '../../utils/schemas/property'
@@ -41,6 +41,21 @@ export default defineEventHandler(async (event) => {
   if (query.needsManualReview) {
     conditions.push(eq(application.needsManualReview, true))
   }
+
+  // ─── Sprint 1B: full-text поиск через q ───
+  // FTS по candidate.search_tsv ОР ILIKE по job.title (срабатывает как "найди отклики где кандидат или вакансия матчит").
+  // candidate.search_tsv не экспортирован в Drizzle — используем raw SQL ссылку.
+  const ftsQuery = query.q && query.q.length > 0 ? query.q : null
+  if (ftsQuery) {
+    const escapedIlike = ftsQuery.replace(/[%_\\]/g, '\\$&')
+    const pattern = `%${escapedIlike}%`
+    conditions.push(
+      or(
+        sql`"candidate"."search_tsv" @@ websearch_to_tsquery('simple', ${ftsQuery})`,
+        ilike(job.title, pattern),
+      )!,
+    )
+  }
   if (query.stageId) {
     // Exact stage match — directly filter on the FK column
     conditions.push(eq(application.currentStageId, query.stageId))
@@ -82,40 +97,67 @@ export default defineEventHandler(async (event) => {
 
   const where = and(...conditions)
 
-  const [data, total] = await Promise.all([
+  // При FTS — ранжируем по релевантности кандидата + возвращаем snippet.
+  const selectMap: Record<string, unknown> = {
+    id: application.id,
+    status: application.status,
+    score: application.score,
+    notes: application.notes,
+    // Sprint 3: source нужен в UI для бейджей (hh / hh_sourcing / manual / api) и фильтра «Скрыть холодных»
+    source: application.source,
+    createdAt: application.createdAt,
+    updatedAt: application.updatedAt,
+    candidateId: application.candidateId,
+    candidateFirstName: candidate.firstName,
+    candidateLastName: candidate.lastName,
+    candidateEmail: candidate.email,
+    candidateManualReviewOnly: candidate.manualReviewOnly,
+    jobId: application.jobId,
+    jobTitle: job.title,
+    jobStatus: job.status,
+    currentStageId: application.currentStageId,
+    currentStageName: pipelineStage.name,
+    currentStageColor: pipelineStage.color,
+    needsManualReview: application.needsManualReview,
+  }
+  if (ftsQuery) {
+    // ts_rank_cd по search_tsv кандидата. Для матчей только по job.title score будет 0 — такие попадут в хвост.
+    selectMap.score_fts = sql<number>`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('simple', ${ftsQuery}), 32)`
+    selectMap.snippet = sql<string | null>`ts_headline(
+      'simple',
+      coalesce(${candidate.aiSummary}, '') || ' ' || coalesce(${candidate.quickNotes}, '') || ' ' || coalesce(${candidate.city}, '') || ' ' || coalesce(${job.title}, ''),
+      websearch_to_tsquery('simple', ${ftsQuery}),
+      'StartSel=<mark>, StopSel=</mark>, MaxFragments=2, MaxWords=14, MinWords=4, ShortWord=2'
+    )`
+  }
+
+  const orderClause = ftsQuery
+    ? [desc(sql`ts_rank_cd("candidate"."search_tsv", websearch_to_tsquery('simple', ${ftsQuery}), 32)`), desc(application.createdAt)]
+    : [desc(application.createdAt)]
+
+  // Когда в WHERE есть ссылки на candidate/job (FTS ветка или stageType-filter),
+  // count тоже нужно делать через JOIN, иначе PG кидает "missing FROM-clause".
+  // Напрямую строим count(*) с тем же набором JOIN.
+  const [data, totalRes] = await Promise.all([
     db
-      .select({
-        id: application.id,
-        status: application.status,
-        score: application.score,
-        notes: application.notes,
-        // Sprint 3: source нужен в UI для бейджей (hh / hh_sourcing / manual / api) и фильтра «Скрыть холодных»
-        source: application.source,
-        createdAt: application.createdAt,
-        updatedAt: application.updatedAt,
-        candidateId: application.candidateId,
-        candidateFirstName: candidate.firstName,
-        candidateLastName: candidate.lastName,
-        candidateEmail: candidate.email,
-        candidateManualReviewOnly: candidate.manualReviewOnly,
-        jobId: application.jobId,
-        jobTitle: job.title,
-        jobStatus: job.status,
-        currentStageId: application.currentStageId,
-        currentStageName: pipelineStage.name,
-        currentStageColor: pipelineStage.color,
-        needsManualReview: application.needsManualReview,
-      })
+      .select(selectMap as Record<string, never>)
       .from(application)
       .innerJoin(candidate, eq(candidate.id, application.candidateId))
       .innerJoin(job, eq(job.id, application.jobId))
       .leftJoin(pipelineStage, eq(pipelineStage.id, application.currentStageId))
       .where(where)
-      .orderBy(desc(application.createdAt))
+      .orderBy(...orderClause)
       .limit(query.limit)
       .offset(offset),
-    db.$count(application, where),
+    db
+      .select({ c: count() })
+      .from(application)
+      .innerJoin(candidate, eq(candidate.id, application.candidateId))
+      .innerJoin(job, eq(job.id, application.jobId))
+      .leftJoin(pipelineStage, eq(pipelineStage.id, application.currentStageId))
+      .where(where),
   ])
+  const total = totalRes[0]?.c ?? 0
 
   // Bulk-attach properties for the current page (org-global + per-job)
   const ids = data.map((a) => a.id)

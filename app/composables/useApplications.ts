@@ -13,6 +13,8 @@ export function useApplications(options?: {
   stageId?: Ref<string | undefined> | string
   stageType?: Ref<string | undefined> | string
   propertyFilters?: Ref<PropertyFilter[] | undefined> | PropertyFilter[]
+  /** Sprint 1B: full-text поиск по кандидату (search_tsv) + ILIKE по job.title */
+  q?: Ref<string | undefined> | string
 }) {
   const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 
@@ -21,6 +23,7 @@ export function useApplications(options?: {
     const sid = toValue(options?.stageId)
     const stype = toValue(options?.stageType)
     return {
+      ...(toValue(options?.q) && { q: toValue(options?.q) }),
       ...(toValue(options?.jobId) && { jobId: toValue(options?.jobId) }),
       ...(toValue(options?.candidateId) && { candidateId: toValue(options?.candidateId) }),
       ...(toValue(options?.status) && { status: toValue(options?.status) }),

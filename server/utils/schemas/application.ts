@@ -42,6 +42,13 @@ export const applicationQuerySchema = z.object({
   stageType: z.string().min(1).optional(),
   /** Отображать только заявки, требующие ручной проверки (AI не уверен в отказе). */
   needsManualReview: z.coerce.boolean().optional(),
+  /**
+   * Sprint 1B: full-text поиск по кандидату (связанному через candidateId).
+   * Используется websearch_to_tsquery('simple', q) по candidate.search_tsv ПЛЮС ILIKE по job.title
+   * (поиск по названию вакансии — отдельный столбец без tsv).
+   * Max 500 chars — защита от huge regex DOS.
+   */
+  q: z.string().trim().max(500).optional(),
 })
 
 /** Reusable schema for `:id` route params */
