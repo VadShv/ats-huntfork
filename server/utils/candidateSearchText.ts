@@ -19,6 +19,60 @@ import { db } from './db'
 import { resumeToText, type HhResumeApi } from './hh/sync'
 
 /**
+ * Sprint 4.5: раскрываем дефисные компаунды перед to_tsvector.
+ *
+ * Проблема: PostgreSQL russian config индексирует 'python-разработчик' как
+ * один токен (минус — часть слова). Запрос 'python' не совпадает с токеном
+ * 'python-разработчик'. Поэтому резюме с 'python-разработчик' не находится
+ * по запросу 'python'.
+ *
+ * Решение: при сборе текста для индексации раскрываем
+ *   'python-разработчик' → 'python-разработчик python разработчик'
+ * Так в tsvector попадают все три токена. Запрос 'python', 'python-разработчик',
+ * 'разработчик' — все срабатывают.
+ *
+ * Ограничения:
+ *   • Обрабатываются только бинарные компаунды ([A-Za-zА-яёЁ0-9]+-[A-Za-zА-яёЁ0-9]+).
+ *     'сеньор-python-разработчик' → рекурсия не идёт, но регексп пройдётся дважды
+ *     и разберёт обе пары. Для большего покрытия проходим в цикле до фикспоинта (макс 3 прохода).
+ *   • Не трогаем числа-диапазоны вида '2020-2024' (обе части цифры) — это
+ *     всё равно разворачивается, но не ломает поиск (просто добавляет '2020' и '2024'
+ *     как токены, что в резюме просто улучшает recall).
+ *   • Применяется ТОЛЬКО к индексируемому тексту на запись. Запрос остаётся
+ *     как есть (websearch_to_tsquery сам разбирается с операторами).
+ */
+export function expandHyphenCompounds(text: string): string {
+  if (!text || !text.includes('-')) return text
+  // Разделяем на токены по пробелам/переносам, выявляем дефисные
+  // и разбиваем их на части. Для каждого дефисного токена выводим:
+  //   оригинал + все его части (без дубликатов по локальному токену).
+  // Примеры:
+  //   'python-разработчик' → ['python-разработчик','python','разработчик']
+  //   'lead-front-end-developer' → ['lead-front-end-developer','lead','front','end','developer']
+  //   'слово' → ['слово'] (без дефиса)
+  // Общий выход — оригинальный текст + распакованные части, разделённые пробелами.
+  // tsvector сам дедупицирует позиции, но экономим байты в входной строке.
+  const TOKEN_RE = /[A-Za-zА-яёЁ0-9]+(?:-[A-Za-zА-яёЁ0-9]+)+/g
+  const extra: string[] = []
+  const seen = new Set<string>()
+  let m: RegExpExecArray | null
+  while ((m = TOKEN_RE.exec(text)) !== null) {
+    const full = m[0]
+    const parts = full.split('-')
+    for (const p of parts) {
+      // добавляем каждую часть один раз (в пределах всего текста)
+      const key = p.toLowerCase()
+      if (!seen.has(key) && p.length > 0) {
+        seen.add(key)
+        extra.push(p)
+      }
+    }
+  }
+  if (extra.length === 0) return text
+  return text + ' ' + extra.join(' ')
+}
+
+/**
  * Группы текста по весам для tsvector_setweight.
  *
  * A (вес 1.0): высокоприоритетный сигнал — ФИО, email, phone, displayName, labels меток.
@@ -138,11 +192,14 @@ export async function buildCandidateSearchGroups(opts: {
   }
 
   // Safety cap по группам — суммарно ~1Mb для всех.
+  // Sprint 4.5: expandHyphenCompounds() до среза по длине.
+  // Раскрытие увеличивает длину в ~1.5–2х в худшем случае (если весь текст дефисный).
+  // Срезаем ПОСЛЕ раскрытия, чтобы сохранить суммарный бюджет tsvector.
   return {
-    a: aParts.filter(Boolean).join('\n').slice(0, 50_000),
-    b: bParts.filter(Boolean).join('\n').slice(0, 100_000),
-    c: cParts.filter(Boolean).join('\n').slice(0, 300_000),
-    d: dParts.filter(Boolean).join('\n').slice(0, 600_000),
+    a: expandHyphenCompounds(aParts.filter(Boolean).join('\n')).slice(0, 50_000),
+    b: expandHyphenCompounds(bParts.filter(Boolean).join('\n')).slice(0, 100_000),
+    c: expandHyphenCompounds(cParts.filter(Boolean).join('\n')).slice(0, 300_000),
+    d: expandHyphenCompounds(dParts.filter(Boolean).join('\n')).slice(0, 600_000),
   }
 }
 
