@@ -29,7 +29,6 @@ import { parseDocument } from '../resume-parser'
 import type { ChatbotScope } from '../../../shared/chatbot'
 import {
   CHATBOT_MAX_ATTACHMENT_CHARS,
-  CHATBOT_RESUME_MAX_CHARS,
   type ChatbotAttachment,
 } from '../../../shared/chatbot'
 
@@ -368,7 +367,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         '"найди Иванова" → query="Иванов". ' +
         'Дополнительно можно фильтровать по статусу отклика (new/screening/interview/offer/hired/rejected). ' +
         'Результаты ранжируются по релевантности резюме (ts_rank). ' +
-        'Возвращает { total, returned, truncated, candidates } — если truncated:true, всегда сообщи реальное число найденных пользователю.',
+        'Возвращает { total, returned, truncated, candidates }. Если truncated:true — сообщи пользователю реальное число найденных.',
       inputSchema: z.object({
         query: z.string().min(1).optional().describe(
           'Поисковая фраза. ОБЯЗАТЕЛЬНА если пользователь упомянул навык/должность/имя. ' +
@@ -587,11 +586,14 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           total = rows.length
         }
 
-        // Минимальный payload для модели — только id и имя. Слабые модели (Qwen) теряются
-        // в больших JSON, и контакты всё равно видны в карточке кандидата / get_candidate.
+        // Pre-Sprint-6 payload: id, имя, email, phone, city. DeepSeek хорошо работает с этим
+        // объёмом и может сразу показать топ-N без дополнительных get_candidate.
         const finalRows = rows.slice(0, limit).map((c) => ({
           id: c.id,
           name: `${c.firstName} ${c.lastName}`.trim(),
+          email: c.email,
+          phone: c.phone,
+          city: c.city,
         }))
         const truncated = total > finalRows.length
         const payload = {
@@ -757,7 +759,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
             mimeType: doc.mimeType,
             candidateId,
             candidateName,
-            text: truncate(parsed.text, CHATBOT_RESUME_MAX_CHARS),
+            text: truncate(parsed.text, CHATBOT_MAX_ATTACHMENT_CHARS),
           }
         }
 
@@ -771,7 +773,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           mimeType: doc.mimeType,
           candidateId,
           candidateName,
-          text: truncate(re.text, CHATBOT_RESUME_MAX_CHARS),
+          text: truncate(re.text, CHATBOT_MAX_ATTACHMENT_CHARS),
         }
       },
     }),

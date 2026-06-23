@@ -25,16 +25,6 @@ export const CHATBOT_MAX_MESSAGES = 50
 export const CHATBOT_MAX_ATTACHMENT_CHARS = 40_000
 
 /**
- * Maximum characters of a stored resume injected into the model prompt via
- * `read_resume`. Stricter than CHATBOT_MAX_ATTACHMENT_CHARS because resumes
- * are read in bulk during agentic loops (10–25 calls per turn is common),
- * and the first ~12k chars contain ≥95% of the useful signal (current role,
- * skills, recent experience). Sprint 6 optimisation: 40_000 → 12_000 cuts
- * input tokens per read_resume by ~70%.
- */
-export const CHATBOT_RESUME_MAX_CHARS = 12_000
-
-/**
  * The scope determines what slice of organization data the assistant can read.
  *  - 'organization' → all jobs, candidates, applications, documents
  *  - 'job'          → restricted to a single job and its applications/candidates

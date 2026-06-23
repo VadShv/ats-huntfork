@@ -21,6 +21,8 @@ ENV POSTHOG_PUBLIC_KEY=${POSTHOG_PUBLIC_KEY}
 ARG POSTHOG_HOST
 ENV POSTHOG_HOST=${POSTHOG_HOST}
 
+# Увеличиваем heap до 6 ГБ — иначе Nuxt падает с OOM на VM 8 ГБ без swap
+ENV NODE_OPTIONS=--max-old-space-size=6144
 RUN npm run build
 
 # ─── Stage 2: Run ────────────────────────────────────────────────────────────
