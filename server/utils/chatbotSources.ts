@@ -117,15 +117,31 @@ export function extractChatbotSources(toolName: string, output: unknown): Chatbo
       }
 
       case 'read_resume': {
-        const id = asString(out.documentId) ?? asString(out.id)
+        // Sprint 6: Prefer candidate identity over filename so Sources panel
+        // shows "Иван Петров" instead of "hh-resume-xxx.json".
+        // Dedup happens via the upstream seenSourceIds set (keyed by `id`),
+        // so reading 2 documents of the same candidate produces 1 source.
+        const documentId = asString(out.documentId) ?? asString(out.id)
         const filename = asString(out.filename) ?? 'Resume'
-        if (!id) return []
+        const candidateId = asString(out.candidateId)
+        const candidateName = asString(out.candidateName)
+        if (candidateId && candidateName) {
+          return [{
+            id: `candidate:${candidateId}`,
+            kind: 'candidate',
+            label: candidateName,
+            detail: filename,
+            entityId: candidateId,
+          }]
+        }
+        // Fallback to document-only display (legacy data with no candidate).
+        if (!documentId) return []
         return [{
-          id: `document:${id}`,
+          id: `document:${documentId}`,
           kind: 'document',
           label: filename,
           detail: 'Resume',
-          entityId: id,
+          entityId: documentId,
         }]
       }
 

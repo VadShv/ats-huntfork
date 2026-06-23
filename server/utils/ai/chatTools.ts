@@ -29,6 +29,7 @@ import { parseDocument } from '../resume-parser'
 import type { ChatbotScope } from '../../../shared/chatbot'
 import {
   CHATBOT_MAX_ATTACHMENT_CHARS,
+  CHATBOT_RESUME_MAX_CHARS,
   type ChatbotAttachment,
 } from '../../../shared/chatbot'
 
@@ -37,6 +38,68 @@ export interface ChatbotToolContext {
   scope: ChatbotScope
   /** Attachments uploaded with the current user message. */
   attachments: Array<ChatbotAttachment & { text: string }>
+  /** Последнее сообщение юзера — fallback для слабых моделей (Qwen/Yandex), которые теряют параметры. */
+  lastUserMessage?: string
+}
+
+/**
+ * Извлекает ключевое слово для поиска из реплики юзера, если модель не передала query.
+ * Нормализует русские сленговые формы в канонические технические термины.
+ *
+ * ВАЖНО: в JS \b не работает с кириллицей — приходится использовать (?<![\p{L}])...(?![\p{L}]).
+ */
+function extractQueryFromUserMessage(msg: string): string | null {
+  if (!msg || msg.trim().length === 0) return null
+  const lower = msg.toLowerCase()
+
+  // Канонические RU→техническое преобразование (частые случаи в HR-запросах).
+  const techMap: Array<[RegExp, string]> = [
+    [/(?<![\p{L}])пито\p{L}*(?![\p{L}])/iu, 'Python'],
+    [/(?<![\p{L}])python\p{L}*(?![\p{L}])/iu, 'Python'],
+    [/(?<![\p{L}])(?:реакт\p{L}*|react\p{L}*)(?![\p{L}])/iu, 'React'],
+    [/(?<![\p{L}])node(?:\.?js)?(?![\p{L}])/iu, 'Node.js'],
+    [/(?<![\p{L}])vue\p{L}*(?![\p{L}])/iu, 'Vue'],
+    [/(?<![\p{L}])angular\p{L}*(?![\p{L}])/iu, 'Angular'],
+    [/(?<![\p{L}])(?:тайпскрипт|typescript)(?![\p{L}])/iu, 'TypeScript'],
+    [/(?<![\p{L}])(?:джаваскрипт|javascript)(?![\p{L}])/iu, 'JavaScript'],
+    [/(?<![\p{L}])(?:джава|java)(?![\p{L}])/iu, 'Java'],
+    [/(?<![\p{L}])(?:котлин|kotlin)\p{L}*(?![\p{L}])/iu, 'Kotlin'],
+    [/(?<![\p{L}])(?:свифт|swift)\p{L}*(?![\p{L}])/iu, 'Swift'],
+    [/(?<![\p{L}])(?:гоу?ланг|golang)(?![\p{L}])/iu, 'Go'],
+    [/(?<![\p{L}])(?:руби|ruby)\p{L}*(?![\p{L}])/iu, 'Ruby'],
+    [/(?<![\p{L}])(?:пхп|php)\p{L}*(?![\p{L}])/iu, 'PHP'],
+    [/(?<![\p{L}])(?:си[\s-]?шарп|c#|csharp)(?![\p{L}])/iu, 'C#'],
+    [/(?<![\p{L}])(?:c\+\+|cpp)(?![\p{L}])/iu, 'C++'],
+    [/(?<![\p{L}])(?:раст|rust)\p{L}*(?![\p{L}])/iu, 'Rust'],
+    [/(?<![\p{L}])devops(?![\p{L}])/iu, 'DevOps'],
+    [/(?<![\p{L}])(?:кубер\p{L}*|kubernetes|k8s)(?![\p{L}])/iu, 'Kubernetes'],
+    [/(?<![\p{L}])(?:докер|docker)\p{L}*(?![\p{L}])/iu, 'Docker'],
+    [/(?<![\p{L}])(?:бухгалтер\p{L}*|бухучёт\p{L}*|бухучет\p{L}*)(?![\p{L}])/iu, 'бухгалтер'],
+    [/(?<![\p{L}])(?:дизайнер\p{L}*|дизайн\p{L}*|designer)(?![\p{L}])/iu, 'дизайнер'],
+    [/(?<![\p{L}])(?:менеджер\p{L}*|manager)(?![\p{L}])/iu, 'менеджер'],
+    [/(?<![\p{L}])(?:аналитик\p{L}*|analyst)(?![\p{L}])/iu, 'аналитик'],
+    [/(?<![\p{L}])(?:тестировщик\p{L}*|qa)(?![\p{L}])/iu, 'QA'],
+    [/(?<![\p{L}])(?:разработчик\p{L}*|developer)(?![\p{L}])/iu, 'разработчик'],
+    [/(?<![\p{L}])(?:рекрут\p{L}*|recruiter)(?![\p{L}])/iu, 'рекрутер'],
+    [/(?<![\p{L}])hr(?![\p{L}])/iu, 'HR'],
+  ]
+  for (const [re, canonical] of techMap) {
+    if (re.test(lower)) return canonical
+  }
+
+  // Имя собственное: слова с заглавной буквы, кроме стоп-слов.
+  const stopWords = new Set([
+    'Найди', 'Найти', 'Покажи', 'Поиск', 'Кандидат', 'Кандидата', 'Кандидаты',
+    'Подбери', 'Резюме', 'Вакансия', 'Сотрудник',
+    'Проанализируй', 'Поищи', 'Поиски', 'Выбери',
+  ])
+  const properNouns = msg.match(/[А-ЯЁ][а-яё]+/g) ?? []
+  const properCandidates = properNouns.filter(w => !stopWords.has(w))
+  if (properCandidates.length > 0) {
+    return properCandidates.slice(0, 2).join(' ')
+  }
+
+  return null
 }
 
 /** Throw if the requested job is outside the active scope. */
@@ -174,20 +237,26 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           if (!isNaN(d.getTime())) conditions.push(lte(application.createdAt, d))
         }
 
-        const rows = await db.query.application.findMany({
-          where: and(...conditions),
-          orderBy: [desc(application.score), desc(application.createdAt)],
-          limit,
-          with: {
-            candidate: {
-              columns: { id: true, firstName: true, lastName: true, email: true },
+        // Sprint 6 fix: вытягиваем тотал параллельно с основным запросом.
+        const [rows, totalRows] = await Promise.all([
+          db.query.application.findMany({
+            where: and(...conditions),
+            orderBy: [desc(application.score), desc(application.createdAt)],
+            limit,
+            with: {
+              candidate: {
+                columns: { id: true, firstName: true, lastName: true, email: true },
+              },
+              job: {
+                columns: { id: true, title: true },
+              },
             },
-            job: {
-              columns: { id: true, title: true },
-            },
-          },
-        })
-        return rows.map((a) => ({
+          }),
+          db.select({ cnt: count() }).from(application).where(and(...conditions)),
+        ])
+        const total = Number(totalRows[0]?.cnt ?? rows.length)
+        const applications = rows.map((a) => ({
+          id: a.id,
           applicationId: a.id,
           candidateId: a.candidateId,
           candidateName: `${a.candidate.firstName} ${a.candidate.lastName}`.trim(),
@@ -198,6 +267,14 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           jobTitle: a.job.title,
           createdAt: a.createdAt,
         }))
+        const truncated = total > applications.length
+        return {
+          total,
+          returned: applications.length,
+          truncated,
+          applications,
+          ...(truncated ? { hint: `${total} applications match. Showing first ${applications.length}. Increase "limit" up to 200 or narrow with status/dateFrom/dateTo if needed.` } : {}),
+        }
       },
     }),
 
@@ -282,23 +359,43 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
     search_candidates: tool({
       description:
         'ПОИСК КАНДИДАТОВ в организации по тексту резюме (full-text), ФИО и email. ' +
-        'Передавай `query` со словом для поиска (навык, должность, фамилия). ' +
-        'Примеры: {"query":"Python"}, {"query":"React Native"}, {"query":"DevOps Kubernetes Москва"}, {"query":"Иванов"}. ' +
-        'Можно опустить `query` если фильтруешь только по статусу отклика в воронке (new/screening/interview/offer/hired/rejected). ' +
-        'Результаты ранжируются по релевантности резюме (ts_rank).',
+        'ОБЯЗАТЕЛЬНО передавай параметр `query` со словом для поиска. ' +
+        'Примеры правильных вызовов: ' +
+        '{"query":"Python"}, {"query":"React Native"}, {"query":"DevOps Kubernetes Москва"}, {"query":"Иванов"}. ' +
+        'Извлекай ключевое слово прямо из запроса пользователя: ' +
+        '"кандидаты с опытом на питоне" → query="Python"; ' +
+        '"подбери React-разработчиков" → query="React"; ' +
+        '"найди Иванова" → query="Иванов". ' +
+        'Дополнительно можно фильтровать по статусу отклика (new/screening/interview/offer/hired/rejected). ' +
+        'Результаты ранжируются по релевантности резюме (ts_rank). ' +
+        'Возвращает { total, returned, truncated, candidates } — если truncated:true, всегда сообщи реальное число найденных пользователю.',
       inputSchema: z.object({
         query: z.string().min(1).optional().describe(
-          'Поисковая фраза: навык, должность или имя. Примеры: "Python", "React Native", "DevOps Kubernetes", "Иванов".'
+          'Поисковая фраза. ОБЯЗАТЕЛЬНА если пользователь упомянул навык/должность/имя. ' +
+          'Примеры: "Python", "React Native", "DevOps Kubernetes", "Иванов". ' +
+          'Можно опустить ТОЛЬКО если задан status или ты находишься в скоупе конкретной вакансии.'
         ),
         status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional().describe(
           'Фильтр по стадии воронки. Оставь пустым если пользователь не уточнил стадию.'
         ),
-        limit: z.number().int().min(1).max(50).default(20),
+        limit: z.number().int().min(1).max(20).default(5),
       }),
       execute: async ({ query, status, limit }) => {
-        const effectiveQuery = query?.trim() || ''
+        // Диагностика: логируем фактический input от модели.
+        console.log('[search_candidates] input:', JSON.stringify({ query, status, limit, scope: ctx.scope }))
+
+        let effectiveQuery = query?.trim() || ''
         const hasStatus = !!status
         const inJobScope = ctx.scope.kind === 'job' && !!ctx.scope.jobId
+
+        // Fallback для слабых моделей (Qwen через Yandex Cloud часто теряет query): извлекаем сами из реплики юзера.
+        if (!effectiveQuery && !hasStatus && !inJobScope && ctx.lastUserMessage) {
+          const extracted = extractQueryFromUserMessage(ctx.lastUserMessage)
+          if (extracted) {
+            console.log('[search_candidates] fallback extracted query="%s" from user msg', extracted)
+            effectiveQuery = extracted
+          }
+        }
 
         const hasQuery = effectiveQuery.length > 0
         if (!hasQuery && !hasStatus && !inJobScope) {
@@ -308,6 +405,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           }
         }
 
+        // Дальше работаем с effectiveQuery, а не с исходным query.
         query = effectiveQuery
 
         // Собираем id-шники по статусу (если указан) — это сужает поисковую выборку.
@@ -445,16 +543,69 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           rows = rows.filter((c) => allowed.has(c.id))
         }
 
-        // Полный payload: id, ИМЯ, email/phone/city. DeepSeek/GPT-уровень модели хорошо работают с этим объёмом и
-        // могут сразу показывать кандидатов с контактами без второго круга вопросов.
+        // Sprint 6 fix «48 вместо 142»: считаем общее число найденных (без limit)
+        // чтобы ассистент мог сказать «coвпадений 142, показываю первые 20».
+        // Находим тотал по total-rows count: для hasQuery — вторым запросом FTS
+        // (без LIMIT), для без-query — COUNT по candidate таблице.
+        // Это полный пересчёт без кэша, но использует тот же GIN-индекс — быстро.
+        let total = rows.length
+        try {
+          if (hasQuery) {
+            const q = effectiveQuery
+            const like = `%${q}%`
+            const totalResult = await db.execute<{ cnt: number | string }>(sql`
+              SELECT COUNT(*)::int AS cnt
+              FROM "candidate" c
+              WHERE c.organization_id = ${ctx.orgId}
+                AND (
+                  c.search_tsv @@ plainto_tsquery('simple', ${q})
+                  OR c.first_name ILIKE ${like}
+                  OR c.last_name ILIKE ${like}
+                  OR c.email ILIKE ${like}
+                )
+            `)
+            const arr = Array.isArray(totalResult) ? totalResult : (totalResult as { rows?: unknown[] }).rows ?? []
+            const first = (arr as Array<{ cnt: number | string }>)[0]
+            if (first) total = Number(first.cnt)
+          }
+          else {
+            const totalResult = await db
+              .select({ cnt: count() })
+              .from(candidate)
+              .where(
+                and(
+                  eq(candidate.organizationId, ctx.orgId),
+                  candidateIdsByStatus ? inArray(candidate.id, Array.from(candidateIdsByStatus)) : undefined,
+                ),
+              )
+            total = Number(totalResult[0]?.cnt ?? rows.length)
+          }
+        }
+        catch (err) {
+          // Если COUNT сломался — фоллбэк на rows.length (лучше недооценка чем падение).
+          console.error('[search_candidates] total count failed:', err instanceof Error ? err.message : err)
+          total = rows.length
+        }
+
+        // Минимальный payload для модели — только id и имя. Слабые модели (Qwen) теряются
+        // в больших JSON, и контакты всё равно видны в карточке кандидата / get_candidate.
         const finalRows = rows.slice(0, limit).map((c) => ({
           id: c.id,
           name: `${c.firstName} ${c.lastName}`.trim(),
-          email: c.email,
-          phone: c.phone,
-          city: c.city,
         }))
-        return { count: finalRows.length, candidates: finalRows }
+        const truncated = total > finalRows.length
+        const payload = {
+          total,
+          returned: finalRows.length,
+          truncated,
+          candidates: finalRows,
+          // Совет для ассистента в self-explanatory форме (не переводим — это в prompt model context):
+          ...(truncated ? { hint: `${total} matches total. Showing first ${finalRows.length}. Ask the user to narrow filters or paginate if they need more.` } : {}),
+          // Обратная совместимость с chatbotSources.ts и старыми сообщениями в БД.
+          count: finalRows.length,
+        }
+        console.log('[search_candidates] payload bytes=%d count=%d total=%d', JSON.stringify(payload).length, finalRows.length, total)
+        return payload
       },
     }),
 
@@ -583,6 +734,20 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           if (!inScope) throw new Error('Document is outside the active job scope.')
         }
 
+        // Sprint 6 fix: resolve candidateName so the Sources panel shows the
+        // candidate's name instead of "hh-resume-xxx.json".
+        const cand = await db.query.candidate.findFirst({
+          where: and(
+            eq(candidate.organizationId, ctx.orgId),
+            eq(candidate.id, doc.candidateId),
+          ),
+          columns: { id: true, firstName: true, lastName: true },
+        })
+        const candidateName = cand
+          ? `${cand.firstName} ${cand.lastName}`.trim()
+          : null
+        const candidateId = cand?.id ?? doc.candidateId
+
         // Prefer pre-parsed content stored at upload time.
         const parsed = doc.parsedContent as { text?: string } | null
         if (parsed?.text) {
@@ -590,7 +755,9 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
             documentId: doc.id,
             filename: doc.originalFilename,
             mimeType: doc.mimeType,
-            text: truncate(parsed.text, CHATBOT_MAX_ATTACHMENT_CHARS),
+            candidateId,
+            candidateName,
+            text: truncate(parsed.text, CHATBOT_RESUME_MAX_CHARS),
           }
         }
 
@@ -602,7 +769,9 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           documentId: doc.id,
           filename: doc.originalFilename,
           mimeType: doc.mimeType,
-          text: truncate(re.text, CHATBOT_MAX_ATTACHMENT_CHARS),
+          candidateId,
+          candidateName,
+          text: truncate(re.text, CHATBOT_RESUME_MAX_CHARS),
         }
       },
     }),
