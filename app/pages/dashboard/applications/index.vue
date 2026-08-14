@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { FileText, Search, X, Briefcase, Mail, Clock, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Maximize2, Minimize2, Check, ChevronDown, Loader2 } from 'lucide-vue-next'
+import type { ApplicationStatus } from '~/composables/useApplicationStatus'
 
 definePageMeta({
   layout: 'dashboard',
@@ -271,23 +272,7 @@ function scoreClass(score: number) {
   return 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950 dark:text-danger-400 dark:ring-danger-800'
 }
 
-const statusBadgeClasses: Record<string, string> = {
-  new: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400',
-  screening: 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-400',
-  interview: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
-  offer: 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-400',
-  hired: 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
-  rejected: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
-}
-
-const statusDotClasses: Record<string, string> = {
-  new: 'bg-blue-500',
-  screening: 'bg-violet-500',
-  interview: 'bg-amber-500',
-  offer: 'bg-teal-500',
-  hired: 'bg-green-600',
-  rejected: 'bg-surface-400 dark:bg-surface-500',
-}
+// Аудит синхронизации (Н-7): локальные стили бейджей заменены на единый <StatusBadge>
 
 const statusLabels = computed<Record<Status, string>>(() => ({
   new: t('dashboard.applications.stages.new'),
@@ -442,12 +427,62 @@ function toggleSelect(id: string) {
   selectedIds.value = next
 }
 
+// Аудит синхронизации (Б-1): массовое отклонение через ЭТАП воронки.
+// Этап «Отказ» резолвим один раз на вакансию (у откликов одной вакансии — одна воронка).
+type RejectStageLite = {
+  id: string
+  type: string
+  bucket: string | null
+  isTerminal: boolean
+  isArchived: boolean
+  isHidden: boolean
+  parentStageId: string | null
+}
+
+function resolveRejectStageId(stages: RejectStageLite[]): string | null {
+  const roots = stages.filter(s => !s.isArchived && !s.isHidden && !s.parentStageId)
+  const byType = (t: string) => roots.find(s => s.type === t)
+  const stage = byType('not_fit')
+    ?? byType('rejected')
+    ?? roots.find(s => s.bucket === 'rejected')
+    ?? roots.find(s => s.isTerminal && s.type !== 'hired')
+  return stage?.id ?? null
+}
+
 async function bulkReject() {
   const ids = [...selectedIds.value]
   if (!ids.length) return
   isBulkOperating.value = true
+
+  const rowById = new Map(filteredApplications.value.map(a => [a.id, a]))
+  // Резолвим целевой этап отказа по каждой затронутой вакансии
+  type JobTarget = { hasPipeline: boolean; stageId: string | null }
+  const targetByJob = new Map<string, JobTarget | null>()
+  for (const id of ids) {
+    const row = rowById.get(id)
+    if (!row || targetByJob.has(row.jobId)) continue
+    try {
+      const stages = await $fetch<RejectStageLite[]>(`/api/applications/${id}/stages`, { headers: useRequestHeaders(['cookie']) })
+      targetByJob.set(row.jobId, { hasPipeline: stages.length > 0, stageId: resolveRejectStageId(stages) })
+    } catch {
+      targetByJob.set(row.jobId, null)
+    }
+  }
+
   const results = await Promise.allSettled(
-    ids.map(id => $fetch(`/api/applications/${id}/stage`, { method: 'PATCH', body: { status: 'rejected' }, headers: useRequestHeaders(['cookie']) }))
+    ids.map((id) => {
+      const row = rowById.get(id)
+      const target = row ? targetByJob.get(row.jobId) : null
+      if (!target) return Promise.reject(new Error('Не удалось определить воронку вакансии'))
+      if (target.hasPipeline && target.stageId) {
+        return $fetch(`/api/applications/${id}/stage`, { method: 'PATCH', body: { stageId: target.stageId }, headers: useRequestHeaders(['cookie']) })
+      }
+      if (!target.hasPipeline) {
+        // Фолбэк: вакансия без воронки — легаси-статус
+        return $fetch(`/api/applications/${id}`, { method: 'PATCH', body: { status: 'rejected' }, headers: useRequestHeaders(['cookie']) })
+      }
+      return Promise.reject(new Error('В воронке вакансии нет этапа отказа'))
+    })
   )
   const succeeded = results.filter(r => r.status === 'fulfilled').length
   const failed = results.filter(r => r.status === 'rejected').length
@@ -462,17 +497,37 @@ async function bulkReject() {
   isBulkOperating.value = false
 }
 
+// Аудит синхронизации (Н-4): выбор этапа типа «интервью» в пикере предлагает запланировать интервью
+const interviewTarget = ref<{ id: string; candidateName: string; jobTitle: string } | null>(null)
+
+function openInterviewSidebar(applicationId: string) {
+  const row = filteredApplications.value.find(a => a.id === applicationId)
+  if (!row) return
+  interviewTarget.value = {
+    id: row.id,
+    candidateName: formatPersonName(row.candidateFirstName, row.candidateLastName),
+    jobTitle: row.jobTitle ?? '',
+  }
+}
+
+async function handleInterviewScheduled() {
+  interviewTarget.value = null
+  await refresh()
+}
+
 type BulkStageOption = { id: string; name: string; color: string }
-const bulkAvailableStages = ref<BulkStageOption[]>([])
+// Аудит синхронизации (Н-5): этапы группируем по воронкам — одноимённые этапы
+// разных воронок больше не смешиваются в одном плоском списке.
+type BulkPipelineGroup = { pipelineId: string; pipelineName: string; stages: BulkStageOption[] }
+const bulkStageGroups = ref<BulkPipelineGroup[]>([])
 const bulkStagesLoading = ref(false)
 
 async function loadBulkStages() {
-  if (bulkAvailableStages.value.length > 0) return
+  if (bulkStageGroups.value.length > 0) return
   bulkStagesLoading.value = true
   try {
-    type PipelineGroup = { pipelineId: string; pipelineName: string; stages: BulkStageOption[] }
-    const data = await $fetch<PipelineGroup[]>('/api/pipelines/stages-summary', { headers: useRequestHeaders(['cookie']) })
-    bulkAvailableStages.value = data.flatMap(g => g.stages)
+    const data = await $fetch<BulkPipelineGroup[]>('/api/pipelines/stages-summary', { headers: useRequestHeaders(['cookie']) })
+    bulkStageGroups.value = data
   } catch {
     toast.error('Не удалось загрузить этапы')
   } finally {
@@ -496,7 +551,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
     await refresh()
   }
   if (failed > 0) {
-    toast.error(`Ошибка: ${failed} из ${ids.length}`, { message: 'Некоторые отклики не удалось перенести.' })
+    toast.error(`Ошибка: ${failed} из ${ids.length}`, { message: 'Часть откликов не перенесена — вероятно, их вакансии используют другую воронку.' })
   }
   isBulkOperating.value = false
 }
@@ -918,16 +973,12 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
                   :application-id="app.id"
                   :current-stage-id="(app as { currentStageId?: string | null }).currentStageId ?? null"
                   @stage-changed="refresh()"
+                  @interview-selected="({ applicationId }) => openInterviewSidebar(applicationId)"
                 />
               </td>
               <td v-if="visibleColumns.status" class="px-4 py-3">
-                <span
-                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium capitalize whitespace-nowrap"
-                  :class="statusBadgeClasses[app.status] ?? 'bg-surface-100 text-surface-600'"
-                >
-                  <span class="size-1.5 rounded-full" :class="statusDotClasses[app.status] ?? 'bg-surface-400'" />
-                  {{ statusLabels[app.status as Status] ?? app.status }}
-                </span>
+                <!-- Аудит синхронизации (Н-7): единый компонент бейджа вместо локальных стилей -->
+                <StatusBadge :status="app.status as ApplicationStatus" size="xs" />
               </td>
               <td v-if="visibleColumns.score" class="px-4 py-3 text-center hidden sm:table-cell">
                 <ScoreBadge :score="app.score" size="xs" />
@@ -1004,19 +1055,25 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
             <ChevronDown class="size-3.5" />
           </button>
           <div
-            v-if="bulkStageMenuOpen && bulkAvailableStages.length > 0"
-            class="absolute bottom-full mb-1 left-0 min-w-[180px] rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-xl py-1 z-10"
+            v-if="bulkStageMenuOpen && bulkStageGroups.length > 0"
+            class="absolute bottom-full mb-1 left-0 min-w-[220px] max-h-80 overflow-y-auto rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-xl py-1 z-10"
           >
-            <button
-              v-for="stage in bulkAvailableStages"
-              :key="stage.id"
-              type="button"
-              class="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-              @click="bulkMoveToStage(stage.id, stage.name)"
-            >
-              <span class="inline-flex size-2 rounded-full shrink-0" :style="{ backgroundColor: stage.color }" />
-              {{ stage.name }}
-            </button>
+            <!-- Аудит синхронизации (Н-5): этапы сгруппированы по воронкам -->
+            <template v-for="group in bulkStageGroups" :key="group.pipelineId">
+              <div class="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-surface-400 dark:text-surface-500">
+                {{ group.pipelineName }}
+              </div>
+              <button
+                v-for="stage in group.stages"
+                :key="stage.id"
+                type="button"
+                class="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                @click="bulkMoveToStage(stage.id, stage.name)"
+              >
+                <span class="inline-flex size-2 rounded-full shrink-0" :style="{ backgroundColor: stage.color }" />
+                {{ stage.name }}
+              </button>
+            </template>
           </div>
         </div>
         <!-- Reject all -->
@@ -1040,4 +1097,14 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Аудит синхронизации (Н-4): календарь планирования после перевода на этап интервью -->
+  <InterviewScheduleSidebar
+    v-if="interviewTarget"
+    :application-id="interviewTarget.id"
+    :candidate-name="interviewTarget.candidateName"
+    :job-title="interviewTarget.jobTitle"
+    @close="interviewTarget = null"
+    @scheduled="handleInterviewScheduled"
+  />
 </template>

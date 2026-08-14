@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm'
-import { application } from '../../database/schema'
+import { application, job } from '../../database/schema'
 import { applicationIdParamSchema, updateApplicationSchema, APPLICATION_STATUS_TRANSITIONS } from '../../utils/schemas/application'
 
 /**
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   // Fetch current application to validate status transition
   const current = await db.query.application.findFirst({
     where: and(eq(application.id, id), eq(application.organizationId, orgId)),
-    columns: { id: true, status: true },
+    columns: { id: true, status: true, jobId: true },
   })
 
   if (!current) {
@@ -25,6 +25,20 @@ export default defineEventHandler(async (event) => {
 
   // Validate status transition if status is being changed
   if (body.status && body.status !== current.status) {
+    // Аудит синхронизации (Д-1): при настроенной воронке легаси-смена статуса
+    // запрещена — единственная точка записи это PATCH /api/applications/:id/stage,
+    // который атомарно синхронизирует этап + статус + историю + push в hh.
+    const jobRow = await db.query.job.findFirst({
+      where: eq(job.id, current.jobId),
+      columns: { pipelineId: true },
+    })
+    if (jobRow?.pipelineId) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'У вакансии настроена воронка — переводите кандидата по этапам воронки, статус обновится автоматически',
+      })
+    }
+
     const allowed = APPLICATION_STATUS_TRANSITIONS[current.status] ?? []
     if (!allowed.includes(body.status)) {
       throw createError({

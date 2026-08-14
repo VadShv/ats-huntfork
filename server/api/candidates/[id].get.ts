@@ -43,6 +43,10 @@ export default defineEventHandler(async (event) => {
           job: {
             columns: { id: true, title: true },
           },
+          // Аудит синхронизации (Н-6): этап воронки для бейджа на странице кандидата
+          currentStage: {
+            columns: { id: true, name: true, color: true, type: true },
+          },
         },
         orderBy: (application, { desc }) => [desc(application.createdAt)],
       },

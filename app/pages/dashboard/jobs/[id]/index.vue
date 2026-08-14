@@ -966,8 +966,10 @@ async function handleInterviewScheduled() {
   // Refresh the interviews list
   await refreshJobInterviews()
 
-  // Спринт 14: при новой воронке переводим кандидата на этап типа interview
-  if (hasNewPipeline.value && scheduledApplicationId) {
+  // Спринт 14: при наличии воронки переводим кандидата на этап типа interview.
+  // Аудит синхронизации (Д-1): условие расширено с hasNewPipeline до ЛЮБОЙ воронки —
+  // легаси-смена статуса при настроенной воронке теперь отклоняется сервером (409).
+  if (pipelineStages.value.length > 0 && scheduledApplicationId) {
     const interviewStage = pipelineStages.value.find(s => s.type === 'interview')
     const app = applications.value.find(a => a.id === scheduledApplicationId)
     if (interviewStage && app && app.currentStageId !== interviewStage.id) {

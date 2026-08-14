@@ -332,14 +332,43 @@ async function handleSubmit() {
 }
 
 // ─── Move to interview stage (no scheduling) ──────────────────────
+// Аудит синхронизации (Б-2): переводим на ЭТАП воронки через PATCH /stage
+// (атомарный синк этап + статус + история + push в hh). Легаси-статус —
+// только фолбэк для вакансий без воронки.
+interface SidebarStage {
+  id: string
+  type: string
+  isArchived: boolean
+  isHidden: boolean
+  parentStageId: string | null
+}
+
 async function handleMoveToInterview() {
   isMoving.value = true
   errors.value = {}
   try {
-    await $fetch(`/api/applications/${props.applicationId}`, {
-      method: 'PATCH',
-      body: { status: 'interview' },
-    })
+    const stages = await $fetch<SidebarStage[]>(`/api/applications/${props.applicationId}/stages`)
+    const interviewStage
+      = stages.find(s => s.type === 'interview' && !s.isArchived && !s.isHidden && !s.parentStageId)
+      ?? stages.find(s => s.type === 'interview' && !s.isArchived)
+
+    if (stages.length > 0 && !interviewStage) {
+      errors.value.submit = 'В воронке вакансии нет этапа «Интервью» — добавьте его в настройках воронки'
+      return
+    }
+
+    if (interviewStage) {
+      await $fetch(`/api/applications/${props.applicationId}/stage`, {
+        method: 'PATCH',
+        body: { stageId: interviewStage.id },
+      })
+    } else {
+      // Фолбэк: вакансия без воронки — легаси-статус
+      await $fetch(`/api/applications/${props.applicationId}`, {
+        method: 'PATCH',
+        body: { status: 'interview' },
+      })
+    }
     await refreshNuxtData('interviews')
     emit('scheduled')
   } catch (err: any) {

@@ -371,6 +371,19 @@ function getStatusBadgeClasses(status: string): string {
   return map[s] ?? 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300'
 }
 
+// Аудит синхронизации (Н-10): легаси-статусы локализуем, имена этапов воронки показываем как есть
+function getStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    new: 'Новый',
+    screening: 'Скрининг',
+    interview: 'Интервью',
+    offer: 'Оффер',
+    hired: 'Принят',
+    rejected: 'Отказ',
+  }
+  return map[status.toLowerCase()] ?? status
+}
+
 function getEventDescription(item: TimelineItem): string {
   const typeLabels: Record<string, string> = {
     job: 'Вакансия',
@@ -647,9 +660,9 @@ function getEventDescription(item: TimelineItem): string {
                       <span class="text-[13px] font-medium text-surface-900 dark:text-surface-100 shrink-0">{{ getEventDescription(item) }}</span>
                       <span v-if="item.resourceName" class="text-[13px] text-surface-600 dark:text-surface-300 truncate group-hover:text-brand-700 dark:group-hover:text-brand-300 transition-colors">&mdash; {{ item.resourceName }}</span>
                       <template v-if="(item.action === 'status_changed' || item.action === 'stage_changed') && item.metadata">
-                        <span v-if="item.metadata.fromStatus || item.metadata.from" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.fromStatus ?? item.metadata.from))">{{ item.metadata.fromStatus ?? item.metadata.from }}</span>
+                        <span v-if="item.metadata.fromStatus || item.metadata.from" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.fromStatus ?? item.metadata.from))">{{ getStatusLabel(String(item.metadata.fromStatus ?? item.metadata.from)) }}</span>
                         <ArrowRight class="size-2.5 text-surface-400 dark:text-surface-500 shrink-0" />
-                        <span v-if="item.metadata.toStatus || item.metadata.to" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.toStatus ?? item.metadata.to))">{{ item.metadata.toStatus ?? item.metadata.to }}</span>
+                        <span v-if="item.metadata.toStatus || item.metadata.to" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.toStatus ?? item.metadata.to))">{{ getStatusLabel(String(item.metadata.toStatus ?? item.metadata.to)) }}</span>
                       </template>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
@@ -705,9 +718,9 @@ function getEventDescription(item: TimelineItem): string {
                         <span class="text-[12px] font-medium shrink-0" :class="getActionStyle(item.action, item.resourceType, item.metadata).color">{{ getEventDescription(item) }}</span>
                         <span v-if="item.resourceName" class="text-[12px] text-surface-600 dark:text-surface-300 truncate group-hover:text-brand-700 dark:group-hover:text-brand-300 transition-colors">{{ item.resourceName }}</span>
                         <template v-if="(item.action === 'status_changed' || item.action === 'stage_changed') && item.metadata">
-                          <span v-if="item.metadata.fromStatus || item.metadata.from" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.fromStatus ?? item.metadata.from))">{{ item.metadata.fromStatus ?? item.metadata.from }}</span>
+                          <span v-if="item.metadata.fromStatus || item.metadata.from" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.fromStatus ?? item.metadata.from))">{{ getStatusLabel(String(item.metadata.fromStatus ?? item.metadata.from)) }}</span>
                           <ArrowRight class="size-2.5 text-surface-400 dark:text-surface-500 shrink-0" />
-                          <span v-if="item.metadata.toStatus || item.metadata.to" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.toStatus ?? item.metadata.to))">{{ item.metadata.toStatus ?? item.metadata.to }}</span>
+                          <span v-if="item.metadata.toStatus || item.metadata.to" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.toStatus ?? item.metadata.to))">{{ getStatusLabel(String(item.metadata.toStatus ?? item.metadata.to)) }}</span>
                         </template>
                         <span v-if="item.isUpcoming" class="text-[11px] font-medium text-accent-600 dark:text-accent-400 shrink-0">Предстоящие</span>
                       </div>

@@ -274,6 +274,31 @@ function openScheduleInterview(app: { id: string; job: { title: string } }) {
   showInterviewSidebar.value = true
 }
 
+// Аудит синхронизации (Н-3): после планирования интервью синхронизируем этап воронки
+// через PATCH /stage (идемпотентен, если отклик уже на этапе интервью) — как на странице вакансии.
+async function handleInterviewScheduled() {
+  const appId = interviewTargetApp.value?.id
+  showInterviewSidebar.value = false
+  if (appId) {
+    try {
+      type LiteStage = { id: string; type: string; isArchived: boolean; isHidden: boolean; parentStageId: string | null }
+      const stages = await $fetch<LiteStage[]>(`/api/applications/${appId}/stages`)
+      const interviewStage
+        = stages.find(s => s.type === 'interview' && !s.isArchived && !s.isHidden && !s.parentStageId)
+        ?? stages.find(s => s.type === 'interview' && !s.isArchived)
+      if (interviewStage) {
+        await $fetch(`/api/applications/${appId}/stage`, {
+          method: 'PATCH',
+          body: { stageId: interviewStage.id },
+        })
+      }
+    } catch {
+      // Интервью уже создано — не блокируем закрытие из-за ошибки синка этапа
+    }
+  }
+  await refresh()
+}
+
 // ─────────────────────────────────────────────
 // Documents — upload, download, delete
 // ─────────────────────────────────────────────
@@ -915,9 +940,15 @@ async function openHhContacts() {
                 </h4>
               </NuxtLink>
 
-              <!-- 2. Legacy-статус + балл + источник -->
+              <!-- 2. Этап воронки (Н-6) или legacy-статус + балл + источник -->
               <div class="mt-2 flex flex-wrap items-center gap-2">
-                <StatusBadge :status="app.status as any" size="xs" />
+                <ApplicationStageBadge
+                  v-if="(app as any).currentStage"
+                  :name="(app as any).currentStage.name"
+                  :color="(app as any).currentStage.color"
+                  size="sm"
+                />
+                <StatusBadge v-else :status="app.status as any" size="xs" />
                 <ScoreBadge v-if="app.score != null" :score="app.score" size="xs" :show-unit="false" />
                 <SourceBadge :source="(app as any).source" size="xs" icon-only />
               </div>
@@ -1057,7 +1088,7 @@ async function openHhContacts() {
           :candidate-name="`${candidate.firstName} ${candidate.lastName}`"
           :job-title="interviewTargetApp.jobTitle"
           @close="showInterviewSidebar = false"
-          @scheduled="showInterviewSidebar = false"
+          @scheduled="handleInterviewScheduled"
         />
 
         <!-- Documents tab (в правой колонке) -->

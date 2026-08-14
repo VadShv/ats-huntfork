@@ -85,6 +85,10 @@ watch(() => props.applicationId, loadQuickStages)
 
 const NEW_STAGE_TYPES = ['on_hold', 'contact', 'assessment', 'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred']
 const hasHhPipeline = computed(() => quickStages.value.some(s => NEW_STAGE_TYPES.includes(s.type)))
+// Аудит синхронизации (Д-1): этапная ветка для ЛЮБОЙ воронки (не только hh-стиля) —
+// легаси-переходы показываем только когда у вакансии вовсе нет воронки
+// (сервер теперь отклоняет легаси-смену статуса при наличии воронки).
+const hasPipeline = computed(() => rootQuickStages.value.length > 0)
 
 // Root-этапы: не архивные, не скрытые, без родителя
 const rootQuickStages = computed(() => quickStages.value
@@ -248,7 +252,7 @@ function onHotkey(e: KeyboardEvent) {
   const num = Number.parseInt(e.key, 10)
   if (!Number.isInteger(num) || num < 1 || num > 9) return
 
-  if (hasHhPipeline.value) {
+  if (hasPipeline.value) {
     // При открытом меню «Ещё» цифры выбирают пункты меню (включая подэтапы)
     if (showMoreMenu.value) {
       const item = flatMenuItems.value[num - 1]
@@ -312,7 +316,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
       </template>
 
       <!-- ─── Быстрые действия в стиле hh.ru (новая воронка) ─── -->
-      <template v-else-if="hasHhPipeline">
+      <template v-else-if="hasPipeline">
         <!-- Пригласить → Первичный контакт -->
         <button
           v-if="inviteStage"
@@ -433,7 +437,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
 
       <!-- Объединённое действие «Интервью»: перевод на этап + календарь планирования -->
       <button
-        v-if="stagesReady && hasHhPipeline && interviewStage"
+        v-if="stagesReady && hasPipeline && interviewStage"
         :disabled="isQuickMoving"
         class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50"
         :title="currentStageId === interviewStage.id
@@ -453,7 +457,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
       >
         <Calendar class="size-3.5" />
         {{ $t('applications.schedule_interview') }}
-        <kbd v-if="hotkeys && hasHhPipeline" class="ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">5</kbd>
+        <kbd v-if="hotkeys && hasPipeline" class="ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">5</kbd>
       </button>
     </div>
   </div>

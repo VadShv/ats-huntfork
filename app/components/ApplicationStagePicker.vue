@@ -14,6 +14,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'stage-changed': [{ newStageId: string; newStageName: string; newStageColor: string }]
+  // Аудит синхронизации (Н-4): выбран этап типа «интервью» — родитель может открыть календарь планирования
+  'interview-selected': [{ applicationId: string }]
 }>()
 
 const { t } = useI18n()
@@ -137,9 +139,13 @@ async function confirmMove() {
 
     const name = selectedStage.value.name
     const color = selectedStage.value.color
+    const movedType = selectedStage.value.type
     const newStageId = selectedStageId.value
 
     emit('stage-changed', { newStageId, newStageName: name, newStageColor: color })
+    if (movedType === 'interview') {
+      emit('interview-selected', { applicationId: props.applicationId })
+    }
     toast.success(t('applications.stage.movedToast', { name }))
 
     // Update local stages list so isCurrent refreshes
