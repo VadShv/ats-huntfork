@@ -29,11 +29,35 @@ const TONE_HINTS: Record<string, string> = {
   friendly: 'Тон: дружелюбный и тёплый, но профессиональный. Уместны лёгкие неформальности.',
 }
 
-/** Чат 2.0: скорость — ужатый контекст и жёсткий потолок ответа. */
+/** Чат 2.0: скорость — ужатый контекст и потолок ответа.
+ * ВАЖНО: бюджет токенов должен вмещать «размышления» reasoning-моделей
+ * (Qwen3.5 и подобные сначала генерируют reasoning_content и только потом
+ * видимый ответ). При малом лимите весь бюджет уходит на размышления
+ * и текст приходит пустым. Короткий видимый ответ обеспечивает промпт
+ * («1-4 предложения»), а не лимит: обычные модели останавливаются сами. */
 const HISTORY_LIMIT = 15
 const JOB_DESCRIPTION_LIMIT = 1000
-const MAX_OUTPUT_TOKENS = 700
+const MAX_OUTPUT_TOKENS = 4096
 const GENERATION_TIMEOUT_MS = 150_000
+
+/**
+ * Чат 2.0: зачистка ответа reasoning-моделей.
+ * Некоторые сервера отдают размышления прямо в content блоками <think>…</think> —
+ * кандидату их видеть нельзя. Берём только текст после последнего </think>;
+ * незакрытый <think> (оборванные по лимиту размышления) отбрасываем целиком.
+ */
+function extractVisibleText(raw: string): string {
+  let text = raw
+  const lastClose = text.lastIndexOf('</think>')
+  if (lastClose !== -1) {
+    text = text.slice(lastClose + '</think>'.length)
+  }
+  else {
+    const openIdx = text.indexOf('<think>')
+    if (openIdx !== -1) text = text.slice(0, openIdx)
+  }
+  return text.trim()
+}
 
 /** Профиль ассистента организации (или null, если ещё не настроен). */
 export function getAssistantProfile(orgId: string): Promise<ProfileRow | undefined> {
@@ -149,10 +173,14 @@ export async function generateAssistantText(
   ].filter(Boolean)
 
   let system = systemParts.join('\n\n')
-  // Чат 2.0 (скорость): у reasoning-моделей Qwen отключаем «размышления» —
-  // для чата важна скорость ответа, а не глубина рассуждений (soft switch Qwen3+).
+  let prompt = contextParts.join('\n\n')
+  // Чат 2.0 (скорость): у reasoning-моделей Qwen просим отключить «размышления».
+  // Soft switch /no_think действует по ПОСЛЕДНЕМУ вхождению — дублируем в конец
+  // user-сообщения. Часть моделей (thinking-only) его игнорирует — на этот случай
+  // бюджет токенов выше вмещает размышления, а extractVisibleText их отрезает.
   if (cfg.provider === 'cloud_ru' && /qwen/i.test(cfg.model)) {
     system += '\n/no_think'
+    prompt += '\n/no_think'
   }
 
   const model = createLanguageModel({
@@ -167,16 +195,30 @@ export async function generateAssistantText(
   const result = await generateText({
     model,
     system,
-    prompt: contextParts.join('\n\n'),
+    prompt,
     temperature: 0.4,
     // Чат 2.0 (скорость): потолок ответа + таймаут вместо «думает вечно»
     maxOutputTokens: Math.min(cfg.maxTokens, MAX_OUTPUT_TOKENS),
     maxRetries: 1,
     abortSignal: AbortSignal.timeout(GENERATION_TIMEOUT_MS),
   })
-  const text = result.text.trim()
+  const text = extractVisibleText(result.text)
   if (!text) {
-    throw createError({ statusCode: 502, statusMessage: 'Ассистент вернул пустой черновик' })
+    // Диагностика в лог — почему пусто (обычно finishReason=length у reasoning-моделей)
+    logWarn('comms.assistant_empty_text', {
+      conversation_id: conv.id,
+      model: cfg.model,
+      provider: cfg.provider,
+      finish_reason: result.finishReason,
+      output_tokens: result.usage?.outputTokens ?? null,
+      reasoning_len: result.reasoningText?.length ?? 0,
+    })
+    throw createError({
+      statusCode: 502,
+      statusMessage: result.finishReason === 'length'
+        ? 'Модель потратила весь лимит токенов на размышления — выберите более быструю модель в настройках суфлёра'
+        : 'Ассистент вернул пустой черновик',
+    })
   }
 
   const durationMs = Date.now() - started
