@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   Calendar, Check, X, AlertTriangle, ExternalLink, Loader2,
-  RefreshCw, Unplug, Shield, Clock, Briefcase,
+  RefreshCw, Unplug, Shield, Clock, Briefcase, Bot,
 } from 'lucide-vue-next'
 
 definePageMeta({})
@@ -133,6 +133,105 @@ onMounted(() => {
     navigateTo({ query: newQuery }, { replace: true })
   }
 })
+
+// ── Спринт 19 — Telegram-бот организации ──
+interface TgBotStatus {
+  connected: boolean
+  enabled?: boolean
+  botUsername?: string
+  welcomeMessage?: string | null
+  webhookLastEventAt?: string | null
+}
+
+const { data: tgStatus, refresh: refreshTg, status: tgStatusReq } = await useFetch<TgBotStatus>('/api/comms/telegram-bot', {
+  default: () => ({ connected: false }),
+})
+const tgToken = ref('')
+const tgWelcome = ref('')
+const tgBusy = ref(false)
+const tgShowDisconnectConfirm = ref(false)
+
+watch(tgStatus, (s) => { tgWelcome.value = s?.welcomeMessage ?? '' }, { immediate: true })
+
+async function connectTg() {
+  const token = tgToken.value.trim()
+  if (!token || tgBusy.value) return
+  tgBusy.value = true
+  try {
+    const res = await $fetch<{ ok: boolean, botUsername: string }>('/api/comms/telegram-bot', {
+      method: 'PUT',
+      body: { botToken: token },
+    })
+    tgToken.value = ''
+    successMessage.value = `Telegram-бот @${res.botUsername} подключён. Теперь можно приглашать кандидатов в чат.`
+    await refreshTg()
+  }
+  catch (err: any) {
+    errorMessage.value = err?.data?.statusMessage ?? 'Не удалось подключить Telegram-бота. Проверьте токен.'
+  }
+  finally {
+    tgBusy.value = false
+  }
+}
+
+async function saveTgWelcome() {
+  if (tgBusy.value) return
+  tgBusy.value = true
+  try {
+    await $fetch('/api/comms/telegram-bot', {
+      method: 'PUT',
+      body: { welcomeMessage: tgWelcome.value.trim() || null },
+    })
+    successMessage.value = 'Приветствие бота сохранено.'
+    await refreshTg()
+  }
+  catch {
+    errorMessage.value = 'Не удалось сохранить настройки Telegram-бота.'
+  }
+  finally {
+    tgBusy.value = false
+  }
+}
+
+async function toggleTgEnabled() {
+  if (tgBusy.value || !tgStatus.value?.connected) return
+  tgBusy.value = true
+  const next = !tgStatus.value.enabled
+  try {
+    await $fetch('/api/comms/telegram-bot', { method: 'PUT', body: { enabled: next } })
+    successMessage.value = next ? 'Telegram-бот включён.' : 'Telegram-бот приостановлен.'
+    await refreshTg()
+  }
+  catch {
+    errorMessage.value = 'Не удалось изменить состояние Telegram-бота.'
+  }
+  finally {
+    tgBusy.value = false
+  }
+}
+
+async function disconnectTg() {
+  tgBusy.value = true
+  try {
+    await $fetch('/api/comms/telegram-bot', { method: 'DELETE' })
+    tgShowDisconnectConfirm.value = false
+    successMessage.value = 'Telegram-бот отключён. История переписок сохранена.'
+    await refreshTg()
+  }
+  catch {
+    errorMessage.value = 'Не удалось отключить Telegram-бота. Попробуйте ещё раз.'
+  }
+  finally {
+    tgBusy.value = false
+  }
+}
+
+function formatTgDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
 
 async function handleDisconnect() {
   isDisconnecting.value = true
@@ -571,6 +670,182 @@ async function handleDisconnect() {
             <Briefcase class="size-4" />
             Подключить hh.ru
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Спринт 19: Telegram-бот организации -->
+    <div class="mt-6 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden">
+      <div class="flex items-center gap-4 px-4 sm:px-6 py-5 border-b border-surface-100 dark:border-surface-800">
+        <div class="flex items-center justify-center size-10 rounded-lg bg-sky-50 dark:bg-sky-950/40">
+          <Bot class="size-5 text-sky-600 dark:text-sky-400" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">
+            Telegram-бот
+          </h2>
+          <p class="text-sm text-surface-500 dark:text-surface-400">
+            Переписка с кандидатами в Telegram — прямо из Huntfork
+          </p>
+        </div>
+        <div
+          v-if="tgStatus?.connected && tgStatus.enabled"
+          class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+        >
+          <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          Подключено
+        </div>
+        <div
+          v-else-if="tgStatus?.connected"
+          class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+        >
+          Приостановлен
+        </div>
+      </div>
+
+      <div class="px-4 sm:px-6 py-5">
+        <div v-if="tgStatusReq === 'pending'" class="flex items-center justify-center py-4">
+          <Loader2 class="size-5 text-surface-400 animate-spin" />
+        </div>
+
+        <!-- Подключено -->
+        <div v-else-if="tgStatus?.connected" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1">
+              <div class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider">
+                Бот
+              </div>
+              <a
+                :href="`https://t.me/${tgStatus.botUsername}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+              >
+                @{{ tgStatus.botUsername }}
+              </a>
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider">
+                Последнее событие вебхука
+              </div>
+              <div class="text-sm text-surface-900 dark:text-surface-100 inline-flex items-center gap-1.5">
+                <Clock class="size-3.5 text-surface-400" />
+                {{ formatTgDate(tgStatus.webhookLastEventAt) }}
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider">
+              Приветствие после /start
+            </label>
+            <textarea
+              v-model="tgWelcome"
+              rows="2"
+              placeholder="Здравствуйте, {name}! Вы откликнулись на вакансию «{job}»…"
+              class="w-full resize-none rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-800 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            />
+            <p class="text-[11px] text-surface-400 dark:text-surface-500">
+              Плейсхолдеры: <code class="bg-surface-100 dark:bg-surface-800 px-1 rounded">{name}</code> — имя кандидата, <code class="bg-surface-100 dark:bg-surface-800 px-1 rounded">{job}</code> — название вакансии. Пусто — стандартное приветствие.
+            </p>
+          </div>
+
+          <div class="rounded-lg bg-surface-50 dark:bg-surface-800/50 p-4 space-y-2">
+            <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
+              <Check class="size-4 text-emerald-500 shrink-0" />
+              Персональные ссылки-приглашения из карточки отклика
+            </div>
+            <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
+              <Check class="size-4 text-emerald-500 shrink-0" />
+              Сообщения и файлы кандидата попадают в единую ленту
+            </div>
+            <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
+              <Shield class="size-4 text-brand-500 shrink-0" />
+              Токен бота хранится в зашифрованном виде
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+              :disabled="tgBusy"
+              @click="saveTgWelcome"
+            >
+              Сохранить приветствие
+            </button>
+            <button
+              class="inline-flex items-center gap-2 rounded-lg border border-surface-200 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
+              :disabled="tgBusy"
+              @click="toggleTgEnabled"
+            >
+              {{ tgStatus.enabled ? 'Приостановить' : 'Включить' }}
+            </button>
+            <button
+              v-if="!tgShowDisconnectConfirm"
+              class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30 disabled:opacity-50 transition-colors"
+              :disabled="tgBusy"
+              @click="tgShowDisconnectConfirm = true"
+            >
+              <Unplug class="size-4" />
+              Отключить
+            </button>
+            <template v-else>
+              <span class="text-sm text-surface-500 dark:text-surface-400">Точно отключить?</span>
+              <button
+                class="inline-flex items-center gap-2 rounded-lg bg-danger-600 px-3 py-2 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
+                :disabled="tgBusy"
+                @click="disconnectTg"
+              >
+                Да, отключить
+              </button>
+              <button
+                class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800/60 transition-colors"
+                @click="tgShowDisconnectConfirm = false"
+              >
+                Отмена
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Не подключено -->
+        <div v-else class="space-y-4">
+          <p class="text-sm text-surface-600 dark:text-surface-400">
+            Создайте бота у <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">@BotFather</a> (команда /newbot), скопируйте токен и вставьте сюда. Кандидаты будут писать вашему боту, а переписка появится в Huntfork.
+          </p>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input
+              v-model="tgToken"
+              type="password"
+              autocomplete="off"
+              placeholder="123456789:AAE…токен бота"
+              class="flex-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-800 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono"
+              @keydown.enter="connectTg"
+            >
+            <button
+              class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              :disabled="tgBusy || !tgToken.trim()"
+              @click="connectTg"
+            >
+              <Loader2 v-if="tgBusy" class="size-4 animate-spin" />
+              <Bot v-else class="size-4" />
+              Подключить бота
+            </button>
+          </div>
+          <div class="rounded-lg bg-surface-50 dark:bg-surface-800/50 p-4 space-y-2">
+            <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
+              <Check class="size-4 text-emerald-500 shrink-0" />
+              Единая лента: hh.ru и Telegram в одном чате отклика
+            </div>
+            <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
+              <Check class="size-4 text-emerald-500 shrink-0" />
+              ИИ-ассистент работает в любом канале
+            </div>
+            <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
+              <Shield class="size-4 text-brand-500 shrink-0" />
+              Токен шифруется, отключить можно в любой момент
+            </div>
+          </div>
         </div>
       </div>
     </div>

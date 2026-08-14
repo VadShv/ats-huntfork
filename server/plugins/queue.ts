@@ -11,6 +11,7 @@ import {
   processAutopilotJob,
   processSuggestJob,
 } from '../utils/comms/assistantJobs'
+import { TG_WEBHOOK_QUEUE, processTelegramWebhookJob } from '../utils/comms/telegramWebhooks'
 import { getBoss, stopBoss } from '../utils/queue/boss'
 
 /**
@@ -113,6 +114,27 @@ export default defineNitroPlugin(async (nitroApp) => {
     )
 
     logInfo('queue.workers_registered', { queue: `${COMMS_SUGGEST_QUEUE},${COMMS_AUTOPILOT_QUEUE}` })
+
+    // ── Спринт 19 — очередь вебхуков Telegram ──
+    try {
+      await boss.createQueue(TG_WEBHOOK_QUEUE)
+    }
+    catch (err) {
+      logDebug('queue.create_queue_skipped', {
+        queue: TG_WEBHOOK_QUEUE,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    // Лёгкие события (ингест одного сообщения), но внутри бывает скачивание
+    // медиа в S3 — умеренный параллелизм как у hh
+    await boss.work(
+      TG_WEBHOOK_QUEUE,
+      { batchSize: 1, teamSize: 3, teamConcurrency: 3 } as any,
+      processTelegramWebhookJob as any,
+    )
+
+    logInfo('queue.workers_registered', { queue: TG_WEBHOOK_QUEUE })
 
     // Graceful shutdown
     nitroApp.hooks.hook('close', async () => {

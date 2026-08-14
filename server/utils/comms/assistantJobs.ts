@@ -17,7 +17,7 @@ import { and, desc, eq, gt, inArray } from 'drizzle-orm'
 import { commsConversation, commsMessage } from '../../database/schema'
 import { getBoss } from '../queue/boss'
 import { generateAssistantText, getAssistantProfile } from './assistant'
-import { sendHhMessage } from './commsService'
+import { sendConversationMessage } from './commsService'
 
 export const COMMS_SUGGEST_QUEUE = 'comms-assistant-suggest'
 export const COMMS_AUTOPILOT_QUEUE = 'comms-assistant-autopilot'
@@ -274,7 +274,7 @@ async function runAutopilotJob({ conversationId, organizationId }: AutopilotJobP
     const { text, personaName } = await generateAssistantText(conv, organizationId, { autopilot: true })
 
     if (conv.assistantMode === 'autopilot' && !forceReview) {
-      await sendHhMessage(conv, {
+      await sendConversationMessage(conv, {
         userId: null,
         userName: null,
         text,

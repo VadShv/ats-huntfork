@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { commsConversation } from '../../../database/schema'
-import { sendHhMessage } from '../../../utils/comms/commsService'
+import { sendConversationMessage } from '../../../utils/comms/commsService'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 const bodySchema = z.object({
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Неподдерживаемый канал' })
   }
 
-  const message = await sendHhMessage(conv, {
+  const message = await sendConversationMessage(conv, {
     userId: session.user.id,
     userName: session.user.name ?? null,
     text: body.text,

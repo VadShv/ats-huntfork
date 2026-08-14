@@ -16,6 +16,7 @@ import {
 import { getValidAccessToken } from '../hh/tokens'
 import { apiGet } from '../hh/client'
 import { hhGetChatMessages, hhMarkMessageRead, hhSendChatMessage, type HhChatMessage } from './hhChat'
+import { getBotToken, getTelegramBotForOrg, tgSendMessage } from './telegram'
 import { getJobAssistantSettings } from './assistant'
 
 export type CommsConversationRow = typeof commsConversation.$inferSelect
@@ -23,7 +24,7 @@ export type CommsMessageRow = typeof commsMessage.$inferSelect
 
 const PREVIEW_LEN = 140
 
-function preview(text: string | null | undefined): string | null {
+export function preview(text: string | null | undefined): string | null {
   if (!text) return null
   const s = text.replace(/\s+/g, ' ').trim()
   return s.length > PREVIEW_LEN ? `${s.slice(0, PREVIEW_LEN - 1)}…` : s
@@ -224,27 +225,40 @@ export function listConversationMessages(conversationId: string, limit = 200): P
 }
 
 /**
- * Отправка сообщения рекрутёром. Синхронно: POST в hh → запись в БД.
+ * Отправка сообщения в диалог — канал-независимо (Спринт 19).
+ * Синхронно: транспорт канала (hh / telegram) → запись в БД.
  * При ошибке пишем failed-строку и пробрасываем исключение наверх.
  */
-export async function sendHhMessage(
+export async function sendConversationMessage(
   conv: CommsConversationRow,
   // Чат 2.0: senderType/senderName опциональны — автопилот шлёт от имени агента (userId может быть null)
-  args: { userId: string | null, userName: string | null, text: string, senderType?: 'recruiter' | 'agent', senderName?: string | null },
+  args: { userId: string | null, userName: string | null, text: string, senderType?: 'recruiter' | 'agent' | 'system', senderName?: string | null },
 ): Promise<CommsMessageRow> {
   const senderType = args.senderType ?? 'recruiter'
   const senderName = args.senderName ?? args.userName
   if (!conv.canWrite) {
     throw createError({ statusCode: 400, statusMessage: 'Чат недоступен для отправки сообщений' })
   }
-  if (!conv.hhAccountId) {
-    throw createError({ statusCode: 400, statusMessage: 'У диалога нет аккаунта hh.ru' })
-  }
 
-  const token = await getValidAccessToken(conv.hhAccountId)
   let externalId: string | null = null
   try {
-    externalId = await hhSendChatMessage(token, conv.externalChatId, args.text)
+    if (conv.channel === 'hh') {
+      if (!conv.hhAccountId) {
+        throw createError({ statusCode: 400, statusMessage: 'У диалога нет аккаунта hh.ru' })
+      }
+      const token = await getValidAccessToken(conv.hhAccountId)
+      externalId = await hhSendChatMessage(token, conv.externalChatId, args.text)
+    }
+    else if (conv.channel === 'telegram') {
+      const bot = await getTelegramBotForOrg(conv.organizationId)
+      if (!bot || !bot.enabled) {
+        throw createError({ statusCode: 400, statusMessage: 'Telegram-бот не подключён или выключен' })
+      }
+      externalId = await tgSendMessage(getBotToken(bot), conv.externalChatId, args.text)
+    }
+    else {
+      throw createError({ statusCode: 400, statusMessage: `Канал ${conv.channel} пока не поддерживает отправку` })
+    }
   }
   catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -259,8 +273,8 @@ export async function sendHhMessage(
       status: 'failed',
       errorMessage: msg.slice(0, 500),
     })
-    logError('comms.send_failed', { conversation_id: conv.id, error_message: msg })
-    throw createError({ statusCode: 502, statusMessage: 'Не удалось отправить сообщение в hh.ru' })
+    logError('comms.send_failed', { conversation_id: conv.id, channel: conv.channel, error_message: msg })
+    throw createError({ statusCode: 502, statusMessage: conv.channel === 'telegram' ? 'Не удалось отправить сообщение в Telegram' : 'Не удалось отправить сообщение в hh.ru' })
   }
 
   const inserted = await db.insert(commsMessage)
@@ -299,9 +313,12 @@ export async function sendHhMessage(
   return existing!
 }
 
-/** Отметить диалог прочитанным (в hh и локально). */
-export async function markHhConversationRead(conv: CommsConversationRow): Promise<void> {
-  if (conv.hhAccountId) {
+/**
+ * Отметить диалог прочитанным. Для hh — ещё и на стороне hh.ru;
+ * у Telegram Bot API понятия «прочитано» нет — только локальный счётчик.
+ */
+export async function markConversationRead(conv: CommsConversationRow): Promise<void> {
+  if (conv.channel === 'hh' && conv.hhAccountId) {
     const [lastIncoming] = await db.select({ externalMessageId: commsMessage.externalMessageId })
       .from(commsMessage)
       .where(and(

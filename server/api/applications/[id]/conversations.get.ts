@@ -1,55 +1,115 @@
 import { z } from 'zod'
+import { and, eq } from 'drizzle-orm'
+import { application, commsConversation } from '../../../database/schema'
 import {
   ensureHhConversation,
   listConversationMessages,
   refreshHhConversation,
+  type CommsConversationRow,
 } from '../../../utils/comms/commsService'
 import { getLatestDraft } from '../../../utils/comms/assistantJobs'
+import { getTelegramBotForOrg } from '../../../utils/comms/telegram'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
+const querySchema = z.object({ channel: z.enum(['hh', 'telegram']).optional() })
 
 /**
- * GET /api/applications/:id/conversations
+ * GET /api/applications/:id/conversations?channel=hh|telegram
  *
- * Возвращает hh-диалог отклика и его сообщения. При каждом вызове
- * подтягивает свежие сообщения из hh.ru (sync-on-read): открытая вкладка
- * «Чат» опрашивает этот эндпоинт, фоновых воркеров не требуется.
+ * Спринт 19: мультиканально. Возвращает доступные каналы отклика
+ * (hh + telegram), активный диалог с сообщениями и черновиком ассистента.
+ * hh синкается на чтение (sync-on-read); Telegram живёт на вебхуках.
  */
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
   const { id: applicationId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  const { channel: requestedChannel } = await getValidatedQuery(event, querySchema.parse)
 
-  const { conversation, reason } = await ensureHhConversation(applicationId, orgId)
-  if (!conversation) {
-    return { conversation: null, messages: [], reason: reason ?? 'no_chat' }
+  // hh-диалог (ленивая инициализация, как раньше)
+  const { conversation: hhConv, reason } = await ensureHhConversation(applicationId, orgId)
+
+  // Telegram-диалог: сперва по отклику, затем по кандидату (после перепривязки)
+  const app = await db.query.application.findFirst({
+    where: and(eq(application.id, applicationId), eq(application.organizationId, orgId)),
+    columns: { id: true, candidateId: true },
+  })
+  let tgConv: CommsConversationRow | undefined
+  if (app) {
+    tgConv = await db.query.commsConversation.findFirst({
+      where: and(
+        eq(commsConversation.organizationId, orgId),
+        eq(commsConversation.channel, 'telegram'),
+        eq(commsConversation.applicationId, app.id),
+      ),
+    })
+    if (!tgConv) {
+      tgConv = await db.query.commsConversation.findFirst({
+        where: and(
+          eq(commsConversation.organizationId, orgId),
+          eq(commsConversation.channel, 'telegram'),
+          eq(commsConversation.candidateId, app.candidateId),
+        ),
+      })
+    }
+  }
+
+  const bot = await getTelegramBotForOrg(orgId)
+  const telegramAvailable = Boolean(bot?.enabled)
+
+  // Активный канал: явный запрос → hh → telegram
+  let active: CommsConversationRow | null = null
+  if (requestedChannel === 'telegram') active = tgConv ?? null
+  else if (requestedChannel === 'hh') active = hhConv
+  else active = hhConv ?? tgConv ?? null
+
+  const channels = [hhConv, tgConv]
+    .filter((c): c is CommsConversationRow => Boolean(c))
+    .map(c => ({
+      id: c.id,
+      channel: c.channel,
+      unreadCount: c.unreadCount,
+      canWrite: c.canWrite,
+      lastMessageAt: c.lastMessageAt?.toISOString?.() ?? null,
+    }))
+
+  if (!active) {
+    return {
+      conversation: null,
+      messages: [],
+      reason: reason ?? 'no_chat',
+      channels,
+      telegramAvailable,
+    }
   }
 
   let syncError: string | null = null
-  try {
-    await refreshHhConversation(conversation)
-  }
-  catch (err) {
-    syncError = err instanceof Error ? err.message : String(err)
-    logWarn('comms.refresh_failed', { conversation_id: conversation.id, error_message: syncError })
+  if (active.channel === 'hh') {
+    try {
+      await refreshHhConversation(active)
+    }
+    catch (err) {
+      syncError = err instanceof Error ? err.message : String(err)
+      logWarn('comms.refresh_failed', { conversation_id: active.id, error_message: syncError })
+    }
   }
 
   // Перечитываем диалог после refresh (обновились can_write/счётчики)
   const fresh = await db.query.commsConversation.findFirst({
-    where: (t, { eq }) => eq(t.id, conversation.id),
+    where: (t, { eq: eqOp }) => eqOp(t.id, active!.id),
   })
-  const messages = await listConversationMessages(conversation.id)
+  const messages = await listConversationMessages(active.id)
   // Чат 2.0: текущий черновик ассистента — чтобы генерация переживала перезагрузку страницы
-  const draft = await getLatestDraft(conversation.id)
+  const draft = await getLatestDraft(active.id)
 
   return {
     conversation: {
-      id: fresh?.id ?? conversation.id,
-      channel: fresh?.channel ?? 'hh',
-      canWrite: fresh?.canWrite ?? conversation.canWrite,
-      canWriteReason: fresh?.canWriteReason ?? conversation.canWriteReason,
-      unreadCount: fresh?.unreadCount ?? conversation.unreadCount,
-      assistantMode: fresh?.assistantMode ?? conversation.assistantMode,
+      id: fresh?.id ?? active.id,
+      channel: fresh?.channel ?? active.channel,
+      canWrite: fresh?.canWrite ?? active.canWrite,
+      canWriteReason: fresh?.canWriteReason ?? active.canWriteReason,
+      unreadCount: fresh?.unreadCount ?? active.unreadCount,
+      assistantMode: fresh?.assistantMode ?? active.assistantMode,
       lastSyncedAt: fresh?.lastSyncedAt ?? null,
     },
     messages: messages.map(m => ({
@@ -66,5 +126,7 @@ export default defineEventHandler(async (event) => {
     })),
     draft,
     syncError,
+    channels,
+    telegramAvailable,
   }
 })

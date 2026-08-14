@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { commsConversation, commsMessage } from '../../../../database/schema'
-import { sendHhMessage } from '../../../../utils/comms/commsService'
+import { sendConversationMessage } from '../../../../utils/comms/commsService'
 
 const paramsSchema = z.object({ id: z.string().min(1), draftId: z.string().min(1) })
 const bodySchema = z.object({
@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'Черновик ещё не готов к отправке' })
     }
     // Отправка от имени агента; одобривший рекрутёр фиксируется в senderUserId
-    const message = await sendHhMessage(conv, {
+    const message = await sendConversationMessage(conv, {
       userId: session.user.id,
       userName: session.user.name ?? null,
       text: draft.body,

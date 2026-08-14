@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { commsConversation } from '../../../database/schema'
-import { markHhConversationRead } from '../../../utils/comms/commsService'
+import { markConversationRead } from '../../../utils/comms/commsService'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 
@@ -21,6 +21,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Диалог не найден' })
   }
 
-  await markHhConversationRead(conv)
+  await markConversationRead(conv)
   return { ok: true }
 })

@@ -7,7 +7,7 @@
  * MVP-канал — hh.ru (sync-on-read). Поллинг 30с только пока компонент
  * смонтирован и вкладка браузера видима.
  */
-import { Bot, MessageSquare, RefreshCw, Send, Sparkles } from 'lucide-vue-next'
+import { Bot, Check, Copy, MessageSquare, Paperclip, RefreshCw, Send, Sparkles } from 'lucide-vue-next'
 
 const props = defineProps<{
   applicationId: string
@@ -34,10 +34,29 @@ interface ChatMessage {
 
 interface ChatConversation {
   id: string
+  channel: 'hh' | 'telegram'
   canWrite: boolean
   canWriteReason: string | null
   unreadCount: number
   assistantMode: string
+}
+
+/** Спринт 19: сводка по каналам отклика (hh + telegram). */
+interface ChannelInfo {
+  id: string
+  channel: 'hh' | 'telegram'
+  unreadCount: number
+  canWrite: boolean
+  lastMessageAt: string | null
+}
+
+/** Метаданные вложения Telegram (сохранено в S3). */
+interface TgAttachment {
+  kind?: string
+  name?: string
+  mimeType?: string
+  size?: number
+  s3Key?: string
 }
 
 /** Чат 2.0: черновик ассистента живёт на сервере — переживает перезагрузку страницы. */
@@ -51,6 +70,13 @@ interface AssistantDraft {
 }
 
 const chatConversation = ref<ChatConversation | null>(null)
+const chatChannels = ref<ChannelInfo[]>([])
+const telegramAvailable = ref(false)
+const activeChannel = ref<'hh' | 'telegram' | null>(null)
+const channelSwitching = ref(false)
+const inviteLoading = ref(false)
+const inviteCopied = ref(false)
+const inviteError = ref<string | null>(null)
 const chatMessages = ref<ChatMessage[]>([])
 const chatReason = ref<string | null>(null)
 const chatSyncError = ref<string | null>(null)
@@ -91,12 +117,19 @@ async function loadChat(silent = false) {
       reason?: string
       syncError?: string | null
       draft?: AssistantDraft | null
-    }>(`/api/applications/${props.applicationId}/conversations`)
+      channels?: ChannelInfo[]
+      telegramAvailable?: boolean
+    }>(`/api/applications/${props.applicationId}/conversations`, {
+      query: activeChannel.value ? { channel: activeChannel.value } : {},
+    })
     const prevCount = chatMessages.value.length
     chatConversation.value = res.conversation
     chatReason.value = res.reason ?? null
     chatSyncError.value = res.syncError ?? null
     chatMessages.value = res.messages ?? []
+    chatChannels.value = res.channels ?? []
+    telegramAvailable.value = res.telegramAvailable ?? false
+    if (res.conversation) activeChannel.value = res.conversation.channel
     chatLoaded.value = true
     adoptDraft(res.draft ?? null) // Чат 2.0: возобновляем генерацию/черновик после перезагрузки
     if (!silent || chatMessages.value.length !== prevCount) scrollChatToBottom()
@@ -132,6 +165,54 @@ function startChatPolling() {
   }, 30000)
 }
 
+/** Спринт 19: переключение между каналами (hh ↔ telegram). */
+async function switchChannel(ch: 'hh' | 'telegram') {
+  if (channelSwitching.value || activeChannel.value === ch) return
+  channelSwitching.value = true
+  activeChannel.value = ch
+  chatDraft.value = null
+  stopDraftPolling()
+  try {
+    await loadChat()
+    track('chat_channel_switch', { channel: ch })
+  }
+  finally {
+    channelSwitching.value = false
+  }
+}
+
+/** Спринт 19: персональная ссылка-приглашение в Telegram (копируем в буфер). */
+async function copyTelegramInvite() {
+  if (inviteLoading.value) return
+  inviteLoading.value = true
+  inviteError.value = null
+  try {
+    const res = await $fetch<{ link: string }>(`/api/applications/${props.applicationId}/telegram-invite`, { method: 'POST' })
+    await navigator.clipboard.writeText(res.link)
+    inviteCopied.value = true
+    setTimeout(() => { inviteCopied.value = false }, 2500)
+    track('chat_tg_invite_copied', {})
+  }
+  catch (err: any) {
+    inviteError.value = err?.data?.statusMessage ?? t('dashboard.chat.inviteError')
+  }
+  finally {
+    inviteLoading.value = false
+  }
+}
+
+function typedAttachments(m: ChatMessage): TgAttachment[] {
+  return Array.isArray(m.attachments) ? m.attachments as TgAttachment[] : []
+}
+
+function attachmentUrl(m: ChatMessage, idx: number): string {
+  return `/api/comms/messages/${m.id}/attachments/${idx}`
+}
+
+function isImageAttachment(a: TgAttachment): boolean {
+  return a.kind === 'photo' || (a.mimeType ?? '').startsWith('image/')
+}
+
 async function sendChatMessage() {
   const text = chatText.value.trim()
   if (!text || chatSending.value || !chatConversation.value?.canWrite) return
@@ -145,7 +226,7 @@ async function sendChatMessage() {
     chatMessages.value = [...chatMessages.value, res.message]
     chatText.value = ''
     scrollChatToBottom()
-    track('chat_message_sent', { channel: 'hh' })
+    track('chat_message_sent', { channel: chatConversation.value?.channel ?? 'hh' })
   }
   catch (err: any) {
     chatSendError.value = err?.data?.statusMessage ?? t('dashboard.chat.sendError')
@@ -241,7 +322,7 @@ async function resolveDraft(draftId: string, action: 'consume' | 'discard' | 'ap
     if (action === 'approve' && res.message) {
       chatMessages.value = [...chatMessages.value, res.message]
       scrollChatToBottom()
-      track('chat_assistant_approve', { channel: 'hh' })
+      track('chat_assistant_approve', { channel: chatConversation.value?.channel ?? 'hh' })
     }
     if (action === 'consume' && !opts.silent) {
       chatText.value = chatDraft.value?.body ?? chatText.value
@@ -265,7 +346,7 @@ async function suggestAssistantReply() {
   try {
     const res = await $fetch<{ draft: AssistantDraft }>(`/api/conversations/${conv.id}/suggest`, { method: 'POST' })
     adoptDraft(res.draft)
-    track('chat_assistant_suggest', { channel: 'hh' })
+    track('chat_assistant_suggest', { channel: chatConversation.value?.channel ?? 'hh' })
   }
   catch (err: any) {
     const code = err?.data?.data?.code
@@ -315,6 +396,9 @@ watch(() => props.applicationId, () => {
   chatText.value = ''
   chatLoaded.value = false
   chatDraft.value = null
+  chatChannels.value = []
+  activeChannel.value = null
+  inviteError.value = null
   stopDraftPolling()
   loadChat()
 })
@@ -348,15 +432,62 @@ onBeforeUnmount(() => {
       </div>
       <p class="text-sm font-medium text-surface-600 dark:text-surface-300">{{ t('dashboard.chat.empty') }}</p>
       <p class="text-xs text-surface-400 dark:text-surface-500 mt-1.5">{{ chatEmptyHint }}</p>
+      <!-- Спринт 19: чата ещё нет, но можно пригласить кандидата в Telegram -->
+      <div v-if="telegramAvailable" class="mt-4">
+        <button
+          class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-surface-200/80 dark:border-surface-700/60 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
+          :disabled="inviteLoading"
+          @click="copyTelegramInvite()"
+        >
+          <Check v-if="inviteCopied" class="size-3.5 text-success-600" />
+          <Copy v-else class="size-3.5" />
+          {{ inviteCopied ? t('dashboard.chat.inviteCopied') : t('dashboard.chat.inviteTelegram') }}
+        </button>
+        <p class="text-[11px] text-surface-400 dark:text-surface-500 mt-1.5">{{ t('dashboard.chat.inviteHint') }}</p>
+        <p v-if="inviteError" class="text-xs text-danger-600 dark:text-danger-400 mt-1">{{ inviteError }}</p>
+      </div>
     </div>
 
     <!-- Chat -->
     <div v-else class="flex flex-col">
       <div class="flex items-center justify-between mb-2">
-        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-surface-400 dark:text-surface-500 uppercase tracking-wider">
-          <MessageSquare class="size-3.5" />
-          {{ t('dashboard.chat.viaHh') }}
-        </span>
+        <!-- Спринт 19: переключатель каналов (если их больше одного) -->
+        <div class="flex items-center gap-1.5">
+          <template v-if="chatChannels.length > 1">
+            <button
+              v-for="c in chatChannels"
+              :key="c.id"
+              class="cursor-pointer inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors"
+              :class="activeChannel === c.channel
+                ? 'bg-brand-600 text-white'
+                : 'bg-surface-100 dark:bg-surface-800/60 text-surface-500 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700/60'"
+              :disabled="channelSwitching"
+              @click="switchChannel(c.channel)"
+            >
+              {{ c.channel === 'telegram' ? t('dashboard.chat.channelTelegram') : t('dashboard.chat.channelHh') }}
+              <span
+                v-if="c.unreadCount > 0 && activeChannel !== c.channel"
+                class="inline-flex items-center justify-center min-w-4 h-4 rounded-full bg-brand-600 text-white text-[9px] px-1 tabular-nums"
+              >{{ c.unreadCount }}</span>
+            </button>
+          </template>
+          <span v-else class="inline-flex items-center gap-1.5 text-xs font-semibold text-surface-400 dark:text-surface-500 uppercase tracking-wider">
+            <MessageSquare class="size-3.5" />
+            {{ chatConversation.channel === 'telegram' ? t('dashboard.chat.viaTelegram') : t('dashboard.chat.viaHh') }}
+          </span>
+          <!-- Приглашение в Telegram, пока tg-диалога ещё нет -->
+          <button
+            v-if="telegramAvailable && !chatChannels.some(c => c.channel === 'telegram')"
+            class="cursor-pointer inline-flex items-center gap-1 rounded-full border border-surface-200/80 dark:border-surface-700/60 px-2.5 py-1 text-[11px] font-medium text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
+            :disabled="inviteLoading"
+            :title="t('dashboard.chat.inviteHint')"
+            @click="copyTelegramInvite()"
+          >
+            <Check v-if="inviteCopied" class="size-3 text-success-600" />
+            <Copy v-else class="size-3" />
+            {{ inviteCopied ? t('dashboard.chat.inviteCopied') : t('dashboard.chat.inviteTelegram') }}
+          </button>
+        </div>
         <div class="flex items-center gap-2">
           <!-- Чат 2.0: режим ассистента — выкл / суфлёр / автопилот+ревью / автопилот -->
           <span
@@ -420,7 +551,37 @@ onBeforeUnmount(() => {
             <p v-else-if="m.senderType === 'agent'" class="text-[11px] font-semibold mb-0.5 opacity-80 inline-flex items-center gap-1">
               <Bot class="size-3" />{{ m.senderName || t('dashboard.chat.agentLabel') }}
             </p>
-            <p class="whitespace-pre-wrap break-words">{{ m.body ?? t('dashboard.chat.attachment') }}</p>
+            <p v-if="m.body" class="whitespace-pre-wrap break-words">{{ m.body }}</p>
+            <!-- Спринт 19: вложения Telegram (фото инлайн, остальное — ссылкой) -->
+            <template v-for="(a, ai) in typedAttachments(m)" :key="ai">
+              <a
+                v-if="a.s3Key && isImageAttachment(a)"
+                :href="attachmentUrl(m, ai)"
+                target="_blank"
+                rel="noopener"
+                class="block mt-1.5"
+              >
+                <img
+                  :src="attachmentUrl(m, ai)"
+                  :alt="a.name || t('dashboard.chat.attachment')"
+                  class="max-h-48 rounded-lg border border-black/5 dark:border-white/10"
+                  loading="lazy"
+                >
+              </a>
+              <a
+                v-else-if="a.s3Key"
+                :href="attachmentUrl(m, ai)"
+                target="_blank"
+                rel="noopener"
+                class="mt-1.5 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium underline decoration-dotted underline-offset-2"
+                :class="m.direction === 'out' ? 'text-white/90 hover:text-white' : 'text-brand-600 dark:text-brand-400 hover:text-brand-700'"
+              >
+                <Paperclip class="size-3.5 shrink-0" />
+                {{ a.name || t('dashboard.chat.attachment') }}
+              </a>
+              <p v-else class="mt-1 text-xs opacity-70">{{ t('dashboard.chat.attachment') }}</p>
+            </template>
+            <p v-if="!m.body && typedAttachments(m).length === 0" class="whitespace-pre-wrap break-words">{{ t('dashboard.chat.attachment') }}</p>
             <p
               class="text-[10px] mt-1 tabular-nums"
               :class="m.direction === 'out' ? 'text-white/70 text-right' : 'text-surface-400 dark:text-surface-500'"

@@ -2016,3 +2016,66 @@ export const commsAssistantProfileRelations = relations(commsAssistantProfile, (
 export const commsChannelEventRelations = relations(commsChannelEvent, ({ one }) => ({
   organization: one(organization, { fields: [commsChannelEvent.organizationId], references: [organization.id] }),
 }))
+
+/**
+ * Спринт 19 — Telegram-бот организации (один бот на организацию).
+ * Токен хранится шифрованным (AES, как api_key_encrypted у ai_config).
+ * webhook_secret — случайный секрет в URL вебхука + заголовок
+ * X-Telegram-Bot-Api-Secret-Token (двойная проверка подлинности).
+ */
+export const commsTelegramBot = pgTable('comms_telegram_bot', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  /** Токен бота от BotFather, шифрованный. */
+  botTokenEncrypted: text('bot_token_encrypted').notNull(),
+  /** username бота (без @) — для сборки deep-link t.me/<username>?start=… */
+  botUsername: text('bot_username').notNull(),
+  /** Числовой id бота в Telegram (из getMe). */
+  botTgId: text('bot_tg_id'),
+  /** Секрет вебхука: часть URL + secret_token в setWebhook. */
+  webhookSecret: text('webhook_secret').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  /** Приветствие после привязки кандидата (null = стандартное). */
+  welcomeMessage: text('welcome_message'),
+  webhookLastEventAt: timestamp('webhook_last_event_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('comms_telegram_bot_org_idx').on(t.organizationId),
+  index('comms_telegram_bot_webhook_secret_idx').on(t.webhookSecret),
+]))
+
+/**
+ * Спринт 19 — персональный пригласительный токен в Telegram-чат.
+ * Рекрутёр генерирует ссылку t.me/<bot>?start=<token> для конкретного
+ * отклика; по /start бот привязывает tg-чат к кандидату/отклику/вакансии.
+ * Анти-спам: без валидного токена диалог не создаётся.
+ */
+export const commsTelegramLinkToken = pgTable('comms_telegram_link_token', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  token: text('token').notNull(),
+  candidateId: text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
+  applicationId: text('application_id').references(() => application.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').references(() => job.id, { onDelete: 'set null' }),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  /** tg user id, который активировал токен (аудит). */
+  usedByTgUserId: text('used_by_tg_user_id'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('comms_telegram_link_token_token_idx').on(t.token),
+  index('comms_telegram_link_token_org_idx').on(t.organizationId),
+  index('comms_telegram_link_token_candidate_idx').on(t.candidateId),
+]))
+
+export const commsTelegramBotRelations = relations(commsTelegramBot, ({ one }) => ({
+  organization: one(organization, { fields: [commsTelegramBot.organizationId], references: [organization.id] }),
+}))
+
+export const commsTelegramLinkTokenRelations = relations(commsTelegramLinkToken, ({ one }) => ({
+  organization: one(organization, { fields: [commsTelegramLinkToken.organizationId], references: [organization.id] }),
+  candidate: one(candidate, { fields: [commsTelegramLinkToken.candidateId], references: [candidate.id] }),
+  application: one(application, { fields: [commsTelegramLinkToken.applicationId], references: [application.id] }),
+}))
