@@ -29,15 +29,21 @@ export default defineEventHandler(async (event) => {
 
   if (!row) throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   if (!row.hhResumeRaw) {
-    throw createError({ statusCode: 404, statusMessage: 'Нет снимка резюме кандидата из hh.ru' })
+    throw createError({ statusCode: 404, statusMessage: 'Нет сохранённого структурированного резюме кандидата' })
   }
 
   const parsed = parseHhResume(row.hhResumeRaw as Record<string, unknown>)
+
+  // Единообразие резюме: источник структуры — hh или разбор загруженного файла.
+  const source = (row.hhResumeRaw as { _hf?: { source?: string } })._hf?.source === 'document_parse'
+    ? 'document' as const
+    : 'hh' as const
 
   return {
     candidateId: row.id,
     hhResumeId: row.hhResumeId,
     fetchedAt: row.hhResumeFetchedAt,
+    source,
     resume: parsed,
   }
 })

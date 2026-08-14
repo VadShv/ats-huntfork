@@ -3,12 +3,19 @@ import { Briefcase, GraduationCap, Languages, Sparkles, MapPin, Calendar, Extern
 
 const props = defineProps<{
   candidateId: string
-  /** Если у кандидата нет hh-снепшота — не делаем запрос, показываем empty state. */
+  /** Если у кандидата нет структурированного резюме (hh или из файла) — не делаем запрос, показываем empty state. */
   hasSnapshot: boolean
   /** Имя для генерации файлов скачивания. */
   candidateName: string
   /** id выбранной версии резюме (null = текущая). */
   versionId?: string | null
+  /** Единообразие резюме: id загруженного файла-резюме с извлечённым текстом — включает кнопку «Структурировать» в empty state. */
+  resumeDocumentId?: string | null
+}>()
+
+const emit = defineEmits<{
+  /** Резюме успешно структурировано из файла — родителю нужно обновить кандидата. */
+  structured: []
 }>()
 
 const { t } = useI18n()
@@ -42,7 +49,7 @@ interface ResumeData {
 }
 
 // Если выбрана конкретная версия — ходим в /resume-versions/:versionId, иначе в текущий /hh-resume.
-const { data, status, error, refresh } = useLazyFetch<{ resume: ResumeData; fetchedAt?: string; hhResumeId?: string }>(
+const { data, status, error, refresh } = useLazyFetch<{ resume: ResumeData; fetchedAt?: string; hhResumeId?: string; source?: 'hh' | 'document' }>(
   () => props.versionId
     ? `/api/candidates/${props.candidateId}/resume-versions/${props.versionId}`
     : `/api/candidates/${props.candidateId}/hh-resume`,
@@ -56,6 +63,11 @@ const { data, status, error, refresh } = useLazyFetch<{ resume: ResumeData; fetc
 
 const resume = computed(() => data.value?.resume ?? null)
 const fetchedAt = computed(() => data.value?.fetchedAt ?? null)
+// Единообразие резюме: чип источника (hh.ru / из файла).
+const sourceLabel = computed(() => {
+  if (!data.value?.source) return null
+  return data.value.source === 'document' ? 'Из файла' : 'hh.ru'
+})
 
 // ─────────────────────────────────────────────
 // Форматирование
@@ -129,6 +141,25 @@ function openOnHh() {
     toast.error('Нет ссылки на hh.ru в данных резюме')
   }
 }
+
+// Единообразие резюме: структурирование загруженного файла через ИИ (по кнопке — токены тратятся осознанно).
+const structuring = ref(false)
+async function structureFromDocument() {
+  if (!props.resumeDocumentId || structuring.value) return
+  structuring.value = true
+  try {
+    await $fetch(`/api/candidates/${props.candidateId}/documents/${props.resumeDocumentId}/structure`, { method: 'POST' })
+    toast.success('Резюме структурировано')
+    emit('structured')
+    await refresh()
+  }
+  catch (err: any) {
+    toast.error('Не удалось структурировать резюме', { message: err?.data?.statusMessage ?? err?.statusMessage })
+  }
+  finally {
+    structuring.value = false
+  }
+}
 </script>
 
 <template>
@@ -140,10 +171,25 @@ function openOnHh() {
     >
       <FileText class="size-8 mx-auto text-surface-400 dark:text-surface-500" />
       <p class="mt-2 text-sm text-surface-500 dark:text-surface-400">
-        Резюме с hh.ru пока не подтянулось.
+        Структурированное резюме пока не создано.
       </p>
-      <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">
-        Снепшот появляется автоматически после первого синка hh-отклика.
+      <template v-if="resumeDocumentId">
+        <button
+          type="button"
+          class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white px-3 py-1.5 text-xs font-medium"
+          :disabled="structuring"
+          @click="structureFromDocument"
+        >
+          <Loader2 v-if="structuring" class="size-3.5 animate-spin" />
+          <Sparkles v-else class="size-3.5" />
+          {{ structuring ? 'Структурируем…' : 'Структурировать из файла (ИИ)' }}
+        </button>
+        <p class="mt-2 text-xs text-surface-400 dark:text-surface-500">
+          Разберём загруженный файл резюме в такую же карточку, как у кандидатов с hh.ru.
+        </p>
+      </template>
+      <p v-else class="mt-1 text-xs text-surface-400 dark:text-surface-500">
+        Оно появится автоматически после синка hh-отклика — или загрузите файл резюме во вкладке «Документы».
       </p>
     </div>
 
@@ -171,9 +217,9 @@ function openOnHh() {
       <!-- Action toolbar — не печатаем -->
       <div class="no-print flex flex-wrap items-center gap-2 text-xs">
         <button
+          v-if="resume.alternateUrl"
           type="button"
           class="inline-flex items-center gap-1.5 rounded-md border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 hover:bg-surface-50 dark:hover:bg-surface-800"
-          :disabled="!resume.alternateUrl"
           @click="openOnHh"
         >
           <ExternalLink class="size-3.5" />
@@ -195,8 +241,17 @@ function openOnHh() {
           <FileJson class="size-3.5" />
           Скачать JSON
         </button>
-        <span v-if="fetchedAgo" class="ml-auto text-surface-400 dark:text-surface-500">
-          Обновлено {{ fetchedAgo }}
+        <span class="ml-auto inline-flex items-center gap-2">
+          <span
+            v-if="sourceLabel"
+            class="inline-flex items-center rounded-full border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 px-2 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400"
+            :title="data?.source === 'document' ? 'Структурировано ИИ из загруженного файла' : 'Снепшот резюме с hh.ru'"
+          >
+            {{ sourceLabel }}
+          </span>
+          <span v-if="fetchedAgo" class="text-surface-400 dark:text-surface-500">
+            Обновлено {{ fetchedAgo }}
+          </span>
         </span>
       </div>
 

@@ -40,6 +40,14 @@ const activeTab = useDetailTabRoute({
 // Версия резюме: null = текущая, иначе id выбранной версии.
 const selectedResumeVersionId = ref<string | null>(null)
 
+// Единообразие резюме: первый загруженный файл-резюме с извлечённым текстом —
+// для кнопки «Структурировать из файла (ИИ)» в empty state блока резюме.
+const resumeDocumentId = computed<string | null>(() => {
+  const docs = (candidate.value as any)?.documents ?? []
+  const doc = docs.find((d: any) => d.type === 'resume' && d.parsed)
+  return doc?.id ?? null
+})
+
 // HH resume header info — подгружаем должность/город/опыт для шапки
 interface HhResumeApiResp {
   resume?: {
@@ -871,12 +879,13 @@ async function openHhContacts() {
             :candidate-id="candidateId"
             :ai-summary="(candidate as any).aiSummary"
             :ai-summary-at="(candidate as any).aiSummaryAt"
-            :can-generate="Boolean((candidate as any).hhResumeId)"
+            :can-generate="Boolean((candidate as any).hasResumeSnapshot)"
             @generated="refresh()"
           />
           <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
             <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-4 flex items-center justify-between gap-2">
-              <span>Резюме с hh.ru</span>
+              <!-- Единообразие резюме: нейтральный заголовок, источник показывает чип внутри компонента -->
+              <span>Резюме</span>
               <ResumeVersionSelector
                 :candidate-id="candidateId"
                 v-model="selectedResumeVersionId"
@@ -884,9 +893,11 @@ async function openHhContacts() {
             </h2>
             <CandidateHhResumeView
               :candidate-id="candidateId"
-              :has-snapshot="Boolean((candidate as any).hhResumeId)"
+              :has-snapshot="Boolean((candidate as any).hasResumeSnapshot)"
               :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
               :version-id="selectedResumeVersionId"
+              :resume-document-id="resumeDocumentId"
+              @structured="refresh()"
             />
           </div>
         </main>

@@ -23,6 +23,8 @@ export default defineEventHandler(async (event) => {
       quickNotes: true,
       hhResumeId: true,
       hhResumeFetchedAt: true,
+      // Единообразие резюме: нужен только факт наличия и источник — сам raw вырезаем из ответа ниже.
+      hhResumeRaw: true,
       aiSummary: true,
       aiSummaryAt: true,
       fraudFlag: true,
@@ -62,7 +64,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Replace heavy parsedContent with a lightweight `parsed` boolean
-  const { documents, ...rest } = result
+  const { documents, hhResumeRaw, ...rest } = result
 
   const properties = await loadPropertyEntriesForEntity({
     organizationId: orgId,
@@ -82,8 +84,16 @@ export default defineEventHandler(async (event) => {
       )!,
     ))
 
+  // Единообразие резюме: структура может быть не только с hh (hhResumeId),
+  // но и из разбора загруженного файла (_hf.source = 'document_parse').
+  const resumeSource = hhResumeRaw
+    ? ((hhResumeRaw as { _hf?: { source?: string } })._hf?.source === 'document_parse' ? 'document' : 'hh')
+    : null
+
   return {
     ...rest,
+    hasResumeSnapshot: hhResumeRaw != null,
+    resumeSource,
     documents: documents.map(({ parsedContent, ...doc }) => ({
       ...doc,
       parsed: parsedContent != null,

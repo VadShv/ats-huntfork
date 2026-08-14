@@ -306,13 +306,13 @@ onUnmounted(() => { document.body.style.overflow = '' })
               </dl>
             </div>
 
-            <!-- Резюме с hh.ru -->
+            <!-- Единообразие резюме: блок показывается для любого источника структуры (hh или файл) -->
             <div
-              v-if="(candidate as any).hhResumeId"
+              v-if="(candidate as any).hasResumeSnapshot || (candidate as any).hhResumeId"
               class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5"
             >
               <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-3 flex items-center justify-between gap-2">
-                <span>Резюме с hh.ru</span>
+                <span>Резюме</span>
                 <CandidateResumeVersionSelector
                   :candidate-id="candidateId"
                   v-model="selectedResumeVersionId"
