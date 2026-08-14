@@ -37,14 +37,34 @@ export const experienceLevelEnum = pgEnum('experience_level', ['junior', 'mid', 
 export const nameDisplayFormatEnum = pgEnum('name_display_format', ['first_last', 'last_first'])
 export const dateFormatEnum = pgEnum('date_format', ['mdy', 'dmy', 'ymd'])
 export const pipelineStageTypeEnum = pgEnum('pipeline_stage_type', [
-  'applied',     // entry point
-  'screening',   // CV / phone screen
-  'interview',   // any interview round
-  'offer',       // offer extended
-  'hired',       // success terminal
-  'rejected',    // reject terminal
-  'custom',      // anything else
+  // ── Working bucket (canonical hh.ru-style phases) ──
+  'new',           // Неразобранные (entry point)
+  'on_hold',       // Подумать
+  'contact',       // Первичный контакт (обычно родитель для звонок/мессенджер/…)
+  'screening',     // Скрининг / телефонное интервью
+  'assessment',    // Тестовое задание / оценка
+  'interview',     // Собеседование (любой раунд)
+  'offer',         // Предложение о работе
+  // ── Terminal success ──
+  'hired',         // Выход на работу
+  // ── Terminal reject ──
+  'not_fit',       // Не подходит
+  'withdrawn',    // Кандидат отказался
+  'no_show',       // Не выходит на связь
+  'job_closed',    // Вакансия закрыта
+  'transferred',   // Перевод на другую вакансию
+  // ── Legacy (retro-compat, do not use for new stages) ──
+  'applied',       // legacy alias for `new`
+  'rejected',      // legacy alias for `not_fit`
+  // ── User-defined ──
+  'custom',        // anything else
 ])
+
+/**
+ * Bucket этапа. Используется UI-разделением «В работе» / «Отказы».
+ * `hired` формально success-terminal, но живёт в bucket=`working` для аналитики.
+ */
+export const stageBucketEnum = pgEnum('stage_bucket', ['working', 'rejected'])
 
 // ─────────────────────────────────────────────
 // ATS Domain Tables — ALL scoped by organizationId
@@ -74,6 +94,14 @@ export const job = pgTable('job', {
   experienceLevel: experienceLevelEnum('experience_level'),
   /** Optional pipeline assigned to this job. Null = use org default pipeline. */
   pipelineId: text('pipeline_id').references(() => pipeline.id, { onDelete: 'set null' }),
+  /**
+   * Копия воронки на уровне конкретной вакансии (per-vacancy customization).
+   * NULL — вакансия использует pipeline напрямую (без кастомизации).
+   * Не-NULL — замороженная копия этапов (массив объектов с stageId, name, type, color, bucket, isHidden и т.д.),
+   * которая переопределяет материнскую воронку. Запись в снэпшот не меняет pipelineStage в базе.
+   * Структура: { stages: PipelineSnapshotStage[], version: number, snapshotAt: string }
+   */
+  pipelineSnapshotJson: jsonb('pipeline_snapshot_json'),
   // ── Application form settings ──
   requireResume: boolean('require_resume').notNull().default(false),
   requireCoverLetter: boolean('require_cover_letter').notNull().default(false),
@@ -238,11 +266,36 @@ export const pipelineStage = pgTable('pipeline_stage', {
   isTerminal: boolean('is_terminal').notNull().default(false),
   /** When archived, hidden in new movements but existing applications stay. */
   isArchived: boolean('is_archived').notNull().default(false),
+  /**
+   * Bucket этапа: `working` — активный, `rejected` — отказный.
+   * Определяет UI-вкладку в конструкторе воронки («В работе» / «Отказы»).
+   */
+  bucket: stageBucketEnum('bucket').notNull().default('working'),
+  /**
+   * Системный этап — часть сидливаемого пресета. Нельзя удалить, переименовать
+   * или изменить тип/bucket. Можно только «скрыть» (isHidden) и добавлять к нему custom-подстатусы.
+   * Флаг имеет смысл только в системных воронках (pipeline.isSystem=true).
+   */
+  isSystemStage: boolean('is_system_stage').notNull().default(false),
+  /**
+   * Скрытый этап. Не показывается в выпадайках для новых перемещений, но остаётся
+   * видимым в аудите и истории. Кандидаты, уже находящиеся на скрытом этапе, остаются.
+   * Системные этапы можно только скрывать (не удалять).
+   */
+  isHidden: boolean('is_hidden').notNull().default(false),
+  /**
+   * Родительский этап для подстатусов (только 1 уровень иерархии).
+   * NULL — базовый этап. Не-NULL — вложенный подстатус.
+   * Подстатус наследует тип, bucket и терминальность от родителя. Ограничение: нельзя вложить подстатус в другой подстатус (application-level check).
+   */
+  parentStageId: text('parent_stage_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   index('pipeline_stage_pipeline_id_idx').on(t.pipelineId),
   index('pipeline_stage_organization_id_idx').on(t.organizationId),
+  index('pipeline_stage_parent_id_idx').on(t.parentStageId),
+  index('pipeline_stage_bucket_idx').on(t.pipelineId, t.bucket, t.displayOrder),
 ]))
 
 /**
@@ -629,7 +682,8 @@ export const analysisRunStatusEnum = pgEnum('analysis_run_status', [
 export const activityLog = pgTable('activity_log', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
-  actorId: text('actor_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  // Спринт 16: null = системный актор (автоматизации — автооценка, авто-отказ)
+  actorId: text('actor_id').references(() => user.id, { onDelete: 'cascade' }),
   action: activityActionEnum('action').notNull(),
   resourceType: text('resource_type').notNull(),
   resourceId: text('resource_id').notNull(),
@@ -1164,12 +1218,18 @@ export const hhAccount = pgTable('hh_account', {
   lastRefreshedAt: timestamp('last_refreshed_at'),
   lastError: text('last_error'),
   isActive: boolean('is_active').notNull().default(true),
+  // Спринт 18.1 — подписка на вебхуки hh.ru
+  webhookSecret: text('webhook_secret'),
+  webhookSubscriptionId: text('webhook_subscription_id'),
+  webhookEnabledAt: timestamp('webhook_enabled_at'),
+  webhookLastEventAt: timestamp('webhook_last_event_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   index('hh_account_org_idx').on(t.organizationId),
   uniqueIndex('hh_account_org_user_idx').on(t.organizationId, t.userId),
   index('hh_account_hh_user_idx').on(t.hhUserId),
+  index('hh_account_webhook_secret_idx').on(t.webhookSecret),
 ]))
 
 /**
@@ -1189,6 +1249,8 @@ export const hhVacancyLink = pgTable('hh_vacancy_link', {
   lastSyncStatus: text('last_sync_status'),
   lastSyncError: text('last_sync_error'),
   autoSyncEnabled: boolean('auto_sync_enabled').notNull().default(true),
+  /** Спринт 12.2: пушить ли смену этапа в системе обратно на hh.ru */
+  pushSyncEnabled: boolean('push_sync_enabled').notNull().default(true),
   importedCount: integer('imported_count').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -1763,4 +1825,162 @@ export const notificationRelations = relations(notification, ({ one }) => ({
   user:         one(user, { fields: [notification.userId], references: [user.id] }),
   comment:      one(applicationComment, { fields: [notification.commentId], references: [applicationComment.id] }),
   actor:        one(user, { fields: [notification.actorUserId], references: [user.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// Sprint 17 — Омниканальные коммуникации с кандидатами
+// MVP: канал hh.ru (чат отклика). Схема заложена под будущие
+// каналы (telegram, email, whatsapp) — см. дизайн-док comms-design.md.
+// ─────────────────────────────────────────────
+
+export const commsChannelEnum = pgEnum('comms_channel', ['hh', 'telegram', 'email', 'whatsapp'])
+export const commsMessageDirectionEnum = pgEnum('comms_message_direction', ['in', 'out'])
+export const commsMessageStatusEnum = pgEnum('comms_message_status', [
+  'received', // входящее
+  'pending', // исходящее, ждёт отправки
+  'sent', // исходящее, доставлено во внешний канал
+  'failed', // исходящее, отправка не удалась
+  'suggested', // черновик ИИ-агента (ждёт одобрения) — задел на будущее
+  'discarded', // отклонённый черновик агента
+])
+
+/**
+ * Диалог с кандидатом в одном внешнем канале.
+ * Один ряд = один чат hh.ru / тред email / диалог tg.
+ */
+export const commsConversation = pgTable('comms_conversation', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  channel: commsChannelEnum('channel').notNull(),
+  /** ID чата во внешней системе (hh chat_id, tg chat id, email thread key). */
+  externalChatId: text('external_chat_id').notNull(),
+  candidateId: text('candidate_id').references(() => candidate.id, { onDelete: 'set null' }),
+  applicationId: text('application_id').references(() => application.id, { onDelete: 'set null' }),
+  jobId: text('job_id').references(() => job.id, { onDelete: 'set null' }),
+  hhNegotiationId: text('hh_negotiation_id').references(() => hhNegotiation.id, { onDelete: 'set null' }),
+  /** Через какой hh-аккаунт читать/писать в этот чат. */
+  hhAccountId: text('hh_account_id').references(() => hhAccount.id, { onDelete: 'set null' }),
+  state: text('state').notNull().default('active'),
+  /** Кэш доступности отправки (write_message_state из hh). */
+  canWrite: boolean('can_write').notNull().default(true),
+  canWriteReason: text('can_write_reason'),
+  unreadCount: integer('unread_count').notNull().default(0),
+  lastMessageAt: timestamp('last_message_at'),
+  lastMessagePreview: text('last_message_preview'),
+  lastMessageDirection: commsMessageDirectionEnum('last_message_direction'),
+  lastSyncedAt: timestamp('last_synced_at'),
+  /** Режим AI-ассистента в диалоге: off | copilot | autopilot_review | autopilot (Спринт 18.5). */
+  assistantMode: text('assistant_mode').notNull().default('off'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('comms_conversation_org_channel_ext_idx').on(t.organizationId, t.channel, t.externalChatId),
+  index('comms_conversation_org_idx').on(t.organizationId),
+  index('comms_conversation_candidate_idx').on(t.candidateId),
+  index('comms_conversation_application_idx').on(t.applicationId),
+]))
+
+/**
+ * Сообщение в диалоге. Идемпотентность ингеста — по (conversationId, externalMessageId).
+ */
+export const commsMessage = pgTable('comms_message', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  conversationId: text('conversation_id').notNull().references(() => commsConversation.id, { onDelete: 'cascade' }),
+  /** ID сообщения во внешней системе (для дедупа). */
+  externalMessageId: text('external_message_id'),
+  direction: commsMessageDirectionEnum('direction').notNull(),
+  /** candidate | recruiter | system | agent */
+  senderType: text('sender_type').notNull().default('recruiter'),
+  senderUserId: text('sender_user_id').references(() => user.id, { onDelete: 'set null' }),
+  senderName: text('sender_name'),
+  body: text('body'),
+  attachments: jsonb('attachments'),
+  status: commsMessageStatusEnum('status').notNull().default('received'),
+  errorMessage: text('error_message'),
+  /** Время создания сообщения во внешнем канале. */
+  externalCreatedAt: timestamp('external_created_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('comms_message_conversation_idx').on(t.conversationId),
+  index('comms_message_org_idx').on(t.organizationId),
+  // Уникальный частичный индекс по (conversation_id, external_message_id)
+  // WHERE external_message_id IS NOT NULL создаётся в миграции 0052.
+]))
+
+/**
+ * Профиль AI-ассистента переписки (Спринт 18.5) — одна запись на организацию.
+ * LLM-контур ассистента настраивается ссылкой на отдельный ai_config
+ * (скрининговый контур не трогаем).
+ */
+export const commsAssistantProfile = pgTable('comms_assistant_profile', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  enabled: boolean('enabled').notNull().default(false),
+  /** Имя персоны ассистента (видно кандидату при подписи). */
+  personaName: text('persona_name'),
+  personaRole: text('persona_role'),
+  /** formal | neutral | friendly */
+  tone: text('tone').notNull().default('neutral'),
+  language: text('language').notNull().default('ru'),
+  knowledgeBase: text('knowledge_base'),
+  rules: text('rules'),
+  signatureEnabled: boolean('signature_enabled').notNull().default(true),
+  aiConfigId: text('ai_config_id').references(() => aiConfig.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('comms_assistant_profile_org_idx').on(t.organizationId),
+]))
+
+export const commsConversationRelations = relations(commsConversation, ({ one, many }) => ({
+  organization: one(organization, { fields: [commsConversation.organizationId], references: [organization.id] }),
+  candidate: one(candidate, { fields: [commsConversation.candidateId], references: [candidate.id] }),
+  application: one(application, { fields: [commsConversation.applicationId], references: [application.id] }),
+  job: one(job, { fields: [commsConversation.jobId], references: [job.id] }),
+  hhNegotiation: one(hhNegotiation, { fields: [commsConversation.hhNegotiationId], references: [hhNegotiation.id] }),
+  hhAccount: one(hhAccount, { fields: [commsConversation.hhAccountId], references: [hhAccount.id] }),
+  messages: many(commsMessage),
+}))
+
+export const commsMessageRelations = relations(commsMessage, ({ one }) => ({
+  conversation: one(commsConversation, { fields: [commsMessage.conversationId], references: [commsConversation.id] }),
+  senderUser: one(user, { fields: [commsMessage.senderUserId], references: [user.id] }),
+}))
+
+/**
+ * Спринт 18.1 — журнал входящих событий внешних каналов (вебхуки).
+ * Каждый колбэк hh.ru (позже — telegram и др.) фиксируется здесь до обработки:
+ * дедупликация повторных доставок, аудит и возможность доиграть упавшие события.
+ */
+export const commsChannelEvent = pgTable('comms_channel_event', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  channel: commsChannelEnum('channel').notNull(),
+  /** ID события во внешней системе (hh envelope id) — для дедупа доставок. */
+  externalEventId: text('external_event_id'),
+  /** Тип события (hh action_type). */
+  type: text('type').notNull(),
+  /** Полный конверт колбэка как есть. */
+  payload: jsonb('payload'),
+  /** received | processed | skipped | failed */
+  status: text('status').notNull().default('received'),
+  errorMessage: text('error_message'),
+  processedAt: timestamp('processed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('comms_channel_event_org_idx').on(t.organizationId),
+  index('comms_channel_event_status_idx').on(t.status),
+  // Уникальный частичный индекс (org, channel, type, external_event_id)
+  // WHERE external_event_id IS NOT NULL создаётся в миграции 0053.
+]))
+
+export const commsAssistantProfileRelations = relations(commsAssistantProfile, ({ one }) => ({
+  organization: one(organization, { fields: [commsAssistantProfile.organizationId], references: [organization.id] }),
+  aiConfig: one(aiConfig, { fields: [commsAssistantProfile.aiConfigId], references: [aiConfig.id] }),
+}))
+
+export const commsChannelEventRelations = relations(commsChannelEvent, ({ one }) => ({
+  organization: one(organization, { fields: [commsChannelEvent.organizationId], references: [organization.id] }),
 }))

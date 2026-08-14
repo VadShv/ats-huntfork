@@ -1,335 +1,391 @@
 {
-	"version": "7",
-	"dialect": "postgresql",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "7",
-			"when": 1771063818704,
-			"tag": "0000_young_vivisector",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1771084513743,
-			"tag": "0001_redundant_blink",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1771089588253,
-			"tag": "0002_kind_inertia",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "7",
-			"when": 1771094430857,
-			"tag": "0003_slim_clea",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "7",
-			"when": 1771140508257,
-			"tag": "0004_clumsy_cable",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "7",
-			"when": 1771422251507,
-			"tag": "0005_yielding_the_executioner",
-			"breakpoints": true
-		},
-		{
-			"idx": 6,
-			"version": "7",
-			"when": 1772374562880,
-			"tag": "0006_breezy_hairball",
-			"breakpoints": true
-		},
-		{
-			"idx": 7,
-			"version": "7",
-			"when": 1772433529892,
-			"tag": "0007_colossal_nomad",
-			"breakpoints": true
-		},
-		{
-			"idx": 8,
-			"version": "7",
-			"when": 1772614057261,
-			"tag": "0008_nervous_stone_men",
-			"breakpoints": true
-		},
-		{
-			"idx": 9,
-			"version": "7",
-			"when": 1772615027489,
-			"tag": "0009_organic_gauntlet",
-			"breakpoints": true
-		},
-		{
-			"idx": 10,
-			"version": "7",
-			"when": 1773152393640,
-			"tag": "0010_glamorous_mattie_franklin",
-			"breakpoints": true
-		},
-		{
-			"idx": 11,
-			"version": "7",
-			"when": 1773154463252,
-			"tag": "0011_oval_enchantress",
-			"breakpoints": true
-		},
-		{
-			"idx": 12,
-			"version": "7",
-			"when": 1773222445580,
-			"tag": "0012_chief_rockslide",
-			"breakpoints": true
-		},
-		{
-			"idx": 13,
-			"version": "7",
-			"when": 1773228233884,
-			"tag": "0013_smart_blue_marvel",
-			"breakpoints": true
-		},
-		{
-			"idx": 14,
-			"version": "7",
-			"when": 1773231779768,
-			"tag": "0015_married_wallflower",
-			"breakpoints": true
-		},
-		{
-			"idx": 15,
-			"version": "7",
-			"when": 1773733547482,
-			"tag": "0015_closed_william_stryker",
-			"breakpoints": true
-		},
-		{
-			"idx": 16,
-			"version": "7",
-			"when": 1773738744180,
-			"tag": "0016_first_spyke",
-			"breakpoints": true
-		},
-		{
-			"idx": 17,
-			"version": "7",
-			"when": 1773822054166,
-			"tag": "0017_cynical_nicolaos",
-			"breakpoints": true
-		},
-		{
-			"idx": 18,
-			"version": "7",
-			"when": 1774599034718,
-			"tag": "0018_source_tracking",
-			"breakpoints": true
-		},
-		{
-			"idx": 19,
-			"version": "7",
-			"when": 1775723970045,
-			"tag": "0019_noisy_strong_guy",
-			"breakpoints": true
-		},
-		{
-			"idx": 20,
-			"version": "7",
-			"when": 1776076881696,
-			"tag": "0020_goofy_grey_gargoyle",
-			"breakpoints": true
-		},
-		{
-			"idx": 21,
-			"version": "7",
-			"when": 1776400000000,
-			"tag": "0021_candidate_demographics_org_settings",
-			"breakpoints": true
-		},
-		{
-			"idx": 22,
-			"version": "7",
-			"when": 1776450000000,
-			"tag": "0022_salary_negotiable",
-			"breakpoints": true
-		},
-		{
-			"idx": 23,
-			"version": "7",
-			"when": 1776500000000,
-			"tag": "0023_job_experience_level",
-			"breakpoints": true
-		},
-		{
-			"idx": 24,
-			"version": "7",
-			"when": 1776550000000,
-			"tag": "0024_candidate_quick_notes",
-			"breakpoints": true
-		},
-		{
-			"idx": 25,
-			"version": "7",
-			"when": 1777199840612,
-			"tag": "0025_chatbot_persistence",
-			"breakpoints": true
-		},
-		{
-			"idx": 26,
-			"version": "7",
-			"when": 1777200000000,
-			"tag": "0026_multi_ai_configs",
-			"breakpoints": true
-		},
-		{
-			"idx": 27,
-			"version": "7",
-			"when": 1777300000000,
-			"tag": "0027_chatbot_agent_default_unique",
-			"breakpoints": true
-		},
-		{
-			"idx": 28,
-			"version": "7",
-			"when": 1777463601249,
-			"tag": "0028_custom_properties",
-			"breakpoints": true
-		},
-		{
-			"idx": 29,
-			"version": "7",
-			"when": 1777600000000,
-			"tag": "0029_pipelines",
-			"breakpoints": true
-		},
-		{
-			"idx": 31,
-			"version": "7",
-			"when": 1777700000000,
-			"tag": "0031_member_moderation",
-			"breakpoints": true
-		},
-		{
-			"idx": 32,
-			"version": "7",
-			"when": 1780000000000,
-			"tag": "0032_huntfork_hh_integration",
-			"breakpoints": true
-		},
-		{
-			"idx": 33,
-			"version": "7",
-			"when": 1781000000000,
-			"tag": "0033_candidate_hh_resume_and_ai_summary",
-			"breakpoints": true
-		},
-		{
-			"idx": 34,
-			"version": "7",
-			"when": 1782000000000,
-			"tag": "0034_dedup_foundation",
-			"breakpoints": true
-		},
-		{
-			"idx": 35,
-			"version": "7",
-			"when": 1783000000000,
-			"tag": "0035_resume_versioning",
-			"breakpoints": true
-		},
-		{
-			"idx": 36,
-			"version": "7",
-			"when": 1784000000000,
-			"tag": "0036_fuzzy_and_fraud",
-			"breakpoints": true
-		},
-		{
-			"idx": 37,
-			"version": "7",
-			"when": 1785000000000,
-			"tag": "0037_dedup_hot_path_indexes",
-			"breakpoints": true
-		},
-		{
-			"idx": 38,
-			"version": "7",
-			"when": 1786000000000,
-			"tag": "0038_candidate_city",
-			"breakpoints": true
-		},
-		{
-			"idx": 39,
-			"version": "7",
-			"when": 1787000000000,
-			"tag": "0039_candidate_social_identifiers",
-			"breakpoints": true
-		},
-		{
-			"idx": 40,
-			"version": "7",
-			"when": 1788000000000,
-			"tag": "0040_dedup_ai_arbiter",
-			"breakpoints": true
-		},
-		{
-			"idx": 41,
-			"version": "7",
-			"when": 1789000000000,
-			"tag": "0041_collaboration_thread",
-			"breakpoints": true
-		},
-		{
-			"idx": 42,
-			"version": "7",
-			"when": 1790000000000,
-			"tag": "0042_hh_sourcing",
-			"breakpoints": true
-		},
-		{
-			"idx": 43,
-			"version": "7",
-			"when": 1791000000000,
-			"tag": "0043_hh_saved_search_max_candidates",
-			"breakpoints": true
-		},
-		{
-			"idx": 44,
-			"version": "7",
-			"when": 1792000000000,
-			"tag": "0044_auto_reject_by_ai_score",
-			"breakpoints": true
-		},
-		{
-			"idx": 45,
-			"version": "7",
-			"when": 1793000000000,
-			"tag": "0045_candidate_search_tsv",
-			"breakpoints": true
-		},
-		{
-			"idx": 46,
-			"version": "7",
-			"when": 1794000000000,
-			"tag": "0046_candidate_search_tsv_russian",
-			"breakpoints": true
-		},
-		{
-			"idx": 47,
-			"version": "7",
-			"when": 1795000000000,
-			"tag": "0047_candidate_name_trgm",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1771063818704,
+      "tag": "0000_young_vivisector",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771084513743,
+      "tag": "0001_redundant_blink",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771089588253,
+      "tag": "0002_kind_inertia",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771094430857,
+      "tag": "0003_slim_clea",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771140508257,
+      "tag": "0004_clumsy_cable",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771422251507,
+      "tag": "0005_yielding_the_executioner",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772374562880,
+      "tag": "0006_breezy_hairball",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1772433529892,
+      "tag": "0007_colossal_nomad",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1772614057261,
+      "tag": "0008_nervous_stone_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772615027489,
+      "tag": "0009_organic_gauntlet",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773152393640,
+      "tag": "0010_glamorous_mattie_franklin",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1773154463252,
+      "tag": "0011_oval_enchantress",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1773222445580,
+      "tag": "0012_chief_rockslide",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1773228233884,
+      "tag": "0013_smart_blue_marvel",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1773231779768,
+      "tag": "0015_married_wallflower",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1773733547482,
+      "tag": "0015_closed_william_stryker",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1773738744180,
+      "tag": "0016_first_spyke",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1773822054166,
+      "tag": "0017_cynical_nicolaos",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1774599034718,
+      "tag": "0018_source_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1775723970045,
+      "tag": "0019_noisy_strong_guy",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1776076881696,
+      "tag": "0020_goofy_grey_gargoyle",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1776400000000,
+      "tag": "0021_candidate_demographics_org_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1776450000000,
+      "tag": "0022_salary_negotiable",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1776500000000,
+      "tag": "0023_job_experience_level",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1776550000000,
+      "tag": "0024_candidate_quick_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1777199840612,
+      "tag": "0025_chatbot_persistence",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1777200000000,
+      "tag": "0026_multi_ai_configs",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1777300000000,
+      "tag": "0027_chatbot_agent_default_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1777463601249,
+      "tag": "0028_custom_properties",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1777600000000,
+      "tag": "0029_pipelines",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1777700000000,
+      "tag": "0031_member_moderation",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1780000000000,
+      "tag": "0032_huntfork_hh_integration",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1781000000000,
+      "tag": "0033_candidate_hh_resume_and_ai_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0034_dedup_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1783000000000,
+      "tag": "0035_resume_versioning",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784000000000,
+      "tag": "0036_fuzzy_and_fraud",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1785000000000,
+      "tag": "0037_dedup_hot_path_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1786000000000,
+      "tag": "0038_candidate_city",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1787000000000,
+      "tag": "0039_candidate_social_identifiers",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1788000000000,
+      "tag": "0040_dedup_ai_arbiter",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789000000000,
+      "tag": "0041_collaboration_thread",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790000000000,
+      "tag": "0042_hh_sourcing",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791000000000,
+      "tag": "0043_hh_saved_search_max_candidates",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792000000000,
+      "tag": "0044_auto_reject_by_ai_score",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793000000000,
+      "tag": "0045_candidate_search_tsv",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794000000000,
+      "tag": "0046_candidate_search_tsv_russian",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1795000000000,
+      "tag": "0047_candidate_name_trgm",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1796000000000,
+      "tag": "0048_pipeline_hh_1to1_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1797000000000,
+      "tag": "0049_hh_push_sync_and_reject_colors",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1798000000000,
+      "tag": "0050_rename_interview_stage",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1799000000000,
+      "tag": "0051_activity_system_actor",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1800000000000,
+      "tag": "0052_comms_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1801000000000,
+      "tag": "0053_hh_webhooks",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1801000010000,
+      "tag": "0054_assistant",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1801000020000,
+      "tag": "0055_activity_stage_changed",
+      "breakpoints": true
+    }
+  ]
 }

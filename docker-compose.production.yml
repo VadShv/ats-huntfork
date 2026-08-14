@@ -52,7 +52,7 @@ services:
       context: ./src
       dockerfile: Dockerfile
       args:
-        NUXT_PUBLIC_SITE_URL: http://111.88.253.175/ats
+        NUXT_PUBLIC_SITE_URL: http://176.108.249.88
     image: reqcore-astra:latest
     container_name: reqcore_app
     restart: unless-stopped
