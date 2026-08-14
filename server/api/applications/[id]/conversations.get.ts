@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
-import { application, commsConversation } from '../../../database/schema'
+import { application, commsConversation, commsTelegramBusinessConnection } from '../../../database/schema'
 import {
   ensureHhConversation,
   listConversationMessages,
@@ -102,6 +102,23 @@ export default defineEventHandler(async (event) => {
   // Чат 2.0: текущий черновик ассистента — чтобы генерация переживала перезагрузку страницы
   const draft = await getLatestDraft(active.id)
 
+  // Спринт 19.5: окно ответа 24ч для чатов личного аккаунта (Telegram Business)
+  const tgBizId = fresh?.tgBusinessConnectionId ?? active.tgBusinessConnectionId
+  let business: { connected: boolean, canReply: boolean, windowOpen: boolean, lastInboundAt: string | null } | null = null
+  if ((fresh?.channel ?? active.channel) === 'telegram' && tgBizId) {
+    const bizConn = await db.query.commsTelegramBusinessConnection.findFirst({
+      where: eq(commsTelegramBusinessConnection.id, tgBizId),
+    })
+    const lastIn = [...messages].reverse().find(m => m.direction === 'in')
+    const lastInAt = lastIn ? (lastIn.externalCreatedAt ?? lastIn.createdAt) : null
+    business = {
+      connected: Boolean(bizConn?.enabled),
+      canReply: Boolean(bizConn?.canReply),
+      windowOpen: lastInAt ? (Date.now() - lastInAt.getTime()) < 24 * 60 * 60 * 1000 : false,
+      lastInboundAt: lastInAt?.toISOString?.() ?? null,
+    }
+  }
+
   return {
     conversation: {
       id: fresh?.id ?? active.id,
@@ -111,6 +128,7 @@ export default defineEventHandler(async (event) => {
       unreadCount: fresh?.unreadCount ?? active.unreadCount,
       assistantMode: fresh?.assistantMode ?? active.assistantMode,
       lastSyncedAt: fresh?.lastSyncedAt ?? null,
+      business,
     },
     messages: messages.map(m => ({
       id: m.id,

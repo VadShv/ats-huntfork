@@ -141,6 +141,15 @@ interface TgBotStatus {
   botUsername?: string
   welcomeMessage?: string | null
   webhookLastEventAt?: string | null
+  /** Спринт 19.5: подключённые личные аккаунты (Telegram Business). */
+  businessConnections?: {
+    id: string
+    tgUsername: string | null
+    displayName: string | null
+    enabled: boolean
+    canReply: boolean
+    connectedAt: string | null
+  }[]
 }
 
 const { data: tgStatus, refresh: refreshTg, status: tgStatusReq } = await useFetch<TgBotStatus>('/api/comms/telegram-bot', {
@@ -747,6 +756,39 @@ async function handleDisconnect() {
             />
             <p class="text-[11px] text-surface-400 dark:text-surface-500">
               Плейсхолдеры: <code class="bg-surface-100 dark:bg-surface-800 px-1 rounded">{name}</code> — имя кандидата, <code class="bg-surface-100 dark:bg-surface-800 px-1 rounded">{job}</code> — название вакансии. Пусто — стандартное приветствие.
+            </p>
+          </div>
+
+          <!-- Спринт 19.5: личные аккаунты через Telegram Business -->
+          <div class="space-y-1.5">
+            <div class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider">
+              Личные аккаунты (Telegram Business)
+            </div>
+            <template v-if="tgStatus.businessConnections?.length">
+              <div
+                v-for="bc in tgStatus.businessConnections"
+                :key="bc.id"
+                class="flex items-center justify-between rounded-lg border border-surface-200/80 dark:border-surface-700/60 px-3 py-2"
+              >
+                <div>
+                  <p class="text-sm text-surface-800 dark:text-surface-100">
+                    {{ bc.displayName || (bc.tgUsername ? '@' + bc.tgUsername : '—') }}
+                    <span v-if="bc.displayName && bc.tgUsername" class="text-surface-400"> · @{{ bc.tgUsername }}</span>
+                  </p>
+                  <p class="text-[11px] text-surface-400 dark:text-surface-500">Подключён {{ formatTgDate(bc.connectedAt) }}</p>
+                </div>
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium border"
+                  :class="bc.enabled && bc.canReply
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'"
+                >
+                  {{ !bc.enabled ? 'Отключён' : (bc.canReply ? 'Активен' : 'Без права ответа') }}
+                </span>
+              </div>
+            </template>
+            <p v-else class="text-sm text-surface-500 dark:text-surface-400">
+              Не подключены. В личном Telegram: Настройки → Telegram Business → Чат-боты → добавьте <span class="font-medium">@{{ tgStatus.botUsername }}</span>. После этого переписка вашего личного аккаунта с кандидатами появится в Huntfork.
             </p>
           </div>
 

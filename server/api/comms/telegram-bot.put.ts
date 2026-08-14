@@ -12,6 +12,7 @@ import {
   buildTelegramWebhookUrl,
   encryptBotToken,
   generateTelegramSecret,
+  getBotToken,
   getTelegramBotForOrg,
   tgGetMe,
   tgSetWebhook,
@@ -95,6 +96,20 @@ export default defineEventHandler(async (event) => {
       updatedAt: new Date(),
     })
     .where(eq(commsTelegramBot.id, existing.id))
+
+  // Спринт 19.5: при включении переустанавливаем вебхук — у ботов,
+  // подключённых до 19.5, в allowed_updates нет событий Telegram Business
+  if (body.enabled === true) {
+    try {
+      await tgSetWebhook(getBotToken(existing), buildTelegramWebhookUrl(existing.webhookSecret), existing.webhookSecret)
+    }
+    catch (err) {
+      logWarn('comms.tg_refresh_webhook_failed', {
+        organization_id: orgId,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
 
   return { ok: true, botUsername: existing.botUsername }
 })

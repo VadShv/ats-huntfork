@@ -39,6 +39,8 @@ interface ChatConversation {
   canWriteReason: string | null
   unreadCount: number
   assistantMode: string
+  /** Спринт 19.5: чат личного аккаунта рекрутёра (Telegram Business). */
+  business?: { connected: boolean, canReply: boolean, windowOpen: boolean, lastInboundAt: string | null } | null
 }
 
 /** Спринт 19: сводка по каналам отклика (hh + telegram). */
@@ -198,6 +200,26 @@ async function copyTelegramInvite() {
   }
   finally {
     inviteLoading.value = false
+  }
+}
+
+/** Спринт 19.5: первый контакт в личном ТГ — ИИ-драфт + ссылка t.me с текстом. */
+const firstContactLoading = ref(false)
+const firstContactError = ref<string | null>(null)
+async function openTelegramFirstContact() {
+  if (firstContactLoading.value) return
+  firstContactLoading.value = true
+  firstContactError.value = null
+  try {
+    const res = await $fetch<{ link: string }>(`/api/applications/${props.applicationId}/telegram-first-contact`, { method: 'POST' })
+    window.open(res.link, '_blank', 'noopener')
+    track('chat_tg_first_contact', {})
+  }
+  catch (err: any) {
+    firstContactError.value = err?.data?.statusMessage ?? t('dashboard.chat.firstContactError')
+  }
+  finally {
+    firstContactLoading.value = false
   }
 }
 
@@ -445,6 +467,19 @@ onBeforeUnmount(() => {
         </button>
         <p class="text-[11px] text-surface-400 dark:text-surface-500 mt-1.5">{{ t('dashboard.chat.inviteHint') }}</p>
         <p v-if="inviteError" class="text-xs text-danger-600 dark:text-danger-400 mt-1">{{ inviteError }}</p>
+        <!-- Спринт 19.5: первый контакт через личный ТГ рекрутёра -->
+        <div class="mt-2">
+          <button
+            class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-surface-200/80 dark:border-surface-700/60 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
+            :disabled="firstContactLoading"
+            @click="openTelegramFirstContact()"
+          >
+            <Send class="size-3.5" />
+            {{ firstContactLoading ? t('dashboard.chat.firstContactLoading') : t('dashboard.chat.firstContact') }}
+          </button>
+          <p class="text-[11px] text-surface-400 dark:text-surface-500 mt-1.5">{{ t('dashboard.chat.firstContactHint') }}</p>
+          <p v-if="firstContactError" class="text-xs text-danger-600 dark:text-danger-400 mt-1">{{ firstContactError }}</p>
+        </div>
       </div>
     </div>
 
@@ -636,6 +671,21 @@ onBeforeUnmount(() => {
             {{ t('dashboard.chat.reviewDiscard') }}
           </button>
         </div>
+      </div>
+
+      <!-- Спринт 19.5: статус чата личного ТГ (Telegram Business) -->
+      <div
+        v-if="chatConversation.business"
+        class="mt-3 rounded-lg px-3 py-2 text-xs"
+        :class="!chatConversation.business.connected || !chatConversation.business.canReply || !chatConversation.business.windowOpen
+          ? 'bg-warning-50 dark:bg-warning-950/30 text-warning-700 dark:text-warning-300'
+          : 'bg-surface-100 dark:bg-surface-800/60 text-surface-500 dark:text-surface-400'"
+      >
+        <span class="font-semibold">{{ t('dashboard.chat.bizBadge') }}</span>
+        <template v-if="!chatConversation.business.connected"> · {{ t('dashboard.chat.bizDisconnected') }}</template>
+        <template v-else-if="!chatConversation.business.canReply"> · {{ t('dashboard.chat.bizNoReply') }}</template>
+        <template v-else-if="!chatConversation.business.windowOpen"> · {{ t('dashboard.chat.bizWindowClosed') }}</template>
+        <template v-else> · {{ t('dashboard.chat.bizWindowOpen') }}</template>
       </div>
 
       <!-- Composer -->

@@ -14,19 +14,24 @@ import {
   commsConversation,
   commsMessage,
   commsTelegramLinkToken,
+  commsTelegramBusinessConnection,
   candidate as candidateTable,
   job as jobTable,
+  application as applicationTable,
 } from '../../database/schema'
 import { getBoss } from '../queue/boss'
 import { sendConversationMessage, preview, type CommsConversationRow } from './commsService'
 import { getJobAssistantSettings } from './assistant'
 import { maybeTriggerAutopilot } from './assistantJobs'
 import {
+  buildBizExternalChatId,
   getBotToken,
   getTelegramBotForOrg,
+  normalizeTgUsername,
   tgDownloadFile,
   tgSendMessage,
   type CommsTelegramBotRow,
+  type TgBusinessConnection,
   type TgMessage,
 } from './telegram'
 import { uploadToS3 } from '../s3'
@@ -35,11 +40,14 @@ export const TG_WEBHOOK_QUEUE = 'comms-telegram-webhook'
 
 export interface TgWebhookJobPayload { eventRowId: string }
 
-/** Конверт update Telegram (подписаны только на message). */
+/** Конверт update Telegram (message + события Telegram Business). */
 export interface TgUpdateEnvelope {
   update_id?: number
   message?: TgMessage
   edited_message?: TgMessage
+  business_connection?: TgBusinessConnection
+  business_message?: TgMessage
+  edited_business_message?: TgMessage
 }
 
 /** Поставить событие в очередь. Best-effort — журнал не потеряется. */
@@ -88,11 +96,26 @@ async function processOneUpdate(data: TgWebhookJobPayload): Promise<void> {
   if (row.status === 'processed' || row.status === 'skipped') return
 
   const update = (row.payload ?? {}) as TgUpdateEnvelope
-  const msg = update.message
   try {
+    // Спринт 19.5: события Telegram Business (личный аккаунт рекрутёра)
+    if (update.business_connection) {
+      await handleBusinessConnection(row.id, row.organizationId, update.business_connection)
+      return
+    }
+    if (update.business_message) {
+      const bot = await getTelegramBotForOrg(row.organizationId)
+      if (!bot || !bot.enabled) {
+        await finishEvent(row.id, 'skipped', 'bot_disabled')
+        return
+      }
+      await handleBusinessMessage(row.id, row.organizationId, bot, update.business_message)
+      return
+    }
+
+    const msg = update.message
     if (!msg || !msg.chat) {
       // edited_message и прочее пока сознательно пропускаем
-      await finishEvent(row.id, 'skipped', update.edited_message ? 'edited_message' : 'no_message')
+      await finishEvent(row.id, 'skipped', update.edited_message ? 'edited_message' : (update.edited_business_message ? 'edited_business_message' : 'no_message'))
       return
     }
     if (msg.from?.is_bot) {
@@ -403,4 +426,223 @@ async function collectAttachments(
     out.push({ kind: item.kind, name: item.name, mimeType: item.mimeType, size: item.size, s3Key })
   }
   return out
+}
+
+// ── Спринт 19.5: Telegram Business (личный аккаунт рекрутёра) ────────────
+
+/**
+ * Рекрутёр подключил/перенастроил/отключил бота в своём личном Telegram
+ * (Настройки → Telegram Business → Чат-боты). Стабильный ключ — (org, tg id
+ * владельца): connection_id меняется при каждой перенастройке.
+ */
+async function handleBusinessConnection(
+  eventRowId: string,
+  organizationId: string,
+  bc: TgBusinessConnection,
+): Promise<void> {
+  const tgUserId = String(bc.user.id)
+  const canReply = bc.rights?.can_reply ?? bc.can_reply ?? false
+  const displayName = [bc.user.first_name, bc.user.last_name].filter(Boolean).join(' ') || null
+
+  await db.insert(commsTelegramBusinessConnection)
+    .values({
+      organizationId,
+      connectionId: bc.id,
+      tgUserId,
+      tgUsername: bc.user.username ?? null,
+      displayName,
+      enabled: bc.is_enabled,
+      canReply,
+    })
+    .onConflictDoUpdate({
+      target: [commsTelegramBusinessConnection.organizationId, commsTelegramBusinessConnection.tgUserId],
+      set: {
+        connectionId: bc.id,
+        tgUsername: bc.user.username ?? null,
+        displayName,
+        enabled: bc.is_enabled,
+        canReply,
+        updatedAt: new Date(),
+      },
+    })
+
+  await finishEvent(eventRowId, 'processed')
+  logInfo('comms.tg_business_connection', {
+    organization_id: organizationId,
+    tg_user_id: tgUserId,
+    enabled: bc.is_enabled,
+    can_reply: canReply,
+    module: 'comms',
+  })
+}
+
+/**
+ * Сообщение в личном чате рекрутёра (обе стороны: и кандидат, и сам рекрутёр
+ * с телефона). Диалог создаём автоматически; кандидата мэтчим по username
+ * из карточки (candidate.telegram), иначе диалог остаётся непривязанным —
+ * привязка вручную из Инбокса.
+ */
+async function handleBusinessMessage(
+  eventRowId: string,
+  organizationId: string,
+  bot: CommsTelegramBotRow,
+  msg: TgMessage,
+): Promise<void> {
+  if (!msg.chat || msg.chat.type !== 'private') {
+    await finishEvent(eventRowId, 'skipped', 'not_private_chat')
+    return
+  }
+  if (!msg.business_connection_id) {
+    await finishEvent(eventRowId, 'skipped', 'no_business_connection_id')
+    return
+  }
+
+  const conn = await db.query.commsTelegramBusinessConnection.findFirst({
+    where: and(
+      eq(commsTelegramBusinessConnection.organizationId, organizationId),
+      eq(commsTelegramBusinessConnection.connectionId, msg.business_connection_id),
+    ),
+  })
+  if (!conn || !conn.enabled) {
+    await finishEvent(eventRowId, 'skipped', conn ? 'business_connection_disabled' : 'unknown_business_connection')
+    return
+  }
+
+  // Сообщение от самого владельца (написал с телефона) — фиксируем как исходящее
+  const fromOwner = msg.from ? String(msg.from.id) === conn.tgUserId : false
+  const direction = fromOwner ? 'out' as const : 'in' as const
+  const chatId = String(msg.chat.id)
+  const externalChatId = buildBizExternalChatId(conn.tgUserId, chatId)
+  const text = (msg.text ?? msg.caption ?? '').trim()
+
+  let conv = await db.query.commsConversation.findFirst({
+    where: and(
+      eq(commsConversation.organizationId, organizationId),
+      eq(commsConversation.channel, 'telegram'),
+      eq(commsConversation.externalChatId, externalChatId),
+    ),
+  })
+
+  if (!conv) {
+    // Новый personal-чат: пытаемся привязать кандидата по username
+    const username = normalizeTgUsername(msg.chat.username)
+    let candidateId: string | null = null
+    let applicationId: string | null = null
+    let jobId: string | null = null
+    if (username) {
+      const matched = await db.select({ id: candidateTable.id })
+        .from(candidateTable)
+        .where(and(
+          eq(candidateTable.organizationId, organizationId),
+          sql`lower(regexp_replace(coalesce(${candidateTable.telegram}, ''), '^(https?://(www\\.)?(t\\.me|telegram\\.me)/|@)', '')) = ${username}`,
+        ))
+        .limit(2)
+      // Привязываем только при однозначном совпадении
+      if (matched.length === 1 && matched[0]) {
+        candidateId = matched[0].id
+        const app = await db.query.application.findFirst({
+          where: and(
+            eq(applicationTable.organizationId, organizationId),
+            eq(applicationTable.candidateId, candidateId),
+          ),
+          orderBy: (t, { desc: d }) => [d(t.createdAt)],
+        })
+        if (app) {
+          applicationId = app.id
+          jobId = app.jobId
+        }
+      }
+    }
+
+    const inserted = await db.insert(commsConversation)
+      .values({
+        organizationId,
+        channel: 'telegram',
+        externalChatId,
+        tgBusinessConnectionId: conn.id,
+        candidateId,
+        applicationId,
+        jobId,
+        // Личный аккаунт: ассистент включается рекрутёром осознанно
+        assistantMode: 'off',
+        canWrite: true,
+      })
+      .onConflictDoUpdate({
+        target: [commsConversation.organizationId, commsConversation.channel, commsConversation.externalChatId],
+        set: { tgBusinessConnectionId: conn.id, updatedAt: new Date() },
+      })
+      .returning()
+    conv = inserted[0]
+    if (!conv) {
+      await finishEvent(eventRowId, 'failed', 'conversation_upsert_failed')
+      return
+    }
+  }
+  else if (conv.tgBusinessConnectionId !== conn.id) {
+    // Перепривязка после переподключения бота к аккаунту
+    await db.update(commsConversation)
+      .set({ tgBusinessConnectionId: conn.id, updatedAt: new Date() })
+      .where(eq(commsConversation.id, conv.id))
+  }
+
+  const attachments = await collectAttachments(bot, conv, msg)
+  if (!text && attachments.length === 0) {
+    await finishEvent(eventRowId, 'skipped', 'no_content')
+    return
+  }
+
+  const senderName = msg.from
+    ? [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ') || msg.from.username || null
+    : null
+  const externalCreatedAt = msg.date ? new Date(msg.date * 1000) : new Date()
+
+  const insertedMsg = await db.insert(commsMessage)
+    .values({
+      organizationId,
+      conversationId: conv.id,
+      externalMessageId: String(msg.message_id),
+      direction,
+      senderType: fromOwner ? 'recruiter' : 'candidate',
+      senderName,
+      body: text || null,
+      attachments: attachments.length > 0 ? attachments : null,
+      status: fromOwner ? 'sent' : 'received',
+      externalCreatedAt,
+    })
+    .onConflictDoNothing()
+    .returning({ id: commsMessage.id })
+  if (!insertedMsg[0]) {
+    await finishEvent(eventRowId, 'skipped', 'duplicate_message')
+    return
+  }
+
+  await db.update(commsConversation)
+    .set({
+      lastMessageAt: externalCreatedAt,
+      lastMessagePreview: preview(text) ?? (attachments.length > 0 ? '📎' : null),
+      lastMessageDirection: direction,
+      ...(direction === 'in' ? { unreadCount: sql`${commsConversation.unreadCount} + 1` } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(commsConversation.id, conv.id))
+
+  if (direction === 'in') {
+    try {
+      await maybeTriggerAutopilot(conv.id)
+    }
+    catch (err) {
+      logWarn('comms.autopilot_trigger_failed', {
+        conversation_id: conv.id,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  await finishEvent(eventRowId, 'processed')
+  logInfo('comms.tg_business_message_ingested', {
+    conversation_id: conv.id,
+    organization_id: organizationId,
+    direction,
+    module: 'comms',
+  })
 }

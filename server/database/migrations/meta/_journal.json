@@ -400,6 +400,13 @@
       "when": 1801000031000,
       "tag": "0057_telegram",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1801000032000,
+      "tag": "0058_telegram_business",
+      "breakpoints": true
     }
   ]
 }

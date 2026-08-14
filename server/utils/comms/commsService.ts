@@ -10,13 +10,14 @@ import {
   application,
   commsConversation,
   commsMessage,
+  commsTelegramBusinessConnection,
   hhNegotiation,
   hhVacancyLink,
 } from '../../database/schema'
 import { getValidAccessToken } from '../hh/tokens'
 import { apiGet } from '../hh/client'
 import { hhGetChatMessages, hhMarkMessageRead, hhSendChatMessage, type HhChatMessage } from './hhChat'
-import { getBotToken, getTelegramBotForOrg, tgSendMessage } from './telegram'
+import { getBotToken, getTelegramBotForOrg, parseBizExternalChatId, tgSendMessage, TelegramApiError } from './telegram'
 import { getJobAssistantSettings } from './assistant'
 
 export type CommsConversationRow = typeof commsConversation.$inferSelect
@@ -254,7 +255,35 @@ export async function sendConversationMessage(
       if (!bot || !bot.enabled) {
         throw createError({ statusCode: 400, statusMessage: 'Telegram-бот не подключён или выключен' })
       }
-      externalId = await tgSendMessage(getBotToken(bot), conv.externalChatId, args.text)
+      if (conv.tgBusinessConnectionId) {
+        // Спринт 19.5: ответ ОТ ИМЕНИ личного аккаунта рекрутёра (Telegram Business)
+        const bizConn = await db.query.commsTelegramBusinessConnection.findFirst({
+          where: eq(commsTelegramBusinessConnection.id, conv.tgBusinessConnectionId),
+        })
+        if (!bizConn || !bizConn.enabled) {
+          throw createError({ statusCode: 400, statusMessage: 'Личный Telegram отключён от бота. Подключите бота заново: Настройки → Telegram Business → Чат-боты' })
+        }
+        if (!bizConn.canReply) {
+          throw createError({ statusCode: 400, statusMessage: 'У бота нет права отвечать от вашего имени. Включите «Отвечать на сообщения» в настройках чат-бота Telegram Business' })
+        }
+        const parsed = parseBizExternalChatId(conv.externalChatId)
+        if (!parsed) {
+          throw createError({ statusCode: 400, statusMessage: 'Некорректный идентификатор чата личного Telegram' })
+        }
+        try {
+          externalId = await tgSendMessage(getBotToken(bot), parsed.chatId, args.text, { businessConnectionId: bizConn.connectionId })
+        }
+        catch (err) {
+          // Окно 24ч без входящих закрыто — Telegram запрещает писать первым через business
+          if (err instanceof TelegramApiError && /BUSINESS_PEER_USAGE_MISSING|BUSINESS_CONNECTION/i.test(err.message)) {
+            throw createError({ statusCode: 400, statusMessage: 'Окно ответа 24ч закрыто: кандидат давно не писал. Напишите ему лично из своего Telegram' })
+          }
+          throw err
+        }
+      }
+      else {
+        externalId = await tgSendMessage(getBotToken(bot), conv.externalChatId, args.text)
+      }
     }
     else {
       throw createError({ statusCode: 400, statusMessage: `Канал ${conv.channel} пока не поддерживает отправку` })
@@ -274,6 +303,10 @@ export async function sendConversationMessage(
       errorMessage: msg.slice(0, 500),
     })
     logError('comms.send_failed', { conversation_id: conv.id, channel: conv.channel, error_message: msg })
+    // Дружелюбные 400-ки (окно 24ч, отключённое business-подключение и пр.) отдаём как есть
+    if (err && typeof err === 'object' && 'statusCode' in err && (err as { statusCode?: number }).statusCode === 400) {
+      throw err
+    }
     throw createError({ statusCode: 502, statusMessage: conv.channel === 'telegram' ? 'Не удалось отправить сообщение в Telegram' : 'Не удалось отправить сообщение в hh.ru' })
   }
 

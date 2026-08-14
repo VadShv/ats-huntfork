@@ -64,7 +64,8 @@ export function tgSetWebhook(token: string, url: string, secretToken: string): P
   return tgCall<boolean>(token, 'setWebhook', {
     url,
     secret_token: secretToken,
-    allowed_updates: ['message'],
+    // Спринт 19.5: + события Telegram Business (личный аккаунт рекрутёра)
+    allowed_updates: ['message', 'business_connection', 'business_message'],
     drop_pending_updates: false,
   })
 }
@@ -77,6 +78,8 @@ export interface TgMessage {
   message_id: number
   chat: { id: number, type: string, first_name?: string, last_name?: string, username?: string }
   from?: TgUser
+  /** Спринт 19.5: есть у сообщений из чатов личного аккаунта (Telegram Business). */
+  business_connection_id?: string
   date: number
   text?: string
   caption?: string
@@ -86,8 +89,21 @@ export interface TgMessage {
   video?: { file_id: string, file_name?: string, mime_type?: string, file_size?: number }
 }
 
-/** Отправка текста с разбиением на части по лимиту Telegram (4096). */
-export async function tgSendMessage(token: string, chatId: string, text: string): Promise<string> {
+/** Подключение бота к личному аккаунту (Telegram Business, Bot API 7.2+). */
+export interface TgBusinessConnection {
+  id: string
+  user: TgUser
+  user_chat_id: number
+  date: number
+  is_enabled: boolean
+  /** can_reply до Bot API 9.0, далее — rights.can_reply. */
+  can_reply?: boolean
+  rights?: { can_reply?: boolean }
+}
+
+/** Отправка текста с разбиением на части по лимиту Telegram (4096).
+ * С businessConnectionId сообщение уходит ОТ ИМЕНИ личного аккаунта рекрутёра. */
+export async function tgSendMessage(token: string, chatId: string, text: string, opts: { businessConnectionId?: string } = {}): Promise<string> {
   const chunks: string[] = []
   let rest = text
   while (rest.length > TG_MESSAGE_LIMIT) {
@@ -102,7 +118,11 @@ export async function tgSendMessage(token: string, chatId: string, text: string)
 
   let lastId = ''
   for (const chunk of chunks) {
-    const msg = await tgCall<TgMessage>(token, 'sendMessage', { chat_id: chatId, text: chunk })
+    const msg = await tgCall<TgMessage>(token, 'sendMessage', {
+      chat_id: chatId,
+      text: chunk,
+      ...(opts.businessConnectionId ? { business_connection_id: opts.businessConnectionId } : {}),
+    })
     lastId = String(msg.message_id)
   }
   return lastId
@@ -167,4 +187,32 @@ export function buildTelegramWebhookUrl(secret: string): string {
 /** Deep-link приглашения кандидата: t.me/<bot>?start=<token>. */
 export function buildTelegramInviteLink(botUsername: string, token: string): string {
   return `https://t.me/${botUsername}?start=${token}`
+}
+
+// ── Telegram Business: personal-чаты ─────────────────────────────────────
+
+/**
+ * external_chat_id для чатов личного аккаунта: `biz:<tg id владельца>:<chat id>`.
+ * Префикс исключает коллизию с чатом бота (там chat id кандидата без префикса),
+ * а стабильный tg id владельца переживает смену connection_id при перенастройке.
+ */
+export function buildBizExternalChatId(ownerTgId: string, chatId: string): string {
+  return `biz:${ownerTgId}:${chatId}`
+}
+
+export function parseBizExternalChatId(ext: string): { ownerTgId: string, chatId: string } | null {
+  if (!ext.startsWith('biz:')) return null
+  const parts = ext.split(':')
+  if (parts.length !== 3 || !parts[1] || !parts[2]) return null
+  return { ownerTgId: parts[1], chatId: parts[2] }
+}
+
+/** Нормализация telegram-контакта кандидата к username без @/ссылки. */
+export function normalizeTgUsername(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  let v = raw.trim().toLowerCase()
+  v = v.replace(/^https?:\/\/(www\.)?(t\.me|telegram\.me)\//, '')
+  v = v.replace(/^@/, '')
+  v = v.split(/[/?#\s]/)[0] ?? ''
+  return /^[a-z0-9_]{4,32}$/.test(v) ? v : null
 }

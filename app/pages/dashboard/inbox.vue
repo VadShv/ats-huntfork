@@ -104,6 +104,69 @@ const channelLabels: Record<string, string> = {
   whatsapp: 'WhatsApp',
 }
 
+// Спринт 19.5: ручная привязка диалога (обычно — чата личного ТГ) к отклику
+interface LinkOption {
+  applicationId: string
+  candidateId: string
+  candidateName: string
+  telegram: string | null
+  jobTitle: string
+}
+const linkQuery = ref('')
+const linkOptions = ref<LinkOption[]>([])
+const linkLoading = ref(false)
+const linkSaving = ref(false)
+const linkError = ref<string | null>(null)
+let linkTimer: ReturnType<typeof setTimeout> | null = null
+
+async function fetchLinkOptions() {
+  const conv = selectedConversation.value
+  if (!conv || conv.applicationId) return
+  linkLoading.value = true
+  try {
+    const res = await $fetch<{ items: LinkOption[] }>(`/api/conversations/${conv.id}/link-options`, {
+      query: linkQuery.value.trim() ? { q: linkQuery.value.trim() } : {},
+    })
+    linkOptions.value = res.items
+  }
+  catch {
+    linkOptions.value = []
+  }
+  finally {
+    linkLoading.value = false
+  }
+}
+
+watch(linkQuery, () => {
+  if (linkTimer) clearTimeout(linkTimer)
+  linkTimer = setTimeout(fetchLinkOptions, 300)
+})
+
+watch(selectedId, () => {
+  linkQuery.value = ''
+  linkOptions.value = []
+  linkError.value = null
+  const conv = selectedConversation.value
+  if (conv && !conv.applicationId) fetchLinkOptions()
+})
+
+async function linkToApplication(applicationId: string) {
+  const conv = selectedConversation.value
+  if (!conv || linkSaving.value) return
+  linkSaving.value = true
+  linkError.value = null
+  try {
+    await $fetch(`/api/conversations/${conv.id}/link`, { method: 'POST', body: { applicationId } })
+    await refresh()
+  }
+  catch {
+    linkError.value = t('dashboard.inbox.linkError')
+  }
+  finally {
+    linkSaving.value = false
+  }
+}
+
 // Фоновое обновление списка (30с, только при видимой вкладке)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
@@ -292,8 +355,33 @@ useHead({ title: () => `${t('dashboard.inbox.title')} — Huntfork` })
               :application-id="selectedConversation.applicationId"
               @meta="onChatMeta"
             />
-            <div v-else class="text-center py-10 text-sm text-surface-400">
-              {{ t('dashboard.inbox.noApplication') }}
+            <div v-else class="py-6 max-w-md mx-auto">
+              <p class="text-sm text-center text-surface-500 dark:text-surface-400">{{ t('dashboard.inbox.noApplication') }}</p>
+              <p class="text-xs text-center text-surface-400 dark:text-surface-500 mt-1 mb-4">{{ t('dashboard.inbox.linkHint') }}</p>
+              <div class="relative mb-3">
+                <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" />
+                <input
+                  v-model="linkQuery"
+                  type="text"
+                  :placeholder="t('dashboard.inbox.linkSearchPlaceholder')"
+                  class="w-full rounded-lg border border-surface-200/80 dark:border-surface-700/60 bg-white dark:bg-surface-950 pl-9 pr-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+                >
+              </div>
+              <div v-if="linkLoading" class="text-center py-4 text-xs text-surface-400">…</div>
+              <ul v-else-if="linkOptions.length > 0" class="space-y-1.5">
+                <li v-for="opt in linkOptions" :key="opt.applicationId">
+                  <button
+                    class="cursor-pointer w-full text-left rounded-lg border border-surface-200/80 dark:border-surface-700/60 px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-900/60 transition-colors disabled:opacity-50"
+                    :disabled="linkSaving"
+                    @click="linkToApplication(opt.applicationId)"
+                  >
+                    <p class="text-sm font-medium text-surface-800 dark:text-surface-200">{{ opt.candidateName }}</p>
+                    <p class="text-xs text-surface-400 dark:text-surface-500">{{ opt.jobTitle }}<template v-if="opt.telegram"> · {{ opt.telegram }}</template></p>
+                  </button>
+                </li>
+              </ul>
+              <p v-else class="text-center py-4 text-xs text-surface-400">{{ t('dashboard.inbox.linkNoResults') }}</p>
+              <p v-if="linkError" class="text-center mt-2 text-xs text-red-500">{{ linkError }}</p>
             </div>
           </div>
         </div>

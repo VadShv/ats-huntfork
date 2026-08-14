@@ -1861,6 +1861,8 @@ export const commsConversation = pgTable('comms_conversation', {
   hhNegotiationId: text('hh_negotiation_id').references(() => hhNegotiation.id, { onDelete: 'set null' }),
   /** Через какой hh-аккаунт читать/писать в этот чат. */
   hhAccountId: text('hh_account_id').references(() => hhAccount.id, { onDelete: 'set null' }),
+  /** Спринт 19.5: чат личного аккаунта через Telegram Business (null = обычный чат бота). */
+  tgBusinessConnectionId: text('tg_business_connection_id'),
   state: text('state').notNull().default('active'),
   /** Кэш доступности отправки (write_message_state из hh). */
   canWrite: boolean('can_write').notNull().default(true),
@@ -2078,4 +2080,35 @@ export const commsTelegramLinkTokenRelations = relations(commsTelegramLinkToken,
   organization: one(organization, { fields: [commsTelegramLinkToken.organizationId], references: [organization.id] }),
   candidate: one(candidate, { fields: [commsTelegramLinkToken.candidateId], references: [candidate.id] }),
   application: one(application, { fields: [commsTelegramLinkToken.applicationId], references: [application.id] }),
+}))
+
+/**
+ * Спринт 19.5 — Telegram Business: подключение бота к ЛИЧНОМУ аккаунту рекрутёра.
+ * Рекрутёр в Telegram (Настройки → Telegram Business → Чат-боты) подключает бота
+ * организации; бот получает business_connection / business_message и может
+ * отвечать кандидатам ОТ ИМЕНИ рекрутёра (business_connection_id в sendMessage).
+ * connection_id меняется при перенастройке — стабильный ключ (org, tg_user_id).
+ */
+export const commsTelegramBusinessConnection = pgTable('comms_telegram_business_connection', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  /** Актуальный business_connection_id (обновляется при перенастройке). */
+  connectionId: text('connection_id').notNull(),
+  /** Числовой tg id владельца личного аккаунта (стабильный ключ). */
+  tgUserId: text('tg_user_id').notNull(),
+  tgUsername: text('tg_username'),
+  displayName: text('display_name'),
+  /** is_enabled из BusinessConnection (false = подключение разорвано). */
+  enabled: boolean('enabled').notNull().default(true),
+  /** rights.can_reply — можно ли писать в чаты, активные за последние 24ч. */
+  canReply: boolean('can_reply').notNull().default(false),
+  connectedAt: timestamp('connected_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('comms_tg_bizconn_org_user_idx').on(t.organizationId, t.tgUserId),
+  index('comms_tg_bizconn_connection_idx').on(t.connectionId),
+]))
+
+export const commsTelegramBusinessConnectionRelations = relations(commsTelegramBusinessConnection, ({ one }) => ({
+  organization: one(organization, { fields: [commsTelegramBusinessConnection.organizationId], references: [organization.id] }),
 }))
