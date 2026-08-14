@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Globe, GitBranch,
+  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Globe, GitBranch, Bot,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -8,58 +8,65 @@ const localePath = useLocalePath()
 
 const settingsNav = [
   {
-    label: 'General',
-    description: 'Organization profile',
+    label: 'Основное',
+    description: 'Профиль организации',
     to: '/dashboard/settings',
     icon: Building2,
     exact: true,
   },
   {
-    label: 'Localization',
-    description: 'Names & date formats',
+    label: 'Локализация',
+    description: 'Формат имён и даты',
     to: '/dashboard/settings/localization',
     icon: Globe,
     exact: true,
   },
   {
-    label: 'Members',
-    description: 'Team & invitations',
+    label: 'Участники',
+    description: 'Команда и приглашения',
     to: '/dashboard/settings/members',
     icon: Users,
     exact: true,
   },
   {
-    label: 'Pipelines',
-    description: 'Hiring stages',
+    label: 'Воронки',
+    description: 'Этапы найма',
     to: '/dashboard/settings/pipelines',
     icon: GitBranch,
     exact: false,
   },
   {
-    label: 'Integrations',
-    description: 'Calendar & services',
+    label: 'Интеграции',
+    description: 'Календарь и сервисы',
     to: '/dashboard/settings/integrations',
     icon: Plug,
     exact: true,
   },
   {
-    label: 'AI Configuration',
-    description: 'Models & API keys',
+    label: 'Настройки ИИ',
+    description: 'Модели и API-ключи',
     to: '/dashboard/settings/ai',
     icon: Brain,
     exact: true,
   },
   {
-    label: 'Single Sign-On',
-    description: 'Enterprise SSO',
+    label: 'Суфлёр переписки',
+    description: 'Черновики ответов и персона',
+    to: '/dashboard/settings/assistant',
+    icon: Bot,
+    exact: true,
+  },
+  {
+    label: 'Единый вход',
+    description: 'Корпоративный SSO',
     to: '/dashboard/settings/sso',
     icon: ShieldCheck,
     exact: true,
     badge: 'Beta',
   },
   {
-    label: 'Account',
-    description: 'Profile & security',
+    label: 'Аккаунт',
+    description: 'Профиль и безопасность',
     to: '/dashboard/settings/account',
     icon: UserCircle,
     exact: true,
@@ -84,14 +91,14 @@ function isActive(to: string, exact: boolean) {
         class="inline-flex items-center gap-1.5 text-xs font-medium text-surface-400 dark:text-surface-500 hover:text-surface-600 dark:hover:text-surface-300 transition-colors no-underline mb-3"
       >
         <ChevronLeft class="size-3.5" />
-        Back to jobs
+        Назад к вакансиям
       </NuxtLink>
       <div class="flex items-center gap-2.5">
         <div class="flex items-center justify-center size-8 rounded-lg bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400">
           <Settings class="size-4" />
         </div>
         <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">
-          Settings
+          Настройки
         </h2>
       </div>
     </div>

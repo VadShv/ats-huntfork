@@ -9,8 +9,8 @@ import { Loader2, AlertTriangle } from 'lucide-vue-next'
 definePageMeta({})
 
 useSeoMeta({
-  title: 'Edit AI model',
-  description: 'Update an existing AI provider configuration.',
+  title: 'Изменение модели ИИ',
+  description: 'Изменение существующей конфигурации ИИ-провайдера.',
 })
 
 interface AiConfigRow {
@@ -83,8 +83,8 @@ function onCancel() {
     >
       <AlertTriangle class="size-5 shrink-0 mt-0.5" />
       <div>
-        <p class="font-semibold mb-1">Insufficient permissions</p>
-        <p>You don't have permission to manage AI settings.</p>
+        <p class="font-semibold mb-1">Недостаточно прав</p>
+        <p>У вас нет прав на управление настройками ИИ.</p>
       </div>
     </div>
 
@@ -98,13 +98,13 @@ function onCancel() {
     >
       <AlertTriangle class="size-5 shrink-0 mt-0.5" />
       <div>
-        <p class="font-semibold mb-1">Configuration not found</p>
-        <p class="mb-3">This AI configuration no longer exists or you don't have access to it.</p>
+        <p class="font-semibold mb-1">Конфигурация не найдена</p>
+        <p class="mb-3">Эта конфигурация ИИ больше не существует либо у вас нет к ней доступа.</p>
         <NuxtLink
           to="/dashboard/settings/ai"
           class="inline-flex items-center gap-1.5 rounded-lg bg-danger-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-danger-700 transition-colors"
         >
-          Back to AI configuration
+          Назад к настройкам ИИ
         </NuxtLink>
       </div>
     </div>

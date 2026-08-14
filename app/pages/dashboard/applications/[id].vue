@@ -2,6 +2,7 @@
 import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch, Keyboard, X, ShieldCheck } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
+import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
 definePageMeta({
   layout: 'dashboard',
@@ -52,41 +53,8 @@ useSeoMeta({
 })
 
 // ─────────────────────────────────────────────
-// Status transitions
+// Legacy-переходы статуса (кнопки живут в ApplicationQuickActions)
 // ─────────────────────────────────────────────
-import { APPLICATION_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
-
-const transitionLabels = computed<Record<string, string>>(() => ({
-  new: t('applications.transitions.new'),
-  screening: t('applications.transitions.screening'),
-  interview: t('applications.transitions.interview'),
-  offer: t('applications.transitions.offer'),
-  hired: t('applications.transitions.hired'),
-  rejected: t('applications.transitions.rejected'),
-}))
-
-const transitionClasses: Record<string, string> = {
-  new: 'border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 text-surface-700 dark:text-surface-300 hover:border-surface-400 dark:hover:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800',
-  screening: 'bg-violet-600 text-white shadow-sm shadow-violet-900/20 hover:bg-violet-700',
-  interview: 'bg-amber-600 text-white shadow-sm shadow-amber-900/20 hover:bg-amber-700',
-  offer: 'bg-teal-600 text-white shadow-sm shadow-teal-900/20 hover:bg-teal-700',
-  hired: 'bg-green-700 text-white shadow-sm shadow-green-900/30 hover:bg-green-800',
-  rejected: 'bg-danger-600 text-white shadow-sm shadow-danger-900/20 hover:bg-danger-700',
-}
-
-const transitionDotClasses: Record<string, string> = {
-  new: 'bg-surface-400 dark:bg-surface-500',
-  screening: 'bg-violet-200',
-  interview: 'bg-amber-200',
-  offer: 'bg-teal-200',
-  hired: 'bg-green-100',
-  rejected: 'bg-danger-200',
-}
-
-const allowedTransitions = computed(() => {
-  if (!application.value) return []
-  return APPLICATION_STATUS_TRANSITIONS[application.value.status] ?? []
-})
 
 const isTransitioning = ref(false)
 const showInterviewSidebar = ref(false)
@@ -225,48 +193,25 @@ function formatResponseValue(value: unknown): string {
             @stage-changed="handleStageChanged"
           />
           </div>
-          <!-- Legacy status badge: hidden when a pipeline stage is set, shown otherwise for back-compat -->
-          <span
-            v-if="!localStageId"
-            class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-            :class="statusBadgeClasses[application.status] ?? 'bg-surface-100 text-surface-600'"
-          >
-            {{ te(`dashboard.applications.stages.${application.status}`) ? t(`dashboard.applications.stages.${application.status}`) : application.status }}
-          </span>
+          <!-- Legacy status: показываем только когда нет стадии pipeline -->
+          <StatusBadge v-if="!localStageId" :status="application.status as any" size="sm" />
           <TimelineDateLink :date="application.createdAt" class="text-sm text-surface-500 dark:text-surface-400">
             {{ t('applications.applied_label') }} {{ new Date(application.createdAt).toLocaleDateString() }}
           </TimelineDateLink>
         </div>
       </div>
 
-      <!-- Quick actions -->
-      <div class="mb-6 rounded-xl border border-surface-200 dark:border-surface-800 bg-white/80 dark:bg-surface-900/70 p-3">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="inline-flex items-center rounded-full bg-surface-100 dark:bg-surface-800 px-2.5 py-1 text-xs font-medium text-surface-600 dark:text-surface-400">{{ $t('applications.quick_actions') }}</span>
-          <button
-            v-for="nextStatus in allowedTransitions"
-            :key="nextStatus"
-            :disabled="isTransitioning"
-            class="inline-flex cursor-pointer items-center rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-            :class="transitionClasses[nextStatus] ?? 'border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 text-surface-700 dark:text-surface-300 hover:border-surface-400 dark:hover:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            @click="handleTransition(nextStatus)"
-          >
-            <span
-              class="mr-2 inline-flex size-1.5 rounded-full"
-              :class="transitionDotClasses[nextStatus] ?? 'bg-surface-400 dark:bg-surface-500'"
-            />
-            {{ transitionLabels[nextStatus] ?? nextStatus }}
-
-          </button>
-          <button
-            class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            @click="showInterviewSidebar = true"
-          >
-            <Calendar class="size-3.5" />
-            {{ $t('applications.schedule_interview') }}
-          </button>
-        </div>
-      </div>
+      <!-- Quick actions — Спринт 13.3: единый компонент (карточка + полуокно) -->
+      <ApplicationQuickActions
+        class="mb-6"
+        :application-id="applicationId"
+        :current-stage-id="localStageId"
+        :status="application.status"
+        :disabled="isTransitioning"
+        @stage-changed="handleStageChanged"
+        @legacy-transition="handleTransition"
+        @schedule="showInterviewSidebar = true"
+      />
 
       <div class="grid gap-4 md:grid-cols-2">
         <!-- Candidate info -->
@@ -358,7 +303,9 @@ function formatResponseValue(value: unknown): string {
           <dl class="grid grid-cols-2 gap-3 text-sm">
             <div>
               <dt class="text-surface-400">{{ t('applications.score') }}</dt>
-              <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ application.score ?? '—' }}</dd>
+              <dd>
+                <ScoreBadge :score="application.score" size="sm" />
+              </dd>
             </div>
             <div>
               <dt class="text-surface-400">{{ $t('applications.stage.current') }}</dt>
@@ -399,6 +346,15 @@ function formatResponseValue(value: unknown): string {
       <!-- Collaboration thread (заменил блок «Заметки») -->
       <div class="mt-4 mb-4" data-comment-composer>
         <ApplicationCommentThread :application-id="applicationId" />
+      </div>
+
+      <!-- Чат с кандидатом (Спринт 18) -->
+      <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 mb-4">
+        <div class="flex items-center gap-2 mb-3">
+          <MessageSquare class="size-4 text-surface-500 dark:text-surface-400" />
+          <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('dashboard.chat.tab') }}</h2>
+        </div>
+        <CommsChatPanel :application-id="applicationId" />
       </div>
 
       <!-- Custom properties (Notion-style) -->

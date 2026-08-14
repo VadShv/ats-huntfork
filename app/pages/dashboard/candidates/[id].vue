@@ -31,7 +31,11 @@ useSeoMeta({
 // Tabs
 // ─────────────────────────────────────────────
 
-const activeTab = ref<'applications' | 'documents'>('applications')
+type CandidateTab = 'applications' | 'documents'
+const activeTab = useDetailTabRoute({
+  available: () => ['applications', 'documents'],
+  defaultTab: 'applications',
+}) as unknown as import('vue').Ref<CandidateTab>
 
 // Версия резюме: null = текущая, иначе id выбранной версии.
 const selectedResumeVersionId = ref<string | null>(null)
@@ -215,7 +219,7 @@ async function handleDelete() {
     await deleteCandidate()
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to delete candidate', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+    toast.error('Не удалось удалить кандидата', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
     isDeleting.value = false
     showDeleteConfirm.value = false
   }
@@ -865,28 +869,14 @@ async function openHhContacts() {
         <!-- ╗╗╗ RIGHT COLUMN: tabs (applications, documents) ╗╗╗ -->
         <section class="space-y-4 min-w-0">
         <!-- Tabs -->
-        <div class="border-b border-surface-200 dark:border-surface-800 mb-4">
-          <div class="flex gap-1">
-            <button
-              class="cursor-pointer px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
-              :class="activeTab === 'applications'
-                ? 'border-brand-600 text-brand-600'
-                : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
-              @click="activeTab = 'applications'"
-            >
-              {{ t('candidate.applications.tab') }} ({{ candidate.applications?.length ?? 0 }})
-            </button>
-            <button
-              class="cursor-pointer px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
-              :class="activeTab === 'documents'
-                ? 'border-brand-600 text-brand-600'
-                : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
-              @click="activeTab = 'documents'"
-            >
-              {{ t('candidate.documents.tab') }} ({{ candidate.documents?.length ?? 0 }})
-            </button>
-          </div>
-        </div>
+        <DetailTabs
+          v-model:tab="activeTab"
+          class="mb-4"
+          :tabs="[
+            { key: 'applications', label: t('candidate.applications.tab'), count: candidate.applications?.length ?? 0 },
+            { key: 'documents', label: t('candidate.documents.tab'), count: candidate.documents?.length ?? 0 },
+          ]"
+        />
 
         <!-- Applications tab -->
         <div v-if="activeTab === 'applications'">
@@ -925,14 +915,11 @@ async function openHhContacts() {
                 </h4>
               </NuxtLink>
 
-              <!-- 2. Бейдж статуса/этапа -->
-              <div class="mt-2">
-                <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="applicationStatusClasses[app.status] ?? 'bg-surface-100 text-surface-600'"
-                >
-                  {{ app.status }}
-                </span>
+              <!-- 2. Legacy-статус + балл + источник -->
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <StatusBadge :status="app.status as any" size="xs" />
+                <ScoreBadge v-if="app.score != null" :score="app.score" size="xs" :show-unit="false" />
+                <SourceBadge :source="(app as any).source" size="xs" icon-only />
               </div>
 
               <!-- 3. Кнопка «Запланировать» -->

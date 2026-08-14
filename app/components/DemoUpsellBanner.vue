@@ -32,10 +32,10 @@ async function handleUpgrade() {
             </div>
             <div class="min-w-0">
               <p class="truncate text-[13px] font-semibold text-white">
-                Ready for your own instance?
+                Готовы к собственной версии?
               </p>
               <p class="truncate text-[11px] text-white/40">
-                Use reqcore on cloud or self-hosted
+                Используйте Huntfork в облаке или на своей инфраструктуре
               </p>
             </div>
           </div>
@@ -49,7 +49,7 @@ async function handleUpgrade() {
               @click="handleUpgrade"
             >
               <Cloud class="size-4 text-brand-400 transition-colors group-hover:text-brand-300" />
-              <span class="text-[12px] font-semibold text-white/70 transition-colors group-hover:text-white">Cloud</span>
+              <span class="text-[12px] font-semibold text-white/70 transition-colors group-hover:text-white">Облако</span>
               <ArrowRight class="ml-auto size-3 text-white/20 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
             </button>
             <a
@@ -59,13 +59,13 @@ async function handleUpgrade() {
               class="group flex items-center gap-2 whitespace-nowrap rounded-xl border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 transition-all hover:border-accent-400/30 hover:bg-accent-500/10 hover:shadow-md hover:shadow-accent-500/5 active:scale-[0.97]"
             >
               <Server class="size-4 text-accent-400 transition-colors group-hover:text-accent-300" />
-              <span class="text-[12px] font-semibold text-white/70 transition-colors group-hover:text-white">Self-host</span>
+              <span class="text-[12px] font-semibold text-white/70 transition-colors group-hover:text-white">Собственное развёртывание</span>
               <ArrowRight class="ml-auto size-3 text-white/20 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
             </a>
           </div>
 
           <p class="mt-2.5 truncate text-center text-[10px] text-white/25">
-            Free forever · No credit card required
+            Бесплатно навсегда · Банковская карта не требуется
           </p>
         </div>
       </div>

@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Calendar, ArrowUpCircle,
   Cloud, Server, Sparkles, Radio, History,
   MessageCircle, MoreHorizontal, GitMerge, History as HistoryIcon, Upload,
+  Inbox,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -39,7 +40,7 @@ function onClickOutsideGetStarted(e: MouseEvent) {
   }
 }
 
-const userName = computed(() => session.value?.user?.name ?? 'User')
+const userName = computed(() => session.value?.user?.name ?? 'Пользователь')
 const userEmail = computed(() => session.value?.user?.email ?? '')
 const userInitials = computed(() => {
   const name = userName.value
@@ -84,7 +85,7 @@ const sidebarJobs = computed(() => sidebarJobsData.value?.data ?? [])
 const activeJobTitle = computed(() => {
   if (!activeJobId.value) return null
   const found = sidebarJobs.value.find((j: any) => j.id === activeJobId.value)
-  return found?.title ?? 'Job'
+  return found?.title ?? 'Вакансия'
 })
 
 const activeJobStatus = computed(() => {
@@ -133,6 +134,7 @@ const mainNav = computed<Array<{ label: string; to: string; icon: typeof Briefca
   { label: t('dashboard.nav.merges'), to: '/dashboard/candidates/merges', icon: HistoryIcon, exact: true },
   { label: t('dashboard.nav.import'), to: '/dashboard/candidates/import', icon: Upload, exact: true },
   { label: t('dashboard.nav.applications'), to: '/dashboard/applications', icon: FileText, exact: false },
+  { label: t('dashboard.nav.inbox'), to: '/dashboard/inbox', icon: Inbox, exact: true },
   { label: t('dashboard.nav.interviews'), to: '/dashboard/interviews', icon: Calendar, exact: false },
   { label: t('dashboard.nav.timeline'), to: '/dashboard/timeline', icon: History, exact: true },
   { label: t('dashboard.nav.sourceTracking'), to: '/dashboard/source-tracking', icon: Radio, exact: true },
@@ -166,6 +168,7 @@ const primaryNavItems = computed(() => {
     t('dashboard.nav.jobs'),
     t('dashboard.nav.candidates'),
     t('dashboard.nav.applications'),
+    t('dashboard.nav.inbox'),
     t('dashboard.nav.interviews'),
   ]
   return navItems.value.filter(i => primaryKeys.includes(i.label))
@@ -176,6 +179,7 @@ const moreNavItems = computed(() => {
     t('dashboard.nav.jobs'),
     t('dashboard.nav.candidates'),
     t('dashboard.nav.applications'),
+    t('dashboard.nav.inbox'),
     t('dashboard.nav.interviews'),
   ]
   return navItems.value.filter(i => !primaryKeys.includes(i.label))
@@ -238,11 +242,11 @@ onUnmounted(() => {
           >
             <img
               :src="isAstraBrand ? '/brand/falcon-emblem.jpg' : '/eagle-mascot-logo.png'"
-              :alt="isAstraBrand ? 'Группа Астра' : 'Reqcore mascot'"
+              :alt="isAstraBrand ? 'Группа Астра' : 'Талисман Huntfork'"
               class="size-7 shrink-0 object-contain rounded-full"
             />
             <span class="text-[15px] font-bold text-surface-900 dark:text-surface-100 hidden sm:block tracking-tight">
-              {{ isAstraBrand ? 'Huntfork' : 'Reqcore' }}
+              {{ isAstraBrand ? 'Huntfork' : 'Huntfork' }}
             </span>
           </component>
 
@@ -274,7 +278,7 @@ onUnmounted(() => {
                   ? 'text-brand-700 dark:text-brand-300 bg-brand-50/80 dark:bg-brand-950/40'
                   : 'text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 hover:bg-surface-100/80 dark:hover:bg-surface-800/60'"
               >
-                More
+                Ещё
                 <ChevronDown
                   class="size-3 opacity-60 transition-transform duration-200"
                   :class="showMoreNav ? 'rotate-180' : ''"
@@ -321,7 +325,7 @@ onUnmounted(() => {
               @click="showGetStartedMenu = !showGetStartedMenu"
             >
               <Sparkles class="size-3.5 transition-transform duration-300 group-hover:rotate-12" />
-              Get Started
+              Начать работу
               <ChevronDown
                 class="size-3 opacity-70 transition-transform duration-200"
                 :class="showGetStartedMenu ? 'rotate-180' : ''"
@@ -341,7 +345,7 @@ onUnmounted(() => {
                 class="absolute right-0 top-[calc(100%+6px)] w-72 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 shadow-xl shadow-surface-900/8 dark:shadow-surface-950/30 overflow-hidden"
               >
                 <div class="px-4 py-3 border-b border-surface-100 dark:border-surface-800">
-                  <p class="text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Choose your setup</p>
+                  <p class="text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Выберите вариант</p>
                 </div>
                 <div class="p-2 space-y-1">
                   <NuxtLink
@@ -352,8 +356,8 @@ onUnmounted(() => {
                       <Cloud class="size-4" />
                     </div>
                     <div>
-                      <div class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover/item:text-brand-700 dark:group-hover/item:text-brand-300 transition-colors">Cloud Hosted</div>
-                      <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Start free in seconds — we handle hosting, updates &amp; backups</div>
+                      <div class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover/item:text-brand-700 dark:group-hover/item:text-brand-300 transition-colors">Облачная версия</div>
+                      <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Начните бесплатно за несколько секунд — мы берём на себя хостинг, обновления и резервное копирование</div>
                     </div>
                   </NuxtLink>
                   <a
@@ -367,8 +371,8 @@ onUnmounted(() => {
                       <Server class="size-4" />
                     </div>
                     <div>
-                      <div class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover/item:text-surface-700 dark:group-hover/item:text-surface-200 transition-colors">Self-Host</div>
-                      <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Deploy on your own infrastructure — full control, 100% free</div>
+                      <div class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover/item:text-surface-700 dark:group-hover/item:text-surface-200 transition-colors">Самостоятельное размещение</div>
+                      <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Разверните в своей инфраструктуре — полный контроль и бесплатно</div>
                     </div>
                   </a>
                 </div>
@@ -390,15 +394,10 @@ onUnmounted(() => {
             <OrgSwitcher />
           </div>
 
-          <!-- Language Switcher -->
-          <div class="hidden lg:block">
-            <LanguageSwitcher />
-          </div>
-
           <!-- Color mode toggle -->
           <button
             class="inline-flex items-center justify-center size-8 rounded-lg text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all duration-200 cursor-pointer border-0 bg-transparent"
-            :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+            :title="isDark ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'"
             :aria-label="isDark ? $t('dashboard.topbar.switchToLight') : $t('dashboard.topbar.switchToDark')"
             @click="toggleColorMode"
           >
@@ -414,7 +413,7 @@ onUnmounted(() => {
           >
             <button
               class="inline-flex items-center justify-center size-8 rounded-lg text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all duration-200 cursor-pointer border-0 bg-transparent"
-              title="More options"
+              title="Дополнительные действия"
             >
               <MoreHorizontal class="size-4" />
             </button>
@@ -439,7 +438,7 @@ onUnmounted(() => {
                       : 'text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 hover:bg-surface-100 dark:hover:bg-surface-800'"
                   >
                     <ArrowUpCircle class="size-4" />
-                    Updates & changelog
+                    Обновления и журнал изменений
                   </NuxtLink>
                   <button
                     v-if="isFeedbackEnabled"
@@ -447,7 +446,7 @@ onUnmounted(() => {
                     @click="showFeedbackModal = true; showMoreActions = false"
                   >
                     <MessageSquarePlus class="size-4" />
-                    Report issue
+                    Сообщить об ошибке
                   </button>
                 </div>
               </div>
@@ -522,7 +521,7 @@ onUnmounted(() => {
                       v-if="item.comingSoon"
                       class="ml-auto inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-200/60 dark:ring-amber-800/40"
                     >
-                      Soon
+                      Скоро
                     </span>
                   </NuxtLink>
                 </div>
@@ -540,7 +539,7 @@ onUnmounted(() => {
                     @click="handleSignOut"
                   >
                     <LogOut class="size-4" />
-                    {{ isSigningOut ? 'Signing out…' : 'Sign out' }}
+                    {{ isSigningOut ? 'Выход…' : 'Выйти' }}
                   </button>
                 </div>
               </div>
@@ -660,13 +659,13 @@ onUnmounted(() => {
           <!-- Get Started CTA (demo mode, mobile) -->
           <template v-if="isDemo">
             <div class="mt-2 pt-2 border-t border-surface-200 dark:border-surface-700">
-              <p class="px-3 mb-1.5 text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Get Started</p>
+              <p class="px-3 mb-1.5 text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Начать работу</p>
               <NuxtLink
                 :to="$localePath('/auth/fresh-signup')"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/40 hover:bg-brand-100 dark:hover:bg-brand-950/60 transition-colors no-underline"
               >
                 <Cloud class="size-4" />
-                  {{ $t('dashboard.topbar.cloudHosted') }} — Start Free
+                  {{ $t('dashboard.topbar.cloudHosted') }} — Начать бесплатно
               </NuxtLink>
               <a
                 v-if="!isAstraBrand"
@@ -676,7 +675,7 @@ onUnmounted(() => {
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors no-underline mt-1"
               >
                 <Server class="size-4" />
-                {{ $t('dashboard.topbar.selfHost') }} — Deploy Free
+                {{ $t('dashboard.topbar.selfHost') }} — Развернуть бесплатно
               </a>
             </div>
           </template>
@@ -684,7 +683,6 @@ onUnmounted(() => {
 
         <div class="px-4 pb-3 flex flex-col gap-2 border-t border-surface-100 dark:border-surface-800 pt-3 lg:hidden">
           <OrgSwitcher />
-          <LanguageSwitcher drop-up />
         </div>
       </div>
     </Transition>

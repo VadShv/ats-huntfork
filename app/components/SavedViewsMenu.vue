@@ -1,4 +1,4 @@
-<script setup lang="ts" generic="T extends Record<string, unknown>">
+<script setup lang="ts" generic="T extends { [key: string]: unknown }">
 import { Bookmark, Star, Trash2, Plus, Check, ChevronDown } from 'lucide-vue-next'
 import type { SavedView } from '~/composables/useSavedViews'
 
@@ -28,7 +28,7 @@ const activeView = computed(() => props.views.find(v => v.id === props.activeVie
 
 const buttonLabel = computed(() => {
   if (activeView.value) return activeView.value.name
-  return 'Views'
+  return 'Сохранённые виды'
 })
 
 function toggle() {
@@ -66,7 +66,7 @@ function selectView(id: string | null) {
 
 async function openSaveForm() {
   showSaveForm.value = true
-  newName.value = activeView.value?.name ? `${activeView.value.name} (copy)` : `View ${props.views.length + 1}`
+  newName.value = activeView.value?.name ? `${activeView.value.name} (копия)` : `Вид ${props.views.length + 1}`
   await nextTick()
   nameInput.value?.focus()
   nameInput.value?.select()
@@ -113,7 +113,7 @@ function onDelete(id: string, e: Event) {
       <span
         v-if="isDirty && activeViewId"
         class="size-1.5 rounded-full bg-amber-500"
-        title="Unsaved changes"
+        title="Есть несохранённые изменения"
       />
       <ChevronDown class="size-3.5 opacity-60" />
     </button>
@@ -134,7 +134,7 @@ function onDelete(id: string, e: Event) {
         @click="selectView(null)"
       >
         <Check class="size-3.5" :class="!activeViewId ? '' : 'opacity-0'" />
-        <span class="flex-1">All (no view)</span>
+        <span class="flex-1">Все (без сохранённого вида)</span>
       </button>
 
       <!-- Saved views -->
@@ -157,7 +157,7 @@ function onDelete(id: string, e: Event) {
             <Star
               v-if="v.isDefault"
               class="size-3.5 shrink-0 text-amber-500 fill-current"
-              title="Default view"
+              title="Вид по умолчанию"
             />
             <span class="truncate flex-1">{{ v.name }}</span>
           </button>
@@ -167,7 +167,7 @@ function onDelete(id: string, e: Event) {
             v-if="activeViewId === v.id && isDirty"
             type="button"
             class="rounded p-1 text-surface-400 hover:text-success-600 hover:bg-success-50 dark:hover:bg-success-950 transition-colors"
-            title="Save current changes to this view"
+            title="Сохранить текущие изменения в этом виде"
             @click="(e) => onUpdate(v.id, e)"
           >
             <Check class="size-3.5" />
@@ -177,7 +177,7 @@ function onDelete(id: string, e: Event) {
             type="button"
             class="rounded p-1 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
             :class="v.isDefault ? 'text-amber-500' : 'opacity-0 group-hover:opacity-100 hover:text-amber-500'"
-            :title="v.isDefault ? 'Remove as default' : 'Set as default'"
+            :title="v.isDefault ? 'Убрать статус по умолчанию' : 'Использовать по умолчанию'"
             @click="(e) => onSetDefault(v.id, v.isDefault, e)"
           >
             <Star class="size-3.5" :class="v.isDefault ? 'fill-current' : ''" />
@@ -186,7 +186,7 @@ function onDelete(id: string, e: Event) {
           <button
             type="button"
             class="rounded p-1 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors opacity-0 group-hover:opacity-100"
-            title="Delete view"
+            title="Удалить сохранённый вид"
             @click="(e) => onDelete(v.id, e)"
           >
             <Trash2 class="size-3.5" />
@@ -201,7 +201,7 @@ function onDelete(id: string, e: Event) {
             ref="nameInput"
             v-model="newName"
             type="text"
-            placeholder="View name"
+            placeholder="Название сохранённого вида"
             maxlength="60"
             class="flex-1 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2.5 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             @keydown.escape.prevent="showSaveForm = false; newName = ''"
@@ -210,7 +210,7 @@ function onDelete(id: string, e: Event) {
             type="submit"
             :disabled="!newName.trim()"
             class="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >Save</button>
+          >Сохранить</button>
         </form>
         <button
           v-else
@@ -219,7 +219,7 @@ function onDelete(id: string, e: Event) {
           @click="openSaveForm"
         >
           <Plus class="size-3.5" />
-          {{ activeViewId && isDirty ? 'Save as new view' : 'Save current view' }}
+          {{ activeViewId && isDirty ? 'Сохранить как новый вид' : 'Сохранить текущий вид' }}
         </button>
       </div>
     </div>

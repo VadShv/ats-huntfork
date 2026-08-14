@@ -19,7 +19,7 @@ const { data: job } = useFetch(`/api/public/jobs/${jobSlug}`, {
 })
 
 useSeoMeta({
-  title: 'Application Submitted',
+  title: 'Отклик отправлен',
   robots: 'noindex, nofollow',
 })
 </script>

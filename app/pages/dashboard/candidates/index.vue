@@ -8,8 +8,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Candidates',
-  description: 'Manage your candidate pool',
+  title: 'Кандидаты',
+  description: 'Управляйте базой кандидатов',
 })
 
 // ── Column visibility ─────────────────────────────────────────────────────────
@@ -29,12 +29,12 @@ const visibleColumns = ref<Record<string, boolean>>({ ...defaultColumnVisibility
 const { definitions: propertyDefs } = useProperties({ entityType: () => 'candidate' })
 
 const candidateColumns = computed(() => [
-  { key: 'name', label: 'Name', required: true },
+  { key: 'name', label: 'Кандидат', required: true },
   { key: 'email', label: 'Email' },
-  { key: 'phone', label: 'Phone' },
-  { key: 'applications', label: 'Applications' },
-  { key: 'added', label: 'Added' },
-  { key: 'quickNotes', label: 'Quick notes' },
+  { key: 'phone', label: 'Телефон' },
+  { key: 'applications', label: 'Отклики' },
+  { key: 'added', label: 'Создано' },
+  { key: 'quickNotes', label: 'Краткие заметки' },
   ...propertyDefs.value.map((d) => ({ key: `prop_${d.id}`, label: d.name })),
 ])
 
@@ -182,7 +182,7 @@ const sortedCandidates = computed(() => {
   return list
 })
 
-// ── Quick notes inline editing ────────────────────────────────────────────────
+// ── Быстрые заметки inline editing ────────────────────────────────────────────────
 
 const editingNotesId = ref<string | null>(null)
 const editingNotesValue = ref('')
@@ -428,7 +428,7 @@ const selectedCandidateId = ref<string | null>(null)
         @click="drawerOpen = true"
       >
         <SlidersHorizontal class="size-4" />
-        Filters
+        Фильтры
         <span
           v-if="activeFilterCount > 0"
           class="inline-flex items-center justify-center size-4 rounded-full bg-surface-700 dark:bg-surface-300 text-white dark:text-surface-900 text-xs font-semibold"
@@ -440,12 +440,12 @@ const selectedCandidateId = ref<string | null>(null)
         @click="clearFilters"
       >
         <X class="size-3" />
-        Clear
+        Очистить
       </button>
       <button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-2.5 py-2 text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200 transition-colors"
-        :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen table'"
+        :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Развернуть таблицу'"
         @click="isFullscreen = !isFullscreen"
       >
         <Maximize2 v-if="!isFullscreen" class="size-4" />
@@ -456,36 +456,36 @@ const selectedCandidateId = ref<string | null>(null)
     <!-- Filter drawer -->
     <FilterDrawer
       v-model="drawerOpen"
-      title="Filter candidates"
-      description="Customize your view, then save it for quick access."
+      title="Фильтр кандидатов"
+      description="Настройте представление и сохраните его для быстрого доступа."
       :active-count="activeFilterCount"
       saveable
-      :default-save-name="`View ${views.length + 1}`"
+      :default-save-name="`Представление ${views.length + 1}`"
       @reset="applySettings(defaultSettings)"
       @save-view="onSaveView"
     >
       <div class="space-y-6">
         <!-- Gender -->
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Gender</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Пол</label>
           <select
             v-model="filterGender"
             class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
           >
-            <option :value="undefined">Any</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-            <option value="prefer_not_to_say">Prefer not to say</option>
+            <option :value="undefined">Любой</option>
+            <option value="male">Мужской</option>
+            <option value="female">Женский</option>
+            <option value="other">Другое</option>
+            <option value="prefer_not_to_say">Не указывать</option>
           </select>
         </div>
 
         <!-- Date of birth range -->
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Date of birth</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Дата рождения</label>
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <span class="block text-[11px] text-surface-500 mb-1">From</span>
+              <span class="block text-[11px] text-surface-500 mb-1">От</span>
               <input
                 v-model="filterDobFrom"
                 type="date"
@@ -493,7 +493,7 @@ const selectedCandidateId = ref<string | null>(null)
               />
             </div>
             <div>
-              <span class="block text-[11px] text-surface-500 mb-1">To</span>
+              <span class="block text-[11px] text-surface-500 mb-1">До</span>
               <input
                 v-model="filterDobTo"
                 type="date"
@@ -505,37 +505,37 @@ const selectedCandidateId = ref<string | null>(null)
 
         <!-- Sort -->
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Sort by</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Сортировка</label>
           <div class="flex gap-2">
             <select
               v-model="sortKey"
               class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
             >
-              <option value="created">Date added</option>
-              <option value="name">Name</option>
+              <option value="created">Дата создания</option>
+              <option value="name">Кандидат</option>
               <option value="email">Email</option>
-              <option value="phone">Phone</option>
-              <option value="applications">Applications</option>
+              <option value="phone">Телефон</option>
+              <option value="applications">Отклики</option>
             </select>
             <select
               v-model="sortDir"
               class="w-32 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
             >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
+              <option value="asc">По возрастанию</option>
+              <option value="desc">По убыванию</option>
             </select>
           </div>
         </div>
 
         <!-- Property filters -->
         <div v-if="propertyDefs.length > 0">
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Properties</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Свойства</label>
           <PropertyFilterBar v-model="propertyFilters" entity-type="candidate" />
         </div>
 
         <!-- Columns -->
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Columns</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Колонки</label>
           <div class="space-y-1.5">
             <label
               v-for="col in candidateColumns.filter(c => !c.required)"
@@ -622,7 +622,7 @@ const selectedCandidateId = ref<string | null>(null)
               @click="isFullscreen = false"
             >
               <Minimize2 class="size-4" />
-              Exit fullscreen
+              Выйти из полноэкранного режима
             </button>
           </div>
           <div :class="isFullscreen ? 'flex-1 overflow-auto p-4' : ''">
@@ -632,7 +632,7 @@ const selectedCandidateId = ref<string | null>(null)
             <tr class="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-800">
               <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('name')">
-                  Name
+                  ФИО
                   <ArrowUp v-if="sortKey === 'name' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'name' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -648,7 +648,7 @@ const selectedCandidateId = ref<string | null>(null)
               </th>
               <th v-if="visibleColumns.phone" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('phone')">
-                  Phone
+                  Телефон
                   <ArrowUp v-if="sortKey === 'phone' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'phone' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -656,7 +656,7 @@ const selectedCandidateId = ref<string | null>(null)
               </th>
               <th v-if="visibleColumns.applications" class="text-center px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden sm:table-cell">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('applications')">
-                  Applications
+                  Отклики
                   <ArrowUp v-if="sortKey === 'applications' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'applications' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -664,14 +664,14 @@ const selectedCandidateId = ref<string | null>(null)
               </th>
               <th v-if="visibleColumns.added" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('created')">
-                  Added
+                  Добавлен
                   <ArrowUp v-if="sortKey === 'created' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'created' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
                 </button>
               </th>
               <th v-if="visibleColumns.quickNotes" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden lg:table-cell w-52">
-                Quick notes
+                Быстрые заметки
               </th>
               <template v-for="d in propertyDefs" :key="d.id">
                 <th v-if="visibleColumns[`prop_${d.id}`]" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 whitespace-nowrap">
@@ -742,7 +742,7 @@ const selectedCandidateId = ref<string | null>(null)
               <td v-if="visibleColumns.added" class="px-4 py-3 text-surface-500 dark:text-surface-400 whitespace-nowrap">
                 <TimelineDateLink :date="c.createdAt">{{ formatDateTime(c.createdAt) }}</TimelineDateLink>
               </td>
-              <!-- Quick notes — inline editable (must match header order) -->
+              <!-- Быстрые заметки — inline editable (must match header order) -->
               <td v-if="visibleColumns.quickNotes" class="px-4 py-3 hidden lg:table-cell w-52 align-top" @click.stop>
                 <div v-if="editingNotesId === c.id" class="flex items-start gap-1.5">
                   <textarea
@@ -760,12 +760,12 @@ const selectedCandidateId = ref<string | null>(null)
                       :disabled="isSavingNotes"
                       class="rounded bg-brand-600 px-2 py-0.5 text-xs text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
                       @click="saveNotes(c.id)"
-                    >Save</button>
+                    >Сохранить</button>
                     <button
                       type="button"
                       class="rounded border border-surface-300 dark:border-surface-700 px-2 py-0.5 text-xs text-surface-500 hover:text-surface-700 transition-colors"
                       @click="cancelEditNotes"
-                    >Cancel</button>
+                    >Отмена</button>
                   </div>
                 </div>
                 <button
@@ -779,7 +779,7 @@ const selectedCandidateId = ref<string | null>(null)
                     v-if="c.quickNotes"
                     class="text-xs text-surface-600 dark:text-surface-400 line-clamp-2 group-hover/notes:text-surface-900 dark:group-hover/notes:text-surface-100 transition-colors"
                   >{{ c.quickNotes }}</span>
-                  <span v-else class="text-xs text-surface-300 dark:text-surface-600 group-hover/notes:text-surface-400 transition-colors italic">Add note…</span>
+                  <span v-else class="text-xs text-surface-300 dark:text-surface-600 group-hover/notes:text-surface-400 transition-colors italic">Добавить заметку…</span>
                 </button>
               </td>
               <!-- Property columns (must come AFTER quick notes to match header order) -->

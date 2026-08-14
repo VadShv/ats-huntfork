@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Save, Trash2, ArrowLeft, ExternalLink, Link2, ClipboardCopy,
+  Save, Trash2, ArrowLeft, ExternalLink, Link2, ClipboardCopy, RefreshCw,
 } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -22,7 +22,7 @@ const { job, status: fetchStatus, error: fetchError, updateJob, deleteJob } = us
 
 useSeoMeta({
   title: computed(() =>
-    job.value ? `Settings — ${job.value.title}` : 'Job Settings',
+    job.value ? `Настройки — ${job.value.title}` : 'Настройки вакансии',
   ),
 })
 
@@ -104,6 +104,150 @@ const { data: pipelineStatus, refresh: refreshPipelineStatus } = useFetch(
 const canChangePipeline = computed(() => pipelineStatus.value?.canChangePipeline ?? true)
 const activeApplicationsCount = computed(() => pipelineStatus.value?.activeApplicationsCount ?? 0)
 
+// ─────────────────────────────────────────────
+// Спринт 12.2: синхронизация с hh.ru — тумблеры pull/push
+// ─────────────────────────────────────────────
+
+interface HhLinkInfo {
+  id: string
+  hhVacancyId: string
+  hhVacancyUrl: string | null
+  hhVacancyTitle: string | null
+  lastSyncAt: string | null
+  lastSyncStatus: string | null
+  lastSyncError: string | null
+  importedCount: number
+  autoSyncEnabled: boolean
+  pushSyncEnabled: boolean
+  /** Спринт 13.5: последний пуш этапа на hh.ru (из hh_action_log) */
+  lastPush?: {
+    createdAt: string
+    targetCollection: string | null
+    responseStatus: number | null
+    error: string | null
+  } | null
+}
+
+const hhLink = ref<HhLinkInfo | null>(null)
+
+async function loadHhLink() {
+  try {
+    const res = await $fetch<{ linked: boolean, link?: HhLinkInfo }>(`/api/jobs/${jobId}/hh-link`)
+    hhLink.value = res.linked && res.link ? res.link : null
+  }
+  catch {
+    hhLink.value = null
+  }
+}
+onMounted(loadHhLink)
+
+const hhToggleBusy = ref(false)
+async function toggleHhSync(field: 'pushSyncEnabled' | 'autoSyncEnabled') {
+  if (!hhLink.value || hhToggleBusy.value) return
+  const next = !hhLink.value[field]
+  hhToggleBusy.value = true
+  try {
+    await $fetch(`/api/hh-vacancy-links/${hhLink.value.id}`, {
+      method: 'PATCH',
+      body: { [field]: next },
+    })
+    hhLink.value = { ...hhLink.value, [field]: next }
+    if (field === 'pushSyncEnabled') {
+      toast.success(next ? 'Пуш этапов на hh.ru включён' : 'Пуш этапов на hh.ru выключен')
+    }
+    else {
+      toast.success(next ? 'Автоимпорт откликов включён' : 'Автоимпорт откликов выключен')
+    }
+  }
+  catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error('Не удалось обновить настройки синхронизации')
+  }
+  finally {
+    hhToggleBusy.value = false
+  }
+}
+
+// ─────────────────────────────────────────────
+// Спринт 13.5: таблица «этап → коллекция hh.ru» + диагностика пуша
+// ─────────────────────────────────────────────
+
+interface PipelineViewStage {
+  id: string
+  name: string
+  type: string
+  color?: string | null
+  displayOrder: number
+  parentStageId?: string | null
+  isHidden?: boolean | null
+  isArchived?: boolean | null
+}
+
+const pipelineViewStages = ref<PipelineViewStage[]>([])
+async function loadPipelineViewStages() {
+  try {
+    const res = await $fetch<{ stages?: PipelineViewStage[] }>(`/api/jobs/${jobId}/pipeline-view`)
+    pipelineViewStages.value = res.stages ?? []
+  }
+  catch {
+    pipelineViewStages.value = []
+  }
+}
+onMounted(loadPipelineViewStages)
+
+/** Зеркало серверного fallback-маппинга stageTypeToHhCollection (pushAction.ts). */
+const STAGE_TYPE_TO_HH: Record<string, string | null> = {
+  new: null,
+  applied: null,
+  on_hold: 'consider',
+  screening: 'consider',
+  contact: 'phone_interview',
+  assessment: 'assessment',
+  interview: 'interview',
+  offer: 'offer',
+  hired: 'hired',
+  rejected: 'discard_by_employer',
+  not_fit: 'discard_by_employer',
+  withdrawn: 'discard_by_employer',
+  no_show: 'discard_by_employer',
+  job_closed: 'discard_by_employer',
+  transferred: 'discard_by_employer',
+}
+
+const HH_COLLECTION_LABELS: Record<string, string> = {
+  response: 'Отклики',
+  consider: 'Подумать',
+  phone_interview: 'Телефонное интервью',
+  assessment: 'Оценка',
+  interview: 'Интервью',
+  offer: 'Оффер',
+  hired: 'Выход на работу',
+  discard_by_employer: 'Отказ работодателя',
+  discard_after_interview: 'Отказ после интервью',
+  discard_visible_by_opponent: 'Отказ (виден кандидату)',
+}
+
+const showHhMapping = ref(false)
+
+const hhMappingRows = computed(() => pipelineViewStages.value
+  .filter(s => !s.parentStageId && !s.isHidden && !s.isArchived)
+  .sort((a, b) => a.displayOrder - b.displayOrder)
+  .map((s) => {
+    const coll = STAGE_TYPE_TO_HH[s.type] ?? null
+    return {
+      id: s.id,
+      name: s.name,
+      color: s.color ?? '#94a3b8',
+      collection: coll,
+      collectionLabel: coll ? (HH_COLLECTION_LABELS[coll] ?? coll) : 'Не переносится',
+    }
+  }))
+
+function formatHhDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 // When "Negotiable" is toggled on, clear the salary range fields
 watch(() => form.value.salaryNegotiable, (negotiable) => {
   if (negotiable) {
@@ -119,7 +263,7 @@ watch(() => form.value.salaryNegotiable, (negotiable) => {
 // ─────────────────────────────────────────────
 
 const editSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200),
+  title: z.string().min(1, 'Укажите название вакансии').max(200),
   description: z.string().optional(),
   location: z.string().optional(),
   type: z.enum(['full_time', 'part_time', 'contract', 'internship']),
@@ -306,7 +450,7 @@ function onSalaryMaxChange(e: Event) {
       <div class="mb-8">
         <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">{{ $t('dashboard.jobs.settings.pageTitle') }}</h1>
         <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Edit the details for <strong>{{ job.title }}</strong>.
+          Измените данные вакансии <strong>{{ job.title }}</strong>.
         </p>
       </div>
 
@@ -341,7 +485,7 @@ function onSalaryMaxChange(e: Event) {
                 id="settings-description"
                 v-model="form.description"
                 rows="6"
-                placeholder="Describe the role, responsibilities, and requirements…"
+                placeholder="Опишите роль, обязанности и требования…"
                 class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
               />
             </div>
@@ -356,7 +500,7 @@ function onSalaryMaxChange(e: Event) {
                   id="settings-location"
                   v-model="form.location"
                   type="text"
-                  placeholder="e.g. Oslo, Norway"
+                  placeholder="Например, Москва"
                   class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                 />
               </div>
@@ -417,11 +561,11 @@ function onSalaryMaxChange(e: Event) {
                 id="settings-slug"
                 v-model="form.slug"
                 type="text"
-                placeholder="auto-generated-from-title"
+                placeholder="создаётся-автоматически-из-названия"
                 class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors font-mono text-xs"
               />
               <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">
-                Used in the public application URL. Leave blank to auto-generate from title.
+                Используется в публичном URL отклика. Оставьте пустым, чтобы создать автоматически из названия.
               </p>
             </div>
           </div>
@@ -433,7 +577,7 @@ function onSalaryMaxChange(e: Event) {
         <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
           <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ $t('dashboard.jobs.settings.salarySection') }}</h2>
           <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">
-            Adding salary information improves visibility on Google Jobs.
+            Добавление информации о зарплате повышает видимость в Google Jobs.
           </p>
           <div class="space-y-4">
             <!-- Negotiable toggle -->
@@ -446,7 +590,7 @@ function onSalaryMaxChange(e: Event) {
               <div>
                 <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ $t('dashboard.jobs.settings.salaryNegotiable') }}</span>
                 <p class="text-xs text-surface-400 dark:text-surface-500">
-                  When checked, "Negotiable" is shown instead of a specific salary range. Salary fields below will be cleared.
+                  Если включено, вместо диапазона зарплаты будет показано «По договорённости». Поля ниже будут очищены.
                 </p>
               </div>
             </label>
@@ -463,7 +607,7 @@ function onSalaryMaxChange(e: Event) {
                     v-model.number="form.salaryMin"
                     type="number"
                     min="0"
-                    placeholder="e.g. 50000"
+                    placeholder="Например, 50 000"
                     class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                     @change="onSalaryMinChange"
                   />
@@ -477,7 +621,7 @@ function onSalaryMaxChange(e: Event) {
                     v-model.number="form.salaryMax"
                     type="number"
                     min="0"
-                    placeholder="e.g. 80000"
+                    placeholder="Например, 80 000"
                     class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                     @change="onSalaryMaxChange"
                   />
@@ -493,7 +637,7 @@ function onSalaryMaxChange(e: Event) {
                     v-model="form.salaryCurrency"
                     type="text"
                     maxlength="3"
-                    placeholder="e.g. USD, EUR, NOK"
+                    placeholder="Например, USD, EUR, RUB"
                     class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors uppercase"
                   />
                 </div>
@@ -548,6 +692,15 @@ function onSalaryMaxChange(e: Event) {
             </select>
           </div>
         </section>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- SECTION: Per-vacancy Pipeline Customize -->
+        <!-- ═══════════════════════════════════════ -->
+        <JobPipelineCustomize
+          v-if="jobId && form.pipelineId"
+          :job-id="jobId"
+        />
+
 
         <!-- ═══════════════════════════════════════ -->
         <!-- SECTION: Automation                     -->
@@ -644,6 +797,141 @@ function onSalaryMaxChange(e: Event) {
         </section>
 
         <!-- ═══════════════════════════════════════ -->
+        <!-- SECTION: hh.ru Sync (Спринт 12.2)        -->
+        <!-- ═══════════════════════════════════════ -->
+        <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
+          <div class="flex items-center gap-2 mb-1">
+            <RefreshCw class="size-4 text-red-500" />
+            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Синхронизация с hh.ru</h2>
+          </div>
+          <!-- Спринт 13.1: заглушка, когда вакансия не связана с hh.ru -->
+          <div v-if="!hhLink" class="rounded-md bg-surface-50 dark:bg-surface-950/40 border border-dashed border-surface-300 dark:border-surface-700 px-4 py-5 text-sm text-surface-500 dark:text-surface-400">
+            Вакансия пока не связана с hh.ru. Свяжите её с вакансией на hh.ru через импорт откликов
+            (Сорсинг → Импорт с hh.ru) — после этого здесь появятся настройки автоимпорта откликов
+            и переноса этапов на hh.ru.
+          </div>
+          <template v-else>
+          <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">
+            Вакансия связана с
+            <a
+              v-if="hhLink.hhVacancyUrl"
+              :href="hhLink.hhVacancyUrl"
+              target="_blank"
+              rel="noopener"
+              class="text-brand-600 hover:underline dark:text-brand-400"
+            >{{ hhLink.hhVacancyTitle || `вакансией №${hhLink.hhVacancyId}` }}</a>
+            <span v-else>вакансией №{{ hhLink.hhVacancyId }}</span>
+            · импортировано откликов: {{ hhLink.importedCount }}
+          </p>
+          <div class="space-y-3">
+            <!-- Пуш этапов на hh.ru -->
+            <label class="flex items-center gap-3 cursor-pointer" :class="{ 'opacity-60': hhToggleBusy }">
+              <input
+                type="checkbox"
+                :checked="hhLink.pushSyncEnabled"
+                :disabled="hhToggleBusy"
+                class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
+                @change="toggleHhSync('pushSyncEnabled')"
+              />
+              <div>
+                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Переносить этапы на hh.ru</span>
+                <p class="text-xs text-surface-400 dark:text-surface-500">При смене этапа кандидата в системе отклик автоматически перемещается в соответствующую коллекцию на hh.ru (Подумать, Интервью, Отказ и т.д.)</p>
+              </div>
+            </label>
+            <!-- Автоимпорт откликов -->
+            <label class="flex items-center gap-3 cursor-pointer pt-3 mt-1 border-t border-surface-100 dark:border-surface-800" :class="{ 'opacity-60': hhToggleBusy }">
+              <input
+                type="checkbox"
+                :checked="hhLink.autoSyncEnabled"
+                :disabled="hhToggleBusy"
+                class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
+                @change="toggleHhSync('autoSyncEnabled')"
+              />
+              <div>
+                <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Автоимпорт откликов с hh.ru</span>
+                <p class="text-xs text-surface-400 dark:text-surface-500">Периодически забирать новые отклики и изменения коллекций с hh.ru в систему</p>
+              </div>
+            </label>
+            <!-- Правило воронок -->
+            <div class="rounded-md bg-surface-50 dark:bg-surface-950/40 border border-surface-200 dark:border-surface-800 px-3 py-2.5 text-xs text-surface-600 dark:text-surface-300">
+              <span class="font-medium">Правило:</span> при включённой синхронизации воронка на hh.ru считается равной воронке в системе. Система — источник истины: этап определяет коллекцию на hh.ru по типу этапа, даже если названия этапов отличаются.
+            </div>
+
+            <!-- Спринт 13.5: диагностика синхронизации -->
+            <div class="rounded-md border border-surface-200 dark:border-surface-800 px-3 py-2.5 text-xs space-y-1.5">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span class="text-surface-400">Последний импорт:</span>
+                <span class="font-medium text-surface-700 dark:text-surface-200">{{ formatHhDate(hhLink.lastSyncAt) }}</span>
+                <span
+                  v-if="hhLink.lastSyncStatus"
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  :class="hhLink.lastSyncStatus === 'ok' ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400'"
+                >{{ hhLink.lastSyncStatus === 'ok' ? 'успешно' : 'ошибка' }}</span>
+              </div>
+              <p v-if="hhLink.lastSyncError" class="text-red-600 dark:text-red-400 break-all">{{ hhLink.lastSyncError }}</p>
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 border-t border-surface-100 dark:border-surface-800">
+                <span class="text-surface-400">Последний пуш этапа:</span>
+                <template v-if="hhLink.lastPush">
+                  <span class="font-medium text-surface-700 dark:text-surface-200">{{ formatHhDate(hhLink.lastPush.createdAt) }}</span>
+                  <span v-if="hhLink.lastPush.targetCollection" class="text-surface-500 dark:text-surface-400">→ {{ HH_COLLECTION_LABELS[hhLink.lastPush.targetCollection] ?? hhLink.lastPush.targetCollection }}</span>
+                  <span
+                    class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    :class="!hhLink.lastPush.error ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400'"
+                  >{{ !hhLink.lastPush.error ? `успешно (${hhLink.lastPush.responseStatus ?? '—'})` : `ошибка (${hhLink.lastPush.responseStatus ?? '—'})` }}</span>
+                </template>
+                <span v-else class="text-surface-400">ещё не выполнялся</span>
+              </div>
+              <p v-if="hhLink.lastPush?.error" class="text-red-600 dark:text-red-400 break-all">{{ hhLink.lastPush.error }}</p>
+            </div>
+
+            <!-- Спринт 13.5: таблица «этап → коллекция hh.ru» -->
+            <div>
+              <button
+                type="button"
+                class="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
+                @click="showHhMapping = !showHhMapping"
+              >
+                {{ showHhMapping ? 'Скрыть' : 'Показать' }} соответствие этапов и коллекций hh.ru
+              </button>
+              <div v-if="showHhMapping" class="mt-2 overflow-hidden rounded-md border border-surface-200 dark:border-surface-800">
+                <table class="w-full text-xs">
+                  <thead>
+                    <tr class="bg-surface-50 dark:bg-surface-950/40 text-left text-surface-500 dark:text-surface-400">
+                      <th class="px-3 py-2 font-medium">Этап в системе</th>
+                      <th class="px-3 py-2 font-medium">Коллекция на hh.ru</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="row in hhMappingRows"
+                      :key="row.id"
+                      class="border-t border-surface-100 dark:border-surface-800"
+                    >
+                      <td class="px-3 py-1.5">
+                        <span class="inline-flex items-center gap-2 text-surface-700 dark:text-surface-200">
+                          <span class="inline-flex size-2 shrink-0 rounded-full" :style="{ backgroundColor: row.color }" />
+                          {{ row.name }}
+                        </span>
+                      </td>
+                      <td class="px-3 py-1.5" :class="row.collection ? 'text-surface-700 dark:text-surface-200' : 'text-surface-400 dark:text-surface-500'">
+                        {{ row.collectionLabel }}
+                      </td>
+                    </tr>
+                    <tr v-if="!hhMappingRows.length" class="border-t border-surface-100 dark:border-surface-800">
+                      <td colspan="2" class="px-3 py-2 text-surface-400">У вакансии нет воронки с этапами</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p class="border-t border-surface-100 dark:border-surface-800 bg-surface-50 dark:bg-surface-950/40 px-3 py-2 text-[11px] text-surface-400 dark:text-surface-500">
+                  Если коллекция недоступна на hh.ru (тариф или состояние отклика), система автоматически подберёт ближайшую доступную.
+                </p>
+              </div>
+            </div>
+          </div>
+          </template>
+        </section>
+
+        <!-- ═══════════════════════════════════════ -->
         <!-- SECTION: Application Options             -->
         <!-- ═══════════════════════════════════════ -->
         <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
@@ -683,7 +971,7 @@ function onSalaryMaxChange(e: Event) {
         <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
           <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ $t('dashboard.jobs.settings.listingExpiry') }}</h2>
           <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">
-            Set when this job posting automatically expires. Required for Google Jobs rich results.
+            Укажите дату автоматического снятия вакансии с публикации. Это необходимо для расширенных результатов Google Jobs.
           </p>
           <div>
             <label for="settings-valid-through" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
@@ -705,7 +993,7 @@ function onSalaryMaxChange(e: Event) {
                 {{ $t('dashboard.jobs.settings.clear') }}
               </button>
             </div>
-            <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">Leave blank if there is no fixed expiry date.</p>
+            <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">Оставьте пустым, если фиксированной даты окончания нет.</p>
           </div>
         </section>
 
@@ -718,7 +1006,7 @@ function onSalaryMaxChange(e: Event) {
             <h2 class="text-base font-semibold text-brand-700 dark:text-brand-300">{{ $t('dashboard.jobs.settings.applicationLink') }}</h2>
           </div>
           <p class="text-xs text-surface-600 dark:text-surface-400 mb-3">
-            Share this link with candidates so they can apply to this position.
+            Поделитесь этой ссылкой с кандидатами, чтобы они могли откликнуться на вакансию.
           </p>
           <div class="flex items-center gap-2">
             <input
@@ -759,7 +1047,7 @@ function onSalaryMaxChange(e: Event) {
       <section class="rounded-xl border border-danger-200 dark:border-danger-800/60 bg-danger-50/50 dark:bg-danger-950/20 p-6 mb-12">
         <h2 class="text-base font-semibold text-danger-700 dark:text-danger-400 mb-1">{{ $t('dashboard.jobs.settings.dangerZone') }}</h2>
         <p class="text-xs text-surface-500 dark:text-surface-400 mb-4">
-          Permanently delete this job and all associated applications.
+          Безвозвратно удалить вакансию и все связанные с ней отклики.
         </p>
 
         <div v-if="!showDeleteConfirm">

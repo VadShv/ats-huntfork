@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Huntfork UI · Design System Showcase
+ * Huntfork UI · Дизайн-система Showcase
  *
  * Внутренняя витрина базовых компонентов и токенов. Используется для:
  *  - визуальной регрессии (один взгляд — и видно, всё ли консистентно)
@@ -38,7 +38,7 @@ const fruitOptions = [
   <div class="space-y-10 max-w-6xl">
     <header class="space-y-2">
       <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-100">
-        Huntfork UI · Design System
+        Huntfork UI · Дизайн-система
       </h1>
       <p class="text-sm text-surface-500 dark:text-surface-400">
         Витрина токенов и базовых компонентов. Все компоненты доступны как
@@ -79,12 +79,12 @@ const fruitOptions = [
         <div>
           <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-2">Варианты</p>
           <div class="flex flex-wrap gap-2">
-            <UiButton variant="primary">Primary</UiButton>
-            <UiButton variant="secondary">Secondary</UiButton>
-            <UiButton variant="outline">Outline</UiButton>
-            <UiButton variant="ghost">Ghost</UiButton>
-            <UiButton variant="danger">Danger</UiButton>
-            <UiButton variant="success">Success</UiButton>
+            <UiButton variant="primary">Основная</UiButton>
+            <UiButton variant="secondary">Вторичная</UiButton>
+            <UiButton variant="outline">Контурная</UiButton>
+            <UiButton variant="ghost">Прозрачная</UiButton>
+            <UiButton variant="danger">Опасная</UiButton>
+            <UiButton variant="success">Успех</UiButton>
           </div>
         </div>
 
@@ -103,8 +103,8 @@ const fruitOptions = [
           <div class="flex flex-wrap gap-2">
             <UiButton :icon-left="Mail">С иконкой</UiButton>
             <UiButton loading>Загрузка</UiButton>
-            <UiButton disabled>Disabled</UiButton>
-            <UiButton block>Block</UiButton>
+            <UiButton disabled>Заблокировано</UiButton>
+            <UiButton block>На всю ширину</UiButton>
           </div>
         </div>
       </div>
@@ -141,12 +141,12 @@ const fruitOptions = [
           size="lg"
         />
         <UiInput
-          label="Disabled"
+          label="Заблокировано"
           placeholder="—"
           disabled
         />
         <UiInput
-          label="Loading"
+          label="Загрузка"
           loading
           placeholder="Идёт сохранение…"
         />
@@ -184,7 +184,7 @@ const fruitOptions = [
       <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-4">UiBadge</h2>
       <div class="space-y-4">
         <div>
-          <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-2">Soft (default)</p>
+          <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-2">Мягкий (по умолчанию)</p>
           <div class="flex flex-wrap gap-2">
             <UiBadge tone="neutral">Нейтральный</UiBadge>
             <UiBadge tone="brand">Бренд</UiBadge>
@@ -196,12 +196,12 @@ const fruitOptions = [
           </div>
         </div>
         <div>
-          <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-2">Solid / Outline</p>
+          <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-2">Заливка / Контур</p>
           <div class="flex flex-wrap gap-2">
-            <UiBadge variant="solid" tone="brand">Solid Brand</UiBadge>
-            <UiBadge variant="solid" tone="success">Solid Success</UiBadge>
-            <UiBadge variant="outline" tone="brand">Outline Brand</UiBadge>
-            <UiBadge variant="outline" tone="danger">Outline Danger</UiBadge>
+            <UiBadge variant="solid" tone="brand">Заливка, брендовый</UiBadge>
+            <UiBadge variant="solid" tone="success">Заливка, успех</UiBadge>
+            <UiBadge variant="outline" tone="brand">Контур, брендовый</UiBadge>
+            <UiBadge variant="outline" tone="danger">Контур, опасность</UiBadge>
           </div>
         </div>
         <div>
@@ -221,19 +221,19 @@ const fruitOptions = [
       <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-4">UiCard</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <UiCard>
-          <h3 class="font-semibold text-surface-900 dark:text-surface-100">Default</h3>
+          <h3 class="font-semibold text-surface-900 dark:text-surface-100">Обычная</h3>
           <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">Базовая карточка с рамкой и фоном.</p>
         </UiCard>
         <UiCard variant="elevated">
-          <h3 class="font-semibold text-surface-900 dark:text-surface-100">Elevated</h3>
+          <h3 class="font-semibold text-surface-900 dark:text-surface-100">С тенью</h3>
           <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">Без рамки, с тенью.</p>
         </UiCard>
         <UiCard variant="dashed" tone="brand">
-          <h3 class="font-semibold text-surface-900 dark:text-surface-100">Dashed (empty state)</h3>
+          <h3 class="font-semibold text-surface-900 dark:text-surface-100">Пунктир (пустое состояние)</h3>
           <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">Пунктирная рамка, для пустых состояний.</p>
         </UiCard>
         <UiCard variant="tinted" tone="warning">
-          <h3 class="font-semibold text-warning-700 dark:text-warning-300">Warning tinted</h3>
+          <h3 class="font-semibold text-warning-700 dark:text-warning-300">С оттенком предупреждения</h3>
           <p class="text-sm text-warning-600 dark:text-warning-400 mt-1">Заливка под предупреждение.</p>
         </UiCard>
         <UiCard>

@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { X, ExternalLink, User, Briefcase, Calendar, Clock, Hash, FileText } from 'lucide-vue-next'
+/**
+ * Полуокно (drawer) отклика.
+ *
+ * Спринт 13.3: приведено к полному паритету с полной страницей отклика —
+ * этап воронки (ApplicationStagePicker), единый блок быстрых действий
+ * (ApplicationQuickActions), русифицированные статусы. Legacy-статус
+ * показывается только если у отклика нет этапа воронки.
+ */
+import { X, ExternalLink, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare } from 'lucide-vue-next'
 import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
-import { APPLICATION_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
+import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
 
@@ -19,41 +27,30 @@ const toast = useToast()
 
 const { application, status: fetchStatus, error, refresh, updateApplication } = useApplication(() => props.applicationId)
 const { formatCandidateName } = useOrgSettings()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
-// ─── Status transitions ───────────────────────────────────────────────────────
+// ─── Этап воронки (как на полной странице) ────────────────────────────────────
 
-const transitionLabels: Record<string, string> = {
-  new: 'Re-open',
-  screening: 'Move to Screening',
-  interview: 'Move to Interview',
-  offer: 'Make Offer',
-  hired: 'Mark Hired',
-  rejected: 'Reject',
+const localStageId = ref<string | null>(null)
+const localStageName = ref<string | null>(null)
+const localStageColor = ref<string | null>(null)
+
+watch(application, (app) => {
+  if (app) {
+    localStageId.value = (app as { currentStageId?: string | null }).currentStageId ?? null
+    localStageName.value = (app as { currentStage?: { name: string } | null }).currentStage?.name ?? null
+    localStageColor.value = (app as { currentStage?: { color: string } | null }).currentStage?.color ?? null
+  }
+}, { immediate: true })
+
+function handleStageChanged(payload: { newStageId: string, newStageName: string, newStageColor: string }) {
+  localStageId.value = payload.newStageId
+  localStageName.value = payload.newStageName
+  localStageColor.value = payload.newStageColor
+  void refresh()
 }
 
-const transitionClasses: Record<string, string> = {
-  new: 'border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 text-surface-700 dark:text-surface-300 hover:border-surface-400 dark:hover:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800',
-  screening: 'bg-violet-600 text-white shadow-sm shadow-violet-900/20 hover:bg-violet-700',
-  interview: 'bg-amber-600 text-white shadow-sm shadow-amber-900/20 hover:bg-amber-700',
-  offer: 'bg-teal-600 text-white shadow-sm shadow-teal-900/20 hover:bg-teal-700',
-  hired: 'bg-green-700 text-white shadow-sm shadow-green-900/30 hover:bg-green-800',
-  rejected: 'bg-danger-600 text-white shadow-sm shadow-danger-900/20 hover:bg-danger-700',
-}
-
-const transitionDotClasses: Record<string, string> = {
-  new: 'bg-surface-400 dark:bg-surface-500',
-  screening: 'bg-violet-200',
-  interview: 'bg-amber-200',
-  offer: 'bg-teal-200',
-  hired: 'bg-green-100',
-  rejected: 'bg-danger-200',
-}
-
-const allowedTransitions = computed(() => {
-  if (!application.value) return []
-  return APPLICATION_STATUS_TRANSITIONS[application.value.status] ?? []
-})
+// ─── Legacy-переходы статуса (кнопки живут в ApplicationQuickActions) ─────────
 
 const isTransitioning = ref(false)
 const showInterviewSidebar = ref(false)
@@ -64,13 +61,13 @@ async function handleTransition(newStatus: string) {
     await updateApplication({ status: newStatus as any })
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to update status', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+    toast.error(t('applications.failedToUpdateStatus'), { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   } finally {
     isTransitioning.value = false
   }
 }
 
-// ─── Display helpers ──────────────────────────────────────────────────────────
+// ─── Отображение ──────────────────────────────────────────────────────────────
 
 const statusBadgeClasses: Record<string, string> = {
   new: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400',
@@ -81,27 +78,24 @@ const statusBadgeClasses: Record<string, string> = {
   rejected: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
 }
 
+/** Русифицированный лейбл legacy-статуса (единый источник — локали dashboard.applications.stages). */
+function statusLabel(status: string): string {
+  return te(`dashboard.applications.stages.${status}`) ? t(`dashboard.applications.stages.${status}`) : status
+}
+
 function formatResponseValue(value: unknown): string {
   if (Array.isArray(value)) return value.join(', ')
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'boolean') return value ? 'Да' : 'Нет'
   return String(value ?? '—')
 }
 
-// ─── Body scroll lock + keyboard handling ─────────────────────────────────────
+// ─── Скролл-лок и клавиатура ──────────────────────────────────────────────────
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') emit('close')
-}
+// Escape через единый LIFO-стек: при вложенных drawer'ах закрывается только верхний
+useEscapeStack(true, () => emit('close'))
 
-onMounted(() => {
-  document.addEventListener('keydown', onKeydown)
-  document.body.style.overflow = 'hidden'
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', onKeydown)
-  document.body.style.overflow = ''
-})
+onMounted(() => { document.body.style.overflow = 'hidden' })
+onUnmounted(() => { document.body.style.overflow = '' })
 </script>
 
 <template>
@@ -130,18 +124,18 @@ onUnmounted(() => {
         class="fixed inset-y-0 right-0 z-[60] w-full max-w-2xl flex flex-col bg-white dark:bg-surface-900 shadow-2xl border-l border-surface-200 dark:border-surface-800"
         role="dialog"
         aria-modal="true"
-        aria-label="Application detail"
+        aria-label="Карточка отклика"
       >
         <!-- Header -->
         <header class="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-200 dark:border-surface-800 shrink-0">
-          <span class="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">Application Detail</span>
+          <span class="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">Карточка отклика</span>
           <div class="flex items-center gap-2 shrink-0">
             <NuxtLink
               :to="localePath(`/dashboard/applications/${applicationId}`)"
               class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
             >
               <ExternalLink class="size-3.5" />
-              Open full page
+              Открыть полностью
             </NuxtLink>
             <button
               class="rounded-lg p-1.5 text-surface-500 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
@@ -155,23 +149,21 @@ onUnmounted(() => {
         <!-- Scrollable body -->
         <div class="flex-1 overflow-y-auto p-5 space-y-4">
           <!-- Loading -->
-          <div v-if="fetchStatus === 'pending'" class="text-center py-12 text-surface-400">
-            Loading application…
-          </div>
+          <DetailSkeleton v-if="fetchStatus === 'pending' && !application" :blocks="3" :with-header="false" />
 
           <!-- Error -->
-          <div
+          <EntityDetailError
             v-else-if="error"
-            class="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700"
-          >
-            {{ error.statusCode === 404 ? 'Application not found.' : 'Failed to load application.' }}
-          </div>
+            :title="error.statusCode === 404 ? t('applications.not_found') : t('applications.failed_to_load')"
+            :on-retry="error.statusCode === 404 ? undefined : () => refresh()"
+            :on-close="() => $emit('close')"
+          />
 
           <template v-else-if="application">
             <!-- Header card -->
             <div class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
               <p class="mb-2 text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">
-                Application Overview
+                {{ $t('applications.overview') }}
               </p>
               <div class="mb-2 flex flex-wrap items-center gap-2 text-surface-400">
                 <h2 class="text-2xl font-bold text-surface-900 dark:text-surface-50 truncate">
@@ -186,56 +178,37 @@ onUnmounted(() => {
                 </NuxtLink>
               </div>
               <div class="flex flex-wrap items-center gap-3">
+                <!-- Этап воронки — как на полной странице -->
+                <ApplicationStagePicker
+                  :application-id="applicationId"
+                  :current-stage-id="localStageId"
+                  @stage-changed="handleStageChanged"
+                />
+                <!-- Legacy-статус: показывается только если этап воронки не задан -->
                 <span
+                  v-if="!localStageId"
                   class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                   :class="statusBadgeClasses[application.status] ?? 'bg-surface-100 text-surface-600'"
                 >
-                  {{ application.status }}
+                  {{ statusLabel(application.status) }}
                 </span>
-                <span
-                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="getApplicationSourceMeta((application as any).source).badgeClass"
-                  :title="getApplicationSourceMeta((application as any).source).tooltip"
-                >
-                  <component
-                    :is="getApplicationSourceMeta((application as any).source).icon"
-                    :class="['size-3.5', getApplicationSourceMeta((application as any).source).iconClass]"
-                  />
-                  {{ getApplicationSourceMeta((application as any).source).label }}
-                </span>
+                <SourceBadge :source="(application as any).source" />
                 <TimelineDateLink :date="application.createdAt" class="text-sm text-surface-500 dark:text-surface-400">
-                  Applied {{ new Date(application.createdAt).toLocaleDateString() }}
+                  {{ t('applications.applied_label') }} {{ new Date(application.createdAt).toLocaleDateString() }}
                 </TimelineDateLink>
               </div>
             </div>
 
-            <!-- Quick actions -->
-            <div class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white/80 dark:bg-surface-900/70 p-3">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center rounded-full bg-surface-100 dark:bg-surface-800 px-2.5 py-1 text-xs font-medium text-surface-600 dark:text-surface-400">Quick actions</span>
-                <button
-                  v-for="nextStatus in allowedTransitions"
-                  :key="nextStatus"
-                  :disabled="isTransitioning"
-                  class="inline-flex cursor-pointer items-center rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-                  :class="transitionClasses[nextStatus] ?? 'border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 text-surface-700 dark:text-surface-300 hover:border-surface-400 dark:hover:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800'"
-                  @click="handleTransition(nextStatus)"
-                >
-                  <span
-                    class="mr-2 inline-flex size-1.5 rounded-full"
-                    :class="transitionDotClasses[nextStatus] ?? 'bg-surface-400 dark:bg-surface-500'"
-                  />
-                  {{ transitionLabels[nextStatus] ?? nextStatus }}
-                </button>
-                <button
-                  class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-                  @click="showInterviewSidebar = true"
-                >
-                  <Calendar class="size-3.5" />
-                  {{ $t('dashboard.interviews.schedule') }}
-                </button>
-              </div>
-            </div>
+            <!-- Quick actions — Спринт 13.3: единый компонент (карточка + полуокно) -->
+            <ApplicationQuickActions
+              :application-id="applicationId"
+              :current-stage-id="localStageId"
+              :status="application.status"
+              :disabled="isTransitioning"
+              @stage-changed="handleStageChanged"
+              @legacy-transition="handleTransition"
+              @schedule="showInterviewSidebar = true"
+            />
 
             <!-- Candidate & Job cards -->
             <div class="grid gap-4 sm:grid-cols-2">
@@ -243,11 +216,11 @@ onUnmounted(() => {
               <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
                 <div class="flex items-center gap-2 mb-3">
                   <User class="size-4 text-surface-500 dark:text-surface-400" />
-                  <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Candidate</h3>
+                  <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('applications.candidate') }}</h3>
                 </div>
                 <dl class="grid grid-cols-1 gap-3 text-sm">
                   <div>
-                    <dt class="text-surface-400">Name</dt>
+                    <dt class="text-surface-400">{{ t('applications.name') }}</dt>
                     <dd class="text-surface-700 dark:text-surface-200 font-medium">
                       <NuxtLink
                         :to="localePath(`/dashboard/candidates/${application.candidate.id}`)"
@@ -258,7 +231,7 @@ onUnmounted(() => {
                     </dd>
                   </div>
                   <div>
-                    <dt class="text-surface-400">Email</dt>
+                    <dt class="text-surface-400">{{ t('applications.email') }}</dt>
                     <dd class="text-surface-700 dark:text-surface-200 font-medium">
                       <a
                         :href="`mailto:${application.candidate.email}`"
@@ -268,7 +241,7 @@ onUnmounted(() => {
                     </dd>
                   </div>
                   <div v-if="application.candidate.phone">
-                    <dt class="text-surface-400">Phone</dt>
+                    <dt class="text-surface-400">Телефон</dt>
                     <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ application.candidate.phone }}</dd>
                   </div>
                 </dl>
@@ -278,11 +251,11 @@ onUnmounted(() => {
               <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
                 <div class="flex items-center gap-2 mb-3">
                   <Briefcase class="size-4 text-surface-500 dark:text-surface-400" />
-                  <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Job</h3>
+                  <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Вакансия</h3>
                 </div>
                 <dl class="grid grid-cols-1 gap-3 text-sm">
                   <div>
-                    <dt class="text-surface-400">Title</dt>
+                    <dt class="text-surface-400">Название</dt>
                     <dd class="text-surface-700 dark:text-surface-200 font-medium">
                       <NuxtLink
                         :to="localePath(`/dashboard/jobs/${application.job.id}`)"
@@ -293,7 +266,7 @@ onUnmounted(() => {
                     </dd>
                   </div>
                   <div>
-                    <dt class="text-surface-400">Job Status</dt>
+                    <dt class="text-surface-400">Статус вакансии</dt>
                     <dd class="text-surface-700 dark:text-surface-200 font-medium capitalize">{{ application.job.status }}</dd>
                   </div>
                 </dl>
@@ -304,21 +277,31 @@ onUnmounted(() => {
             <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
               <div class="flex items-center gap-2 mb-3">
                 <Hash class="size-4 text-surface-500 dark:text-surface-400" />
-                <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Details</h3>
+                <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('applications.details') }}</h3>
               </div>
               <dl class="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <dt class="text-surface-400">Score</dt>
+                  <dt class="text-surface-400">{{ t('applications.score') }}</dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ application.score ?? '—' }}</dd>
                 </div>
-                <div>
-                  <dt class="text-surface-400">Status</dt>
-                  <dd class="text-surface-700 dark:text-surface-200 font-medium capitalize">{{ application.status }}</dd>
+                <div v-if="localStageId">
+                  <dt class="text-surface-400">{{ $t('applications.stage.current') }}</dt>
+                  <dd class="text-surface-700 dark:text-surface-200 font-medium">
+                    <ApplicationStageBadge
+                      :name="localStageName ?? ''"
+                      :color="localStageColor ?? '#94a3b8'"
+                      size="sm"
+                    />
+                  </dd>
+                </div>
+                <div v-else>
+                  <dt class="text-surface-400">{{ t('applications.status') }}</dt>
+                  <dd class="text-surface-700 dark:text-surface-200 font-medium">{{ statusLabel(application.status) }}</dd>
                 </div>
                 <div>
                   <dt class="text-surface-400 inline-flex items-center gap-1">
                     <Calendar class="size-3.5" />
-                    Applied
+                    {{ t('applications.applied_label') }}
                   </dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">
                     <TimelineDateLink :date="application.createdAt">{{ new Date(application.createdAt).toLocaleDateString() }}</TimelineDateLink>
@@ -327,7 +310,7 @@ onUnmounted(() => {
                 <div>
                   <dt class="text-surface-400 inline-flex items-center gap-1">
                     <Clock class="size-3.5" />
-                    Updated
+                    {{ t('applications.updated_label') }}
                   </dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">
                     <TimelineDateLink :date="application.updatedAt">{{ new Date(application.updatedAt).toLocaleDateString() }}</TimelineDateLink>
@@ -342,9 +325,18 @@ onUnmounted(() => {
               :compact="true"
             />
 
+            <!-- Чат с кандидатом (Спринт 18) -->
+            <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
+              <div class="flex items-center gap-2 mb-3">
+                <MessageSquare class="size-4 text-surface-500 dark:text-surface-400" />
+                <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('dashboard.chat.tab') }}</h3>
+              </div>
+              <CommsChatPanel :application-id="applicationId" />
+            </div>
+
             <!-- Properties -->
             <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4">
-              <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-2 px-2">Properties</h3>
+              <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-2 px-2">Свойства</h3>
               <PropertyBlock
                 entity-type="application"
                 :entity-id="applicationId"
@@ -362,7 +354,7 @@ onUnmounted(() => {
               <div class="flex items-center gap-2 mb-3">
                 <FileText class="size-4 text-surface-500 dark:text-surface-400" />
                 <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200">
-                  Application Responses ({{ application.responses.length }})
+                  Ответы на вопросы анкеты ({{ application.responses.length }})
                 </h3>
               </div>
               <div class="space-y-3">
@@ -372,7 +364,7 @@ onUnmounted(() => {
                   class="border-b border-surface-100 dark:border-surface-800 pb-3 last:border-0 last:pb-0"
                 >
                   <dt class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-0.5">
-                    {{ response.question?.label ?? 'Unknown question' }}
+                    {{ response.question?.label ?? 'Вопрос не найден' }}
                   </dt>
                   <dd class="text-sm text-surface-700 dark:text-surface-200">
                     {{ formatResponseValue(response.value) }}

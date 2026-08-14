@@ -157,7 +157,7 @@ function summarizeFilter(f: PropertyFilter): string {
     const label = opts.find((o) => o.id === f.value)?.label ?? '…'
     return `${def.name} ${opLabel} ${label}`
   }
-  if (def.type === 'checkbox') return `${def.name} ${opLabel} ${f.value ? 'checked' : 'unchecked'}`
+  if (def.type === 'checkbox') return `${def.name} ${opLabel} ${f.value ? 'отмечено' : 'не отмечено'}`
   return `${def.name} ${opLabel} ${f.value || '…'}`
 }
 
@@ -253,8 +253,8 @@ const showableDefs = computed(() => definitions.value)
                 class="w-full rounded border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none"
                 @change="(e) => patchFilter(idx, { value: (e.target as HTMLSelectElement).value === 'true' })"
               >
-                <option value="true">checked</option>
-                <option value="false">unchecked</option>
+                <option value="true">отмечено</option>
+                <option value="false">не отмечено</option>
               </select>
 
               <!-- date / number equals -->
@@ -279,7 +279,7 @@ const showableDefs = computed(() => definitions.value)
                 v-else
                 type="text"
                 :value="(f.value as string) ?? ''"
-                placeholder="Value"
+                placeholder="Значение"
                 class="w-full rounded border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none"
                 @input="(e) => patchFilter(idx, { value: (e.target as HTMLInputElement).value })"
               />
@@ -315,7 +315,7 @@ const showableDefs = computed(() => definitions.value)
             <span class="text-[10px] uppercase tracking-wide text-surface-400">{{ def.type }}</span>
           </button>
           <div v-if="showableDefs.length === 0" class="px-3 py-2 text-xs text-surface-400">
-            No properties to filter by yet.
+            Пока нет свойств для фильтрации.
           </div>
         </div>
       </div>
@@ -326,6 +326,6 @@ const showableDefs = computed(() => definitions.value)
       type="button"
       class="text-xs text-surface-500 hover:text-surface-800 dark:hover:text-surface-100 cursor-pointer"
       @click="clearAll"
-    >Clear all</button>
+    >Очистить все</button>
   </div>
 </template>

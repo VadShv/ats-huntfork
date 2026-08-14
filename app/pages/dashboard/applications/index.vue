@@ -7,8 +7,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Applications',
-  description: 'Manage applications across all jobs',
+  title: 'Отклики',
+  description: 'Управляйте откликами по всем вакансиям',
 })
 
 // ── Column visibility ─────────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ const defaultColumnVisibility = {
   stage: true,
   status: true,
   score: true,
+  source: true,
   applied: true,
 }
 
@@ -29,13 +30,14 @@ const visibleColumns = ref<Record<string, boolean>>({ ...defaultColumnVisibility
 const { definitions: propertyDefs } = useProperties({ entityType: () => 'application' })
 
 const applicationColumns = computed(() => [
-  { key: 'candidate', label: 'Candidate', required: true },
+  { key: 'candidate', label: 'Кандидат', required: true },
   { key: 'email', label: 'Email' },
-  { key: 'job', label: 'Job' },
+  { key: 'job', label: 'Вакансия' },
   { key: 'stage', label: t('applications.stage.label') },
-  { key: 'status', label: 'Status' },
-  { key: 'score', label: 'Score' },
-  { key: 'applied', label: 'Applied' },
+  { key: 'status', label: 'Статус' },
+  { key: 'score', label: 'Балл' },
+  { key: 'source', label: 'Источник' },
+  { key: 'applied', label: 'Откликнулся' },
   ...propertyDefs.value.map((d) => ({ key: `prop_${d.id}`, label: d.name })),
 ])
 
@@ -507,7 +509,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
       <div>
         <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">{{ $t('dashboard.applications.title') }}</h1>
         <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">
-          Track candidates through your hiring pipeline.
+          Ведите кандидатов по воронке найма.
         </p>
       </div>
     </div>
@@ -546,7 +548,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
         @click="drawerOpen = true"
       >
         <SlidersHorizontal class="size-4" />
-        Filters
+        Фильтры
         <span
           v-if="drawerActiveCount > 0"
           class="inline-flex items-center justify-center min-w-[1rem] h-4 px-1 rounded-full bg-surface-700 dark:bg-surface-300 text-white dark:text-surface-900 text-[10px] font-semibold"
@@ -558,12 +560,12 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
         @click="clearAllFilters"
       >
         <X class="size-3" />
-        Clear
+        Очистить
       </button>
       <button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-2.5 py-2 text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200 transition-colors"
-        :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen table'"
+        :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Развернуть таблицу'"
         @click="isFullscreen = !isFullscreen"
       >
         <Maximize2 v-if="!isFullscreen" class="size-4" />
@@ -574,18 +576,18 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
     <!-- Filter drawer -->
     <FilterDrawer
       v-model="drawerOpen"
-      title="Filter applications"
-      description="Customize your view, then save it for quick access."
+      title="Фильтр откликов"
+      description="Настройте представление и сохраните его для быстрого доступа."
       :active-count="drawerActiveCount"
       saveable
-      :default-save-name="`View ${views.length + 1}`"
+      :default-save-name="`Представление ${views.length + 1}`"
       @reset="applySettings(defaultSettings)"
       @save-view="onSaveView"
     >
       <div class="space-y-6">
         <!-- Status -->
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Status</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Статус</label>
           <div class="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -594,7 +596,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
                 ? 'bg-surface-900 text-white dark:bg-surface-100 dark:text-surface-900'
                 : 'bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'"
               @click="activeStatus = undefined"
-            >Any</button>
+            >Любой</button>
             <button
               v-for="s in STATUS_OPTIONS"
               :key="s"
@@ -610,12 +612,12 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
 
         <!-- Job -->
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Job</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Вакансия</label>
           <select
             v-model="activeJobId"
             class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
           >
-            <option :value="undefined">All jobs</option>
+            <option :value="undefined">Все вакансии</option>
             <option v-for="j in uniqueJobs" :key="j.id" :value="j.id">{{ j.title }}</option>
           </select>
         </div>
@@ -665,38 +667,38 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
 
         <!-- Sort -->
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Sort by</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Сортировка</label>
           <div class="flex gap-2">
             <select
               v-model="sortKey"
               class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
             >
-              <option value="created">Applied date</option>
-              <option value="name">Candidate name</option>
+              <option value="created">Дата отклика</option>
+              <option value="name">Кандидат</option>
               <option value="email">Email</option>
-              <option value="job">Job title</option>
-              <option value="status">Status</option>
-              <option value="score">Score</option>
+              <option value="job">Вакансия</option>
+              <option value="status">Статус</option>
+              <option value="score">Балл</option>
             </select>
             <select
               v-model="sortDir"
               class="w-32 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
             >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
+              <option value="asc">По возрастанию</option>
+              <option value="desc">По убыванию</option>
             </select>
           </div>
         </div>
 
         <!-- Property filters -->
         <div v-if="propertyDefs.length > 0">
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Properties</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Свойства</label>
           <PropertyFilterBar v-model="propertyFilters" entity-type="application" />
         </div>
 
         <!-- Columns -->
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Columns</label>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Колонки</label>
           <div class="space-y-1.5">
             <label
               v-for="col in applicationColumns.filter(c => !c.required)"
@@ -752,7 +754,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
       <FileText class="size-10 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
       <h3 class="text-base font-semibold text-surface-700 dark:text-surface-200 mb-1">{{ $t('dashboard.applications.empty') }}</h3>
       <p class="text-sm text-surface-500 dark:text-surface-400">
-        Applications will appear here when candidates apply to your jobs or when you manually link candidates.
+        Отклики появятся здесь, когда кандидаты откликнутся на ваши вакансии или когда вы привяжете их вручную.
       </p>
     </div>
 
@@ -762,15 +764,15 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
       class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-12 text-center"
     >
       <Search class="size-8 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
-      <h3 class="text-base font-semibold text-surface-700 dark:text-surface-200 mb-1">No matching applications</h3>
+      <h3 class="text-base font-semibold text-surface-700 dark:text-surface-200 mb-1">Нет подходящих откликов</h3>
       <p class="text-sm text-surface-500 dark:text-surface-400 mb-3">
-        Try adjusting your search or filters.
+        Измените поисковый запрос или фильтры.
       </p>
       <button
         class="text-sm text-brand-600 hover:text-brand-700 font-medium transition-colors"
         @click="clearAllFilters"
       >
-        Clear all filters
+        Сбросить все фильтры
       </button>
     </div>
 
@@ -789,7 +791,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
               @click="isFullscreen = false"
             >
               <Minimize2 class="size-4" />
-              Exit fullscreen
+              Выйти из полноэкранного режима
             </button>
           </div>
           <div :class="isFullscreen ? 'flex-1 overflow-auto p-4' : ''">
@@ -808,7 +810,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
               </th>
               <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('name')">
-                  Candidate
+                  Кандидат
                   <ArrowUp v-if="sortKey === 'name' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'name' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -824,7 +826,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
               </th>
               <th v-if="visibleColumns.job" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('job')">
-                  Job
+                  Вакансия
                   <ArrowUp v-if="sortKey === 'job' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'job' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -835,7 +837,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
               </th>
               <th v-if="visibleColumns.status" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('status')">
-                  Status
+                  Статус
                   <ArrowUp v-if="sortKey === 'status' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'status' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -843,15 +845,18 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
               </th>
               <th v-if="visibleColumns.score" class="text-center px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden sm:table-cell">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('score')">
-                  Score
+                  Балл
                   <ArrowUp v-if="sortKey === 'score' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'score' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
                 </button>
               </th>
+              <th v-if="visibleColumns.source" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 whitespace-nowrap hidden md:table-cell">
+                Источник
+              </th>
               <th v-if="visibleColumns.applied" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('created')">
-                  Applied
+                  Откликнулся
                   <ArrowUp v-if="sortKey === 'created' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'created' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -925,14 +930,10 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
                 </span>
               </td>
               <td v-if="visibleColumns.score" class="px-4 py-3 text-center hidden sm:table-cell">
-                <span
-                  v-if="app.score != null"
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ring-1 ring-inset"
-                  :class="scoreClass(app.score)"
-                >
-                  {{ app.score }}%
-                </span>
-                <span v-else class="text-surface-300 dark:text-surface-600">—</span>
+                <ScoreBadge :score="app.score" size="xs" />
+              </td>
+              <td v-if="visibleColumns.source" class="px-4 py-3 hidden md:table-cell">
+                <SourceBadge :source="app.source" size="xs" />
               </td>
               <td v-if="visibleColumns.applied" class="px-4 py-3 text-surface-400 whitespace-nowrap">
                 <TimelineDateLink :date="app.createdAt" class="inline-flex items-center gap-1.5">

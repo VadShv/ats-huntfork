@@ -18,7 +18,7 @@ const timelineUrl = computed(() => {
   <NuxtLink
     :to="timelineUrl"
     class="group/tl inline-flex items-center gap-1 transition-colors hover:text-brand-600 dark:hover:text-brand-400"
-    title="View in timeline"
+    title="Показать в ленте"
   >
     <slot />
     <History class="size-3 opacity-0 group-hover/tl:opacity-60 transition-opacity shrink-0" />

@@ -7,8 +7,8 @@ import {
 definePageMeta({})
 
 useSeoMeta({
-  title: 'Integrations',
-  description: 'Connect your calendar and other services',
+  title: 'Интеграции',
+  description: 'Подключайте календарь и другие сервисы',
 })
 
 const route = useRoute()
@@ -31,6 +31,8 @@ interface HhStatusResponse {
     lastRefreshedAt: string | null
     accessTokenExpiresAt: string
     lastError: string | null
+    webhookEnabled?: boolean
+    webhookLastEventAt?: string | null
   }
 }
 
@@ -61,6 +63,34 @@ async function disconnectHh() {
   }
 }
 
+// ── Спринт 18.1 — вебхуки hh.ru ──
+const hhWebhookEnabled = computed(() => Boolean(hhStatus.value?.account?.webhookEnabled))
+const hhWebhookBusy = ref(false)
+async function toggleHhWebhooks() {
+  if (hhWebhookBusy.value) return
+  hhWebhookBusy.value = true
+  const turningOff = hhWebhookEnabled.value
+  try {
+    if (turningOff) {
+      await $fetch('/api/hh/webhooks', { method: 'DELETE' })
+      successMessage.value = 'Вебхуки hh.ru выключены.'
+    }
+    else {
+      await $fetch('/api/hh/webhooks', { method: 'POST' })
+      successMessage.value = 'Вебхуки hh.ru включены — новые сообщения, отклики и статусы будут приходить мгновенно.'
+    }
+    await refreshHh()
+  }
+  catch {
+    errorMessage.value = turningOff
+      ? 'Не удалось выключить вебхуки hh.ru. Попробуйте ещё раз.'
+      : 'Не удалось включить вебхуки hh.ru. Попробуйте ещё раз.'
+  }
+  finally {
+    hhWebhookBusy.value = false
+  }
+}
+
 // Handle OAuth callback query params
 const successMessage = ref('')
 const errorMessage = ref('')
@@ -72,14 +102,14 @@ onMounted(() => {
   const hhError = route.query.hh_error as string | undefined
 
   if (success === 'connected') {
-    successMessage.value = 'Google Calendar connected successfully! Your interviews will now sync automatically.'
+    successMessage.value = 'Google Calendar успешно подключён. Интервью будут синхронизироваться автоматически.'
     refresh()
   }
   else if (error === 'consent_denied') {
-    errorMessage.value = 'Calendar connection was cancelled. You can try again anytime.'
+    errorMessage.value = 'Подключение календаря отменено. Попробуйте ещё раз в любое время.'
   }
   else if (error === 'oauth_failed') {
-    errorMessage.value = 'Failed to connect Google Calendar. Please try again.'
+    errorMessage.value = 'Не удалось подключить Google Calendar. Попробуйте ещё раз.'
   }
 
   if (hhSuccess === 'connected') {
@@ -109,10 +139,10 @@ async function handleDisconnect() {
   try {
     await disconnect()
     showDisconnectConfirm.value = false
-    successMessage.value = 'Google Calendar disconnected.'
+    successMessage.value = 'Google Calendar отключён.'
   }
   catch {
-    errorMessage.value = 'Failed to disconnect. Please try again.'
+    errorMessage.value = 'Не удалось отключить интеграцию. Попробуйте ещё раз.'
   }
   finally {
     isDisconnecting.value = false
@@ -124,10 +154,10 @@ async function handleDisconnect() {
   <div class="mx-auto max-w-2xl">
     <div class="mb-6">
       <h1 class="text-lg font-semibold text-surface-900 dark:text-surface-100">
-        Integrations
+        Интеграции
       </h1>
       <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
-        Connect external services to enhance your recruiting workflow.
+        Подключайте внешние сервисы для эффективной работы с подбором.
       </p>
     </div>
 
@@ -180,7 +210,7 @@ async function handleDisconnect() {
             Google Calendar
           </h2>
           <p class="text-sm text-surface-500 dark:text-surface-400">
-            Two-way sync for interview scheduling
+            Двусторонняя синхронизация для планирования интервью
           </p>
         </div>
 
@@ -190,13 +220,13 @@ async function handleDisconnect() {
           class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
         >
           <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Connected
+          Подключено
         </div>
         <div
           v-else-if="!isAvailable"
           class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400"
         >
-          Not configured
+          Не настроено
         </div>
       </div>
 
@@ -210,11 +240,11 @@ async function handleDisconnect() {
         <!-- Not configured (admin needs to set env vars) -->
         <div v-else-if="!isAvailable" class="space-y-3">
           <p class="text-sm text-surface-600 dark:text-surface-400">
-            Google Calendar integration requires server configuration. A server administrator must set the
+            Интеграция с Google Calendar требует настройки сервера. Администратор сервера должен задать переменные окружения
             <code class="text-xs bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded font-mono">GOOGLE_CLIENT_ID</code>
-            and
+            и
             <code class="text-xs bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded font-mono">GOOGLE_CLIENT_SECRET</code>
-            environment variables before users can connect.
+            до того, как пользователи смогут подключиться.
           </p>
           <div class="flex items-center gap-4">
             <a
@@ -223,7 +253,7 @@ async function handleDisconnect() {
               rel="noopener noreferrer"
               class="inline-flex items-center gap-1.5 text-sm text-brand-600 dark:text-brand-400 hover:underline"
             >
-              Setup guide
+              Руководство по настройке
               <ExternalLink class="size-3.5" />
             </a>
             <a
@@ -243,18 +273,18 @@ async function handleDisconnect() {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="space-y-1">
               <div class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider">
-                Account
+                Аккаунт
               </div>
               <div class="text-sm text-surface-900 dark:text-surface-100">
-                {{ calendarStatus.accountEmail || 'Unknown' }}
+                {{ calendarStatus.accountEmail || 'Неизвестно' }}
               </div>
             </div>
             <div class="space-y-1">
               <div class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider">
-                Calendar
+                Календарь
               </div>
               <div class="text-sm text-surface-900 dark:text-surface-100">
-                {{ calendarStatus.calendarId === 'primary' ? 'Primary calendar' : calendarStatus.calendarId }}
+                {{ calendarStatus.calendarId === 'primary' ? 'Основной календарь' : calendarStatus.calendarId }}
               </div>
             </div>
           </div>
@@ -263,13 +293,13 @@ async function handleDisconnect() {
           <div class="flex items-center gap-2 text-sm">
             <RefreshCw class="size-3.5 text-surface-400" />
             <span class="text-surface-600 dark:text-surface-400">
-              Two-way sync:
+              Двусторонняя синхронизация:
               <span
                 :class="calendarStatus.webhookActive
                   ? 'text-emerald-600 dark:text-emerald-400 font-medium'
                   : 'text-amber-600 dark:text-amber-400'"
               >
-                {{ calendarStatus.webhookActive ? 'Active' : 'Pending setup' }}
+                {{ calendarStatus.webhookActive ? 'Активна' : 'Ожидает настройки' }}
               </span>
             </span>
           </div>
@@ -278,19 +308,19 @@ async function handleDisconnect() {
           <div class="rounded-lg bg-surface-50 dark:bg-surface-800/50 p-4 space-y-2">
             <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
               <Check class="size-4 text-emerald-500 shrink-0" />
-              Interviews automatically appear in your Google Calendar
+              Интервью автоматически появляются в Google Calendar
             </div>
             <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
               <Check class="size-4 text-emerald-500 shrink-0" />
-              Candidates receive calendar invites as attendees
+              Кандидаты получают приглашения в календарь как участники
             </div>
             <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
               <Check class="size-4 text-emerald-500 shrink-0" />
-              RSVP responses sync back automatically
+              Ответы RSVP синхронизируются автоматически
             </div>
             <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
               <Clock class="size-4 text-emerald-500 shrink-0" />
-              Timezone-aware scheduling
+              Планирование с учётом часового пояса
             </div>
           </div>
 
@@ -298,7 +328,7 @@ async function handleDisconnect() {
           <div class="flex items-center justify-between pt-2">
             <div class="flex items-center gap-1.5 text-xs text-surface-400 dark:text-surface-500">
               <Shield class="size-3.5" />
-              Tokens encrypted at rest
+              Токены зашифрованы при хранении
             </div>
 
             <div class="flex items-center gap-2">
@@ -308,24 +338,24 @@ async function handleDisconnect() {
                 @click="showDisconnectConfirm = true"
               >
                 <Unplug class="size-3.5" />
-                Disconnect
+                Отключить
               </button>
 
               <template v-else>
-                <span class="text-sm text-surface-500 dark:text-surface-400">Are you sure?</span>
+                <span class="text-sm text-surface-500 dark:text-surface-400">Вы уверены?</span>
                 <button
                   :disabled="isDisconnecting"
                   class="inline-flex items-center gap-1.5 rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
                   @click="handleDisconnect"
                 >
                   <Loader2 v-if="isDisconnecting" class="size-3.5 animate-spin" />
-                  Yes, disconnect
+                  Да, отключить
                 </button>
                 <button
                   class="rounded-lg px-3 py-1.5 text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
                   @click="showDisconnectConfirm = false"
                 >
-                  Cancel
+                  Отмена
                 </button>
               </template>
             </div>
@@ -336,28 +366,27 @@ async function handleDisconnect() {
         <div v-else class="space-y-4">
           <div class="space-y-3">
             <p class="text-sm text-surface-600 dark:text-surface-400">
-              Connect your Google Calendar to automatically sync interview schedules.
-              Both you and the candidate will see the event in your calendars, with
-              two-way RSVP tracking.
+              Подключите Google Calendar, чтобы автоматически синхронизировать расписание интервью.
+              Вы и кандидат увидите событие в своих календарях, а ответы RSVP будут отслеживаться в обе стороны.
             </p>
 
             <!-- Features preview -->
             <div class="rounded-lg bg-surface-50 dark:bg-surface-800/50 p-4 space-y-2">
               <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
                 <Calendar class="size-4 text-brand-500 shrink-0" />
-                Auto-create calendar events for scheduled interviews
+                Автоматически создавать события в календаре для запланированных интервью
               </div>
               <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
                 <RefreshCw class="size-4 text-brand-500 shrink-0" />
-                Two-way sync — changes in either system stay in sync
+                Двусторонняя синхронизация — изменения в обеих системах сохраняются
               </div>
               <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
                 <Clock class="size-4 text-brand-500 shrink-0" />
-                Proper timezone handling — no more scheduling confusion
+                Корректная работа с часовыми поясами — без путаницы в расписании
               </div>
               <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
                 <Shield class="size-4 text-brand-500 shrink-0" />
-                OAuth tokens encrypted at rest — revoke anytime
+                Токены OAuth зашифрованы при хранении — доступ можно отозвать в любое время
               </div>
             </div>
           </div>
@@ -367,7 +396,7 @@ async function handleDisconnect() {
             @click="connect"
           >
             <Calendar class="size-4" />
-            Connect Google Calendar
+            Подключить Google Calendar
           </button>
         </div>
       </div>
@@ -452,6 +481,33 @@ async function handleDisconnect() {
                 {{ hhStatus?.account?.lastError }}
               </div>
             </div>
+          </div>
+
+          <div class="flex items-start justify-between gap-4 rounded-lg border border-surface-200 dark:border-surface-700 px-4 py-3">
+            <div class="space-y-0.5">
+              <div class="text-sm font-medium text-surface-900 dark:text-surface-100">
+                Вебхуки hh.ru
+              </div>
+              <div class="text-xs text-surface-500 dark:text-surface-400">
+                Мгновенные обновления чатов, откликов и статусов — без опроса API. Опрос остаётся резервным каналом.
+              </div>
+              <div v-if="hhWebhookEnabled && hhStatus?.account?.webhookLastEventAt" class="text-xs text-surface-400 dark:text-surface-500">
+                Последнее событие: {{ new Date(hhStatus.account.webhookLastEventAt).toLocaleString('ru-RU') }}
+              </div>
+            </div>
+            <button
+              :disabled="hhWebhookBusy"
+              class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50"
+              :class="hhWebhookEnabled ? 'bg-brand-600' : 'bg-surface-300 dark:bg-surface-600'"
+              role="switch"
+              :aria-checked="hhWebhookEnabled"
+              @click="toggleHhWebhooks"
+            >
+              <span
+                class="inline-block size-4 rounded-full bg-white shadow transform transition-transform"
+                :class="hhWebhookEnabled ? 'translate-x-6' : 'translate-x-1'"
+              />
+            </button>
           </div>
 
           <div class="flex items-center justify-between pt-2">

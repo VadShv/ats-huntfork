@@ -21,7 +21,7 @@ function closeModal() {
         <div class="flex items-center justify-between border-b border-surface-200 px-5 py-4 dark:border-surface-800">
           <div class="flex items-center gap-2">
             <Eye class="size-5 text-brand-600 dark:text-brand-400" />
-            <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50">You're in the live demo</h3>
+            <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50">Вы в демоверсии</h3>
           </div>
 
           <button
@@ -38,7 +38,7 @@ function closeModal() {
           </p>
 
           <p class="text-sm text-surface-500 dark:text-surface-400">
-            Get full read &amp; write access — choose the option that works best for you:
+            Полный доступ на чтение и запись — выберите подходящий вариант:
           </p>
 
           <div class="space-y-2">
@@ -52,8 +52,8 @@ function closeModal() {
                 <Cloud class="size-4" />
               </div>
               <div>
-                <div class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-700 dark:group-hover:text-brand-300 transition-colors">Use Cloud Hosted</div>
-                <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Start free in seconds — we handle hosting, updates &amp; backups</div>
+                <div class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-700 dark:group-hover:text-brand-300 transition-colors">Перейти в облачную версию</div>
+                <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Начните бесплатно за секунды — хостинг, обновления и бэкапы на нас</div>
               </div>
             </NuxtLink>
 
@@ -68,8 +68,8 @@ function closeModal() {
                 <Rocket class="size-4" />
               </div>
               <div>
-                <div class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-surface-700 dark:group-hover:text-surface-200 transition-colors">Self-Host (Free &amp; Open Source)</div>
-                <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Deploy on your own infrastructure — full control over your data</div>
+                <div class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-surface-700 dark:group-hover:text-surface-200 transition-colors">Свой сервер (бесплатно, открытый код)</div>
+                <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Разверните на своей инфраструктуре — полный контроль над данными</div>
               </div>
             </a>
           </div>
@@ -81,7 +81,7 @@ function closeModal() {
             class="inline-flex items-center gap-1.5 text-xs text-surface-400 dark:text-surface-500 hover:text-surface-600 dark:hover:text-surface-300 transition-colors no-underline"
           >
             <Github class="size-3.5" />
-            View on GitHub
+            Смотреть на GitHub
           </a>
         </div>
       </div>

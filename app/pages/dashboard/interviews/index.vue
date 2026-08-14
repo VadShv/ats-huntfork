@@ -13,8 +13,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Interviews',
-  description: 'Manage all scheduled interviews',
+  title: 'Интервью',
+  description: 'Управление всеми запланированными интервью',
   robots: 'noindex, nofollow',
 })
 
@@ -67,7 +67,7 @@ const filteredInterviews = computed(() => {
 const groupedByDate = computed(() => {
   const groups = new Map<string, typeof filteredInterviews.value>()
   for (const interview of filteredInterviews.value) {
-    const dateKey = new Date(interview.scheduledAt).toLocaleDateString('en-US', {
+    const dateKey = new Date(interview.scheduledAt).toLocaleDateString('ru-RU', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
@@ -126,15 +126,15 @@ const typeLabels = computed<Record<string, string>>(() => ({
 }))
 
 function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString('en-US', {
+  return new Date(dateStr).toLocaleTimeString('ru-RU', {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true,
+    hour12: false,
   })
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  return new Date(dateStr).toLocaleDateString('ru-RU', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -147,9 +147,9 @@ function formatDateShort(dateStr: string) {
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
 
-  if (d.toDateString() === today.toDateString()) return 'Today'
-  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  if (d.toDateString() === today.toDateString()) return 'Сегодня'
+  if (d.toDateString() === tomorrow.toDateString()) return 'Завтра'
+  return d.toLocaleDateString('ru-RU', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 function isUpcoming(dateStr: string) {
@@ -159,7 +159,7 @@ function isUpcoming(dateStr: string) {
 function getCandidateInitials(firstName?: string, lastName?: string) {
   const first = firstName?.trim().charAt(0) ?? ''
   const last = lastName?.trim().charAt(0) ?? ''
-  return `${first}${last}`.toUpperCase() || 'C'
+  return `${first}${last}`.toUpperCase() || 'К'
 }
 
 // ─── Edit modal state ────────────────────────────────────────────
@@ -204,9 +204,9 @@ function cancelEdit() {
 async function handleSaveEdit() {
   editErrors.value = {}
 
-  if (!editForm.title.trim()) editErrors.value.title = 'Title is required'
-  if (!editForm.date) editErrors.value.date = 'Date is required'
-  if (!editForm.time) editErrors.value.time = 'Time is required'
+  if (!editForm.title.trim()) editErrors.value.title = 'Укажите название'
+  if (!editForm.date) editErrors.value.date = 'Укажите дату'
+  if (!editForm.time) editErrors.value.time = 'Укажите время'
   if (Object.keys(editErrors.value).length > 0) return
 
   const scheduledAt = new Date(`${editForm.date}T${editForm.time}`).toISOString()
@@ -228,7 +228,7 @@ async function handleSaveEdit() {
     editingInterview.value = null
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    editErrors.value.submit = err?.data?.statusMessage ?? 'Failed to update interview'
+    editErrors.value.submit = err?.data?.statusMessage ?? 'Не удалось обновить интервью'
   } finally {
     isSaving.value = false
   }
@@ -253,7 +253,7 @@ async function handleDelete() {
     deletingInterview.value = null
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to delete interview', { message: err?.data?.statusMessage, statusCode: err?.data?.statusCode })
+    toast.error('Не удалось удалить интервью', { message: err?.data?.statusMessage, statusCode: err?.data?.statusCode })
   } finally {
     isDeleting.value = false
   }
@@ -271,7 +271,7 @@ async function quickStatusChange(interviewItem: typeof interviews.value[number],
     await updateInterview(interviewItem.id, { status: newStatus })
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to update status', { message: err?.data?.statusMessage, statusCode: err?.data?.statusCode })
+    toast.error('Не удалось изменить статус', { message: err?.data?.statusMessage, statusCode: err?.data?.statusCode })
   }
 }
 
@@ -309,16 +309,14 @@ const statusCounts = computed(() => {
       <div>
         <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50">{{ $t('dashboard.interviews.title') }}</h1>
         <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
-          Manage all scheduled interviews across your jobs
-        </p>
+          Управляйте всеми запланированными интервью по вакансиям.        </p>
       </div>
       <NuxtLink
         :to="$localePath('/dashboard/interviews/templates')"
         class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors no-underline"
       >
         <Mail class="size-4" />
-        Email Templates
-      </NuxtLink>
+        Шаблоны писем      </NuxtLink>
     </div>
 
     <!-- Status filter pills + search -->
@@ -367,8 +365,7 @@ const statusCounts = computed(() => {
             : 'bg-white dark:bg-surface-800 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-700'"
           @click="activeView = 'list'"
         >
-          List
-        </button>
+          Список        </button>
         <button
           class="px-3 py-1.5 text-xs font-medium transition-all cursor-pointer"
           :class="activeView === 'calendar'
@@ -377,8 +374,7 @@ const statusCounts = computed(() => {
           @click="activeView = 'calendar'"
         >
           <CalendarDays class="inline size-3.5 mr-1 -mt-0.5" />
-          Timeline
-        </button>
+          Лента        </button>
       </div>
     </div>
 
@@ -422,16 +418,15 @@ const statusCounts = computed(() => {
       </h3>
       <p class="text-sm text-surface-500 dark:text-surface-400 mb-4 max-w-xs mx-auto">
         {{ searchInput || activeStatus
-          ? 'Try adjusting your filters.'
-          : 'Interviews will appear here when you schedule them from the pipeline.' }}
+          ? 'Измените параметры фильтра.'
+          : 'Здесь появятся интервью, когда вы запланируете их из воронки.' }}
       </p>
       <button
         v-if="activeStatus || searchInput"
         class="cursor-pointer rounded-lg border border-surface-200 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
         @click="activeStatus = undefined; searchInput = ''"
       >
-        Clear filters
-      </button>
+        Сбросить фильтры      </button>
     </div>
 
     <!-- LIST VIEW -->
@@ -493,7 +488,7 @@ const statusCounts = computed(() => {
                   </TimelineDateLink>
                   <span class="inline-flex items-center gap-1">
                     <Clock class="size-3.5" />
-                    {{ formatTime(interviewItem.scheduledAt) }} · {{ interviewItem.duration }}min
+                    {{ formatTime(interviewItem.scheduledAt) }} · {{ interviewItem.duration }} мин.
                   </span>
                   <span class="inline-flex items-center gap-1">
                     <component :is="typeIcons[interviewItem.type] || Video" class="size-3.5" />
@@ -535,8 +530,7 @@ const statusCounts = computed(() => {
                 class="cursor-pointer rounded-lg bg-success-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-success-700 transition-all shadow-sm"
                 @click="quickStatusChange(interviewItem, 'completed')"
               >
-                Complete
-              </button>
+                Завершить              </button>
 
               <!-- More menu -->
               <div ref="menuRef" class="relative">
@@ -564,15 +558,14 @@ const statusCounts = computed(() => {
                       @click="openEdit(interviewItem); openMenuId = null"
                     >
                       <Pencil class="size-3.5 text-surface-400" />
-                      Edit
-                    </button>
+                      Изменить                    </button>
                     <template v-for="nextStatus in getAllowedTransitions(interviewItem.status)" :key="nextStatus">
                       <button
                         class="flex w-full cursor-pointer items-center gap-2.5 px-3.5 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/80 transition-colors"
                         @click="quickStatusChange(interviewItem, nextStatus); openMenuId = null"
                       >
                         <component :is="statusConfig[nextStatus]?.icon || Calendar" class="size-3.5 text-surface-400" />
-                        Mark as {{ statusConfig[nextStatus]?.label }}
+                        Отметить как {{ statusConfig[nextStatus]?.label }}
                       </button>
                     </template>
                     <div class="border-t border-surface-100 dark:border-surface-800 my-1.5 mx-2" />
@@ -581,8 +574,7 @@ const statusCounts = computed(() => {
                       @click="confirmDelete(interviewItem); openMenuId = null"
                     >
                       <Trash2 class="size-3.5" />
-                      Delete
-                    </button>
+                      Удалить                    </button>
                   </div>
                 </Transition>
               </div>
@@ -593,7 +585,7 @@ const statusCounts = computed(() => {
 
       <!-- Total count -->
       <p class="text-xs text-surface-400 pt-3 px-1">
-        {{ total }} interview{{ total === 1 ? '' : 's' }} total
+        {{ total }} интервью
       </p>
     </template>
 
@@ -606,7 +598,7 @@ const statusCounts = computed(() => {
               <CalendarDays class="size-3.5 text-brand-600 dark:text-brand-400" />
             </div>
             <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ dateLabel }}</h3>
-            <span class="text-xs text-surface-400 dark:text-surface-500">{{ dateInterviews.length }} interview{{ dateInterviews.length === 1 ? '' : 's' }}</span>
+            <span class="text-xs text-surface-400 dark:text-surface-500">{{ dateInterviews.length }} интервью</span>
           </div>
 
           <div class="ml-3.5 border-l-2 border-surface-200 dark:border-surface-700/60 pl-6 space-y-3">
@@ -627,7 +619,7 @@ const statusCounts = computed(() => {
                     <span class="text-sm font-semibold text-brand-600 dark:text-brand-400">
                       {{ formatTime(interviewItem.scheduledAt) }}
                     </span>
-                    <span class="text-xs text-surface-400">{{ interviewItem.duration }}min</span>
+                    <span class="text-xs text-surface-400">{{ interviewItem.duration }} мин.</span>
                     <span
                       class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset"
                       :class="statusConfig[interviewItem.status]?.class"
@@ -665,13 +657,11 @@ const statusCounts = computed(() => {
                       @click.stop
                     >
                       <Calendar class="size-2.5" />
-                      Synced
-                      <ExternalLink class="size-2" />
+                      Синхронизировано                      <ExternalLink class="size-2" />
                     </a>
                     <span v-else-if="interviewItem.googleCalendarEventId" class="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
                       <Calendar class="size-2.5" />
-                      Synced
-                    </span>
+                      Синхронизировано                    </span>
                   </div>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
@@ -686,8 +676,7 @@ const statusCounts = computed(() => {
                     class="cursor-pointer rounded-lg bg-success-600 px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-success-700 transition-all shadow-sm"
                     @click="quickStatusChange(interviewItem, 'completed')"
                   >
-                    Complete
-                  </button>
+                    Завершить                  </button>
                 </div>
               </div>
             </div>
@@ -697,7 +686,7 @@ const statusCounts = computed(() => {
 
       <!-- Total count -->
       <p class="text-xs text-surface-400 pt-3 px-1">
-        {{ total }} interview{{ total === 1 ? '' : 's' }} total
+        {{ total }} интервью
       </p>
     </template>
 
@@ -708,7 +697,7 @@ const statusCounts = computed(() => {
       <div v-if="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center">
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="cancelEdit" />
         <div class="relative bg-white dark:bg-surface-900 rounded-2xl shadow-2xl shadow-surface-900/10 dark:shadow-black/30 ring-1 ring-surface-200/80 dark:ring-surface-700/60 p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-5">Edit Interview</h3>
+          <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-5">Изменить интервью</h3>
 
           <div v-if="editErrors.submit" class="mb-4 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700 dark:border-danger-800 dark:bg-danger-950/40 dark:text-danger-300">
             {{ editErrors.submit }}
@@ -717,7 +706,7 @@ const statusCounts = computed(() => {
           <form class="space-y-4" @submit.prevent="handleSaveEdit">
             <div>
               <label for="edit-interview-title" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-                Title <span class="text-danger-500">*</span>
+                Название <span class="text-danger-500">*</span>
               </label>
               <input
                 id="edit-interview-title"
@@ -731,22 +720,22 @@ const statusCounts = computed(() => {
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label for="edit-interview-type" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Type</label>
+                <label for="edit-interview-type" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Тип</label>
                 <select
                   id="edit-interview-type"
                   v-model="editForm.type"
                   class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
                 >
-                  <option value="video">Video</option>
-                  <option value="phone">Phone</option>
-                  <option value="in_person">In Person</option>
-                  <option value="technical">Technical</option>
-                  <option value="panel">Panel</option>
-                  <option value="take_home">Take Home</option>
+                  <option value="video">Видеозвонок</option>
+                  <option value="phone">Телефонный звонок</option>
+                  <option value="in_person">Личная встреча</option>
+                  <option value="technical">Техническое интервью</option>
+                  <option value="panel">Панельное интервью</option>
+                  <option value="take_home">Тестовое задание</option>
                 </select>
               </div>
               <div>
-                <label for="edit-interview-status" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Status</label>
+                <label for="edit-interview-status" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Статус</label>
                 <select
                   id="edit-interview-status"
                   v-model="editForm.status"
@@ -759,7 +748,7 @@ const statusCounts = computed(() => {
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label for="edit-interview-date" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Date</label>
+                <label for="edit-interview-date" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Дата</label>
                 <input
                   id="edit-interview-date"
                   v-model="editForm.date"
@@ -768,7 +757,7 @@ const statusCounts = computed(() => {
                 />
               </div>
               <div>
-                <label for="edit-interview-time" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Time</label>
+                <label for="edit-interview-time" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Время</label>
                 <input
                   id="edit-interview-time"
                   v-model="editForm.time"
@@ -779,7 +768,7 @@ const statusCounts = computed(() => {
             </div>
 
             <div>
-              <label for="edit-interview-duration" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Duration (minutes)</label>
+              <label for="edit-interview-duration" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Длительность (мин.)</label>
               <input
                 id="edit-interview-duration"
                 v-model.number="editForm.duration"
@@ -791,23 +780,23 @@ const statusCounts = computed(() => {
             </div>
 
             <div>
-              <label for="edit-interview-location" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Location / Link</label>
+              <label for="edit-interview-location" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Локация / Ссылка</label>
               <input
                 id="edit-interview-location"
                 v-model="editForm.location"
                 type="text"
-                placeholder="Zoom link, office address…"
+                placeholder="Ссылка Zoom, адрес офиса…"
                 class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
               />
             </div>
 
             <div>
-              <label for="edit-interview-notes" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Notes</label>
+              <label for="edit-interview-notes" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Заметки</label>
               <textarea
                 id="edit-interview-notes"
                 v-model="editForm.notes"
                 rows="3"
-                placeholder="Topics to cover…"
+                placeholder="Темы для обсуждения…"
                 class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors resize-none"
               />
             </div>
@@ -818,14 +807,13 @@ const statusCounts = computed(() => {
                 class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 @click="cancelEdit"
               >
-                Cancel
-              </button>
+                Отмена              </button>
               <button
                 type="submit"
                 :disabled="isSaving"
                 class="cursor-pointer rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {{ isSaving ? 'Saving…' : 'Save Changes' }}
+                {{ isSaving ? 'Сохранение…' : 'Сохранить изменения' }}
               </button>
             </div>
           </form>
@@ -838,9 +826,9 @@ const statusCounts = computed(() => {
       <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center">
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showDeleteConfirm = false" />
         <div class="relative bg-white dark:bg-surface-900 rounded-2xl shadow-2xl shadow-surface-900/10 dark:shadow-black/30 ring-1 ring-surface-200/80 dark:ring-surface-700/60 p-6 max-w-sm w-full mx-4">
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-2">Delete Interview</h3>
+          <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-2">Удалить интервью</h3>
           <p class="text-sm text-surface-600 dark:text-surface-400 mb-4">
-            Are you sure you want to delete <strong>{{ deletingInterview?.title }}</strong>? This action cannot be undone.
+            Удалить <strong>{{ deletingInterview?.title }}</strong>? Действие необратимо.
           </p>
           <div class="flex justify-end gap-2">
             <button
@@ -848,14 +836,13 @@ const statusCounts = computed(() => {
               class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
               @click="showDeleteConfirm = false"
             >
-              Cancel
-            </button>
+              Отмена            </button>
             <button
               :disabled="isDeleting"
               class="cursor-pointer rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               @click="handleDelete"
             >
-              {{ isDeleting ? 'Deleting…' : 'Delete' }}
+              {{ isDeleting ? 'Удаление…' : 'Удалить' }}
             </button>
           </div>
         </div>

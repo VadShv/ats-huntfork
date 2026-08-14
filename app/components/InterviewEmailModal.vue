@@ -60,20 +60,20 @@ const previewVariables: Record<string, string> = {
   candidateEmail: props.interview.candidateEmail,
   jobTitle: props.interview.jobTitle,
   interviewTitle: props.interview.title,
-  interviewDate: new Date(props.interview.scheduledAt).toLocaleDateString('en-US', {
+  interviewDate: new Date(props.interview.scheduledAt).toLocaleDateString('ru-RU', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   }),
-  interviewTime: new Date(props.interview.scheduledAt).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', hour12: true,
+  interviewTime: new Date(props.interview.scheduledAt).toLocaleTimeString('ru-RU', {
+    hour: 'numeric', minute: '2-digit', hour12: false,
   }),
   interviewDuration: String(props.interview.duration),
   interviewType: {
-    video: 'Video Call', phone: 'Phone Call', in_person: 'In Person',
-    technical: 'Technical Interview', panel: 'Panel Interview', take_home: 'Take-Home Assignment',
+    video: 'Видеозвонок', phone: 'Телефонный звонок', in_person: 'Личная встреча',
+    technical: 'Техническое интервью', panel: 'Панельное интервью', take_home: 'Тестовое задание',
   }[props.interview.type] ?? props.interview.type,
-  interviewLocation: props.interview.location ?? 'To be confirmed',
-  interviewers: props.interview.interviewers?.join(', ') ?? 'To be confirmed',
-  organizationName: activeOrg.value?.name ?? 'Your Organization',
+  interviewLocation: props.interview.location ?? 'Будет уточнено',
+  interviewers: props.interview.interviewers?.join(', ') ?? 'Будет уточнено',
+  organizationName: activeOrg.value?.name ?? 'Ваша организация',
 }
 
 const previewSubject = computed(() => {
@@ -100,7 +100,7 @@ async function handleSend() {
     sendSuccess.value = true
     setTimeout(() => emit('sent'), 1500)
   } catch (err: any) {
-    sendError.value = err?.data?.statusMessage ?? err?.message ?? 'Failed to send invitation email'
+    sendError.value = err?.data?.statusMessage ?? err?.message ?? 'Не удалось отправить письмо с приглашением'
   } finally {
     isSending.value = false
   }
@@ -109,7 +109,7 @@ async function handleSend() {
 async function handleSaveTemplate() {
   templateSaveError.value = ''
   if (!newTemplateName.value.trim() || !newTemplateSubject.value.trim() || !newTemplateBody.value.trim()) {
-    templateSaveError.value = 'All fields are required'
+    templateSaveError.value = 'Заполните все поля'
     return
   }
 
@@ -125,7 +125,7 @@ async function handleSaveTemplate() {
     newTemplateSubject.value = ''
     newTemplateBody.value = ''
   } catch (err: any) {
-    templateSaveError.value = err?.data?.statusMessage ?? 'Failed to save template'
+    templateSaveError.value = err?.data?.statusMessage ?? 'Не удалось сохранить шаблон'
   } finally {
     isSavingTemplate.value = false
   }
@@ -169,10 +169,9 @@ const canSend = computed(() => {
               </div>
               <div>
                 <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">
-                  Send Interview Invitation
-                </h2>
+                  Отправить приглашение на интервью                </h2>
                 <p class="text-xs text-surface-500 dark:text-surface-400">
-                  to {{ formatPersonName(interview.candidateFirstName, interview.candidateLastName) }} · {{ interview.candidateEmail }}
+                  Кому: {{ formatPersonName(interview.candidateFirstName, interview.candidateLastName) }} · {{ interview.candidateEmail }}
                 </p>
               </div>
             </div>
@@ -190,9 +189,9 @@ const canSend = computed(() => {
           <div class="flex size-14 items-center justify-center rounded-full bg-success-100 dark:bg-success-950/40 mb-4">
             <Check class="size-7 text-success-600 dark:text-success-400" />
           </div>
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-1.5">Invitation Sent!</h3>
+          <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-1.5">Приглашение отправлено!</h3>
           <p class="text-sm text-surface-500 dark:text-surface-400 text-center">
-            The interview invitation has been sent to {{ interview.candidateEmail }}.
+            Приглашение на интервью отправлено на {{ interview.candidateEmail }}.
           </p>
         </div>
 
@@ -203,9 +202,9 @@ const canSend = computed(() => {
             <div class="flex gap-1">
               <button
                 v-for="tab in ([
-                  { id: 'template' as Tab, label: 'Choose Template', icon: FileText },
-                  { id: 'custom' as Tab, label: 'Custom Email', icon: Pencil },
-                  { id: 'manage' as Tab, label: 'Manage Templates', icon: Sparkles },
+                  { id: 'template' as Tab, label: 'Выбрать шаблон', icon: FileText },
+                  { id: 'custom' as Tab, label: 'Своё письмо', icon: Pencil },
+                  { id: 'manage' as Tab, label: 'Управление шаблонами', icon: Sparkles },
                 ])"
                 :key="tab.id"
                 class="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-all cursor-pointer -mb-px whitespace-nowrap shrink-0"
@@ -231,8 +230,7 @@ const canSend = computed(() => {
             <!-- Template Selection Tab -->
             <div v-if="activeTab === 'template'" class="space-y-3">
               <p class="text-xs text-surface-500 dark:text-surface-400 mb-3">
-                Select a template to send the interview invitation.
-              </p>
+                Выберите шаблон для отправки приглашения на интервью.              </p>
               <button
                 v-for="t in allTemplates"
                 :key="t.id"
@@ -246,11 +244,10 @@ const canSend = computed(() => {
                 <div class="flex items-center justify-between mb-1">
                   <span class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t.name }}</span>
                   <span v-if="t.isSystem" class="text-[10px] uppercase tracking-wider font-semibold text-surface-400 bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded">
-                    Built-in
-                  </span>
+                    Встроенный                  </span>
                 </div>
                 <p class="text-xs text-surface-500 dark:text-surface-400 truncate">
-                  Subject: {{ t.subject }}
+                  Тема: {{ t.subject }}
                 </p>
               </button>
 
@@ -262,7 +259,7 @@ const canSend = computed(() => {
                   @click="showPreview = !showPreview"
                 >
                   <Eye class="size-3.5" />
-                  {{ showPreview ? 'Hide Preview' : 'Show Preview' }}
+                  {{ showPreview ? 'Скрыть предпросмотр' : 'Показать предпросмотр' }}
                   <ChevronDown
                     class="size-3.5 transition-transform"
                     :class="showPreview ? 'rotate-180' : ''"
@@ -270,11 +267,11 @@ const canSend = computed(() => {
                 </button>
                 <div v-if="showPreview" class="mt-3 rounded-xl border border-surface-200 dark:border-surface-700/80 bg-surface-50 dark:bg-surface-800/40 p-4">
                   <div class="mb-2">
-                    <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400">Subject</span>
+                    <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400">Тема</span>
                     <p class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ previewSubject }}</p>
                   </div>
                   <div>
-                    <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400">Body</span>
+                    <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400">Текст письма</span>
                     <p class="text-sm text-surface-700 dark:text-surface-300 whitespace-pre-wrap mt-1">{{ previewBody }}</p>
                   </div>
                 </div>
@@ -285,33 +282,31 @@ const canSend = computed(() => {
             <div v-else-if="activeTab === 'custom'" class="space-y-4">
               <div>
                 <label for="custom-subject" class="block text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400 mb-1.5">
-                  Subject Line
-                </label>
+                  Тема                </label>
                 <input
                   id="custom-subject"
                   v-model="customSubject"
                   type="text"
-                  placeholder="e.g., Interview Invitation: {{jobTitle}}"
+                  placeholder="Например, приглашение на интервью: {{jobTitle}}"
                   class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
                 />
               </div>
 
               <div>
                 <label for="custom-body" class="block text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400 mb-1.5">
-                  Email Body
-                </label>
+                  Текст письма                </label>
                 <textarea
                   id="custom-body"
                   v-model="customBody"
                   rows="10"
-                  placeholder="Write your invitation email here. Use {{variables}} for dynamic content..."
+                  placeholder="Напишите текст приглашения. Используйте {{variables}} для динамических данных…"
                   class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all resize-none font-mono"
                 />
               </div>
 
               <!-- Variable reference -->
               <div class="rounded-xl border border-surface-200/60 dark:border-surface-700/40 bg-surface-50 dark:bg-surface-800/30 p-3.5">
-                <p class="text-[10px] uppercase tracking-wider font-semibold text-surface-400 mb-2">Available Variables</p>
+                <p class="text-[10px] uppercase tracking-wider font-semibold text-surface-400 mb-2">Доступные переменные</p>
                 <div class="flex flex-wrap gap-1.5">
                   <span
                     v-for="v in AVAILABLE_VARIABLES"
@@ -332,15 +327,15 @@ const canSend = computed(() => {
                   @click="showPreview = !showPreview"
                 >
                   <Eye class="size-3.5" />
-                  {{ showPreview ? 'Hide Preview' : 'Preview with Real Data' }}
+                  {{ showPreview ? 'Скрыть предпросмотр' : 'Предпросмотр с фактическими данными' }}
                 </button>
                 <div v-if="showPreview" class="mt-3 rounded-xl border border-surface-200 dark:border-surface-700/80 bg-surface-50 dark:bg-surface-800/40 p-4">
                   <div class="mb-2">
-                    <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400">Subject</span>
+                    <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400">Тема</span>
                     <p class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ previewSubject }}</p>
                   </div>
                   <div>
-                    <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400">Body</span>
+                    <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400">Текст письма</span>
                     <p class="text-sm text-surface-700 dark:text-surface-300 whitespace-pre-wrap mt-1">{{ previewBody }}</p>
                   </div>
                 </div>
@@ -351,8 +346,7 @@ const canSend = computed(() => {
             <div v-else-if="activeTab === 'manage'" class="space-y-4">
               <div class="flex items-center justify-between">
                 <p class="text-xs text-surface-500 dark:text-surface-400">
-                  Create and manage reusable email templates for your organization.
-                </p>
+                  Создавайте и управляйте шаблонами писем для вашей организации.                </p>
                 <button
                   v-if="!showNewTemplateForm"
                   type="button"
@@ -360,32 +354,31 @@ const canSend = computed(() => {
                   @click="showNewTemplateForm = true"
                 >
                   <Plus class="size-3.5" />
-                  New Template
-                </button>
+                  Новый шаблон                </button>
               </div>
 
               <!-- New template form -->
               <div v-if="showNewTemplateForm" class="rounded-xl border border-brand-200 dark:border-brand-800/60 bg-brand-50/30 dark:bg-brand-950/20 p-4 space-y-3">
-                <h4 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Create Template</h4>
+                <h4 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Создать шаблон</h4>
                 <div v-if="templateSaveError" class="rounded-lg border border-danger-200 bg-danger-50 p-2.5 text-xs text-danger-700 dark:border-danger-800 dark:bg-danger-950/40 dark:text-danger-300">
                   {{ templateSaveError }}
                 </div>
                 <input
                   v-model="newTemplateName"
                   type="text"
-                  placeholder="Template name"
+                  placeholder="Название шаблона"
                   class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
                 />
                 <input
                   v-model="newTemplateSubject"
                   type="text"
-                  placeholder="Subject line (use {{variables}})"
+                  placeholder="Тема (используйте {{variables}})"
                   class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
                 />
                 <textarea
                   v-model="newTemplateBody"
                   rows="6"
-                  placeholder="Email body (use {{variables}} for dynamic content)"
+                  placeholder="Текст письма (используйте {{variables}} для динамических данных)"
                   class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all resize-none font-mono"
                 />
                 <div class="flex items-center justify-end gap-2">
@@ -394,8 +387,7 @@ const canSend = computed(() => {
                     class="rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all cursor-pointer"
                     @click="showNewTemplateForm = false"
                   >
-                    Cancel
-                  </button>
+                    Отмена                  </button>
                   <button
                     type="button"
                     :disabled="isSavingTemplate"
@@ -403,14 +395,14 @@ const canSend = computed(() => {
                     @click="handleSaveTemplate"
                   >
                     <Save class="size-3" />
-                    {{ isSavingTemplate ? 'Saving…' : 'Save Template' }}
+                    {{ isSavingTemplate ? 'Сохранение…' : 'Сохранить шаблон' }}
                   </button>
                 </div>
               </div>
 
               <!-- Existing custom templates -->
               <div v-if="templates && templates.length > 0" class="space-y-2">
-                <h4 class="text-xs font-semibold uppercase tracking-wider text-surface-400 mb-2">Your Templates</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-surface-400 mb-2">Ваши шаблоны</h4>
                 <div
                   v-for="t in templates"
                   :key="t.id"
@@ -431,13 +423,13 @@ const canSend = computed(() => {
               </div>
 
               <div v-else-if="!showNewTemplateForm" class="text-center py-6">
-                <p class="text-sm text-surface-400 dark:text-surface-500">No custom templates yet.</p>
-                <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">Create one to reuse across interview invitations.</p>
+                <p class="text-sm text-surface-400 dark:text-surface-500">Пользовательских шаблонов пока нет.</p>
+                <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">Создайте шаблон для повторного использования в приглашениях на интервью.</p>
               </div>
 
               <!-- Variable reference -->
               <div class="rounded-xl border border-surface-200/60 dark:border-surface-700/40 bg-surface-50 dark:bg-surface-800/30 p-3.5">
-                <p class="text-[10px] uppercase tracking-wider font-semibold text-surface-400 mb-2">Available Variables</p>
+                <p class="text-[10px] uppercase tracking-wider font-semibold text-surface-400 mb-2">Доступные переменные</p>
                 <div class="flex flex-wrap gap-1.5">
                   <span
                     v-for="v in AVAILABLE_VARIABLES"
@@ -460,8 +452,7 @@ const canSend = computed(() => {
                 class="flex-1 rounded-xl border border-surface-200 dark:border-surface-700 px-4 py-2.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all cursor-pointer"
                 @click="emit('close')"
               >
-                Cancel
-              </button>
+                Отмена              </button>
               <button
                 type="button"
                 :disabled="!canSend || isSending"
@@ -469,7 +460,7 @@ const canSend = computed(() => {
                 @click="handleSend"
               >
                 <Send class="size-4" />
-                {{ isSending ? 'Sending…' : 'Send Invitation' }}
+                {{ isSending ? 'Отправка…' : 'Отправить приглашение' }}
               </button>
             </div>
           </div>

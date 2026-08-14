@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Loader2, GitBranch } from 'lucide-vue-next'
+import { ArrowLeft, Loader2, GitBranch, Lock, Check } from 'lucide-vue-next'
 import type { PipelineStage } from '~/components/PipelineStageEditor.vue'
 
 definePageMeta({})
@@ -15,6 +15,81 @@ const localePath = useLocalePath()
 // ── Form state ──
 const name = ref('')
 const description = ref('')
+
+// ─────────────────────────────────────────────
+// Спринт 11.2: выбор пресета воронки
+// ─────────────────────────────────────────────
+
+type PresetKey = 'hh_standard' | 'simple' | 'scratch'
+
+interface PreviewStage {
+  name: string
+  color: string
+  isSub?: boolean
+  bucket: 'working' | 'rejected'
+}
+
+// Превью — зеркало server/utils/pipeline-seed.ts (HH_STANDARD_STAGES / SIMPLE_STAGES)
+const HH_PREVIEW: PreviewStage[] = [
+  { name: 'Все неразобранные', color: '#94a3b8', bucket: 'working' },
+  { name: 'Подходящие', color: '#94a3b8', isSub: true, bucket: 'working' },
+  { name: 'Подумать', color: '#a8a29e', bucket: 'working' },
+  { name: 'Вернуться позже', color: '#a8a29e', isSub: true, bucket: 'working' },
+  { name: 'Первичный контакт', color: '#0ea5e9', bucket: 'working' },
+  { name: 'Звонок', color: '#0ea5e9', isSub: true, bucket: 'working' },
+  { name: 'Мессенджер', color: '#0ea5e9', isSub: true, bucket: 'working' },
+  { name: 'Связаться ещё раз', color: '#0ea5e9', isSub: true, bucket: 'working' },
+  { name: 'Тестовое задание', color: '#6366f1', bucket: 'working' },
+  { name: 'Интервью', color: '#a855f7', bucket: 'working' },
+  { name: 'Предложение о работе', color: '#eab308', bucket: 'working' },
+  { name: 'Выход на работу', color: '#10b981', bucket: 'working' },
+  { name: 'Не подходит', color: '#ef4444', bucket: 'rejected' },
+  { name: 'Кандидат отказался', color: '#f97316', bucket: 'rejected' },
+  { name: 'Не выходит на связь', color: '#e11d48', bucket: 'rejected' },
+  { name: 'Вакансия закрыта', color: '#71717a', bucket: 'rejected' },
+  { name: 'Перевод на другую вакансию', color: '#8b5cf6', bucket: 'rejected' },
+]
+
+const SIMPLE_PREVIEW: PreviewStage[] = [
+  { name: 'Новый', color: '#94a3b8', bucket: 'working' },
+  { name: 'Скрининг', color: '#3b82f6', bucket: 'working' },
+  { name: 'Интервью', color: '#a855f7', bucket: 'working' },
+  { name: 'Оффер', color: '#eab308', bucket: 'working' },
+  { name: 'Принят', color: '#10b981', bucket: 'working' },
+  { name: 'Отказ', color: '#ef4444', bucket: 'rejected' },
+]
+
+const presetOptions: { key: PresetKey, title: string, subtitle: string, badge?: string }[] = [
+  {
+    key: 'hh_standard',
+    title: 'Стандартный hh.ru',
+    subtitle: '17 этапов 1-в-1 с hh.ru: от «Все неразобранные» до «Выход на работу» + 5 отказных статусов. Базовые этапы защищены от изменения.',
+    badge: 'Рекомендуется',
+  },
+  {
+    key: 'simple',
+    title: 'Простой',
+    subtitle: '6 этапов: Новый → Скрининг → Интервью → Оффер → Принят / Отказ. Базовые этапы защищены от изменения.',
+  },
+  {
+    key: 'scratch',
+    title: 'С нуля',
+    subtitle: 'Соберите собственный набор этапов вручную.',
+  },
+]
+
+const selectedPreset = ref<PresetKey>('hh_standard')
+
+const presetPreview = computed<PreviewStage[]>(() => {
+  if (selectedPreset.value === 'hh_standard') return HH_PREVIEW
+  if (selectedPreset.value === 'simple') return SIMPLE_PREVIEW
+  return []
+})
+
+const previewWorking = computed(() => presetPreview.value.filter(s => s.bucket === 'working'))
+const previewRejected = computed(() => presetPreview.value.filter(s => s.bucket === 'rejected'))
+
+// ── Редактор «С нуля» ──
 const stages = ref<PipelineStage[]>([
   { name: t('pipelines.stageType.applied'), type: 'applied', isTerminal: false },
   { name: t('pipelines.stageType.screening'), type: 'screening', isTerminal: false },
@@ -32,8 +107,9 @@ const stageEditorRef = ref<{ isValid: boolean } | null>(null)
 
 const canSubmit = computed(() => {
   const hasName = name.value.trim().length > 0
-  const stagesValid = stageEditorRef.value?.isValid ?? false
-  return hasName && stagesValid && !isSubmitting.value
+  if (!hasName || isSubmitting.value) return false
+  if (selectedPreset.value !== 'scratch') return true
+  return stageEditorRef.value?.isValid ?? false
 })
 
 async function handleSubmit() {
@@ -43,20 +119,28 @@ async function handleSubmit() {
   isSubmitting.value = true
 
   try {
+    const body: Record<string, unknown> = {
+      name: name.value.trim(),
+      description: description.value.trim() || undefined,
+    }
+
+    if (selectedPreset.value === 'scratch') {
+      body.stages = stages.value
+        .filter(s => !s.isArchived)
+        .map(s => ({
+          name: s.name,
+          description: s.description || undefined,
+          type: s.type,
+          isTerminal: s.isTerminal,
+        }))
+    }
+    else {
+      body.preset = selectedPreset.value
+    }
+
     await $fetch('/api/pipelines', {
       method: 'POST',
-      body: {
-        name: name.value.trim(),
-        description: description.value.trim() || undefined,
-        stages: stages.value
-          .filter(s => !s.isArchived)
-          .map(s => ({
-            name: s.name,
-            description: s.description || undefined,
-            type: s.type,
-            isTerminal: s.isTerminal,
-          })),
-      },
+      body,
       headers: useRequestHeaders(['cookie']),
     })
     toast.success(t('pipelines.toast.created'))
@@ -142,6 +226,46 @@ async function handleSubmit() {
           />
         </div>
 
+        <!-- ─── Спринт 11.2: выбор пресета ─── -->
+        <div class="mb-6">
+          <h3 class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">
+            Набор этапов
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <button
+              v-for="opt in presetOptions"
+              :key="opt.key"
+              type="button"
+              class="relative rounded-lg border p-3 text-left transition-all"
+              :class="selectedPreset === opt.key
+                ? 'border-brand-500 dark:border-brand-500 ring-1 ring-brand-500 bg-brand-50/50 dark:bg-brand-950/30'
+                : 'border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600 bg-white dark:bg-surface-800/50'"
+              @click="selectedPreset = opt.key"
+            >
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">
+                  {{ opt.title }}
+                </span>
+                <span
+                  v-if="selectedPreset === opt.key"
+                  class="flex items-center justify-center size-4 rounded-full bg-brand-600 text-white shrink-0"
+                >
+                  <Check class="size-3" />
+                </span>
+              </div>
+              <span
+                v-if="opt.badge"
+                class="inline-flex items-center rounded-full bg-brand-100 dark:bg-brand-900/60 px-1.5 py-0.5 text-[10px] font-medium text-brand-700 dark:text-brand-300 mb-1"
+              >
+                {{ opt.badge }}
+              </span>
+              <p class="text-[11px] leading-snug text-surface-500 dark:text-surface-400">
+                {{ opt.subtitle }}
+              </p>
+            </button>
+          </div>
+        </div>
+
         <!-- Stages section -->
         <div class="mb-6">
           <div class="flex items-center gap-2 mb-2">
@@ -149,14 +273,64 @@ async function handleSubmit() {
               {{ $t('pipelines.form.stagesTitle') }}
             </h3>
           </div>
-          <p class="text-xs text-surface-500 dark:text-surface-400 mb-3">
-            {{ $t('pipelines.form.stagesHint') }}
-          </p>
 
-          <PipelineStageEditor
-            ref="stageEditorRef"
-            v-model="stages"
-          />
+          <!-- ─── Превью пресета (read-only) ─── -->
+          <template v-if="selectedPreset !== 'scratch'">
+            <p class="text-xs text-surface-500 dark:text-surface-400 mb-3 flex items-center gap-1.5">
+              <Lock class="size-3.5 shrink-0" />
+              Этапы пресета системные: их нельзя переименовать или удалить — только скрыть. Свои этапы можно добавить после создания.
+            </p>
+
+            <div class="rounded-lg border border-surface-200 dark:border-surface-700 divide-y divide-surface-100 dark:divide-surface-800 overflow-hidden">
+              <div class="px-3 py-1.5 bg-surface-50 dark:bg-surface-800/60 text-[11px] font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400">
+                В работе
+              </div>
+              <div
+                v-for="stage in previewWorking"
+                :key="stage.name"
+                class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-surface-900"
+                :class="stage.isSub ? 'pl-8' : ''"
+              >
+                <div
+                  class="size-2 rounded-full shrink-0"
+                  :style="{ backgroundColor: stage.color }"
+                />
+                <span class="text-xs" :class="stage.isSub ? 'text-surface-500 dark:text-surface-400' : 'text-surface-800 dark:text-surface-200 font-medium'">
+                  {{ stage.name }}
+                </span>
+                <Lock class="size-3 text-surface-300 dark:text-surface-600 ml-auto shrink-0" />
+              </div>
+              <div class="px-3 py-1.5 bg-surface-50 dark:bg-surface-800/60 text-[11px] font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400">
+                Отказы
+              </div>
+              <div
+                v-for="stage in previewRejected"
+                :key="stage.name"
+                class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-surface-900"
+              >
+                <div
+                  class="size-2 rounded-full shrink-0"
+                  :style="{ backgroundColor: stage.color }"
+                />
+                <span class="text-xs text-surface-800 dark:text-surface-200 font-medium">
+                  {{ stage.name }}
+                </span>
+                <Lock class="size-3 text-surface-300 dark:text-surface-600 ml-auto shrink-0" />
+              </div>
+            </div>
+          </template>
+
+          <!-- ─── Редактор «С нуля» ─── -->
+          <template v-else>
+            <p class="text-xs text-surface-500 dark:text-surface-400 mb-3">
+              {{ $t('pipelines.form.stagesHint') }}
+            </p>
+
+            <PipelineStageEditor
+              ref="stageEditorRef"
+              v-model="stages"
+            />
+          </template>
         </div>
 
         <!-- Actions -->

@@ -177,7 +177,7 @@ async function handleSave() {
         body,
         headers: useRequestHeaders(['cookie']),
       })
-      toast.success('Configuration updated', `"${form.value.name.trim()}" saved.`)
+      toast.success('Конфигурация обновлена', `«${form.value.name.trim()}» сохранена.`)
     }
     else {
       body.isDefaultChatbot = form.value.isDefaultChatbot
@@ -187,13 +187,13 @@ async function handleSave() {
         body,
         headers: useRequestHeaders(['cookie']),
       })
-      toast.success('Configuration added', `"${form.value.name.trim()}" is ready to use.`)
+      toast.success('Конфигурация добавлена', `«${form.value.name.trim()}» готова к использованию.`)
     }
     emit('saved')
   }
   catch (err: any) {
-    const message = err?.data?.statusMessage ?? err?.message ?? 'Failed to save configuration.'
-    toast.error('Save failed', { message })
+    const message = err?.data?.statusMessage ?? err?.message ?? 'Не удалось сохранить конфигурацию.'
+    toast.error('Не удалось сохранить', { message })
   }
   finally {
     isSaving.value = false
@@ -202,7 +202,7 @@ async function handleSave() {
 
 async function handleTest() {
   if (!isEdit.value || !props.config) {
-    toast.info('Save first', 'Save the configuration before testing the connection.')
+    toast.info('Сначала сохраните', 'Сохраните конфигурацию перед проверкой подключения.')
     return
   }
   isTesting.value = true
@@ -213,12 +213,12 @@ async function handleTest() {
       headers: useRequestHeaders(['cookie']),
     })
     testResult.value = { success: true }
-    toast.success('Connection works', 'Provider responded correctly.')
+    toast.success('Подключение работает', 'Провайдер ответил корректно.')
   }
   catch (err: any) {
-    const message = err?.data?.statusMessage ?? err?.message ?? 'Connection test failed.'
+    const message = err?.data?.statusMessage ?? err?.message ?? 'Проверка подключения не пройдена.'
     testResult.value = { success: false, message }
-    toast.error('Test failed', { message })
+    toast.error('Проверка не пройдена', { message })
   }
   finally {
     isTesting.value = false
@@ -236,10 +236,10 @@ const badgeClass = (badge?: ModelInfo['badge']) => {
 }
 const badgeLabel = (badge?: ModelInfo['badge']) => {
   switch (badge) {
-    case 'recommended': return 'Recommended'
-    case 'fast': return 'Fast'
-    case 'powerful': return 'Powerful'
-    case 'cheap': return 'Low cost'
+    case 'recommended': return 'Рекомендуется'
+    case 'fast': return 'Быстрая'
+    case 'powerful': return 'Мощная'
+    case 'cheap': return 'Низкая стоимость'
     default: return ''
   }
 }
@@ -254,7 +254,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
         class="inline-flex items-center gap-1 text-xs font-medium text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200 transition-colors mb-3"
       >
         <ArrowLeft class="size-3.5" />
-        Back to AI configuration
+        Назад к настройкам ИИ
       </NuxtLink>
       <div class="flex items-center gap-2.5">
         <div class="flex size-9 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950/50 text-brand-600 dark:text-brand-400">
@@ -262,12 +262,12 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
         </div>
         <div>
           <h1 class="text-lg font-semibold text-surface-900 dark:text-surface-50">
-            {{ isEdit ? `Edit ${config?.name || 'configuration'}` : 'Add an AI model' }}
+            {{ isEdit ? `Изменить ${config?.name || 'конфигурацию'}` : 'Добавить модель ИИ' }}
           </h1>
           <p class="text-xs text-surface-500 dark:text-surface-400">
             {{ isEdit
-              ? 'Update settings, rotate the API key, or change pricing for this model.'
-              : 'Connect an AI provider so the chatbot and candidate analysis can use it.' }}
+              ? 'Измените настройки, замените ключ API или стоимость этой модели.'
+              : 'Подключите провайдера ИИ, чтобы использовать его в чате и анализе кандидатов.' }}
           </p>
         </div>
       </div>
@@ -277,9 +277,9 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
       <!-- 1. Provider -->
       <section class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 sm:p-6">
         <header class="mb-4">
-          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Provider</h2>
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Провайдер</h2>
           <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-            Choose where the model runs. We'll suggest the best models for that provider next.
+            Выберите, где работает модель. Затем мы предложим подходящие модели этого провайдера.
           </p>
         </header>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -303,9 +303,9 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
       <section v-if="selectedProvider" class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 sm:p-6">
         <header class="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Model</h2>
+            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Модель</h2>
             <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-              Pick a recommended model — or paste any model identifier the provider supports.
+              Выберите рекомендуемую модель или вставьте идентификатор любой поддерживаемой модели.
             </p>
           </div>
           <a
@@ -315,7 +315,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline shrink-0"
           >
-            Browse all <ExternalLink class="size-3" />
+            Все модели <ExternalLink class="size-3" />
           </a>
         </header>
 
@@ -344,7 +344,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
             </div>
             <p class="text-[11px] text-surface-500 dark:text-surface-400 line-clamp-2">{{ m.description }}</p>
             <div v-if="m.inputPricePer1m != null || m.outputPricePer1m != null" class="mt-2 text-[10px] text-surface-400">
-              ${{ m.inputPricePer1m?.toFixed(2) ?? '—' }} in · ${{ m.outputPricePer1m?.toFixed(2) ?? '—' }} out / 1M tokens
+              ${{ m.inputPricePer1m?.toFixed(2) ?? '—' }} входящие · ${{ m.outputPricePer1m?.toFixed(2) ?? '—' }} исходящие / 1 млн токенов
             </div>
           </button>
         </div>
@@ -352,17 +352,17 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
         <details class="mt-4">
           <summary class="text-xs text-surface-500 dark:text-surface-400 cursor-pointer hover:text-surface-700 dark:hover:text-surface-200 select-none inline-flex items-center gap-1">
             <ChevronDown class="size-3 transition-transform group-open:rotate-180" />
-            {{ selectedProvider.models.length ? 'Use a different model identifier' : 'Set the model identifier' }}
+            {{ selectedProvider.models.length ? 'Использовать другой идентификатор модели' : 'Указать идентификатор модели' }}
           </summary>
           <div class="mt-3">
             <input
               v-model="form.model"
               type="text"
-              placeholder="e.g. gpt-4.1-mini, llama-3.1-70b, mistral-large-latest"
+              placeholder="например, gpt-4.1-mini, llama-3.1-70b, mistral-large-latest"
               class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors font-mono"
             >
             <p class="mt-1 text-[11px] text-surface-500">
-              The exact string the provider expects in API calls.
+              Точная строка, которую провайдер ожидает в вызовах API.
             </p>
           </div>
         </details>
@@ -371,9 +371,9 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
       <!-- 3. Connection -->
       <section class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 sm:p-6">
         <header class="mb-4">
-          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Connection</h2>
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Подключение</h2>
           <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-            Give this configuration a name and connect your API key. Keys are encrypted with AES-256-GCM and never sent back to the browser.
+            Задайте название конфигурации и подключите ключ API. Ключи зашифрованы с помощью AES-256-GCM и никогда не возвращаются в браузер.
           </p>
         </header>
 
@@ -381,16 +381,16 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
           <!-- Friendly name -->
           <div>
             <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-              Display name
+              Отображаемое имя
             </label>
             <input
               v-model="form.name"
               type="text"
-              placeholder="e.g. GPT-4o (production)"
+              placeholder="например, GPT-4o (рабочая)"
               class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
             >
             <p class="mt-1 text-[11px] text-surface-500">
-              Shown in the model picker. Use something memorable.
+              Отображается при выборе модели. Используйте понятное название.
             </p>
           </div>
 
@@ -413,7 +413,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
           <!-- Base URL (custom only) -->
           <div v-if="isCustomProvider">
             <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-              Base URL
+              Базовый URL
             </label>
             <input
               v-model="form.baseUrl"
@@ -422,7 +422,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
               class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors font-mono"
             >
             <p class="mt-1 text-[11px] text-surface-500">
-              Any OpenAI-compatible endpoint (Ollama, vLLM, OpenRouter, etc).
+              Любая совместимая с OpenAI конечная точка (Ollama, vLLM, OpenRouter и другие).
             </p>
           </div>
 
@@ -430,8 +430,8 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
           <div>
             <div class="flex items-center justify-between mb-1.5">
               <label class="text-xs font-medium text-surface-700 dark:text-surface-300">
-                API key
-                <span v-if="isEdit" class="ml-1 text-surface-400 font-normal">(leave blank to keep current)</span>
+                Ключ API
+                <span v-if="isEdit" class="ml-1 text-surface-400 font-normal">(оставьте пустым, чтобы сохранить текущий)</span>
               </label>
               <a
                 v-if="selectedProvider?.apiKeyUrl"
@@ -440,7 +440,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
                 rel="noopener noreferrer"
                 class="inline-flex items-center gap-1 text-[11px] text-brand-600 dark:text-brand-400 hover:underline"
               >
-                Get a key <ExternalLink class="size-3" />
+                Получить ключ <ExternalLink class="size-3" />
               </a>
             </div>
             <div class="relative">
@@ -454,7 +454,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
               <button
                 type="button"
                 class="absolute inset-y-0 right-0 flex items-center px-3 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 cursor-pointer"
-                :title="showApiKey ? 'Hide key' : 'Show key'"
+                :title="showApiKey ? 'Скрыть ключ' : 'Показать ключ'"
                 @click="showApiKey = !showApiKey"
               >
                 <Eye v-if="showApiKey" class="size-4" />
@@ -473,13 +473,13 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
             >
               <Loader2 v-if="isTesting" class="size-3.5 animate-spin" />
               <Zap v-else class="size-3.5" />
-              {{ isTesting ? 'Testing…' : 'Test connection' }}
+              {{ isTesting ? 'Проверка…' : 'Проверить подключение' }}
             </button>
             <span
               v-if="testResult?.success"
               class="inline-flex items-center gap-1 text-xs text-success-600 dark:text-success-400"
             >
-              <Check class="size-3.5" /> Connection verified.
+              <Check class="size-3.5" /> Подключение проверено.
             </span>
             <span
               v-else-if="testResult && !testResult.success"
@@ -494,9 +494,9 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
       <!-- Defaults (only when adding and not first) -->
       <section v-if="!isEdit && !isFirst" class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 sm:p-6">
         <header class="mb-4">
-          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Use as default</h2>
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Использовать по умолчанию</h2>
           <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-            Optional. You can change defaults later from the list view.
+            Необязательно. Позже конфигурацию по умолчанию можно изменить в списке.
           </p>
         </header>
         <div class="space-y-2">
@@ -509,10 +509,10 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
             <div class="flex-1">
               <div class="flex items-center gap-1.5 text-sm font-medium text-surface-900 dark:text-surface-100">
                 <Sparkles class="size-3.5 text-brand-500" />
-                Chatbot conversations
+                Диалоги в чате
               </div>
               <p class="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5">
-                Use this model when chatting with candidates and recruiters.
+                Использовать эту модель для общения с кандидатами и рекрутёрами.
               </p>
             </div>
           </label>
@@ -525,10 +525,10 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
             <div class="flex-1">
               <div class="flex items-center gap-1.5 text-sm font-medium text-surface-900 dark:text-surface-100">
                 <Star class="size-3.5 text-warning-500" />
-                Candidate analysis
+                Анализ кандидатов
               </div>
               <p class="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5">
-                Use this model to score and analyse applications.
+                Использовать эту модель для оценки и анализа откликов.
               </p>
             </div>
           </label>
@@ -540,7 +540,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
         class="rounded-xl border border-brand-200 dark:border-brand-900 bg-brand-50/70 dark:bg-brand-950/30 px-4 py-3 text-xs text-brand-700 dark:text-brand-300 flex items-start gap-2"
       >
         <Sparkles class="size-3.5 mt-0.5 shrink-0" />
-        This is your first model — it will automatically become the default for both the chatbot and candidate analysis.
+        Это первая модель — она автоматически станет моделью по умолчанию для чата и анализа кандидатов.
       </p>
 
       <!-- Advanced -->
@@ -551,9 +551,9 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
           @click="showAdvanced = !showAdvanced"
         >
           <div>
-            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Advanced</h2>
+            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Дополнительно</h2>
             <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-              Output token limit and pricing. Defaults work for most setups.
+              Лимит выходных токенов и стоимость. Настройки по умолчанию подходят для большинства случаев.
             </p>
           </div>
           <ChevronDown
@@ -565,7 +565,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
           <!-- Max output tokens -->
           <div>
             <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-              Max output tokens
+              Максимум выходных токенов
             </label>
             <input
               v-model.number="form.maxTokens"
@@ -576,19 +576,19 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
               class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors font-mono"
             >
             <p class="mt-1 text-[11px] text-surface-500">
-              Maximum tokens the model can generate per response. Range: 256 – 200,000. Defaults to {{ DEFAULT_MAX_TOKENS.toLocaleString() }}.
+              Максимальное количество токенов, которое модель может сгенерировать в одном ответе. Диапазон: 256–200 000. По умолчанию: {{ DEFAULT_MAX_TOKENS.toLocaleString() }}.
             </p>
           </div>
 
           <!-- Pricing -->
           <div>
             <h3 class="text-xs font-medium text-surface-700 dark:text-surface-300 mb-2">
-              Pricing per 1M tokens
-              <span class="ml-1 text-surface-400 font-normal">(USD — auto-filled, adjust to match your billing)</span>
+              Стоимость за 1 млн токенов
+              <span class="ml-1 text-surface-400 font-normal">(USD — заполняется автоматически, при необходимости скорректируйте)</span>
             </h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Input</label>
+                <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Входящие</label>
                 <input
                   v-model.number="form.inputPricePer1m"
                   type="number"
@@ -599,7 +599,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
                 >
               </div>
               <div>
-                <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Output</label>
+                <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Исходящие</label>
                 <input
                   v-model.number="form.outputPricePer1m"
                   type="number"
@@ -616,7 +616,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
 
       <p class="text-[11px] text-surface-500 dark:text-surface-400 flex items-start gap-1.5">
         <KeyRound class="size-3 mt-0.5 shrink-0" />
-        <span>API keys are encrypted at rest with AES-256-GCM and never returned to the browser.</span>
+        <span>Ключи API зашифрованы при хранении с помощью AES-256-GCM и никогда не возвращаются в браузер.</span>
       </p>
     </div>
 
@@ -628,7 +628,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
           class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors cursor-pointer"
           @click="emit('cancel')"
         >
-          Cancel
+          Отмена
         </button>
         <button
           type="button"
@@ -638,7 +638,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
         >
           <Loader2 v-if="isSaving" class="size-4 animate-spin" />
           <Save v-else class="size-4" />
-          {{ isSaving ? 'Saving…' : (isEdit ? 'Save changes' : 'Add model') }}
+          {{ isSaving ? 'Сохранение…' : (isEdit ? 'Сохранить изменения' : 'Добавить модель') }}
         </button>
       </div>
     </div>

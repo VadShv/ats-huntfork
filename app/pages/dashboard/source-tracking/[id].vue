@@ -21,8 +21,8 @@ const { formatPersonName } = useOrgSettings()
 const linkId = computed(() => route.params.id as string)
 
 useSeoMeta({
-  title: 'Link Details — Source Tracking',
-  description: 'Detailed analytics for a tracking link',
+  title: 'Детали ссылки — Отслеживание источников',
+  description: 'Подробная аналитика ссылки отслеживания',
 })
 
 onMounted(() => track('source_tracking_link_detail_viewed', { linkId: linkId.value }))
@@ -101,9 +101,9 @@ const channelLabels: Record<string, string> = {
   remoteok: 'Remote OK', builtin: 'Built In', hired: 'Hired',
   lever: 'Lever', greenhouse_board: 'Greenhouse', google_jobs: 'Google Jobs',
   facebook: 'Facebook', twitter: 'X / Twitter', instagram: 'Instagram',
-  tiktok: 'TikTok', reddit: 'Reddit', referral: 'Referral',
-  career_site: 'Career Site', email: 'Email', event: 'Event',
-  agency: 'Agency', direct: 'Direct', other: 'Other', custom: 'Custom',
+  tiktok: 'TikTok', reddit: 'Reddit', referral: 'Рекомендация',
+  career_site: 'Карьерный сайт', email: 'Email', event: 'Мероприятие',
+  agency: 'Агентство', direct: 'Прямой переход', other: 'Другое', custom: 'Свой',
 }
 
 const channelColors: Record<string, string> = {
@@ -155,10 +155,10 @@ function formatDate(dateStr: string) {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffMins < 1) return 'Только что'
+  if (diffMins < 60) return `${diffMins} мин назад`
+  if (diffHours < 24) return `${diffHours} ч назад`
+  if (diffDays < 7) return `${diffDays} дн. назад`
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
@@ -205,11 +205,11 @@ const maxTrendCount = computed(() =>
 const utmParams = computed(() => {
   if (!link.value) return []
   const params: { label: string; value: string }[] = []
-  if (link.value.utmSource) params.push({ label: 'Source', value: link.value.utmSource })
-  if (link.value.utmMedium) params.push({ label: 'Medium', value: link.value.utmMedium })
-  if (link.value.utmCampaign) params.push({ label: 'Campaign', value: link.value.utmCampaign })
-  if (link.value.utmTerm) params.push({ label: 'Term', value: link.value.utmTerm })
-  if (link.value.utmContent) params.push({ label: 'Content', value: link.value.utmContent })
+  if (link.value.utmSource) params.push({ label: 'Источник', value: link.value.utmSource })
+  if (link.value.utmMedium) params.push({ label: 'Канал', value: link.value.utmMedium })
+  if (link.value.utmCampaign) params.push({ label: 'Кампания', value: link.value.utmCampaign })
+  if (link.value.utmTerm) params.push({ label: 'Термин', value: link.value.utmTerm })
+  if (link.value.utmContent) params.push({ label: 'Содержание', value: link.value.utmContent })
   return params
 })
 
@@ -260,10 +260,10 @@ async function handleSaveEdit() {
       },
     })
     showEditModal.value = false
-    toast.success('Link updated')
+    toast.success('Ссылка обновлена')
     await refresh()
   } catch (err: any) {
-    toast.error(err?.data?.statusMessage ?? 'Failed to update link')
+    toast.error(err?.data?.statusMessage ?? 'Не удалось обновить ссылку')
   } finally {
     isSaving.value = false
   }
@@ -327,12 +327,12 @@ async function handleSidebarUpdated() {
       class="rounded-2xl border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950/60 p-5 text-sm text-danger-700 dark:text-danger-400 flex items-center gap-3"
     >
       <AlertCircle class="size-5 shrink-0" />
-      <span>{{ fetchError?.statusCode === 404 ? 'Tracking link not found.' : 'Failed to load link details.' }}</span>
+      <span>{{ fetchError?.statusCode === 404 ? 'Ссылка отслеживания не найдена.' : 'Не удалось загрузить детали ссылки.' }}</span>
       <NuxtLink
         :to="localePath('/dashboard/source-tracking')"
         class="underline ml-auto font-medium"
       >
-        Back to Source Tracking
+        Назад к источникам
       </NuxtLink>
     </div>
 
@@ -345,7 +345,7 @@ async function handleSidebarUpdated() {
           class="inline-flex items-center gap-1.5 text-sm text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 transition-colors mb-4"
         >
           <ArrowLeft class="size-4" />
-          Back to Source Tracking
+          Назад к источникам
         </NuxtLink>
 
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -368,7 +368,7 @@ async function handleSidebarUpdated() {
               >
                 <CheckCircle2 v-if="link.isActive" class="size-3" />
                 <XCircle v-else class="size-3" />
-                {{ link.isActive ? 'Active' : 'Inactive' }}
+                {{ link.isActive ? 'Активная' : 'Неактивная' }}
               </span>
             </div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-surface-400 dark:text-surface-500">
@@ -378,7 +378,7 @@ async function handleSidebarUpdated() {
               </span>
               <span v-else class="inline-flex items-center gap-1">
                 <Layers class="size-3.5" />
-                All jobs
+                Все вакансии
               </span>
               <span class="inline-flex items-center gap-1">
                 <CalendarDays class="size-3.5" />
@@ -399,7 +399,7 @@ async function handleSidebarUpdated() {
                   : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'"
                 @click="dateRange = range"
               >
-                {{ range === 'all' ? 'All time' : range.toUpperCase() }}
+                {{ range === 'all' ? 'За всё время' : range.toUpperCase() }}
               </button>
             </div>
 
@@ -409,7 +409,7 @@ async function handleSidebarUpdated() {
               @click="openEditModal"
             >
               <Pencil class="size-3.5" />
-              Edit
+              Изменить
             </button>
 
             <!-- Copy URL -->
@@ -419,7 +419,7 @@ async function handleSidebarUpdated() {
             >
               <Copy v-if="!copied" class="size-3.5" />
               <CheckCircle2 v-else class="size-3.5 text-green-500" />
-              {{ copied ? 'Copied!' : 'Copy URL' }}
+              {{ copied ? 'Скопировано!' : 'Копировать URL' }}
             </button>
           </div>
         </div>
@@ -435,7 +435,7 @@ async function handleSidebarUpdated() {
           class="shrink-0 text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
           @click="copyTrackingUrl"
         >
-          {{ copied ? 'Copied!' : 'Copy' }}
+          {{ copied ? 'Скопировано!' : 'Копировать' }}
         </button>
       </div>
 
@@ -452,8 +452,8 @@ async function handleSidebarUpdated() {
               </span>
               <span class="size-1.5 rounded-full bg-blue-500 shrink-0 mb-1" />
             </div>
-            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Clicks</span>
-            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Total clicks</p>
+            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Переходы</span>
+            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Всего переходов</p>
           </div>
         </div>
 
@@ -468,8 +468,8 @@ async function handleSidebarUpdated() {
               </span>
               <span class="size-1.5 rounded-full bg-brand-500 shrink-0 mb-1" />
             </div>
-            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Applications</span>
-            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Total attributed</p>
+            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Отклики</span>
+            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Всего с атрибуцией</p>
           </div>
         </div>
 
@@ -485,7 +485,7 @@ async function handleSidebarUpdated() {
               <span class="size-1.5 rounded-full bg-teal-500 shrink-0 mb-1" />
             </div>
             <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">CVR</span>
-            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Click → Application</p>
+            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Переход → отклик</p>
           </div>
         </div>
 
@@ -500,8 +500,8 @@ async function handleSidebarUpdated() {
               </span>
               <span class="size-1.5 rounded-full bg-green-500 shrink-0 mb-1" />
             </div>
-            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Hire Rate</span>
-            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Application → Hired</p>
+            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Конверсия в найм</span>
+            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Отклик → принят</p>
           </div>
         </div>
 
@@ -516,8 +516,8 @@ async function handleSidebarUpdated() {
               </span>
               <span class="size-1.5 rounded-full bg-violet-500 shrink-0 mb-1" />
             </div>
-            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Attributed</span>
-            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">All time</p>
+            <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">С атрибуцией</span>
+            <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">За всё время</p>
           </div>
         </div>
       </div>
@@ -533,17 +533,17 @@ async function handleSidebarUpdated() {
                 <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                   <TrendingUp class="size-3.5 text-surface-500 dark:text-surface-400" />
                 </div>
-                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Application Pipeline</h2>
+                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Воронка откликов</h2>
               </div>
-              <span class="text-xs text-surface-400 tabular-nums font-medium">{{ funnelTotal }} total</span>
+              <span class="text-xs text-surface-400 tabular-nums font-medium">{{ funnelTotal }} всего</span>
             </div>
 
             <div v-if="funnelTotal === 0" class="px-6 py-12 text-center">
               <div class="mx-auto mb-4 flex items-center justify-center size-12 rounded-2xl bg-surface-100 dark:bg-surface-800">
                 <TrendingUp class="size-5 text-surface-400 dark:text-surface-500" />
               </div>
-              <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">No applications yet</p>
-              <p class="text-xs text-surface-400 dark:text-surface-500">Applications from this link will appear here.</p>
+              <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">Пока нет откликов</p>
+              <p class="text-xs text-surface-400 dark:text-surface-500">Отклики по этой ссылке появятся здесь.</p>
             </div>
 
             <div v-else class="px-6 py-5 space-y-4">
@@ -576,35 +576,35 @@ async function handleSidebarUpdated() {
 
         <!-- ─── Right: UTM params + Referrers ─── -->
         <div class="space-y-6">
-          <!-- UTM Parameters -->
+          <!-- UTM-параметры -->
           <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none">
             <div class="flex items-center gap-2.5 px-5 py-4 border-b border-surface-100 dark:border-surface-800">
               <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                 <Tag class="size-3.5 text-surface-500 dark:text-surface-400" />
               </div>
-              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Link Configuration</h2>
+              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Настройки ссылки</h2>
             </div>
 
             <div class="px-5 py-4 space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-surface-500 dark:text-surface-400">Channel</span>
+                <span class="text-xs font-medium text-surface-500 dark:text-surface-400">Канал</span>
                 <span class="inline-flex items-center gap-1.5 text-sm font-medium text-surface-800 dark:text-surface-200">
                   <span class="size-2 rounded-full" :class="getChannelColor(link.channel)" />
                   {{ getChannelLabel(link.channel) }}
                 </span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-surface-500 dark:text-surface-400">Code</span>
+                <span class="text-xs font-medium text-surface-500 dark:text-surface-400">Код</span>
                 <code class="text-xs font-mono text-surface-700 dark:text-surface-300 bg-surface-100 dark:bg-surface-800 px-2 py-0.5 rounded">{{ link.code }}</code>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-surface-500 dark:text-surface-400">Job Scope</span>
+                <span class="text-xs font-medium text-surface-500 dark:text-surface-400">Привязка к вакансии</span>
                 <span class="text-sm text-surface-700 dark:text-surface-300">{{ link.jobTitle ?? 'All jobs' }}</span>
               </div>
 
               <template v-if="utmParams.length > 0">
                 <div class="border-t border-surface-100 dark:border-surface-800 pt-3 mt-3">
-                  <span class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-2 block">UTM Parameters</span>
+                  <span class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-2 block">Параметры UTM</span>
                   <div class="space-y-2">
                     <div v-for="p in utmParams" :key="p.label" class="flex items-center justify-between">
                       <span class="text-xs text-surface-500 dark:text-surface-400">{{ p.label }}</span>
@@ -615,7 +615,7 @@ async function handleSidebarUpdated() {
               </template>
 
               <div v-else class="border-t border-surface-100 dark:border-surface-800 pt-3 mt-3">
-                <p class="text-xs text-surface-400 dark:text-surface-500 text-center">No UTM parameters configured</p>
+                <p class="text-xs text-surface-400 dark:text-surface-500 text-center">Параметры UTM не настроены</p>
               </div>
             </div>
           </div>
@@ -626,14 +626,14 @@ async function handleSidebarUpdated() {
               <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                 <Globe class="size-3.5 text-surface-500 dark:text-surface-400" />
               </div>
-              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Referrer Domains</h2>
+              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Домены рефереров</h2>
             </div>
 
             <div v-if="referrerDomains.length === 0" class="px-5 py-10 text-center">
               <div class="mx-auto mb-3 flex items-center justify-center size-10 rounded-2xl bg-surface-100 dark:bg-surface-800">
                 <Globe class="size-4 text-surface-400 dark:text-surface-500" />
               </div>
-              <p class="text-xs font-medium text-surface-500 dark:text-surface-400">No referrer data</p>
+              <p class="text-xs font-medium text-surface-500 dark:text-surface-400">Нет данных о реферерах</p>
             </div>
 
             <div v-else class="px-5 py-4 space-y-3">
@@ -646,7 +646,7 @@ async function handleSidebarUpdated() {
                   <div class="size-5 rounded bg-surface-100 dark:bg-surface-800 flex items-center justify-center shrink-0">
                     <Globe class="size-3 text-surface-400" />
                   </div>
-                  <span class="text-sm text-surface-700 dark:text-surface-300 truncate">{{ ref.domain ?? 'Unknown' }}</span>
+                  <span class="text-sm text-surface-700 dark:text-surface-300 truncate">{{ ref.domain ?? 'Неизвестно' }}</span>
                 </div>
                 <span class="text-sm font-bold text-surface-900 dark:text-surface-100 tabular-nums shrink-0 ml-2">{{ ref.count }}</span>
               </div>
@@ -662,7 +662,7 @@ async function handleSidebarUpdated() {
             <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
               <BarChart3 class="size-3.5 text-surface-500 dark:text-surface-400" />
             </div>
-            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Applications Over Time</h2>
+            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Отклики по времени</h2>
           </div>
         </div>
 
@@ -670,8 +670,8 @@ async function handleSidebarUpdated() {
           <div class="mx-auto mb-4 flex items-center justify-center size-12 rounded-2xl bg-surface-100 dark:bg-surface-800">
             <BarChart3 class="size-5 text-surface-400 dark:text-surface-500" />
           </div>
-          <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">No trend data yet</p>
-          <p class="text-xs text-surface-400 dark:text-surface-500">Daily application counts will appear here.</p>
+          <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">Пока нет данных о динамике</p>
+          <p class="text-xs text-surface-400 dark:text-surface-500">Ежедневные данные по откликам появятся здесь.</p>
         </div>
 
         <div v-else class="px-6 py-5">
@@ -704,18 +704,18 @@ async function handleSidebarUpdated() {
             <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
               <Users class="size-3.5 text-surface-500 dark:text-surface-400" />
             </div>
-            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Attributed Applications</h2>
+            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Отклики с атрибуцией</h2>
           </div>
-          <span class="text-xs text-surface-400 tabular-nums font-medium">{{ applications.length }} shown</span>
+          <span class="text-xs text-surface-400 tabular-nums font-medium">{{ applications.length }} показано</span>
         </div>
 
         <div v-if="applications.length === 0" class="px-6 py-12 text-center">
           <div class="mx-auto mb-4 flex items-center justify-center size-12 rounded-2xl bg-surface-100 dark:bg-surface-800">
             <Users class="size-5 text-surface-400 dark:text-surface-500" />
           </div>
-          <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">No applications attributed</p>
+          <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">Нет откликов с атрибуцией</p>
           <p class="text-xs text-surface-400 dark:text-surface-500 max-w-sm mx-auto">
-            Applications that come through this tracking link will be listed here.
+            Отклики, поступившие по этой ссылке отслеживания, будут показаны здесь.
           </p>
         </div>
 
@@ -723,12 +723,12 @@ async function handleSidebarUpdated() {
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-surface-100 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-800/30">
-                <th class="px-5 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Candidate</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Job</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Referrer</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Campaign</th>
-                <th class="px-4 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Status</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Applied</th>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Кандидат</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Вакансия</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Реферер</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Кампания</th>
+                <th class="px-4 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Статус</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Откликнулся</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -775,12 +775,7 @@ async function handleSidebarUpdated() {
                 </td>
                 <!-- Status -->
                 <td class="px-4 py-3.5 text-center">
-                  <span
-                    class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ring-1 ring-inset"
-                    :class="statusBadgeClasses[app.status] ?? 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400 ring-surface-200 dark:ring-surface-700'"
-                  >
-                    {{ app.status }}
-                  </span>
+                  <StatusBadge :status="app.status" size="xs" />
                 </td>
                 <!-- Applied date -->
                 <td class="px-4 py-3.5 text-right text-[11px] text-surface-400 tabular-nums font-medium">
@@ -811,7 +806,7 @@ async function handleSidebarUpdated() {
         <div class="relative w-full max-w-lg rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-2xl">
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-surface-100 dark:border-surface-800">
-            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Edit Tracking Link</h2>
+            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Изменить ссылку отслеживания</h2>
             <button
               class="p-1.5 rounded-lg text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
               @click="showEditModal = false"
@@ -824,7 +819,7 @@ async function handleSidebarUpdated() {
           <form class="px-6 py-5 space-y-4" @submit.prevent="handleSaveEdit">
             <!-- Name -->
             <div>
-              <label for="edit-link-name" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Link Name</label>
+              <label for="edit-link-name" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Название ссылки</label>
               <input
                 id="edit-link-name"
                 v-model="editForm.name"
@@ -835,19 +830,19 @@ async function handleSidebarUpdated() {
 
             <!-- Channel -->
             <div>
-              <label for="edit-link-channel" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Source Channel</label>
+              <label for="edit-link-channel" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Канал источника</label>
               <select
                 id="edit-link-channel"
                 v-model="editForm.channel"
                 class="w-full rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2.5 text-sm text-surface-900 dark:text-surface-100 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all"
               >
-                <optgroup label="Job Boards">
+                <optgroup label="Джоб-борды">
                   <option v-for="ch in ['linkedin', 'indeed', 'glassdoor', 'ziprecruiter', 'monster', 'handshake', 'angellist', 'wellfound', 'dice', 'stackoverflow', 'weworkremotely', 'remoteok', 'builtin', 'hired', 'lever', 'greenhouse_board', 'google_jobs']" :key="ch" :value="ch">{{ getChannelLabel(ch) }}</option>
                 </optgroup>
-                <optgroup label="Social Media">
+                <optgroup label="Социальные сети">
                   <option v-for="ch in ['facebook', 'twitter', 'instagram', 'tiktok', 'reddit']" :key="ch" :value="ch">{{ getChannelLabel(ch) }}</option>
                 </optgroup>
-                <optgroup label="Other">
+                <optgroup label="Другое">
                   <option v-for="ch in ['referral', 'career_site', 'email', 'event', 'agency', 'direct', 'custom', 'other']" :key="ch" :value="ch">{{ getChannelLabel(ch) }}</option>
                 </optgroup>
               </select>
@@ -857,7 +852,7 @@ async function handleSidebarUpdated() {
             <details class="group">
               <summary class="flex items-center gap-2 text-sm font-medium text-surface-500 dark:text-surface-400 cursor-pointer select-none hover:text-surface-700 dark:hover:text-surface-200 transition-colors">
                 <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
-                UTM Parameters
+                UTM-параметры
               </summary>
               <div class="mt-3 grid grid-cols-2 gap-3">
                 <div>
@@ -890,14 +885,14 @@ async function handleSidebarUpdated() {
                 class="rounded-xl px-4 py-2.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
                 @click="showEditModal = false"
               >
-                Cancel
+                Отмена
               </button>
               <button
                 type="submit"
                 :disabled="!editForm.name.trim() || isSaving"
                 class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 shadow-sm shadow-brand-600/15 transition-all"
               >
-                {{ isSaving ? 'Saving…' : 'Save Changes' }}
+                {{ isSaving ? 'Сохранение…' : 'Сохранить изменения' }}
               </button>
             </div>
           </form>

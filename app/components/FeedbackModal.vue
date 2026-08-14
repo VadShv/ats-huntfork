@@ -54,13 +54,13 @@ onMounted(() => {
 const placeholders = computed(() => {
   if (feedbackType.value === 'bug') {
     return {
-      title: 'e.g. Pipeline cards not updating after drag',
-      description: 'What happened? What did you expect? Steps to reproduce…',
+      title: 'Например, карточки воронки не обновляются после перетаскивания',
+      description: 'Что произошло? Что вы ожидали? Укажите шаги для воспроизведения…',
     }
   }
   return {
-    title: 'e.g. Add bulk actions on candidate list',
-    description: 'Describe the feature and why it would be useful…',
+    title: 'Например, добавить массовые действия в список кандидатов',
+    description: 'Опишите идею и почему она будет полезна…',
   }
 })
 
@@ -74,7 +74,7 @@ function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result ?? ''))
-    reader.onerror = () => reject(new Error('Failed to read screenshot file'))
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл снимка экрана'))
     reader.readAsDataURL(file)
   })
 }
@@ -84,7 +84,7 @@ async function compressImageDataUrl(dataUrl: string) {
 
   await new Promise<void>((resolve, reject) => {
     image.onload = () => resolve()
-    image.onerror = () => reject(new Error('Failed to load screenshot image'))
+    image.onerror = () => reject(new Error('Не удалось загрузить снимок экрана'))
     image.src = dataUrl
   })
 
@@ -102,7 +102,7 @@ async function compressImageDataUrl(dataUrl: string) {
   const context = canvas.getContext('2d')
 
   if (!context) {
-    throw new Error('Failed to process screenshot')
+    throw new Error('Не удалось обработать снимок экрана')
   }
 
   context.drawImage(image, 0, 0, targetWidth, targetHeight)
@@ -124,7 +124,7 @@ async function handleScreenshotSelect(event: Event) {
   }
 
   if (!file.type.startsWith('image/')) {
-    submitError.value = 'Screenshot must be an image file.'
+    submitError.value = 'Снимок экрана должен быть файлом изображения.'
     resetScreenshot()
     return
   }
@@ -136,7 +136,7 @@ async function handleScreenshotSelect(event: Event) {
     const compressedDataUrl = await compressImageDataUrl(sourceDataUrl)
 
     if (compressedDataUrl.length > MAX_SCREENSHOT_DATA_URL_CHARS) {
-      submitError.value = 'Screenshot is too large for GitHub issue body. Please use a smaller image.'
+      submitError.value = 'Снимок экрана слишком большой для текста задачи GitHub. Используйте изображение меньшего размера.'
       resetScreenshot()
       return
     }
@@ -144,7 +144,7 @@ async function handleScreenshotSelect(event: Event) {
     screenshotDataUrl.value = compressedDataUrl
     screenshotFileName.value = file.name
   } catch {
-    submitError.value = 'Failed to process screenshot. Please try another file.'
+    submitError.value = 'Не удалось обработать снимок экрана. Попробуйте выбрать другой файл.'
     resetScreenshot()
   }
 }
@@ -187,7 +187,7 @@ async function handleSubmit() {
     })
     successUrl.value = result.issueUrl
   } catch (err: any) {
-    submitError.value = err.data?.statusMessage ?? 'Failed to submit feedback. Please try again.'
+    submitError.value = err.data?.statusMessage ?? 'Не удалось отправить обратную связь. Попробуйте ещё раз.'
   } finally {
     isSubmitting.value = false
   }
@@ -228,7 +228,7 @@ function resetAndClose() {
           <div class="flex items-center gap-2">
             <MessageSquarePlus class="size-5 text-brand-600 dark:text-brand-400" />
             <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50">
-              Create GitHub Issue
+              Создать задачу GitHub
             </h3>
           </div>
           <button
@@ -247,10 +247,10 @@ function resetAndClose() {
             </svg>
           </div>
           <h4 class="text-lg font-semibold text-surface-900 dark:text-surface-50 mb-1">
-            Feedback submitted!
+            Обратная связь отправлена!
           </h4>
           <p class="text-sm text-surface-500 dark:text-surface-400 mb-5">
-            Thank you for helping improve Reqcore. Your feedback has been recorded.
+            Спасибо, что помогаете улучшать Huntfork. Ваше сообщение сохранено.
           </p>
           <div class="flex items-center justify-center gap-3">
             <a
@@ -260,13 +260,13 @@ function resetAndClose() {
               class="inline-flex items-center gap-1.5 rounded-lg bg-surface-100 dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors no-underline"
             >
               <ExternalLink class="size-4" />
-              View on GitHub
+              Открыть на GitHub
             </a>
             <button
               class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition-colors cursor-pointer"
               @click="resetAndClose"
             >
-              Done
+              Готово
             </button>
           </div>
         </div>
@@ -275,13 +275,13 @@ function resetAndClose() {
         <form v-else class="flex min-h-0 flex-col" @submit.prevent="handleSubmit">
           <div class="min-h-0 overflow-y-auto px-5 py-4 space-y-4">
             <div class="rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50 px-3 py-2 text-xs text-surface-600 dark:text-surface-300">
-              Submitting this form creates a GitHub issue for the Reqcore maintainers.
+              После отправки формы будет создана задача GitHub для команды Huntfork.
             </div>
 
             <!-- Type toggle -->
             <div>
               <label class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">
-                Type
+                Тип
               </label>
               <div class="flex gap-2">
                 <button
@@ -293,7 +293,7 @@ function resetAndClose() {
                   @click="feedbackType = 'bug'"
                 >
                   <Bug class="size-4" />
-                  Bug Report
+                  Ошибка
                 </button>
                 <button
                   type="button"
@@ -304,7 +304,7 @@ function resetAndClose() {
                   @click="feedbackType = 'feature'"
                 >
                   <Lightbulb class="size-4" />
-                  Feature Request
+                  Идея
                 </button>
               </div>
             </div>
@@ -312,7 +312,7 @@ function resetAndClose() {
             <!-- Title -->
             <div>
               <label for="feedback-title" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                Title
+                Заголовок
               </label>
               <input
                 id="feedback-title"
@@ -327,7 +327,7 @@ function resetAndClose() {
             <!-- Description -->
             <div>
               <label for="feedback-description" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                Description
+                Описание
               </label>
               <textarea
                 id="feedback-description"
@@ -338,7 +338,7 @@ function resetAndClose() {
                 class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-y min-h-[100px]"
               />
               <p class="mt-1 text-xs text-surface-400">
-                {{ feedbackType === 'bug' ? 'Include steps to reproduce, what you expected, and what actually happened.' : 'Describe the use case and how this feature would help you.' }}
+                {{ feedbackType === 'bug' ? 'Укажите шаги для воспроизведения, ожидаемый и фактический результат.' : 'Опишите сценарий использования и как эта идея поможет вам.' }}
               </p>
             </div>
 
@@ -349,7 +349,7 @@ function resetAndClose() {
                 @click="showOptionalContext = !showOptionalContext"
               >
                 <span class="text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">
-                  Add More Context (Optional)
+                  Добавить контекст (необязательно)
                 </span>
                 <component :is="showOptionalContext ? ChevronDown : ChevronRight" class="size-4 text-surface-500 dark:text-surface-400" />
               </button>
@@ -357,47 +357,47 @@ function resetAndClose() {
               <div v-if="showOptionalContext" class="space-y-3 border-t border-surface-200 dark:border-surface-700 p-3">
                 <div v-if="feedbackType === 'bug'" class="space-y-3">
                   <p class="text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">
-                    Bug Context
+                    Контекст ошибки
                   </p>
 
                   <div>
                     <label for="bug-steps-to-reproduce" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                      Steps to reproduce
+                      Шаги для воспроизведения
                     </label>
                     <textarea
                       id="bug-steps-to-reproduce"
                       v-model="bugStepsToReproduce"
                       rows="2"
                       maxlength="1500"
-                      placeholder="Step-by-step instructions to reproduce the issue"
+                      placeholder="Пошагово опишите, как воспроизвести ошибку"
                       class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-y"
                     />
                   </div>
 
                   <div>
                     <label for="bug-expected-result" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                      Expected result
+                      Ожидаемый результат
                     </label>
                     <textarea
                       id="bug-expected-result"
                       v-model="bugExpectedResult"
                       rows="2"
                       maxlength="1000"
-                      placeholder="What did you expect to happen?"
+                      placeholder="Что должно было произойти?"
                       class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-y"
                     />
                   </div>
 
                   <div>
                     <label for="bug-actual-result" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                      Actual result
+                      Фактический результат
                     </label>
                     <textarea
                       id="bug-actual-result"
                       v-model="bugActualResult"
                       rows="2"
                       maxlength="1000"
-                      placeholder="What actually happened?"
+                      placeholder="Что произошло на самом деле?"
                       class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-y"
                     />
                   </div>
@@ -405,47 +405,47 @@ function resetAndClose() {
 
                 <div v-if="feedbackType === 'feature'" class="space-y-3">
                   <p class="text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">
-                    Feature Context
+                    Контекст идеи
                   </p>
 
                   <div>
                     <label for="feature-user-problem" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                      User problem
+                      Проблема пользователя
                     </label>
                     <textarea
                       id="feature-user-problem"
                       v-model="featureUserProblem"
                       rows="2"
                       maxlength="1000"
-                      placeholder="What problem are you trying to solve?"
+                      placeholder="Какую проблему вы хотите решить?"
                       class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-y"
                     />
                   </div>
 
                   <div>
                     <label for="feature-desired-workflow" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                      Desired workflow
+                      Желаемый сценарий
                     </label>
                     <textarea
                       id="feature-desired-workflow"
                       v-model="featureDesiredWorkflow"
                       rows="2"
                       maxlength="1000"
-                      placeholder="How should this work in Reqcore?"
+                      placeholder="Как это должно работать в Huntfork?"
                       class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-y"
                     />
                   </div>
 
                   <div>
                     <label for="feature-expected-impact" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                      Expected impact
+                      Ожидаемый эффект
                     </label>
                     <textarea
                       id="feature-expected-impact"
                       v-model="featureExpectedImpact"
                       rows="2"
                       maxlength="1000"
-                      placeholder="What improves if this feature exists?"
+                      placeholder="Что улучшится после добавления этой идеи?"
                       class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-y"
                     />
                   </div>
@@ -455,7 +455,7 @@ function resetAndClose() {
 
             <div class="rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50 p-3 space-y-2.5">
               <p class="text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">
-                Share Additional Context
+                Передать дополнительный контекст
               </p>
 
               <label class="flex items-start gap-2 text-sm text-surface-700 dark:text-surface-300">
@@ -464,7 +464,7 @@ function resetAndClose() {
                   type="checkbox"
                   class="mt-0.5 size-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500"
                 />
-                <span>Share my name and current page</span>
+                <span>Передать моё имя и текущую страницу</span>
               </label>
 
               <label class="flex items-start gap-2 text-sm text-surface-700 dark:text-surface-300">
@@ -473,7 +473,7 @@ function resetAndClose() {
                   type="checkbox"
                   class="mt-0.5 size-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500"
                 />
-                <span>Share my email address with this issue</span>
+                <span>Передать мой Email вместе с сообщением</span>
               </label>
 
               <label class="flex items-start gap-2 text-sm text-surface-700 dark:text-surface-300">
@@ -482,7 +482,7 @@ function resetAndClose() {
                   type="checkbox"
                   class="mt-0.5 size-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500"
                 />
-                <span>Share technical diagnostics (browser, screen size, timezone)</span>
+                <span>Передать технические данные (браузер, размер экрана, часовой пояс)</span>
               </label>
 
               <label class="flex items-start gap-2 text-sm text-surface-700 dark:text-surface-300">
@@ -492,13 +492,13 @@ function resetAndClose() {
                   class="mt-0.5 size-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500"
                   @change="!includeScreenshot && resetScreenshot()"
                 />
-                <span>Share a screenshot</span>
+                <span>Прикрепить снимок экрана</span>
               </label>
 
               <div v-if="includeScreenshot" class="space-y-2">
                 <label class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors cursor-pointer">
                   <ImagePlus class="size-4" />
-                  Choose image
+                  Выбрать изображение
                   <input
                     accept="image/png,image/jpeg,image/webp"
                     type="file"
@@ -507,7 +507,7 @@ function resetAndClose() {
                   />
                 </label>
                 <p class="text-xs text-surface-400">
-                  {{ screenshotFileName ? `Selected: ${screenshotFileName}` : 'No screenshot selected' }}
+                  {{ screenshotFileName ? `Выбрано: ${screenshotFileName}` : 'Снимок экрана не выбран' }}
                 </p>
               </div>
             </div>
@@ -525,7 +525,7 @@ function resetAndClose() {
               class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors cursor-pointer"
               @click="resetAndClose"
             >
-              Cancel
+              Отмена
             </button>
             <button
               type="submit"
@@ -533,7 +533,7 @@ function resetAndClose() {
               class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send class="size-4" />
-              {{ isSubmitting ? 'Creating issue…' : 'Create GitHub Issue' }}
+              {{ isSubmitting ? 'Создание задачи…' : 'Создать задачу GitHub' }}
             </button>
           </div>
         </form>

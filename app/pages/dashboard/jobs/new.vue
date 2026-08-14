@@ -44,8 +44,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Create Job',
-  description: 'Create a new job posting',
+  title: 'Создать вакансию',
+  description: 'Создание новой вакансии',
 })
 
 const localePath = useLocalePath()
@@ -463,16 +463,16 @@ const linkCopiedFinal = ref(false)
 
 // Distribution channels for quick tracking link creation
 const distributionChannels = [
-  { channel: 'linkedin', name: 'LinkedIn', description: 'Post on LinkedIn Jobs or share in your feed', category: 'job_board' },
-  { channel: 'indeed', name: 'Indeed', description: 'List on the Indeed job board', category: 'job_board' },
-  { channel: 'glassdoor', name: 'Glassdoor', description: 'Publish on Glassdoor listings', category: 'job_board' },
-  { channel: 'ziprecruiter', name: 'ZipRecruiter', description: 'Post on ZipRecruiter', category: 'job_board' },
-  { channel: 'email', name: 'Email campaign', description: 'Send to candidates or mailing list', category: 'outreach' },
-  { channel: 'referral', name: 'Employee referral', description: 'Share internally with your team', category: 'outreach' },
-  { channel: 'career_site', name: 'Career site', description: 'Embed on your company website', category: 'outreach' },
-  { channel: 'twitter', name: 'X (Twitter)', description: 'Share on your X timeline', category: 'social' },
-  { channel: 'facebook', name: 'Facebook', description: 'Post on Facebook page or groups', category: 'social' },
-  { channel: 'reddit', name: 'Reddit', description: 'Share in relevant subreddits', category: 'social' },
+  { channel: 'linkedin', name: 'LinkedIn', description: 'Опубликуйте в LinkedIn Jobs или поделитесь в ленте', category: 'job_board' },
+  { channel: 'indeed', name: 'Indeed', description: 'Разместите на джоб-борде Indeed', category: 'job_board' },
+  { channel: 'glassdoor', name: 'Glassdoor', description: 'Опубликуйте в вакансиях Glassdoor', category: 'job_board' },
+  { channel: 'ziprecruiter', name: 'ZipRecruiter', description: 'Опубликуйте на ZipRecruiter', category: 'job_board' },
+  { channel: 'email', name: 'Email-рассылка', description: 'Отправьте кандидатам или в список рассылки', category: 'outreach' },
+  { channel: 'referral', name: 'Рекомендации сотрудников', description: 'Поделитесь внутри команды', category: 'outreach' },
+  { channel: 'career_site', name: 'Карьерный сайт', description: 'Разместите на сайте вашей компании', category: 'outreach' },
+  { channel: 'twitter', name: 'X (Twitter)', description: 'Поделитесь в своей ленте X', category: 'social' },
+  { channel: 'facebook', name: 'Facebook', description: 'Опубликуйте на странице или в группах Facebook', category: 'social' },
+  { channel: 'reddit', name: 'Reddit', description: 'Поделитесь в подходящих сабреддитах', category: 'social' },
 ] as const
 
 const channelIcons: Record<string, any> = {
@@ -1202,7 +1202,7 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                       </div>
                       <p class="text-xs text-surface-400 dark:text-surface-500 mt-1 ml-6">{{ t('dashboard.jobs.new.resumeHint') }}</p>
                     </div>
-                    <div class="inline-flex items-center rounded-lg bg-surface-100 dark:bg-surface-800 p-0.5" role="radiogroup" aria-label="Resume requirement">
+                    <div class="inline-flex items-center rounded-lg bg-surface-100 dark:bg-surface-800 p-0.5" role="radiogroup" aria-label="Требования к резюме">
                       <button
                         type="button"
                         role="radio"
@@ -1213,7 +1213,7 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                           ? 'bg-brand-600 text-white shadow-sm'
                           : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'"
                       >
-                        Required
+                        Обязательное
                       </button>
                       <button
                         type="button"
@@ -1225,7 +1225,7 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                           ? 'bg-white dark:bg-surface-700 text-surface-700 dark:text-surface-300 shadow-sm'
                           : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'"
                       >
-                        Off
+                        Не требуется
                       </button>
                     </div>
                   </div>
@@ -1238,7 +1238,7 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                       </div>
                       <p class="text-xs text-surface-400 dark:text-surface-500 mt-1 ml-6">{{ t('dashboard.jobs.new.coverLetterHint') }}</p>
                     </div>
-                    <div class="inline-flex items-center rounded-lg bg-surface-100 dark:bg-surface-800 p-0.5" role="radiogroup" aria-label="Cover letter requirement">
+                    <div class="inline-flex items-center rounded-lg bg-surface-100 dark:bg-surface-800 p-0.5" role="radiogroup" aria-label="Требования к сопроводительному письму">
                       <button
                         type="button"
                         role="radio"
@@ -1249,7 +1249,7 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                           ? 'bg-brand-600 text-white shadow-sm'
                           : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'"
                       >
-                        Required
+                        Обязательное
                       </button>
                       <button
                         type="button"
@@ -1261,7 +1261,7 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                           ? 'bg-white dark:bg-surface-700 text-surface-700 dark:text-surface-300 shadow-sm'
                           : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'"
                       >
-                        Off
+                        Не требуется
                       </button>
                     </div>
                   </div>
@@ -1301,13 +1301,13 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                           v-if="q.required"
                           class="inline-flex items-center rounded-md bg-brand-50 dark:bg-brand-950/50 px-2 py-0.5 text-[10px] font-medium text-brand-700 dark:text-brand-300 ring-1 ring-inset ring-brand-200 dark:ring-brand-800"
                         >
-                          Required
+                          Обязательное
                         </span>
                         <span
                           v-else
                           class="inline-flex items-center rounded-md bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400 ring-1 ring-inset ring-surface-200 dark:ring-surface-700"
                         >
-                          Optional
+                          Необязательное
                         </span>
                       </div>
                       <div class="flex items-center gap-1.5 mt-0.5 ml-0">
@@ -1723,7 +1723,7 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                     class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-brand-700 dark:text-brand-300 bg-brand-100 dark:bg-brand-900/50 rounded-lg hover:bg-brand-200 dark:hover:bg-brand-800 transition-colors shrink-0"
                   >
                     <ExternalLink class="size-3.5" />
-                    Preview
+                    Предпросмотр
                   </NuxtLink>
                 </div>
 

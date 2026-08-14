@@ -10,8 +10,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Email Templates',
-  description: 'Manage interview invitation email templates',
+  title: 'Шаблоны писем',
+  description: 'Управление шаблонами писем для приглашений на интервью',
   robots: 'noindex, nofollow',
 })
 
@@ -52,8 +52,7 @@ async function handleDelete() {
       class="mb-6 inline-flex items-center gap-1 rounded-full border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-3 py-1.5 text-sm text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors no-underline"
     >
       <ArrowLeft class="size-4" />
-      Back to Interviews
-    </NuxtLink>
+      К интервью    </NuxtLink>
 
     <!-- Page header -->
     <div class="mb-8 flex items-start justify-between gap-4">
@@ -63,20 +62,17 @@ async function handleDelete() {
             <Mail class="size-5 text-white" />
           </div>
           <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">
-            Email Templates
-          </h1>
+            Шаблоны писем          </h1>
         </div>
         <p class="text-sm text-surface-500 dark:text-surface-400 max-w-xl">
-          Manage reusable email templates for interview invitations. Use built-in templates or create your own with dynamic variables.
-        </p>
+          Управляйте шаблонами писем для приглашений на интервью. Используйте встроенные шаблоны или создавайте свои с динамическими переменными.        </p>
       </div>
       <NuxtLink
         :to="localePath('/dashboard/interviews/templates/new')"
         class="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 hover:shadow-md hover:shadow-brand-600/25 transition-all no-underline shrink-0"
       >
         <Plus class="size-4" />
-        New Template
-      </NuxtLink>
+        Новый шаблон      </NuxtLink>
     </div>
 
     <!-- Built-in templates section -->
@@ -84,8 +80,7 @@ async function handleDelete() {
       <div class="flex items-center gap-2 mb-4">
         <Sparkles class="size-4 text-brand-500" />
         <h2 class="text-sm font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
-          Built-in Templates
-        </h2>
+          Встроенные шаблоны        </h2>
       </div>
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <NuxtLink
@@ -100,8 +95,7 @@ async function handleDelete() {
             </div>
             <span class="inline-flex items-center gap-1 rounded-md bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-[10px] uppercase tracking-wider font-semibold text-surface-400">
               <Lock class="size-2.5" />
-              Built-in
-            </span>
+              Встроенный            </span>
           </div>
           <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-1 group-hover:text-brand-700 dark:group-hover:text-brand-300 transition-colors">
             {{ t.name }}
@@ -123,8 +117,7 @@ async function handleDelete() {
         <div class="flex items-center gap-2">
           <FileText class="size-4 text-surface-400" />
           <h2 class="text-sm font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
-            Your Templates
-          </h2>
+            Ваши шаблоны          </h2>
           <span
             v-if="templates && templates.length > 0"
             class="ml-1 inline-flex items-center justify-center rounded-full bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-[11px] font-semibold text-surface-500 dark:text-surface-400"
@@ -137,7 +130,7 @@ async function handleDelete() {
       <!-- Loading state -->
       <div v-if="fetchStatus === 'pending'" class="flex items-center gap-3 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-8 justify-center">
         <div class="size-5 rounded-full border-2 border-brand-200 border-t-brand-600 dark:border-brand-800 dark:border-t-brand-400 animate-spin" />
-        <span class="text-sm text-surface-400">Loading templates…</span>
+        <span class="text-sm text-surface-400">Загрузка шаблонов…</span>
       </div>
 
       <!-- Empty state -->
@@ -149,18 +142,15 @@ async function handleDelete() {
           <Mail class="size-5 text-surface-400" />
         </div>
         <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-300 mb-1">
-          No custom templates yet
-        </h3>
+          Пользовательских шаблонов пока нет        </h3>
         <p class="text-xs text-surface-400 dark:text-surface-500 mb-4 max-w-sm mx-auto">
-          Create your own email templates to match your organization's voice and branding.
-        </p>
+          Создайте шаблоны писем в соответствии со стилем и брендом вашей организации.        </p>
         <NuxtLink
           :to="localePath('/dashboard/interviews/templates/new')"
           class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 transition-all no-underline"
         >
           <Plus class="size-4" />
-          Create Your First Template
-        </NuxtLink>
+          Создать первый шаблон        </NuxtLink>
       </div>
 
       <!-- Template cards -->
@@ -186,7 +176,7 @@ async function handleDelete() {
                   {{ t.subject }}
                 </p>
                 <p class="text-xs text-surface-400 dark:text-surface-500">
-                  Updated {{ new Date(t.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
+                  Обновлено {{ new Date(t.updatedAt).toLocaleDateString('ru-RU', { month: 'short', day: 'numeric', year: 'numeric' }) }}
                 </p>
               </div>
             </div>
@@ -196,7 +186,7 @@ async function handleDelete() {
           <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
             <button
               class="cursor-pointer rounded-lg p-2 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:text-danger-400 dark:hover:bg-danger-950/40 transition-all opacity-0 group-hover:opacity-100"
-              title="Delete template"
+              title="Удалить шаблон"
               @click.stop.prevent="confirmDelete(t.id, t.name)"
             >
               <Trash2 class="size-4" />
@@ -220,23 +210,22 @@ async function handleDelete() {
         <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div class="absolute inset-0 bg-black/30 backdrop-blur-[2px]" @click="showDeleteConfirm = false" />
           <div class="relative w-full max-w-sm mx-4 mb-4 sm:mb-0 rounded-2xl bg-white dark:bg-surface-900 shadow-2xl ring-1 ring-surface-200/80 dark:ring-surface-700/60 p-6">
-            <h3 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-2">Delete Template</h3>
+            <h3 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-2">Удалить шаблон</h3>
             <p class="text-sm text-surface-600 dark:text-surface-400 mb-5">
-              Are you sure you want to delete <strong>{{ templateToDelete?.name }}</strong>? This cannot be undone.
+              Удалить <strong>{{ templateToDelete?.name }}</strong>? Действие необратимо.
             </p>
             <div class="flex gap-3">
               <button
                 class="flex-1 cursor-pointer rounded-xl border border-surface-200 dark:border-surface-700 px-4 py-2.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-all"
                 @click="showDeleteConfirm = false"
               >
-                Cancel
-              </button>
+                Отмена              </button>
               <button
                 :disabled="deletingId !== null"
                 class="flex-1 cursor-pointer rounded-xl bg-danger-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 @click="handleDelete"
               >
-                {{ deletingId ? 'Deleting…' : 'Delete' }}
+                {{ deletingId ? 'Удаление…' : 'Удалить' }}
               </button>
             </div>
           </div>

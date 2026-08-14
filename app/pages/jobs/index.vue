@@ -20,18 +20,18 @@ const sourceQuery = computed(() => {
 })
 
 useSeoMeta({
-  title: 'Open Positions — Job Board',
+  title: 'Открытые вакансии — джоб-борд',
   description:
-    'Browse open job positions on Reqcore and apply directly. Find your next career opportunity with companies that value transparency.',
-  ogTitle: 'Open Positions Job Board',
+    'Просматривайте открытые вакансии в Huntfork и откликайтесь напрямую. Найдите следующую карьерную возможность в компаниях, которые ценят прозрачность.',
+  ogTitle: 'Джоб-борд с открытыми вакансиями',
   ogDescription:
-    'Browse open job positions and apply directly. Powered by the open-source ATS you actually own.',
+    'Просматривайте открытые вакансии и откликайтесь напрямую. Открытая ATS, которая полностью принадлежит вам.',
   ogType: 'website',
   ogImage: '/reqcore-banner-github.jpeg',
   twitterCard: 'summary_large_image',
-  twitterTitle: 'Open Positions Job Board',
+  twitterTitle: 'Джоб-борд с открытыми вакансиями',
   twitterDescription:
-    'Browse open job positions and apply directly.',
+    'Просматривайте открытые вакансии и откликайтесь напрямую.',
 })
 
 // ─────────────────────────────────────────────

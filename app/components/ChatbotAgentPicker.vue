@@ -4,10 +4,10 @@
  *
  * Compact dropdown anchored next to the message input. Lets the user pick
  * which custom agent (system-prompt persona) handles the next message.
- *   - "Default assistant" (no agent) sits at the top.
+ *   - "Ассистент по умолчанию" (no agent) sits at the top.
  *   - User-defined agents are listed by name, with the default-flagged one
  *     showing a star.
- *   - "Manage agents…" opens the manager modal via emit('manage').
+ *   - "Управление агентами…" opens the manager modal via emit('manage').
  */
 import { Sparkles, Star, Check, ChevronUp } from 'lucide-vue-next'
 
@@ -20,7 +20,7 @@ const root = useTemplateRef<HTMLDivElement>('root')
 const selectedAgent = computed(() =>
   agents.value.find((a) => a.id === selectedAgentId.value) ?? null,
 )
-const label = computed(() => selectedAgent.value?.name ?? 'Default assistant')
+const label = computed(() => selectedAgent.value?.name ?? 'Ассистент по умолчанию')
 
 function pick(id: string | null) {
   selectedAgentId.value = id
@@ -63,9 +63,9 @@ onUnmounted(() => window.removeEventListener('click', onWindowClick))
         />
         <div class="min-w-0 flex-1">
           <div class="text-sm font-medium text-surface-800 dark:text-surface-100">
-            Default assistant
+            Ассистент по умолчанию
           </div>
-          <div class="text-[11px] text-surface-500">No custom system prompt</div>
+          <div class="text-[11px] text-surface-500">Своя инструкция не задана</div>
         </div>
       </button>
 
@@ -98,7 +98,7 @@ onUnmounted(() => window.removeEventListener('click', onWindowClick))
         @click="open = false; emit('manage')"
       >
         <Sparkles class="size-3.5" />
-        Manage agents…
+        Управление агентами…
       </button>
     </div>
   </div>

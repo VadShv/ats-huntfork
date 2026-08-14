@@ -119,7 +119,7 @@ function buildConfig() {
 async function submitForm() {
   formError.value = null
   if (!formName.value.trim()) {
-    formError.value = 'Name is required'
+    formError.value = 'Укажите название свойства'
     return
   }
   isSaving.value = true
@@ -146,7 +146,7 @@ async function submitForm() {
   } catch (err: unknown) {
     const message = (err as { data?: { statusMessage?: string }; statusMessage?: string })?.data?.statusMessage
       ?? (err as { statusMessage?: string }).statusMessage
-      ?? 'Failed to save property'
+      ?? 'Не удалось сохранить свойство'
     formError.value = message
   } finally {
     isSaving.value = false
@@ -164,7 +164,7 @@ async function confirmDelete() {
     confirmDeleteId.value = null
     emit('changed')
   } catch (err: unknown) {
-    const message = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Failed to delete'
+    const message = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Не удалось удалить'
     toast.error(message)
   } finally {
     isDeleting.value = false
@@ -190,16 +190,16 @@ async function onDrop(targetId: string) {
     await reorderDefinitions(ids)
     emit('changed')
   } catch (err: unknown) {
-    const message = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Failed to reorder'
+    const message = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Не удалось изменить порядок'
     toast.error(message)
   }
 }
 
 const overlayTitle = computed(() => {
   if (props.title) return props.title
-  const scope = props.jobId ? 'Job-specific' : 'Organization'
-  const noun = props.entityType === 'candidate' ? 'candidate' : 'application'
-  return `${scope} ${noun} properties`
+  const scope = props.jobId ? 'для вакансии' : 'организации'
+  const noun = props.entityType === 'candidate' ? 'кандидатов' : 'откликов'
+  return `Свойства ${noun} ${scope}`
 })
 </script>
 
@@ -217,7 +217,7 @@ const overlayTitle = computed(() => {
           <div class="min-w-0">
             <h2 class="text-base font-semibold text-surface-900 dark:text-surface-50 truncate">{{ overlayTitle }}</h2>
             <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-              {{ jobId ? 'Visible only on applications to this job.' : 'Visible everywhere in your workspace.' }}
+              {{ jobId ? 'Видно только в откликах на эту вакансию.' : 'Видно во всём рабочем пространстве.' }}
             </p>
           </div>
           <button class="rounded p-1.5 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer" @click="emit('close')">
@@ -257,19 +257,19 @@ const overlayTitle = computed(() => {
           </ul>
 
           <div v-if="definitions.length === 0 && formMode !== 'create'" class="px-5 py-10 text-center">
-            <p class="text-sm text-surface-500 dark:text-surface-400">No properties yet.</p>
-            <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">Add one to start tracking custom data.</p>
+            <p class="text-sm text-surface-500 dark:text-surface-400">Свойств пока нет.</p>
+            <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">Добавьте свойство, чтобы отслеживать дополнительные данные.</p>
           </div>
 
           <!-- Add / edit form -->
           <div v-if="formMode" class="border-t border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950/50 px-5 py-4">
             <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100 mb-3">
-              {{ formMode === 'create' ? 'New property' : 'Edit property' }}
+              {{ formMode === 'create' ? 'Новое свойство' : 'Изменить свойство' }}
             </h3>
 
             <div class="space-y-3">
               <div>
-                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Name</label>
+                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Название</label>
                 <input
                   v-model="formName"
                   type="text"
@@ -279,18 +279,18 @@ const overlayTitle = computed(() => {
               </div>
 
               <div v-if="formMode === 'create'">
-                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Type</label>
+                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Тип поля</label>
                 <select
                   v-model="formType"
                   class="w-full rounded border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2.5 py-1.5 text-sm text-surface-900 dark:text-surface-50 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none"
                 >
                   <option v-for="t in PROPERTY_TYPES" :key="t" :value="t">{{ PROPERTY_TYPE_LABELS[t] }}</option>
                 </select>
-                <p class="text-[11px] text-surface-400 mt-1">Type cannot be changed after creation.</p>
+                <p class="text-[11px] text-surface-400 mt-1">Тип поля нельзя изменить после создания.</p>
               </div>
 
               <div>
-                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Description (optional)</label>
+                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Описание (необязательно)</label>
                 <input
                   v-model="formDescription"
                   type="text"
@@ -301,15 +301,15 @@ const overlayTitle = computed(() => {
 
               <!-- Number format -->
               <div v-if="supportsNumberFormat">
-                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Format</label>
+                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Формат</label>
                 <div class="flex items-center gap-2">
                   <select
                     v-model="formNumberFormat"
                     class="rounded border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none"
                   >
-                    <option value="plain">Plain</option>
-                    <option value="percent">Percent</option>
-                    <option value="currency">Currency</option>
+                    <option value="plain">Обычный</option>
+                    <option value="percent">%</option>
+                    <option value="currency">Валюта</option>
                   </select>
                   <input
                     v-if="formNumberFormat === 'currency'"
@@ -324,7 +324,7 @@ const overlayTitle = computed(() => {
 
               <!-- Options editor -->
               <div v-if="supportsOptions">
-                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Options</label>
+                <label class="block text-xs font-medium text-surface-600 dark:text-surface-300 mb-1">Варианты</label>
                 <ul class="space-y-1.5">
                   <li v-for="opt in formOptions" :key="opt.id" class="flex items-center gap-1.5">
                     <select
@@ -338,7 +338,7 @@ const overlayTitle = computed(() => {
                       type="text"
                       maxlength="80"
                       class="flex-1 min-w-0 rounded border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none"
-                      placeholder="Option label"
+                      placeholder="Название варианта"
                     />
                     <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" :class="PROPERTY_COLOR_CLASSES[opt.color as PropertyOptionColor].chip">
                       {{ opt.label || '—' }}
@@ -353,7 +353,7 @@ const overlayTitle = computed(() => {
                   class="mt-2 inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 cursor-pointer"
                   @click="addOption"
                 >
-                  <Plus class="size-3.5" /> Add option
+                  <Plus class="size-3.5" /> Добавить вариант
                 </button>
               </div>
 
@@ -364,13 +364,13 @@ const overlayTitle = computed(() => {
                   type="button"
                   class="rounded px-3 py-1.5 text-xs text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
                   @click="cancelForm"
-                >Cancel</button>
+                >Отмена</button>
                 <button
                   type="button"
                   :disabled="isSaving"
                   class="rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   @click="submitForm"
-                >{{ isSaving ? 'Saving…' : (formMode === 'create' ? 'Create' : 'Save') }}</button>
+                >{{ isSaving ? 'Сохранение…' : (formMode === 'create' ? 'Создать' : 'Сохранить') }}</button>
               </div>
             </div>
           </div>
@@ -382,7 +382,7 @@ const overlayTitle = computed(() => {
             class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm font-medium text-surface-600 dark:text-surface-300 hover:border-brand-400 hover:text-brand-700 dark:hover:text-brand-300 cursor-pointer"
             @click="openCreate"
           >
-            <Plus class="size-4" /> Add property
+            <Plus class="size-4" /> Добавить свойство
           </button>
         </footer>
       </aside>
@@ -393,21 +393,21 @@ const overlayTitle = computed(() => {
       <div v-if="confirmDeleteId" class="fixed inset-0 z-[80] flex items-center justify-center">
         <div class="absolute inset-0 bg-black/50" @click="confirmDeleteId = null" />
         <div class="relative bg-white dark:bg-surface-900 rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-          <h3 class="text-base font-semibold text-surface-900 dark:text-surface-50 mb-2">Delete property?</h3>
+          <h3 class="text-base font-semibold text-surface-900 dark:text-surface-50 mb-2">Удалить свойство?</h3>
           <p class="text-sm text-surface-600 dark:text-surface-300 mb-4">
-            This deletes the property and removes it from all rows. This cannot be undone.
+            Свойство будет удалено из всех записей. Действие необратимо.
           </p>
           <div class="flex justify-end gap-2">
             <button
               class="rounded px-3 py-1.5 text-sm text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
               :disabled="isDeleting"
               @click="confirmDeleteId = null"
-            >Cancel</button>
+            >Отмена</button>
             <button
               class="rounded bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 cursor-pointer"
               :disabled="isDeleting"
               @click="confirmDelete"
-            >{{ isDeleting ? 'Deleting…' : 'Delete' }}</button>
+            >{{ isDeleting ? 'Удаление…' : 'Удалить' }}</button>
           </div>
         </div>
       </div>

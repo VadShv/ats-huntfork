@@ -7,8 +7,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Create Organization',
-  description: 'Create your organization to start recruiting',
+  title: 'Создать организацию',
+  description: 'Создайте организацию, чтобы начать подбор кандидатов',
   robots: 'noindex, nofollow',
 })
 
@@ -89,17 +89,17 @@ async function handleCreateOrg() {
   error.value = ''
 
   if (!orgName.value.trim()) {
-    error.value = 'Organization name is required.'
+    error.value = 'Укажите название организации.'
     return
   }
 
   if (!slug.value.trim()) {
-    error.value = 'Slug is required.'
+    error.value = 'Укажите URL-идентификатор.'
     return
   }
 
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(slug.value)) {
-    error.value = 'Slug must be lowercase alphanumeric with hyphens, and cannot start or end with a hyphen.'
+    error.value = 'URL-идентификатор может содержать строчные латинские буквы, цифры и дефисы; он не может начинаться или заканчиваться дефисом.'
     return
   }
 
@@ -112,7 +112,7 @@ async function handleCreateOrg() {
     await createOrg({ name: orgName.value.trim(), slug: slug.value.trim() })
   }
   catch (err: any) {
-    error.value = err?.message ?? 'Failed to create organization. The slug may already be taken.'
+    error.value = err?.message ?? 'Не удалось создать организацию. Возможно, этот URL-идентификатор уже занят.'
     isLoading.value = false
   }
 }
@@ -150,7 +150,7 @@ async function handleAcceptInviteCode() {
   const token = extractToken(inviteCode.value)
 
   if (!token) {
-    inviteCodeError.value = 'Please enter an invite link or code.'
+    inviteCodeError.value = 'Введите ссылку или код приглашения.'
     return
   }
 
@@ -173,7 +173,7 @@ async function handleAcceptInviteCode() {
     }, 1500)
   }
   catch (err: any) {
-    inviteCodeError.value = err?.data?.statusMessage || 'Invalid, expired, or already used invite link.'
+    inviteCodeError.value = err?.data?.statusMessage || 'Ссылка-приглашение недействительна, её срок действия истёк или она уже использована.'
   }
   finally {
     isAcceptingCode.value = false
@@ -218,7 +218,7 @@ async function handleOrgSearch() {
     orgSearchResults.value = data as typeof orgSearchResults.value
   }
   catch (err: any) {
-    searchError.value = err?.data?.statusMessage || 'Search failed'
+    searchError.value = err?.data?.statusMessage || 'Не удалось выполнить поиск'
   }
   finally {
     isSearching.value = false
@@ -240,13 +240,13 @@ async function handleSubmitJoinRequest() {
         message: joinRequestMessage.value.trim() || undefined,
       },
     })
-    requestSuccess.value = `Join request sent to ${selectedOrg.value.name}! An admin will review it.`
+    requestSuccess.value = `Запрос на вступление в организацию ${selectedOrg.value.name} отправлен. Его рассмотрит администратор.`
     track('org_joined', { method: 'search_request' })
     selectedOrg.value = null
     joinRequestMessage.value = ''
   }
   catch (err: any) {
-    requestError.value = err?.data?.statusMessage || 'Failed to send join request'
+    requestError.value = err?.data?.statusMessage || 'Не удалось отправить запрос на вступление'
   }
   finally {
     isSubmittingRequest.value = false
@@ -258,7 +258,7 @@ async function handleSubmitJoinRequest() {
   <!-- Loading / auto-switching state -->
   <div v-if="isLoading || isOrgsLoading" class="flex flex-col items-center gap-3 py-8">
     <div class="size-6 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
-    <p class="text-sm text-surface-500 dark:text-surface-400">Setting up your workspace…</p>
+    <p class="text-sm text-surface-500 dark:text-surface-400">Настройка рабочего пространства…</p>
   </div>
 
   <!-- Invite code accepted success -->
@@ -267,16 +267,16 @@ async function handleSubmitJoinRequest() {
       <Check class="size-6" />
     </div>
     <div class="text-center">
-      <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-1">You're in!</h2>
-      <p class="text-sm text-surface-500 dark:text-surface-400">Redirecting to dashboard…</p>
+      <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-1">Вы в команде</h2>
+      <p class="text-sm text-surface-500 dark:text-surface-400">Перенаправление в рабочее пространство…</p>
     </div>
   </div>
 
   <!-- Org picker: user has orgs but none is active -->
   <div v-else-if="orgs.length > 0 && viewMode === 'picker'" class="flex flex-col gap-4">
-    <h2 class="text-xl font-semibold text-center text-surface-900 dark:text-surface-100">Select an organization</h2>
+    <h2 class="text-xl font-semibold text-center text-surface-900 dark:text-surface-100">Выберите организацию</h2>
     <p class="text-sm text-surface-500 dark:text-surface-400 text-center mb-2">
-      Choose which workspace to open.
+      Выберите рабочее пространство для открытия.
     </p>
 
     <button
@@ -297,13 +297,13 @@ async function handleSubmitJoinRequest() {
         class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
         @click="viewMode = 'create'"
       >
-        Create a new organization
+        Создать новую организацию
       </button>
       <button
         class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
         @click="viewMode = 'join'"
       >
-        Join an existing organization
+        Присоединиться к существующей организации
       </button>
     </div>
   </div>
@@ -311,9 +311,9 @@ async function handleSubmitJoinRequest() {
   <!-- Join existing org -->
   <div v-else-if="viewMode === 'join'" class="flex flex-col gap-5">
     <div class="text-center">
-      <h2 class="text-xl font-semibold text-surface-900 dark:text-surface-100">Join an organization</h2>
+      <h2 class="text-xl font-semibold text-surface-900 dark:text-surface-100">Присоединиться к организации</h2>
       <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">
-        Enter an invite link/code, or search for an organization to request access.
+        Введите ссылку или код приглашения либо найдите организацию, чтобы запросить доступ.
       </p>
     </div>
 
@@ -321,13 +321,13 @@ async function handleSubmitJoinRequest() {
     <div class="rounded-lg border border-surface-200 dark:border-surface-800 p-4 bg-white dark:bg-surface-800/50">
       <div class="flex items-center gap-2 mb-3">
         <Link2 class="size-4 text-brand-600 dark:text-brand-400" />
-        <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Have an invite link?</h3>
+        <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Есть ссылка-приглашение?</h3>
       </div>
       <div class="flex gap-2">
         <input
           v-model="inviteCode"
           type="text"
-          placeholder="Paste invite link or code"
+          placeholder="Вставьте ссылку или код приглашения"
           class="flex-1 px-3 py-2 border border-surface-300 dark:border-surface-700 rounded-md text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15"
           @keydown.enter="handleAcceptInviteCode"
         />
@@ -337,7 +337,7 @@ async function handleSubmitJoinRequest() {
           @click="handleAcceptInviteCode"
         >
           <Loader2 v-if="isAcceptingCode" class="size-4 animate-spin" />
-          Join
+          Присоединиться
         </button>
       </div>
       <div v-if="inviteCodeError" class="mt-2 text-xs text-danger-600 dark:text-danger-400">{{ inviteCodeError }}</div>
@@ -346,7 +346,7 @@ async function handleSubmitJoinRequest() {
     <!-- Divider -->
     <div class="flex items-center gap-3">
       <div class="flex-1 border-t border-surface-200 dark:border-surface-800" />
-      <span class="text-xs text-surface-400 dark:text-surface-500">or</span>
+      <span class="text-xs text-surface-400 dark:text-surface-500">или</span>
       <div class="flex-1 border-t border-surface-200 dark:border-surface-800" />
     </div>
 
@@ -354,17 +354,17 @@ async function handleSubmitJoinRequest() {
     <div class="rounded-lg border border-surface-200 dark:border-surface-800 p-4 bg-white dark:bg-surface-800/50">
       <div class="flex items-center gap-2 mb-3">
         <Search class="size-4 text-brand-600 dark:text-brand-400" />
-        <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Request to join</h3>
+        <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Запросить вступление</h3>
       </div>
       <p class="text-xs text-surface-500 dark:text-surface-400 mb-3">
-        Search by organization name or slug. An admin must approve your request.
+        Найдите организацию по названию или URL-идентификатору. Запрос должен одобрить администратор.
       </p>
 
       <div class="relative">
         <input
           v-model="orgSearch"
           type="text"
-          placeholder="Search organizations…"
+          placeholder="Поиск организаций…"
           class="w-full px-3 py-2 border border-surface-300 dark:border-surface-700 rounded-md text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 pl-9"
         />
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" />
@@ -390,7 +390,7 @@ async function handleSubmitJoinRequest() {
       </div>
 
       <div v-if="orgSearch.trim().length >= 2 && !isSearching && orgSearchResults.length === 0 && !selectedOrg" class="mt-2 text-xs text-surface-500 dark:text-surface-400 text-center py-2">
-        No organizations found
+        Организации не найдены
       </div>
 
       <!-- Selected org — request form -->
@@ -404,15 +404,15 @@ async function handleSubmitJoinRequest() {
             class="text-xs text-surface-400 hover:text-surface-600 transition-colors"
             @click="selectedOrg = null"
           >
-            Change
+            Изменить
           </button>
         </div>
 
         <label class="flex flex-col gap-1 text-xs text-surface-600 dark:text-surface-400">
-          <span>Message (optional)</span>
+          <span>Сообщение (необязательно)</span>
           <textarea
             v-model="joinRequestMessage"
-            placeholder="Tell the admin why you'd like to join…"
+            placeholder="Напишите администратору, почему хотите присоединиться…"
             rows="2"
             maxlength="500"
             class="px-3 py-2 border border-surface-300 dark:border-surface-700 rounded-md text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 resize-none"
@@ -426,7 +426,7 @@ async function handleSubmitJoinRequest() {
         >
           <Loader2 v-if="isSubmittingRequest" class="size-4 animate-spin" />
           <UserPlus v-else class="size-4" />
-          {{ isSubmittingRequest ? 'Sending…' : 'Send join request' }}
+          {{ isSubmittingRequest ? 'Отправка…' : 'Отправить запрос на вступление' }}
         </button>
       </div>
 
@@ -445,33 +445,33 @@ async function handleSubmitJoinRequest() {
         class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
         @click="viewMode = orgs.length > 0 ? 'picker' : 'create'"
       >
-        {{ orgs.length > 0 ? 'Back to organization list' : 'Create a new organization instead' }}
+        {{ orgs.length > 0 ? 'Назад к списку организаций' : 'Создать новую организацию' }}
       </button>
     </div>
   </div>
 
   <!-- Create org form -->
   <form v-else class="flex flex-col gap-4" @submit.prevent="handleCreateOrg">
-    <h2 class="text-xl font-semibold text-center text-surface-900 dark:text-surface-100">Create your organization</h2>
+    <h2 class="text-xl font-semibold text-center text-surface-900 dark:text-surface-100">Создать организацию</h2>
     <p class="text-sm text-surface-500 dark:text-surface-400 text-center mb-2">
-      Set up your workspace to start managing candidates and jobs.
+      Настройте рабочее пространство, чтобы начать работу с кандидатами и вакансиями.
     </p>
 
     <div v-if="error" class="rounded-md border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 p-3 text-sm text-danger-700 dark:text-danger-400">{{ error }}</div>
 
     <label class="flex flex-col gap-1 text-sm font-medium text-surface-700 dark:text-surface-300">
-      <span>Organization name</span>
+      <span>Название организации</span>
       <input
         v-model="orgName"
         type="text"
-        placeholder="Acme Corp"
+        placeholder="Например, acme"
         required
         class="px-3 py-2 border border-surface-300 dark:border-surface-700 rounded-md text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15"
       />
     </label>
 
     <label class="flex flex-col gap-1 text-sm font-medium text-surface-700 dark:text-surface-300">
-      <span>Slug</span>
+      <span>URL-идентификатор</span>
       <input
         v-model="slug"
         type="text"
@@ -480,7 +480,7 @@ async function handleSubmitJoinRequest() {
         class="px-3 py-2 border border-surface-300 dark:border-surface-700 rounded-md text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15"
         @input="onSlugInput"
       />
-      <span class="text-xs font-normal text-surface-400">Used in URLs. Lowercase letters, numbers, and hyphens only.</span>
+      <span class="text-xs font-normal text-surface-400">Используется в URL. Только строчные латинские буквы, цифры и дефисы.</span>
     </label>
 
     <button
@@ -488,7 +488,7 @@ async function handleSubmitJoinRequest() {
       :disabled="isLoading"
       class="mt-2 px-4 py-2.5 bg-brand-600 text-white rounded-md text-sm font-medium hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
     >
-      {{ isLoading ? 'Creating…' : 'Create organization' }}
+      {{ isLoading ? 'Создание…' : 'Создать организацию' }}
     </button>
 
     <div class="flex flex-col items-center gap-2 mt-1">
@@ -498,14 +498,14 @@ async function handleSubmitJoinRequest() {
         class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
         @click="viewMode = 'picker'"
       >
-        Back to organization list
+        Назад к списку организаций
       </button>
       <button
         type="button"
         class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
         @click="viewMode = 'join'"
       >
-        Join an existing organization instead
+        Присоединиться к существующей организации
       </button>
     </div>
   </form>

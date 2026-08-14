@@ -15,9 +15,9 @@ const { data, error: fetchError, status: fetchStatus } = await useFetch('/api/pu
 })
 
 const actionLabels: Record<string, string> = {
-  accepted: 'Accept',
-  declined: 'Decline',
-  tentative: 'Mark as Tentative',
+  accepted: 'Принять',
+  declined: 'Отклонить',
+  tentative: 'Предварительно подтвердить',
 }
 
 const actionColors: Record<string, string> = {
@@ -27,19 +27,19 @@ const actionColors: Record<string, string> = {
 }
 
 const responseLabels: Record<string, string> = {
-  accepted: 'Accepted',
-  declined: 'Declined',
-  tentative: 'Tentative',
-  pending: 'Pending',
+  accepted: 'приняли',
+  declined: 'отклонили',
+  tentative: 'предварительно подтвердили',
+  pending: 'Ожидает',
 }
 
 const interviewTypeLabels: Record<string, string> = {
-  video: 'Video Call',
-  phone: 'Phone Call',
-  in_person: 'In Person',
-  technical: 'Technical Interview',
-  panel: 'Panel Interview',
-  take_home: 'Take-Home Assignment',
+  video: 'Видеозвонок',
+  phone: 'Телефонный звонок',
+  in_person: 'Личная встреча',
+  technical: 'Техническое интервью',
+  panel: 'Панельное интервью',
+  take_home: 'Тестовое задание',
 }
 
 const confirming = ref(false)
@@ -62,7 +62,7 @@ async function confirmResponse() {
     const message = err && typeof err === 'object' && 'data' in err
       ? (err as { data?: { statusMessage?: string } }).data?.statusMessage
       : undefined
-    confirmError.value = message || 'Something went wrong. Please try again.'
+    confirmError.value = message || 'Не удалось подтвердить ответ. Попробуйте ещё раз.'
   }
   finally {
     confirming.value = false
@@ -70,7 +70,7 @@ async function confirmResponse() {
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  return new Date(dateStr).toLocaleDateString('ru-RU', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
@@ -79,15 +79,15 @@ function formatDate(dateStr: string) {
 }
 
 function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString('en-US', {
+  return new Date(dateStr).toLocaleTimeString('ru-RU', {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true,
+    hour12: false,
   })
 }
 
 useHead({
-  title: 'Interview Response',
+  title: 'Ответ на приглашение на интервью',
 })
 </script>
 
@@ -99,19 +99,16 @@ useHead({
         <span class="text-2xl">⚠</span>
       </div>
       <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-2">
-        Invalid Link
-      </h1>
+        Недействительная ссылка      </h1>
       <p class="text-surface-500">
-        This link is missing required information. Please use the link from your invitation email.
-      </p>
+        В ссылке отсутствует необходимая информация. Используйте ссылку из письма с приглашением.      </p>
     </div>
 
     <!-- Loading -->
     <div v-else-if="fetchStatus === 'pending'" class="text-center py-12">
       <div class="animate-spin inline-block w-8 h-8 border-2 border-surface-300 border-t-blue-600 rounded-full mb-4" />
       <p class="text-surface-500">
-        Loading interview details...
-      </p>
+        Загрузка данных интервью…      </p>
     </div>
 
     <!-- Error fetching -->
@@ -120,12 +117,12 @@ useHead({
         <span class="text-2xl">⚠</span>
       </div>
       <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-2">
-        {{ fetchError.statusCode === 400 ? 'Link Expired' : 'Something went wrong' }}
+        {{ fetchError.statusCode === 400 ? 'Срок действия ссылки истёк' : 'Не удалось загрузить данные' }}
       </h1>
       <p class="text-surface-500">
         {{ fetchError.statusCode === 400
-          ? 'This response link has expired or is no longer valid. Please contact the hiring team for a new invitation.'
-          : 'We couldn\'t load the interview details. Please try again later.'
+          ? 'Срок действия ссылки истёк или она больше недействительна. Обратитесь к команде найма за новым приглашением.'
+          : 'Не удалось загрузить данные интервью. Попробуйте ещё раз позже.'
         }}
       </p>
     </div>
@@ -139,18 +136,14 @@ useHead({
         </span>
       </div>
       <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-2">
-        Response Recorded
-      </h1>
+        Ответ учтён      </h1>
       <p class="text-surface-500 mb-6">
         <template v-if="data?.action === 'accepted'">
-          You've accepted the interview. It should appear in your calendar if you accepted the calendar invite from the email.
-        </template>
+          Вы приняли приглашение на интервью. Оно появится в вашем календаре, если вы приняли приглашение из письма.        </template>
         <template v-else-if="data?.action === 'declined'">
-          You've declined the interview. The hiring team has been notified.
-        </template>
+          Вы отклонили приглашение на интервью. Команда найма уведомлена.        </template>
         <template v-else>
-          You've marked this as tentative. The hiring team has been notified.
-        </template>
+          Вы отметили участие как предварительное. Команда найма уведомлена.        </template>
       </p>
     </div>
 
@@ -162,12 +155,10 @@ useHead({
           <span class="text-2xl">ℹ</span>
         </div>
         <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-2">
-          Already Responded
-        </h1>
+          Ответ уже отправлен        </h1>
         <p class="text-surface-500">
-          You previously {{ responseLabels[data.interview.candidateResponse]?.toLowerCase() ?? 'responded to' }} this interview.
-          If you need to change your response, please contact the hiring team directly.
-        </p>
+          Ранее вы {{ responseLabels[data.interview.candidateResponse] ?? 'ответили на' }} приглашение на это интервью.
+          Если нужно изменить ответ, свяжитесь с командой найма напрямую.        </p>
       </div>
 
       <!-- Interview is no longer scheduled -->
@@ -176,18 +167,16 @@ useHead({
           <span class="text-2xl">ℹ</span>
         </div>
         <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-2">
-          Interview {{ data.interview.status === 'cancelled' ? 'Cancelled' : data.interview.status === 'completed' ? 'Completed' : 'No Longer Available' }}
+          Интервью {{ data.interview.status === 'cancelled' ? 'отменено' : data.interview.status === 'completed' ? 'завершено' : 'недоступно' }}
         </h1>
         <p class="text-surface-500">
-          This interview is no longer accepting responses. Please contact the hiring team if you have questions.
-        </p>
+          Это интервью больше не принимает ответы. Если у вас есть вопросы, свяжитесь с командой найма.        </p>
       </div>
 
       <!-- Ready to respond -->
       <div v-else>
         <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-6 text-center">
-          Interview Invitation
-        </h1>
+          Приглашение на интервью        </h1>
 
         <!-- Interview details card -->
         <div class="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl p-6 mb-6">
@@ -198,56 +187,49 @@ useHead({
           <dl class="space-y-3 text-sm">
             <div v-if="data.organizationName" class="flex justify-between">
               <dt class="text-surface-500">
-                Organization
-              </dt>
+                Организация              </dt>
               <dd class="text-surface-900 dark:text-surface-100 font-medium">
                 {{ data.organizationName }}
               </dd>
             </div>
             <div v-if="data.jobTitle" class="flex justify-between">
               <dt class="text-surface-500">
-                Position
-              </dt>
+                Вакансия              </dt>
               <dd class="text-surface-900 dark:text-surface-100 font-medium">
                 {{ data.jobTitle }}
               </dd>
             </div>
             <div class="flex justify-between">
               <dt class="text-surface-500">
-                Date
-              </dt>
+                Дата              </dt>
               <dd class="text-surface-900 dark:text-surface-100 font-medium">
                 {{ formatDate(data.interview.scheduledAt) }}
               </dd>
             </div>
             <div class="flex justify-between">
               <dt class="text-surface-500">
-                Time
-              </dt>
+                Время              </dt>
               <dd class="text-surface-900 dark:text-surface-100 font-medium">
                 {{ formatTime(data.interview.scheduledAt) }}
               </dd>
             </div>
             <div class="flex justify-between">
               <dt class="text-surface-500">
-                Duration
-              </dt>
+                Длительность              </dt>
               <dd class="text-surface-900 dark:text-surface-100 font-medium">
-                {{ data.interview.duration }} minutes
+                {{ data.interview.duration }} мин.
               </dd>
             </div>
             <div class="flex justify-between">
               <dt class="text-surface-500">
-                Type
-              </dt>
+                Тип              </dt>
               <dd class="text-surface-900 dark:text-surface-100 font-medium">
                 {{ interviewTypeLabels[data.interview.type] ?? data.interview.type }}
               </dd>
             </div>
             <div v-if="data.interview.location" class="flex justify-between">
               <dt class="text-surface-500">
-                Location
-              </dt>
+                Локация / Ссылка              </dt>
               <dd class="text-surface-900 dark:text-surface-100 font-medium break-all">
                 {{ data.interview.location }}
               </dd>
@@ -258,7 +240,7 @@ useHead({
         <!-- Confirm action -->
         <div class="text-center">
           <p class="text-sm text-surface-500 mb-4">
-            You are about to <strong>{{ actionLabels[data.action]?.toLowerCase() }}</strong> this interview.
+            Вы собираетесь <strong>{{ actionLabels[data.action]?.toLowerCase() }}</strong> приглашение на интервью.
           </p>
 
           <div v-if="confirmError" class="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
@@ -271,13 +253,12 @@ useHead({
             class="w-full text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             @click="confirmResponse"
           >
-            <span v-if="confirming">Processing...</span>
-            <span v-else>{{ actionLabels[data.action] }} Interview</span>
+            <span v-if="confirming">Обработка…</span>
+            <span v-else>{{ actionLabels[data.action] }} приглашение на интервью</span>
           </button>
 
           <p class="text-xs text-surface-400 mt-4">
-            Clicking this button will record your response and notify the hiring team.
-          </p>
+            После нажатия ваш ответ будет сохранён, а команда найма получит уведомление.          </p>
         </div>
       </div>
     </div>

@@ -8,8 +8,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Add Candidate',
-  description: 'Add a new candidate to your talent pool',
+  title: 'Добавить кандидата',
+  description: 'Добавление кандидата в базу',
 })
 
 const localePath = useLocalePath()
@@ -600,7 +600,7 @@ function candidateLink(id: string) {
               id="firstName"
               v-model="form.firstName"
               type="text"
-              placeholder="e.g. Jane"
+              placeholder="например, Иван"
               class="w-full rounded-lg border px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
               :class="errors.firstName ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
             />
@@ -616,7 +616,7 @@ function candidateLink(id: string) {
               id="lastName"
               v-model="form.lastName"
               type="text"
-              placeholder="e.g. Doe"
+              placeholder="например, Иванов"
               class="w-full rounded-lg border px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
               :class="errors.lastName ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
             />
@@ -627,7 +627,7 @@ function candidateLink(id: string) {
           <div>
             <label for="displayName" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
               {{ $t('dashboard.candidates.fields.display_name') }}
-              <span class="ml-1 text-xs font-normal text-surface-400">(optional — overrides default name format)</span>
+              <span class="ml-1 text-xs font-normal text-surface-400">(необязательно — переопределяет формат имени)</span>
             </label>
             <input
               id="displayName"
@@ -649,7 +649,7 @@ function candidateLink(id: string) {
                 id="email"
                 v-model="form.email"
                 type="email"
-                placeholder="e.g. jane.doe@example.com"
+                placeholder="например, ivan@example.com"
                 class="w-full rounded-lg border pr-9 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                 :class="errors.email || emailExact ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
               />

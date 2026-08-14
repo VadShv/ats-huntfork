@@ -20,18 +20,17 @@ const isAstraBrand = useAstraBrand()
           <div class="size-8" aria-hidden="true" />
         </template>
       </ClientOnly>
-      <LanguageSwitcher />
     </div>
     <div class="w-full max-w-[540px] bg-white dark:bg-surface-900 rounded-lg shadow-sm dark:shadow-none dark:border dark:border-surface-800 p-8">
       <div class="text-center mb-8">
         <div class="flex justify-center mb-3">
           <img
             :src="isAstraBrand ? '/brand/falcon-emblem.jpg' : '/eagle-mascot-logo.png'"
-            :alt="isAstraBrand ? 'Группа Астра' : 'Reqcore mascot'"
+            :alt="isAstraBrand ? 'Группа Астра' : 'Талисман Huntfork'"
             class="size-20 object-contain rounded-full"
           />
         </div>
-        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-100">{{ isAstraBrand ? 'Huntfork' : 'Reqcore' }}</h1>
+        <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-100">{{ 'Huntfork' }}</h1>
         <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">{{ isAstraBrand ? 'Рекрутинговая платформа Группы Астра' : 'Open-source ATS for developer teams' }}</p>
       </div>
       <slot />

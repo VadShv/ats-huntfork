@@ -167,10 +167,10 @@ function statusBadgeClass(status: string): string {
           <Brain class="size-9 text-white" />
         </div>
         <h2 class="text-2xl font-bold text-surface-900 dark:text-surface-100 mb-3 tracking-tight">
-          No AI analysis yet
+          ИИ-анализ ещё не запускался
         </h2>
         <p class="text-sm text-surface-500 dark:text-surface-400 mb-4 leading-relaxed max-w-sm mx-auto">
-          Configure your AI provider in Settings and set up scoring criteria on a job to start analyzing candidates.
+          Настройте ИИ-провайдера в настройках и задайте критерии оценки в вакансии, чтобы начать анализ кандидатов.
         </p>
       </div>
     </div>
@@ -361,8 +361,8 @@ function statusBadgeClass(status: string): string {
             </div>
             <div class="flex items-center justify-between mt-1.5">
               <div class="flex items-center gap-3 text-[10px] text-surface-400">
-                <span class="flex items-center gap-1"><span class="inline-block size-2 rounded-sm bg-violet-500 dark:bg-violet-400" /> Prompt</span>
-                <span class="flex items-center gap-1"><span class="inline-block size-2 rounded-sm bg-amber-400 dark:bg-amber-300" /> Completion</span>
+                <span class="flex items-center gap-1"><span class="inline-block size-2 rounded-sm bg-violet-500 dark:bg-violet-400" /> Запрос</span>
+                <span class="flex items-center gap-1"><span class="inline-block size-2 rounded-sm bg-amber-400 dark:bg-amber-300" /> Ответ</span>
               </div>
               <div class="flex gap-4 text-[10px] text-surface-400">
                 <span>{{ chartStartDate }}</span>
@@ -439,7 +439,7 @@ function statusBadgeClass(status: string): string {
           <Brain class="size-10 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
           <h3 class="text-base font-semibold text-surface-700 dark:text-surface-200 mb-1">{{ t('dashboard.aiAnalysis.noRuns') }}</h3>
           <p class="text-sm text-surface-500 dark:text-surface-400">
-            Runs will appear here once you score candidates.
+            Запуски появятся здесь после оценки кандидатов.
           </p>
         </div>
 
@@ -482,14 +482,7 @@ function statusBadgeClass(status: string): string {
                   {{ run.jobTitle }}
                 </td>
                 <td class="px-4 py-3 text-right">
-                  <span
-                    v-if="run.compositeScore != null"
-                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ring-1 ring-inset"
-                    :class="scoreBadgeClass(run.compositeScore)"
-                  >
-                    {{ run.compositeScore }}
-                  </span>
-                  <span v-else class="text-surface-400">—</span>
+                  <ScoreBadge :score="run.compositeScore" size="xs" :show-unit="false" />
                 </td>
                 <td class="px-4 py-3 hidden md:table-cell">
                   <code class="rounded bg-surface-100 px-1.5 py-0.5 text-[11px] font-mono text-surface-600 dark:bg-surface-800 dark:text-surface-400">{{ run.model }}</code>

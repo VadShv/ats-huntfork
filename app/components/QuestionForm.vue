@@ -25,15 +25,15 @@ const emit = defineEmits<{
 }>()
 
 const questionTypes = [
-  { value: 'short_text', label: 'Short Text' },
-  { value: 'long_text', label: 'Long Text' },
-  { value: 'single_select', label: 'Single Select' },
-  { value: 'multi_select', label: 'Multi Select' },
-  { value: 'number', label: 'Number' },
-  { value: 'date', label: 'Date' },
+  { value: 'short_text', label: 'Короткий текст' },
+  { value: 'long_text', label: 'Длинный текст' },
+  { value: 'single_select', label: 'Один вариант' },
+  { value: 'multi_select', label: 'Несколько вариантов' },
+  { value: 'number', label: 'Число' },
+  { value: 'date', label: 'Дата' },
   { value: 'url', label: 'URL' },
-  { value: 'checkbox', label: 'Checkbox (Yes/No)' },
-  { value: 'file_upload', label: 'File Upload' },
+  { value: 'checkbox', label: 'Флажок (да/нет)' },
+  { value: 'file_upload', label: 'Загрузка файла' },
 ]
 
 const form = ref({
@@ -64,13 +64,13 @@ function validate(): boolean {
   errors.value = {}
 
   if (!form.value.label.trim()) {
-    errors.value.label = 'Question label is required'
+    errors.value.label = 'Укажите вопрос'
   }
 
   if (isSelectType.value) {
     const nonEmpty = form.value.options.filter((o) => o.trim())
     if (nonEmpty.length === 0) {
-      errors.value.options = 'At least one option is required for select questions'
+      errors.value.options = 'Добавьте хотя бы один вариант ответа'
     }
   }
 
@@ -112,7 +112,7 @@ const isEditing = computed(() => !!props.question)
   <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 p-4">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-300">
-        {{ isEditing ? 'Edit Question' : 'Add Question' }}
+        {{ isEditing ? 'Изменить вопрос' : 'Добавить вопрос' }}
       </h3>
       <button
         type="button"
@@ -127,13 +127,13 @@ const isEditing = computed(() => !!props.question)
       <!-- Label -->
       <div>
         <label for="q-label" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-          Question <span class="text-danger-500">*</span>
+          Вопрос <span class="text-danger-500">*</span>
         </label>
         <input
           id="q-label"
           v-model="form.label"
           type="text"
-          placeholder="e.g. How many years of experience do you have?"
+          placeholder="Например, сколько лет у вас опыта?"
           class="w-full rounded-lg border px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
           :class="errors.label ? 'border-danger-300' : 'border-surface-300 dark:border-surface-700'"
         />
@@ -143,8 +143,7 @@ const isEditing = computed(() => !!props.question)
       <!-- Type -->
       <div>
         <label for="q-type" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-          Field Type
-        </label>
+          Тип поля        </label>
         <select
           id="q-type"
           v-model="form.type"
@@ -159,13 +158,13 @@ const isEditing = computed(() => !!props.question)
       <!-- Description / help text -->
       <div>
         <label for="q-desc" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-          Help Text <span class="text-surface-400 font-normal">(optional)</span>
+          Подсказка <span class="text-surface-400 font-normal">(необязательно)</span>
         </label>
         <input
           id="q-desc"
           v-model="form.description"
           type="text"
-          placeholder="Additional context shown below the field"
+          placeholder="Дополнительная информация под полем"
           class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
         />
       </div>
@@ -173,14 +172,14 @@ const isEditing = computed(() => !!props.question)
       <!-- Options (for select types) -->
       <div v-if="isSelectType">
         <label class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
-          Options <span class="text-danger-500">*</span>
+          Варианты ответа <span class="text-danger-500">*</span>
         </label>
         <div class="space-y-2">
           <div v-for="(_, index) in form.options" :key="index" class="flex items-center gap-2">
             <input
               v-model="form.options[index]"
               type="text"
-              :placeholder="`Option ${index + 1}`"
+              :placeholder="`Вариант ${index + 1}`"
               class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
             />
             <button
@@ -199,8 +198,7 @@ const isEditing = computed(() => !!props.question)
           @click="addOption"
         >
           <Plus class="size-3.5" />
-          Add option
-        </button>
+          Добавить вариант        </button>
         <p v-if="errors.options" class="mt-1 text-xs text-danger-600 dark:text-danger-400">{{ errors.options }}</p>
       </div>
 
@@ -211,7 +209,7 @@ const isEditing = computed(() => !!props.question)
           type="checkbox"
           class="size-4 rounded border-surface-300 dark:border-surface-700 text-brand-600 focus:ring-brand-500"
         />
-        <span class="text-sm text-surface-700 dark:text-surface-300">Required</span>
+        <span class="text-sm text-surface-700 dark:text-surface-300">Обязательное</span>
       </label>
 
       <!-- Actions -->
@@ -220,15 +218,14 @@ const isEditing = computed(() => !!props.question)
           type="submit"
           class="inline-flex items-center rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
         >
-          {{ isEditing ? 'Update' : 'Add Question' }}
+          {{ isEditing ? 'Сохранить' : 'Добавить вопрос' }}
         </button>
         <button
           type="button"
           class="rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
           @click="emit('cancel')"
         >
-          Cancel
-        </button>
+          Отмена        </button>
       </div>
     </form>
   </div>

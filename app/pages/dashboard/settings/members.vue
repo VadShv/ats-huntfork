@@ -11,8 +11,8 @@ import {
 definePageMeta({})
 
 useSeoMeta({
-  title: 'Team Members',
-  description: 'Manage your team members and invitations',
+  title: 'Участники',
+  description: 'Управляйте участниками команды и приглашениями',
 })
 
 const { activeOrg } = useCurrentOrg()
@@ -45,11 +45,11 @@ async function fetchMembers() {
   membersError.value = ''
   try {
     const result = await authClient.organization.listMembers()
-    if (result.error) throw new Error(String(result.error.message ?? 'Failed to load members'))
+    if (result.error) throw new Error(String(result.error.message ?? 'Не удалось загрузить участников'))
     members.value = (result.data?.members ?? []) as typeof members.value
   }
   catch (err: unknown) {
-    membersError.value = err instanceof Error ? err.message : 'Failed to load members'
+    membersError.value = err instanceof Error ? err.message : 'Не удалось загрузить участников'
   }
   finally {
     isLoadingMembers.value = false
@@ -115,8 +115,8 @@ async function handleInvite() {
       email: inviteEmail.value.trim().toLowerCase(),
       role: inviteRole.value,
     })
-    if (result.error) throw new Error(String(result.error.message ?? 'Failed to send invitation'))
-    inviteSuccess.value = `Invitation sent to ${inviteEmail.value.trim()}`
+    if (result.error) throw new Error(String(result.error.message ?? 'Не удалось отправить приглашение'))
+    inviteSuccess.value = `Приглашение отправлено: ${inviteEmail.value.trim()}`
     track('member_invited')
     inviteEmail.value = ''
     inviteRole.value = 'member'
@@ -124,7 +124,7 @@ async function handleInvite() {
     await fetchInvitations()
   }
   catch (err: unknown) {
-    inviteError.value = err instanceof Error ? err.message : 'Failed to send invitation'
+    inviteError.value = err instanceof Error ? err.message : 'Не удалось отправить приглашение'
   }
   finally {
     isInviting.value = false
@@ -155,12 +155,12 @@ async function fetchInvitations() {
     const result = await authClient.organization.listInvitations({
       query: {},
     })
-    if (result.error) throw new Error(String(result.error.message ?? 'Failed to load invitations'))
+    if (result.error) throw new Error(String(result.error.message ?? 'Не удалось загрузить приглашения'))
     const allInvitations = (result.data ?? []) as typeof pendingInvitations.value
     pendingInvitations.value = allInvitations.filter(inv => inv.status === 'pending')
   }
   catch (err: unknown) {
-    invitationsError.value = err instanceof Error ? err.message : 'Failed to load invitations'
+    invitationsError.value = err instanceof Error ? err.message : 'Не удалось загрузить приглашения'
   }
   finally {
     isLoadingInvitations.value = false
@@ -180,13 +180,13 @@ async function handleResendInvitation(invitation: { id: string; email: string; r
       role: invitation.role as 'admin' | 'member',
       resend: true,
     })
-    if (result.error) throw new Error(String(result.error.message ?? 'Failed to resend invitation'))
-    resendSuccess.value = `Invitation resent to ${invitation.email}`
+    if (result.error) throw new Error(String(result.error.message ?? 'Не удалось отправить приглашение повторно'))
+    resendSuccess.value = `Приглашение повторно отправлено: ${invitation.email}`
     setTimeout(() => { resendSuccess.value = '' }, 5000)
     await fetchInvitations()
   }
   catch (err: unknown) {
-    inviteError.value = err instanceof Error ? err.message : 'Failed to resend invitation'
+    inviteError.value = err instanceof Error ? err.message : 'Не удалось отправить приглашение повторно'
   }
   finally {
     resendingInvitation.value = null
@@ -200,11 +200,11 @@ async function handleCancelInvitation(invitationId: string) {
     const result = await authClient.organization.cancelInvitation({
       invitationId,
     })
-    if (result.error) throw new Error(String(result.error.message ?? 'Failed to cancel invitation'))
+    if (result.error) throw new Error(String(result.error.message ?? 'Не удалось отменить приглашение'))
     await fetchInvitations()
   }
   catch (err: unknown) {
-    invitationsError.value = err instanceof Error ? err.message : 'Failed to cancel invitation'
+    invitationsError.value = err instanceof Error ? err.message : 'Не удалось отменить приглашение'
   }
   finally {
     cancellingInvitation.value = null
@@ -217,16 +217,16 @@ function isExpired(expiresAt: Date | string): boolean {
 
 function formatExpiresAt(expiresAt: Date | string): string {
   const date = new Date(expiresAt)
-  if (date < new Date()) return 'Expired'
+  if (date < new Date()) return 'Срок действия истёк'
   const diffMs = date.getTime() - Date.now()
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
   if (diffHours < 1) {
     const diffMinutes = Math.floor(diffMs / (1000 * 60))
-    return `Expires in ${diffMinutes}m`
+    return `Истекает через ${diffMinutes} мин.`
   }
-  if (diffHours < 24) return `Expires in ${diffHours}h`
+  if (diffHours < 24) return `Истекает через ${diffHours} ч.`
   const diffDays = Math.floor(diffHours / 24)
-  return `Expires in ${diffDays}d`
+  return `Истекает через ${diffDays} дн.`
 }
 
 // ─────────────────────────────────────────────
@@ -252,7 +252,7 @@ async function fetchInviteLinks() {
     inviteLinks.value = await fetchInviteLinksApi()
   }
   catch (err: unknown) {
-    linksError.value = err instanceof Error ? err.message : 'Failed to load invite links'
+    linksError.value = err instanceof Error ? err.message : 'Не удалось загрузить ссылки-приглашения'
   }
   finally {
     isLoadingLinks.value = false
@@ -274,7 +274,7 @@ async function handleCreateLink() {
       ? parseInt(String(rawMaxUses), 10)
       : null
     if (maxUses !== null && (isNaN(maxUses) || maxUses < 1)) {
-      createLinkError.value = 'Max uses must be a positive number'
+      createLinkError.value = 'Максимальное число использований должно быть положительным числом'
       return
     }
 
@@ -284,7 +284,7 @@ async function handleCreateLink() {
       expiresInHours: newLinkExpiresInHours.value,
     })
 
-    createLinkSuccess.value = 'Invite link created!'
+    createLinkSuccess.value = 'Ссылка-приглашение создана'
     showCreateLinkForm.value = false
     newLinkRole.value = 'member'
     newLinkMaxUses.value = ''
@@ -293,7 +293,7 @@ async function handleCreateLink() {
     await fetchInviteLinks()
   }
   catch (err: any) {
-    createLinkError.value = err?.data?.statusMessage || 'Failed to create invite link'
+    createLinkError.value = err?.data?.statusMessage || 'Не удалось создать ссылку-приглашение'
   }
   finally {
     isCreatingLink.value = false
@@ -331,7 +331,7 @@ async function handleRevokeLink(linkId: string) {
     await fetchInviteLinks()
   }
   catch (err: any) {
-    linksError.value = err?.data?.statusMessage || 'Failed to revoke invite link'
+    linksError.value = err?.data?.statusMessage || 'Не удалось отозвать ссылку-приглашение'
   }
   finally {
     revokingLinkId.value = null
@@ -345,13 +345,13 @@ function isLinkActive(link: { expiresAt: string; maxUses: number | null; useCoun
 }
 
 const expiryOptions = [
-  { label: '1 hour', value: 1 },
-  { label: '6 hours', value: 6 },
-  { label: '24 hours', value: 24 },
-  { label: '3 days', value: 72 },
-  { label: '7 days', value: 168 },
-  { label: '14 days', value: 336 },
-  { label: '30 days', value: 720 },
+  { label: '1 час', value: 1 },
+  { label: '6 часов', value: 6 },
+  { label: '24 часа', value: 24 },
+  { label: '3 дня', value: 72 },
+  { label: '7 дней', value: 168 },
+  { label: '14 дней', value: 336 },
+  { label: '30 дней', value: 720 },
 ]
 
 // ─────────────────────────────────────────────
@@ -460,7 +460,7 @@ async function fetchJoinRequests() {
     joinRequests.value = data as typeof joinRequests.value
   }
   catch (err: unknown) {
-    joinRequestsError.value = err instanceof Error ? err.message : 'Failed to load join requests'
+    joinRequestsError.value = err instanceof Error ? err.message : 'Не удалось загрузить заявки на вступление'
   }
   finally {
     isLoadingJoinRequests.value = false
@@ -478,7 +478,7 @@ async function handleApproveRequest(requestId: string) {
     await Promise.all([fetchJoinRequests(), fetchMembers()])
   }
   catch (err: any) {
-    joinRequestActionError.value = err?.data?.statusMessage || 'Failed to approve request'
+    joinRequestActionError.value = err?.data?.statusMessage || 'Не удалось одобрить заявку'
   }
   finally {
     approvingRequestId.value = null
@@ -494,7 +494,7 @@ async function handleRejectRequest(requestId: string) {
     await fetchJoinRequests()
   }
   catch (err: any) {
-    joinRequestActionError.value = err?.data?.statusMessage || 'Failed to reject request'
+    joinRequestActionError.value = err?.data?.statusMessage || 'Не удалось отклонить заявку'
   }
   finally {
     rejectingRequestId.value = null
@@ -525,11 +525,11 @@ async function handleUpdateRole(memberId: string, newRole: 'admin' | 'member') {
       memberId,
       role: newRole,
     })
-    if (result.error) throw new Error(String(result.error.message ?? 'Failed to update role'))
+    if (result.error) throw new Error(String(result.error.message ?? 'Не удалось изменить роль'))
     await fetchMembers()
   }
   catch (err: unknown) {
-    roleUpdateError.value = err instanceof Error ? err.message : 'Failed to update role'
+    roleUpdateError.value = err instanceof Error ? err.message : 'Не удалось изменить роль'
   }
   finally {
     isUpdatingRole.value = null
@@ -551,7 +551,7 @@ async function handleRemoveMember() {
   const currentUserId = session.value?.user?.id
   const targetMember = members.value.find(m => m.id === memberToRemove.value?.id)
   if (targetMember && currentUserId && targetMember.userId === currentUserId) {
-    removeError.value = 'You cannot remove yourself from the organization.'
+    removeError.value = 'Вы не можете удалить себя из организации.'
     return
   }
 
@@ -562,12 +562,12 @@ async function handleRemoveMember() {
     const result = await authClient.organization.removeMember({
       memberIdOrEmail: memberToRemove.value.id,
     })
-    if (result.error) throw new Error(String(result.error.message ?? 'Failed to remove member'))
+    if (result.error) throw new Error(String(result.error.message ?? 'Не удалось удалить участника'))
     memberToRemove.value = null
     await fetchMembers()
   }
   catch (err: unknown) {
-    removeError.value = err instanceof Error ? err.message : 'Failed to remove member'
+    removeError.value = err instanceof Error ? err.message : 'Не удалось удалить участника'
   }
   finally {
     isRemoving.value = false
@@ -578,9 +578,9 @@ async function handleRemoveMember() {
 // Helpers
 // ─────────────────────────────────────────────
 const roleConfig: Record<string, { label: string; color: string; bg: string; icon: Component }> = {
-  owner: { label: 'Owner', color: 'text-warning-700 dark:text-warning-400', bg: 'bg-warning-50 dark:bg-warning-950', icon: Crown },
-  admin: { label: 'Admin', color: 'text-brand-700 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-950', icon: ShieldCheck },
-  member: { label: 'Member', color: 'text-surface-700 dark:text-surface-300', bg: 'bg-surface-100 dark:bg-surface-800', icon: Shield },
+  owner: { label: 'Владелец', color: 'text-warning-700 dark:text-warning-400', bg: 'bg-warning-50 dark:bg-warning-950', icon: Crown },
+  admin: { label: 'Администратор', color: 'text-brand-700 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-950', icon: ShieldCheck },
+  member: { label: 'Участник', color: 'text-surface-700 dark:text-surface-300', bg: 'bg-surface-100 dark:bg-surface-800', icon: Shield },
 }
 
 function getRoleConfig(role: string) {
@@ -623,10 +623,10 @@ onUnmounted(() => {
     <!-- Page title -->
     <div class="mb-6">
       <h1 class="text-lg font-semibold text-surface-900 dark:text-surface-50">
-        Members
+        Участники
       </h1>
       <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">
-        Manage your team members and invitations.
+        Управляйте участниками команды и приглашениями.
       </p>
     </div>
 
@@ -638,7 +638,7 @@ onUnmounted(() => {
         @click="showInviteForm = true"
       >
         <UserPlus class="size-4" />
-        Invite team member
+        Пригласить участника
       </button>
 
       <Transition
@@ -651,7 +651,7 @@ onUnmounted(() => {
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
               <UserPlus class="size-5 text-brand-600 dark:text-brand-400" />
-              <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Invite a team member</h3>
+              <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Пригласить участника</h3>
             </div>
             <button
               class="p-1 rounded-md text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
@@ -663,7 +663,7 @@ onUnmounted(() => {
 
           <div class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1">
-              <label for="invite-email" class="sr-only">Email address</label>
+              <label for="invite-email" class="sr-only">Email</label>
               <input
                 id="invite-email"
                 v-model="inviteEmail"
@@ -679,8 +679,8 @@ onUnmounted(() => {
                 v-model="inviteRole"
                 class="appearance-none rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 pl-3 pr-8 py-2 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors cursor-pointer"
               >
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
+                <option value="member">Участник</option>
+                <option value="admin">Администратор</option>
               </select>
               <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-surface-400 pointer-events-none" />
             </div>
@@ -692,7 +692,7 @@ onUnmounted(() => {
             >
               <Loader2 v-if="isInviting" class="size-4 animate-spin" />
               <Mail v-else class="size-4" />
-              {{ isInviting ? 'Sending…' : 'Send invite' }}
+              {{ isInviting ? 'Отправка…' : 'Пригласить' }}
             </button>
           </div>
 
@@ -744,9 +744,9 @@ onUnmounted(() => {
             <Clock class="size-4" />
           </div>
           <div>
-            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Pending invitations</h2>
+            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Приглашения отправлены</h2>
             <p class="text-xs text-surface-500 dark:text-surface-400">
-              {{ isLoadingInvitations ? 'Loading…' : `${pendingInvitations.length} pending` }}
+              {{ isLoadingInvitations ? 'Загрузка…' : `Отправлено приглашений: ${pendingInvitations.length}` }}
             </p>
           </div>
         </div>
@@ -755,7 +755,7 @@ onUnmounted(() => {
       <!-- Loading state -->
       <div v-if="isLoadingInvitations" class="px-4 sm:px-6 py-6 text-center text-surface-400 text-sm">
         <Loader2 class="size-4 animate-spin mx-auto mb-1.5" />
-        Loading invitations…
+        Загрузка приглашений…
       </div>
 
       <!-- Error state -->
@@ -763,7 +763,7 @@ onUnmounted(() => {
         <AlertTriangle class="size-5 text-danger-400 mx-auto mb-1.5" />
         <p class="text-sm text-danger-600 dark:text-danger-400">{{ invitationsError }}</p>
         <button class="mt-1.5 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchInvitations">
-          Retry
+          Повторить
         </button>
       </div>
 
@@ -809,22 +809,22 @@ onUnmounted(() => {
             <button
               :disabled="resendingInvitation === inv.id"
               class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Resend invitation email"
+              title="Отправить приглашение повторно"
               @click="handleResendInvitation(inv)"
             >
               <Loader2 v-if="resendingInvitation === inv.id" class="size-3 animate-spin" />
               <RefreshCw v-else class="size-3" />
-              Resend
+              Отправить повторно
             </button>
             <button
               :disabled="cancellingInvitation === inv.id"
               class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Cancel invitation"
+              title="Отменить приглашение"
               @click="handleCancelInvitation(inv.id)"
             >
               <Loader2 v-if="cancellingInvitation === inv.id" class="size-3 animate-spin" />
               <X v-else class="size-3" />
-              Cancel
+              Отменить
             </button>
           </div>
         </div>
@@ -840,9 +840,9 @@ onUnmounted(() => {
               <Link2 class="size-4" />
             </div>
             <div class="min-w-0">
-              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Invite links</h2>
+              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Ссылки-приглашения</h2>
               <p class="text-xs text-surface-500 dark:text-surface-400">
-                Shareable links to join your organization
+                Ссылки для приглашения в организацию
               </p>
             </div>
           </div>
@@ -852,7 +852,7 @@ onUnmounted(() => {
             @click="showCreateLinkForm = true"
           >
             <Link2 class="size-3.5" />
-            Create link
+            Создать ссылку
           </button>
         </div>
       </div>
@@ -866,7 +866,7 @@ onUnmounted(() => {
       >
         <div v-if="showCreateLinkForm" class="px-4 sm:px-6 py-4 border-b border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-800/50">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-medium text-surface-900 dark:text-surface-100">New invite link</h3>
+            <h3 class="text-sm font-medium text-surface-900 dark:text-surface-100">Новая ссылка-приглашение</h3>
             <button
               class="p-1 rounded-md text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors"
               @click="showCreateLinkForm = false; createLinkError = ''"
@@ -877,21 +877,21 @@ onUnmounted(() => {
 
           <div class="flex flex-wrap gap-3 items-end">
             <div>
-              <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Role</label>
+              <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Роль</label>
               <div class="relative">
                 <select
                   v-model="newLinkRole"
                   class="appearance-none rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 pl-3 pr-8 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors cursor-pointer"
                 >
-                  <option value="member">Member</option>
-                  <option value="admin">Admin</option>
+                  <option value="member">Участник</option>
+                  <option value="admin">Администратор</option>
                 </select>
                 <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 size-3 text-surface-400 pointer-events-none" />
               </div>
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Expires in</label>
+              <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Срок действия</label>
               <div class="relative">
                 <select
                   v-model="newLinkExpiresInHours"
@@ -906,12 +906,12 @@ onUnmounted(() => {
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Max uses (optional)</label>
+              <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Макс. использований (необязательно)</label>
               <input
                 v-model="newLinkMaxUses"
                 type="number"
                 min="1"
-                placeholder="Unlimited"
+                placeholder="Без ограничений"
                 class="w-28 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
               />
             </div>
@@ -922,7 +922,7 @@ onUnmounted(() => {
               @click="handleCreateLink"
             >
               <Loader2 v-if="isCreatingLink" class="size-3.5 animate-spin" />
-              Create
+              Создать
             </button>
           </div>
 
@@ -948,7 +948,7 @@ onUnmounted(() => {
       <!-- Loading state -->
       <div v-if="isLoadingLinks" class="px-4 sm:px-6 py-6 text-center text-surface-400 text-sm">
         <Loader2 class="size-4 animate-spin mx-auto mb-1.5" />
-        Loading invite links…
+        Загрузка ссылок-приглашений…
       </div>
 
       <!-- Error state -->
@@ -956,13 +956,13 @@ onUnmounted(() => {
         <AlertTriangle class="size-5 text-danger-400 mx-auto mb-1.5" />
         <p class="text-sm text-danger-600 dark:text-danger-400">{{ linksError }}</p>
         <button class="mt-1.5 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchInviteLinks">
-          Retry
+          Повторить
         </button>
       </div>
 
       <!-- Empty state -->
       <div v-else-if="inviteLinks.length === 0 && !showCreateLinkForm" class="px-4 sm:px-6 py-6 text-center text-sm text-surface-400 dark:text-surface-500">
-        No active invite links. Create one to share with your team.
+        Нет активных ссылок-приглашений. Создайте ссылку и поделитесь ею с командой.
       </div>
 
       <!-- Links list -->
@@ -991,14 +991,14 @@ onUnmounted(() => {
                   <component :is="getRoleConfig(link.role).icon" class="size-2.5" />
                   {{ getRoleConfig(link.role).label }}
                 </span>
-                <span v-if="!isLinkActive(link)" class="text-xs text-danger-500">Inactive</span>
+                <span v-if="!isLinkActive(link)" class="text-xs text-danger-500">Неактивна</span>
               </div>
               <div class="flex items-center gap-3 text-xs text-surface-400 dark:text-surface-500 mt-0.5">
-                <span>{{ link.useCount }}{{ link.maxUses ? `/${link.maxUses}` : '' }} uses</span>
+                <span>{{ link.useCount }}{{ link.maxUses ? `/${link.maxUses}` : '' }} использований</span>
                 <span :class="isExpired(link.expiresAt) ? 'text-danger-500' : ''">
                   {{ formatExpiresAt(link.expiresAt) }}
                 </span>
-                <span v-if="link.createdByName">by {{ link.createdByName }}</span>
+                <span v-if="link.createdByName">создал(а) {{ link.createdByName }}</span>
               </div>
             </div>
           </div>
@@ -1007,22 +1007,22 @@ onUnmounted(() => {
             <button
               v-if="isLinkActive(link)"
               class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
-              :title="copiedLinkId === link.id ? 'Copied!' : 'Copy invite link'"
+              :title="copiedLinkId === link.id ? 'Скопировано' : 'Копировать ссылку-приглашение'"
               @click="copyLinkToClipboard(link)"
             >
               <Check v-if="copiedLinkId === link.id" class="size-3 text-success-500" />
               <Copy v-else class="size-3" />
-              {{ copiedLinkId === link.id ? 'Copied' : 'Copy' }}
+              {{ copiedLinkId === link.id ? 'Скопировано' : 'Копировать' }}
             </button>
             <button
               :disabled="revokingLinkId === link.id"
               class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Revoke invite link"
+              title="Отозвать ссылку-приглашение"
               @click="handleRevokeLink(link.id)"
             >
               <Loader2 v-if="revokingLinkId === link.id" class="size-3 animate-spin" />
               <Trash2 v-else class="size-3" />
-              Revoke
+              Отозвать
             </button>
           </div>
         </div>
@@ -1141,9 +1141,9 @@ onUnmounted(() => {
             <UserCheck class="size-4" />
           </div>
           <div>
-            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Join requests</h2>
+            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Заявки на вступление</h2>
             <p class="text-xs text-surface-500 dark:text-surface-400">
-              {{ isLoadingJoinRequests ? 'Loading…' : `${joinRequests.length} pending request${joinRequests.length !== 1 ? 's' : ''}` }}
+              {{ isLoadingJoinRequests ? 'Загрузка…' : `Заявок на вступление: ${joinRequests.length}` }}
             </p>
           </div>
         </div>
@@ -1160,7 +1160,7 @@ onUnmounted(() => {
       <!-- Loading state -->
       <div v-if="isLoadingJoinRequests" class="px-4 sm:px-6 py-6 text-center text-surface-400 text-sm">
         <Loader2 class="size-4 animate-spin mx-auto mb-1.5" />
-        Loading join requests…
+        Загрузка заявок на вступление…
       </div>
 
       <!-- Error state -->
@@ -1168,7 +1168,7 @@ onUnmounted(() => {
         <AlertTriangle class="size-5 text-danger-400 mx-auto mb-1.5" />
         <p class="text-sm text-danger-600 dark:text-danger-400">{{ joinRequestsError }}</p>
         <button class="mt-1.5 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchJoinRequests">
-          Retry
+          Повторить
         </button>
       </div>
 
@@ -1212,22 +1212,22 @@ onUnmounted(() => {
             <button
               :disabled="approvingRequestId === req.id"
               class="inline-flex items-center gap-1.5 rounded-lg bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Approve — adds as Member"
+              title="Одобрить — добавить как участника"
               @click="handleApproveRequest(req.id)"
             >
               <Loader2 v-if="approvingRequestId === req.id" class="size-3 animate-spin" />
               <UserCheck v-else class="size-3" />
-              Approve
+              Одобрить
             </button>
             <button
               :disabled="rejectingRequestId === req.id"
               class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Reject join request"
+              title="Отклонить заявку на вступление"
               @click="handleRejectRequest(req.id)"
             >
               <Loader2 v-if="rejectingRequestId === req.id" class="size-3 animate-spin" />
               <UserX v-else class="size-3" />
-              Reject
+              Отклонить
             </button>
           </div>
         </div>
@@ -1243,9 +1243,9 @@ onUnmounted(() => {
               <Users class="size-5" />
             </div>
             <div>
-              <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Team members</h2>
+              <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Участники команды</h2>
               <p class="text-sm text-surface-500 dark:text-surface-400">
-                {{ isLoadingMembers ? 'Loading…' : `${members.length} member${members.length !== 1 ? 's' : ''}` }}
+                {{ isLoadingMembers ? 'Загрузка…' : `Участников: ${members.length}` }}
               </p>
             </div>
           </div>
@@ -1255,7 +1255,7 @@ onUnmounted(() => {
               <input
                 v-model="memberSearch"
                 type="text"
-                placeholder="Search members…"
+                placeholder="Поиск участников…"
                 class="w-full sm:w-48 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 pl-8.5 pr-3 py-1.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
               />
             </div>
@@ -1266,7 +1266,7 @@ onUnmounted(() => {
       <!-- Loading state -->
       <div v-if="isLoadingMembers" class="px-4 sm:px-6 py-8 text-center text-surface-400 text-sm">
         <Loader2 class="size-5 animate-spin mx-auto mb-2" />
-        Loading members…
+        Загрузка участников…
       </div>
 
       <!-- Error state -->
@@ -1274,7 +1274,7 @@ onUnmounted(() => {
         <AlertTriangle class="size-6 text-danger-400 mx-auto mb-2" />
         <p class="text-sm text-danger-600 dark:text-danger-400">{{ membersError }}</p>
         <button class="mt-2 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchMembers">
-          Retry
+          Повторить
         </button>
       </div>
 
@@ -1304,7 +1304,7 @@ onUnmounted(() => {
                 <span class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">
                   {{ m.user.name }}
                 </span>
-                <span v-if="isCurrentUser(m.userId)" class="text-xs text-surface-400 dark:text-surface-500">(you)</span>
+                <span v-if="isCurrentUser(m.userId)" class="text-xs text-surface-400 dark:text-surface-500">(вы)</span>
               </div>
               <div class="text-sm text-surface-500 dark:text-surface-400 truncate">
                 <a
@@ -1348,7 +1348,7 @@ onUnmounted(() => {
                 <!-- Role options -->
                 <div class="py-1 border-b border-surface-100 dark:border-surface-800">
                   <div class="px-3 py-1.5 text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider">
-                    Change role
+                    Изменить роль
                   </div>
                   <button
                     v-if="m.role !== 'admin'"
@@ -1357,7 +1357,7 @@ onUnmounted(() => {
                     @click="handleUpdateRole(m.id, 'admin')"
                   >
                     <ShieldCheck class="size-3.5 text-brand-500" />
-                    Make admin
+                    Сделать администратором
                   </button>
                   <button
                     v-if="m.role !== 'member'"
@@ -1366,7 +1366,7 @@ onUnmounted(() => {
                     @click="handleUpdateRole(m.id, 'member')"
                   >
                     <Shield class="size-3.5 text-surface-400" />
-                    Make member
+                    Сделать участником
                   </button>
                 </div>
 
@@ -1377,7 +1377,7 @@ onUnmounted(() => {
                     @click="memberToRemove = { id: m.id, name: m.user.name }; closeDropdown()"
                   >
                     <Trash2 class="size-3.5" />
-                    Remove member
+                    Удалить участника
                   </button>
                 </div>
               </div>
@@ -1397,8 +1397,8 @@ onUnmounted(() => {
             class="text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
             @click="showMoreMembers"
           >
-            Show {{ Math.min(membersPerPage, filteredMembers.length - visibleCount) }} more
-            ({{ filteredMembers.length - visibleCount }} remaining)
+            Показать ещё {{ Math.min(membersPerPage, filteredMembers.length - visibleCount) }}
+            (осталось {{ filteredMembers.length - visibleCount }})
           </button>
         </div>
       </div>
@@ -1425,15 +1425,15 @@ onUnmounted(() => {
                   <AlertTriangle class="size-5" />
                 </div>
                 <div>
-                  <h3 class="text-base font-semibold text-surface-900 dark:text-surface-100">Remove member</h3>
-                  <p class="text-sm text-surface-500 dark:text-surface-400">This action can be undone by re-inviting.</p>
+                  <h3 class="text-base font-semibold text-surface-900 dark:text-surface-100">Удалить участника</h3>
+                  <p class="text-sm text-surface-500 dark:text-surface-400">Участника можно вернуть, отправив новое приглашение.</p>
                 </div>
               </div>
 
               <p class="text-sm text-surface-600 dark:text-surface-400 mb-5">
-                Are you sure you want to remove <strong class="text-surface-900 dark:text-surface-100">{{ memberToRemove.name }}</strong> from
+                Удалить <strong class="text-surface-900 dark:text-surface-100">{{ memberToRemove.name }}</strong> из организации
                 <strong class="text-surface-900 dark:text-surface-100">{{ activeOrg?.name }}</strong>?
-                They will lose access to all organization data immediately.
+                Участник сразу потеряет доступ ко всем данным организации.
               </p>
 
               <div v-if="removeError" class="mb-4 rounded-lg bg-danger-50 dark:bg-danger-950/40 border border-danger-200 dark:border-danger-900 px-3 py-2 text-sm text-danger-700 dark:text-danger-400">
@@ -1445,7 +1445,7 @@ onUnmounted(() => {
                   class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
                   @click="memberToRemove = null; removeError = ''"
                 >
-                  Cancel
+                  Отмена
                 </button>
                 <button
                   :disabled="isRemoving"
@@ -1454,7 +1454,7 @@ onUnmounted(() => {
                 >
                   <Loader2 v-if="isRemoving" class="size-4 animate-spin" />
                   <Trash2 v-else class="size-4" />
-                  {{ isRemoving ? 'Removing…' : 'Remove' }}
+                  {{ isRemoving ? 'Удаление…' : 'Удалить' }}
                 </button>
               </div>
             </div>
@@ -1465,7 +1465,7 @@ onUnmounted(() => {
 
     <!-- Permissions notice for members -->
     <div v-if="!canManageMembers" class="mt-6 rounded-lg bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-800 px-4 py-3 text-sm text-surface-500 dark:text-surface-400">
-      You don't have permission to manage team members. Contact an admin or owner to invite new members or change roles.
+      У вас недостаточно прав для управления участниками команды. Обратитесь к администратору или владельцу, чтобы пригласить новых участников или изменить роли.
     </div>
   </div>
 </template>

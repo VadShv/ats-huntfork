@@ -29,7 +29,7 @@ const isAstraBrand = useAstraBrand()
           rel="noopener noreferrer"
           class="underline underline-offset-2 transition hover:text-white/70"
         >
-          Privacy policy
+          Политика конфиденциальности
         </a>
       </p>
       <div class="mt-3 flex gap-2">
@@ -38,14 +38,14 @@ const isAstraBrand = useAstraBrand()
           class="rounded-md px-3 py-1.5 text-xs font-medium text-white/40 transition hover:text-white/70"
           @click="declineAnalytics"
         >
-          No thanks
+          Не сейчас
         </button>
         <button
           type="button"
           class="rounded-md bg-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-400"
           @click="acceptAnalytics"
         >
-          Sure, help improve it
+          Согласен помочь
         </button>
       </div>
     </div>

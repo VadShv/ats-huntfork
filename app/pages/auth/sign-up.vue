@@ -7,8 +7,8 @@ definePageMeta({
 const isAstraBrand = useAstraBrand();
 
 useSeoMeta({
-    title: computed(() => isAstraBrand.value ? "Регистрация" : "Sign Up"),
-    description: computed(() => isAstraBrand.value ? "Создать аккаунт Huntfork" : "Create your Reqcore account"),
+    title: computed(() => isAstraBrand.value ? "Регистрация" : "Регистрация"),
+    description: computed(() => isAstraBrand.value ? "Создать аккаунт Huntfork" : "Создать аккаунт Huntfork"),
     robots: "noindex, nofollow",
 });
 
@@ -48,17 +48,17 @@ async function handleSignUp() {
     error.value = "";
 
     if (!name.value || !email.value || !password.value) {
-        error.value = "All fields are required.";
+        error.value = "Заполните все поля.";
         return;
     }
 
     if (password.value.length < 8) {
-        error.value = "Password must be at least 8 characters.";
+        error.value = "Пароль должен содержать не менее 8 символов.";
         return;
     }
 
     if (password.value !== confirmPassword.value) {
-        error.value = "Passwords do not match.";
+        error.value = "Пароли не совпадают.";
         return;
     }
 
@@ -77,10 +77,10 @@ async function handleSignUp() {
             error.value =
                 result.error.message && result.error.message !== "Server Error"
                     ? result.error.message
-                    : 'Sign-up failed due to a server error. If you are self-hosting, make sure the BETTER_AUTH_URL environment variable is set to your deployment domain (e.g. "https://your-app.up.railway.app") and redeploy.';
+                    : 'Не удалось зарегистрироваться из-за ошибки сервера. При самостоятельном развёртывании убедитесь, что переменная окружения BETTER_AUTH_URL указывает на домен развёртывания (например, "https://your-app.up.railway.app"), и повторно разверните приложение.';
         } else {
             error.value =
-                result.error.message ?? "Sign-up failed. Please try again.";
+                result.error.message ?? "Не удалось зарегистрироваться. Попробуйте ещё раз.";
         }
         track("signup_failed", { error_type: result.error.code ?? "unknown" });
         isLoading.value = false;
@@ -119,7 +119,7 @@ async function handleSsoSignUp() {
         error.value =
             e instanceof Error
                 ? e.message
-                : "SSO sign-up failed. Please try again.";
+                : "Не удалось зарегистрироваться через SSO. Попробуйте ещё раз.";
         isLoading.value = false;
     }
 }
@@ -144,7 +144,7 @@ async function handleSocialSignUp(providerId: string) {
         error.value =
             e instanceof Error
                 ? e.message
-                : "Social sign-up failed. Please try again.";
+                : "Не удалось зарегистрироваться через социальную сеть. Попробуйте ещё раз.";
         socialLoading.value = null;
     }
 }
@@ -154,15 +154,15 @@ async function handleSocialSignUp(providerId: string) {
     <!-- Регистрация закрыта — приглашения только через invite-link от администратора. -->
     <div v-if="!signupEnabled" class="flex flex-col gap-4 text-center">
         <h2 class="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-1">
-            {{ isAstraBrand ? 'Регистрация закрыта' : 'Sign-up disabled' }}
+            {{ isAstraBrand ? 'Регистрация закрыта' : 'Регистрация закрыта' }}
         </h2>
         <p class="text-sm text-surface-600 dark:text-surface-400">
             {{ isAstraBrand
                 ? 'Новые учётные записи создаются только по приглашению. Обратитесь к администратору вашей команды, чтобы получить ссылку.'
-                : 'New accounts are created by invitation only. Ask your administrator for an invite link.' }}
+                : 'Новые учётные записи создаются только по приглашению. Обратитесь к администратору вашей команды, чтобы получить ссылку.' }}
         </p>
         <NuxtLink :to="localePath('/auth/sign-in')" class="text-primary-600 dark:text-primary-400 hover:underline text-sm">
-            {{ isAstraBrand ? 'Уже есть аккаунт? Войти' : 'Already have an account? Sign in' }}
+            {{ isAstraBrand ? 'Уже есть аккаунт? Войти' : 'Уже есть аккаунт? Войти' }}
         </NuxtLink>
     </div>
 
@@ -171,7 +171,7 @@ async function handleSocialSignUp(providerId: string) {
         <h2
             class="text-xl font-semibold text-center text-surface-900 dark:text-surface-100 mb-2"
         >
-            Create your account
+            Создать аккаунт
         </h2>
 
         <div
@@ -194,7 +194,7 @@ async function handleSocialSignUp(providerId: string) {
                 >
                     <template v-if="socialLoading === provider.id">
                         <svg class="animate-spin size-4 text-surface-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
-                        Redirecting…
+                        Перенаправление…
                     </template>
                     <template v-else>
                         <!-- Google icon -->
@@ -215,7 +215,7 @@ async function handleSocialSignUp(providerId: string) {
                             <rect x="1" y="12" width="10" height="10" fill="#00A4EF"/>
                             <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
                         </svg>
-                        Continue with {{ provider.name }}
+                        Продолжить через {{ provider.name }}
                     </template>
                 </button>
             </div>
@@ -225,7 +225,7 @@ async function handleSocialSignUp(providerId: string) {
                     <div class="w-full border-t border-surface-200 dark:border-surface-700" />
                 </div>
                 <div class="relative flex justify-center text-xs">
-                    <span class="bg-white dark:bg-surface-900 px-2 text-surface-400">or continue with email</span>
+                    <span class="bg-white dark:bg-surface-900 px-2 text-surface-400">или продолжить с Email</span>
                 </div>
             </div>
         </template>
@@ -238,10 +238,10 @@ async function handleSocialSignUp(providerId: string) {
                 class="px-4 py-2.5 bg-surface-800 dark:bg-surface-200 text-white dark:text-surface-900 rounded-md text-sm font-medium cursor-pointer hover:bg-surface-900 dark:hover:bg-surface-300 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 @click="handleSsoSignUp"
             >
-                <template v-if="isLoading">Redirecting…</template>
+                <template v-if="isLoading">Перенаправление…</template>
                 <template v-else>
-                    Sign up with {{ oidcProviderName }}
-                    <span class="inline-flex items-center rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-200">Beta</span>
+                    Регистрация через {{ oidcProviderName }}
+                    <span class="inline-flex items-center rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-200">Бета</span>
                 </template>
             </button>
 
@@ -254,7 +254,7 @@ async function handleSocialSignUp(providerId: string) {
                 <div class="relative flex justify-center text-xs">
                     <span
                         class="bg-white dark:bg-surface-900 px-2 text-surface-400"
-                        >or continue with email</span
+                        >или продолжить с Email</span
                     >
                 </div>
             </div>
@@ -263,7 +263,7 @@ async function handleSocialSignUp(providerId: string) {
         <label
             class="flex flex-col gap-1 text-sm font-medium text-surface-700 dark:text-surface-300"
         >
-            <span>Name</span>
+            <span>ФИО</span>
             <input
                 v-model="name"
                 type="text"
@@ -289,7 +289,7 @@ async function handleSocialSignUp(providerId: string) {
         <label
             class="flex flex-col gap-1 text-sm font-medium text-surface-700 dark:text-surface-300"
         >
-            <span>Password</span>
+            <span>Пароль</span>
             <input
                 v-model="password"
                 type="password"
@@ -303,7 +303,7 @@ async function handleSocialSignUp(providerId: string) {
         <label
             class="flex flex-col gap-1 text-sm font-medium text-surface-700 dark:text-surface-300"
         >
-            <span>Confirm password</span>
+            <span>Подтвердите пароль</span>
             <input
                 v-model="confirmPassword"
                 type="password"
@@ -318,11 +318,11 @@ async function handleSocialSignUp(providerId: string) {
             :disabled="isLoading"
             class="mt-2 px-4 py-2.5 bg-brand-600 text-white rounded-md text-sm font-medium cursor-pointer hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
-            {{ isLoading ? "Creating account…" : "Sign up" }}
+            {{ isLoading ? "Создание аккаунта…" : "Регистрация" }}
         </button>
 
         <p class="text-center text-sm text-surface-500 dark:text-surface-400">
-            Already have an account?
+            Уже есть аккаунт?
             <NuxtLink
                 :to="
                     pendingInvitation
@@ -333,7 +333,7 @@ async function handleSocialSignUp(providerId: string) {
                         : $localePath('/auth/sign-in')
                 "
                 class="text-brand-600 dark:text-brand-400 hover:underline"
-                >Sign in</NuxtLink
+                >Войти</NuxtLink
             >
         </p>
     </form>

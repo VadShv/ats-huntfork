@@ -33,7 +33,7 @@ await usePostHogIdentity()
 const isAstraBrand = useAstraBrand()
 useHead(() => ({
   titleTemplate: (chunk?: string) => {
-    const brand = isAstraBrand.value ? 'Huntfork' : 'Reqcore'
+    const brand = 'Huntfork'
     return chunk ? `${chunk} — ${brand}` : brand
   },
   link: isAstraBrand.value

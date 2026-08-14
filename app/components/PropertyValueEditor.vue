@@ -284,10 +284,10 @@ const isPopoverType = computed(
               class="flex w-full cursor-pointer items-center gap-2 border-t border-surface-100 dark:border-surface-800 px-3 py-1.5 text-left text-xs text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800"
               @click="commit(null)"
             >
-              <X class="size-3.5" /> Clear
+              <X class="size-3.5" /> Очистить
             </button>
             <div v-if="(config?.options ?? []).length === 0" class="px-3 py-2 text-xs text-surface-400">
-              No options yet — add some in the schema editor.
+              Вариантов пока нет — добавьте их в редакторе свойств.
             </div>
           </div>
         </div>
@@ -314,19 +314,19 @@ const isPopoverType = computed(
               <Check v-if="(draft as string[] | null)?.includes(opt.id)" class="ml-auto size-3.5 text-brand-600" />
             </button>
             <div v-if="(config?.options ?? []).length === 0" class="px-3 py-2 text-xs text-surface-400">
-              No options yet — add some in the schema editor.
+              Вариантов пока нет — добавьте их в редакторе свойств.
             </div>
           </div>
           <div class="flex items-center justify-end gap-2 border-t border-surface-100 dark:border-surface-800 px-2 py-1.5">
-            <button type="button" class="text-xs text-surface-500 hover:text-surface-700 cursor-pointer" @click="cancel">Cancel</button>
-            <button type="button" class="rounded bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-700 cursor-pointer" @click="commit()">Done</button>
+            <button type="button" class="text-xs text-surface-500 hover:text-surface-700 cursor-pointer" @click="cancel">Отмена</button>
+            <button type="button" class="rounded bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-700 cursor-pointer" @click="commit()">Готово</button>
           </div>
         </div>
       </Teleport>
 
       <!-- File: not editable inline (use Documents flow) -->
       <div v-else-if="definition.type === 'file'" class="text-xs text-surface-400 italic px-2 py-1">
-        File properties are managed via Documents.
+        Свойства файлов управляются через раздел «Документы».
       </div>
     </template>
   </div>

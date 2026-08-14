@@ -6,13 +6,14 @@ import {
   Video, Building2, Code2, UsersRound, Save, Check, MapPin, Users, Plus,
   CheckCircle2, XCircle, AlertTriangle, ArrowUpDown, ListFilter,
   Maximize2, Minimize2, Brain, Loader2, History, SlidersHorizontal,
-  Inbox, Snowflake, UserPlus,
+  Inbox, Snowflake, UserPlus, MessagesSquare,
 } from 'lucide-vue-next'
 import { useLocalStorageState } from '~/composables/useLocalStorageState'
 import type { PropertyEntry, PropertyFilter } from '~~/shared/properties'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta, type ApplicationSource } from '~/composables/useApplicationSource'
 import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
+import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
 const { t, te } = useI18n()
 import { APPLICATION_STATUS_TRANSITIONS, INTERVIEW_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
@@ -41,8 +42,62 @@ const { job: jobData, status: jobFetchStatus, error: jobError } = useJob(jobId)
 // Даже если откликов 5000+, UI получит все без ручной пагинации.
 // ─────────────────────────────────────────────
 
+// ─── Sprint 9: Динамические этапы воронки вакансии ───
+// Читаем этапы из /api/jobs/[id]/pipeline-view. Оставляем PIPELINE_STATUSES для
+// legacy обратной совместимости (навигация клавишами, initial stage из query).
 const PIPELINE_STATUSES = ['new', 'screening', 'interview', 'offer', 'hired', 'rejected'] as const
 type PipelineStatus = typeof PIPELINE_STATUSES[number]
+
+interface PipelineViewStage {
+  id: string
+  name: string
+  description?: string | null
+  type: string
+  bucket: 'working' | 'rejected'
+  color: string
+  displayOrder: number
+  isTerminal?: boolean
+  isSystemStage?: boolean
+  isHidden?: boolean
+  parentStageId?: string | null
+}
+interface PipelineViewResponse {
+  source: 'snapshot' | 'live' | 'none'
+  pipeline: { id: string, name: string } | null
+  stages: PipelineViewStage[]
+}
+
+const pipelineView = ref<PipelineViewResponse | null>(null)
+// Пока pipeline-view не загружен, hasNewPipeline == false, и без этого флага
+// на пол секунды мигает legacy-воронка (6 статусов), которую затем заменяют
+// реальные этапы. Держим скелетон, пока не знаем, какая воронка у вакансии.
+const pipelineViewReady = ref(false)
+async function loadPipelineView() {
+  try {
+    pipelineView.value = await $fetch<PipelineViewResponse>(`/api/jobs/${jobId}/pipeline-view`, { credentials: 'include' })
+  }
+  catch (err) {
+    console.warn('[job-view] pipeline-view load failed', err)
+    pipelineView.value = null
+  }
+  finally {
+    pipelineViewReady.value = true
+  }
+}
+
+// Все root-этапы (без родителя), не скрытые
+const pipelineStages = computed<PipelineViewStage[]>(() => {
+  if (!pipelineView.value?.stages?.length) return []
+  return pipelineView.value.stages
+    .filter(s => !s.parentStageId && !s.isHidden)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+})
+
+// Есть ли новая воронка (17 этапов) или legacy (6 этапов с типами applied/screening/...)
+const hasNewPipeline = computed(() => {
+  if (!pipelineStages.value.length) return false
+  return pipelineStages.value.some(s => ['on_hold', 'contact', 'assessment', 'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred'].includes(s.type))
+})
 
 const PAGE_SIZE = 1000
 interface AppRow {
@@ -127,17 +182,51 @@ async function refreshApps() {
   await loadApplications()
 }
 
-onMounted(() => { loadApplications() })
+onMounted(() => { loadApplications(); loadPipelineView() })
 
-// Read initial pipeline stage from URL query param (?stage=screening)
+// Read initial pipeline stage from URL query param (?stage=<enum|uuid>)
 const initialStage = PIPELINE_STATUSES.includes(route.query.stage as any)
   ? (route.query.stage as PipelineStatus)
   : 'new'
 const focusStatus = ref<PipelineStatus>(initialStage)
 
-const focusedApplications = computed(() =>
-  applications.value.filter((application) => application.status === focusStatus.value),
-)
+// ─── Sprint 9: Фокус по stageId (новая воронка) или status enum (legacy) ───
+const focusStageId = ref<string | null>(null)
+
+// При загрузке pipeline-view выбираем первый root-этап
+watch(pipelineStages, (stages) => {
+  if (!focusStageId.value && stages.length) {
+    // Если в URL — UUID этапа, используем его
+    const q = route.query.stage as string | undefined
+    if (q && stages.some(s => s.id === q)) {
+      focusStageId.value = q
+    } else {
+      focusStageId.value = stages[0]?.id ?? null
+    }
+  }
+}, { immediate: true })
+
+const focusedApplications = computed(() => {
+  // Новая воронка: фильтр по current_stage_id (включая подстатусы root'а)
+  if (hasNewPipeline.value && focusStageId.value) {
+    // Спринт 12.3: если выбран конкретный подэтап — показываем только его
+    if (focusSubStageId.value) {
+      const subId = focusSubStageId.value
+      return applications.value.filter(a => a.currentStageId === subId)
+    }
+    const rootId = focusStageId.value
+    const childIds = new Set(
+      (pipelineView.value?.stages ?? []).filter(s => s.parentStageId === rootId).map(s => s.id),
+    )
+    return applications.value.filter(a => {
+      const sid = a.currentStageId
+      if (!sid) return false
+      return sid === rootId || childIds.has(sid)
+    })
+  }
+  // Legacy: фильтр по application.status enum
+  return applications.value.filter((application) => application.status === focusStatus.value)
+})
 
 // Search within the focused list
 const searchTerm = ref('')
@@ -325,6 +414,32 @@ const statusCounts = computed(() => {
   return counts
 })
 
+// ─── Sprint 9: Counts по stageId (root включает его подстатусы) ───
+const stageCounts = computed<Record<string, number>>(() => {
+  const counts: Record<string, number> = {}
+  const stages = pipelineView.value?.stages ?? []
+  // Подготовим мап: parent→children
+  const childrenByParent = new Map<string, string[]>()
+  for (const s of stages) {
+    if (s.parentStageId) {
+      const arr = childrenByParent.get(s.parentStageId) ?? []
+      arr.push(s.id)
+      childrenByParent.set(s.parentStageId, arr)
+    }
+  }
+  // Считаем для каждого root'а
+  for (const s of pipelineStages.value) {
+    let n = 0
+    const children = childrenByParent.get(s.id) ?? []
+    const wantedIds = new Set([s.id, ...children])
+    for (const a of applications.value) {
+      if (a.currentStageId && wantedIds.has(a.currentStageId)) n += 1
+    }
+    counts[s.id] = n
+  }
+  return counts
+})
+
 // Sprint 3: разбивка по источнику — все/отклики/холодные/ручные.
 const sourceCounts = computed(() => {
   const c = { total: 0, hh: 0, cold: 0, manual: 0, api: 0, other: 0 }
@@ -386,8 +501,15 @@ watch(currentIndex, () => {
 const currentSummary = computed(() => filteredApplications.value[currentIndex.value] ?? null)
 
 // Detail tab for center panel
-type DetailTab = 'overview' | 'interviews' | 'documents' | 'responses' | 'ai-analysis' | 'timeline' | 'properties'
-const detailTab = ref<DetailTab>('overview')
+type DetailTab = 'overview' | 'interviews' | 'documents' | 'responses' | 'ai-analysis' | 'timeline' | 'properties' | 'chat'
+const DETAIL_TABS: DetailTab[] = ['overview', 'ai-analysis', 'interviews', 'documents', 'responses', 'chat', 'timeline', 'properties']
+const detailTab = useDetailTabRoute({
+  available: () => DETAIL_TABS,
+  defaultTab: 'overview',
+  queryKey: 'tab',
+}) as unknown as import('vue').Ref<DetailTab>
+// Спринт 18: счётчик непрочитанных для бейджа вкладки «Чат»
+const chatUnread = ref(0)
 
 // Overview section visibility toggles
 const overviewSections = reactive({
@@ -423,6 +545,7 @@ const showSection = computed(() => ({
   responses: detailTab.value === 'overview' ? overviewSections.responses : detailTab.value === 'responses',
   properties: detailTab.value === 'overview' ? overviewSections.properties : detailTab.value === 'properties',
   timeline: detailTab.value === 'timeline',
+  chat: detailTab.value === 'chat',
 }))
 
 // ─────────────────────────────────────────────
@@ -453,6 +576,7 @@ const timelineActionLabels = computed<Record<string, string>>(() => ({
   updated: t('dashboard.jobs.detail.tlUpdated'),
   deleted: t('dashboard.jobs.detail.tlDeleted'),
   status_changed: t('dashboard.jobs.detail.tlStatusChanged'),
+  stage_changed: t('dashboard.jobs.detail.tlStageChanged'),
   comment_added: t('dashboard.jobs.detail.tlCommentAdded'),
   scored: t('dashboard.jobs.detail.tlScored'),
   scheduled: t('dashboard.jobs.detail.tlScheduled'),
@@ -475,6 +599,7 @@ function getTimelineActionStyle(action: string): TimelineActionStyle {
     updated: { icon: Pencil, color: 'text-brand-600 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-950/50' },
     deleted: { icon: Trash2, color: 'text-danger-600 dark:text-danger-400', bg: 'bg-danger-50 dark:bg-danger-950/50' },
     status_changed: { icon: ArrowRight, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/50' },
+    stage_changed: { icon: ArrowRight, color: 'text-brand-600 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-950/50' },
     comment_added: { icon: MessageSquare, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/50' },
     scored: { icon: Brain, color: 'text-accent-600 dark:text-accent-400', bg: 'bg-accent-50 dark:bg-accent-950/50' },
     scheduled: { icon: Calendar, color: 'text-brand-600 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-950/50' },
@@ -495,15 +620,33 @@ function getTimelineStatusBadge(status: string): string {
   return map[s] ?? 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300'
 }
 
+// Спринт 15.1: единое чтение from/to из metadata (legacy status_changed пишет
+// {from,to} или {from_status,to_status}; stage_changed пишет имена этапов {from,to})
+function tlFrom(item: TimelineEntry): string {
+  const m = item.metadata ?? {}
+  return String(m.from_status ?? m.fromStatus ?? m.from ?? '')
+}
+function tlTo(item: TimelineEntry): string {
+  const m = item.metadata ?? {}
+  return String(m.to_status ?? m.toStatus ?? m.to ?? '')
+}
+// Бейдж для события смены этапа: пытаемся найти цвет этапа в текущей воронке
+function stageEventBadgeStyle(name: string): Record<string, string> {
+  const st = pipelineView.value?.stages?.find(x => x.name === name)
+  if (st?.color) return { backgroundColor: `${st.color}22`, color: st.color }
+  return {}
+}
+
 function describeTimelineItem(item: TimelineEntry): string {
-  const actor = item.actorName ?? item.actorEmail ?? 'System'
+  const actor = item.actorName ?? item.actorEmail ?? 'Система'
   const action = timelineActionLabels[item.action] ?? item.action
   const resource = item.resourceType
 
-  if (item.action === 'status_changed' && item.metadata) {
-    const from = item.metadata.from_status ?? item.metadata.fromStatus
-    const to = item.metadata.to_status ?? item.metadata.toStatus
-    if (from && to) return `${actor} changed ${resource} status from ${from} to ${to}`
+  if ((item.action === 'status_changed' || item.action === 'stage_changed') && item.metadata) {
+    const from = tlFrom(item)
+    const to = tlTo(item)
+    if (from && to) return `${actor}: ${from} → ${to}`
+    if (to) return `${actor}: → ${to}`
   }
 
   if (item.action === 'scored' && item.metadata) {
@@ -602,6 +745,7 @@ watch(currentApplicationId, () => {
   timelineItems.value = []
   timelineLoaded.value = false
   timelineError.value = null
+  chatUnread.value = 0
 })
 
 watch(currentApplicationId, async (id) => {
@@ -732,6 +876,58 @@ function isFocusStatus(status: PipelineStatus) {
   return focusStatus.value === status
 }
 
+// ─── Sprint 9: Проверка фокуса по stageId (новая воронка) ───
+function isFocusStage(stageId: string) {
+  return focusStageId.value === stageId
+}
+function setFocusStage(stageId: string) {
+  focusStageId.value = stageId
+}
+
+// ─── Спринт 12.3: подэтапы выбранного root-этапа ───
+const focusSubStageId = ref<string | null>(null)
+
+// Подэтапы текущего сфокусированного root-этапа (не скрытые)
+const focusedSubStages = computed<PipelineViewStage[]>(() => {
+  if (!hasNewPipeline.value || !focusStageId.value) return []
+  return (pipelineView.value?.stages ?? [])
+    .filter(s => s.parentStageId === focusStageId.value && !s.isHidden)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+})
+
+// При смене root-этапа сбрасываем выбранный подэтап (вкладка «Все»)
+watch(focusStageId, () => {
+  focusSubStageId.value = null
+})
+
+// Счётчики по подэтапам: только прямые попадания в currentStageId
+const subStageCounts = computed<Record<string, number>>(() => {
+  const counts: Record<string, number> = {}
+  for (const s of focusedSubStages.value) counts[s.id] = 0
+  for (const a of applications.value) {
+    const sid = a.currentStageId
+    if (sid && sid in counts) counts[sid] += 1
+  }
+  return counts
+})
+
+// ─── Спринт 12.4: отказные этапы всегда в красных оттенках ───
+// Покрывает и старые цвета из pipeline_snapshot_json, которые миграция БД не трогает.
+const REJECT_COLOR_BY_TYPE: Record<string, string> = {
+  not_fit: '#ef4444', // red-500
+  withdrawn: '#f87171', // red-400
+  no_show: '#e11d48', // rose-600
+  job_closed: '#b91c1c', // red-700
+  transferred: '#9f1239', // rose-800
+  rejected: '#ef4444', // legacy alias
+}
+function stageDisplayColor(stage: PipelineViewStage): string {
+  if (stage.bucket === 'rejected') {
+    return REJECT_COLOR_BY_TYPE[stage.type] ?? '#ef4444'
+  }
+  return stage.color || '#3b82f6'
+}
+
 function setFocusStatus(status: PipelineStatus) {
   focusStatus.value = status
 }
@@ -770,7 +966,33 @@ async function handleInterviewScheduled() {
   // Refresh the interviews list
   await refreshJobInterviews()
 
-  // Transition the application status to 'interview' after scheduling
+  // Спринт 14: при новой воронке переводим кандидата на этап типа interview
+  if (hasNewPipeline.value && scheduledApplicationId) {
+    const interviewStage = pipelineStages.value.find(s => s.type === 'interview')
+    const app = applications.value.find(a => a.id === scheduledApplicationId)
+    if (interviewStage && app && app.currentStageId !== interviewStage.id) {
+      try {
+        await $fetch(`/api/applications/${scheduledApplicationId}/stage`, {
+          method: 'PATCH',
+          body: { stageId: interviewStage.id },
+        })
+        await refreshApps()
+        // Следуем за кандидатом на этап «Интервью»
+        focusStageId.value = interviewStage.id
+        await nextTick()
+        const idx = filteredApplications.value.findIndex(a => a.id === scheduledApplicationId)
+        if (idx !== -1) currentIndex.value = idx
+      }
+      catch (err: any) {
+        if (!handlePreviewReadOnlyError(err)) {
+          toast.error(t('dashboard.jobs.detail.failedToUpdateStatus'), { message: err?.data?.statusMessage, statusCode: err?.data?.statusCode })
+        }
+      }
+    }
+    return
+  }
+
+  // Legacy: transition the application status to 'interview' after scheduling
   if (currentSummary.value && currentSummary.value.status !== 'interview') {
     const allowed = APPLICATION_STATUS_TRANSITIONS[currentSummary.value.status] ?? []
     if (allowed.includes('interview')) {
@@ -1032,6 +1254,41 @@ async function handleReschedule() {
   }
 }
 
+// ─── Спринт 14: смена этапа из воронки (единый компонент быстрых действий) ───
+
+// Этап текущего кандидата (для бейджа в шапке)
+const currentStageInfo = computed<PipelineViewStage | null>(() => {
+  const sid = (currentSummary.value as AppRow | null)?.currentStageId
+  if (!sid || !pipelineView.value?.stages?.length) return null
+  return pipelineView.value.stages.find(s => s.id === sid) ?? null
+})
+
+// Имя сфокусированного этапа для пустых состояний (вместо legacy-статуса)
+const focusedStageName = computed(() => {
+  if (hasNewPipeline.value && focusStageId.value) {
+    const s = pipelineStages.value.find(x => x.id === focusStageId.value)
+    if (s) return s.name
+  }
+  return formatStatusLabel(focusStatus.value)
+})
+
+async function handlePipelineStageChanged(payload: { newStageId: string, newStageName: string, newStageColor: string }) {
+  track('pipeline_stage_changed', {
+    from_stage: (currentSummary.value as AppRow | null)?.currentStageId ?? currentSummary.value?.status ?? 'unknown',
+    to_stage: payload.newStageId,
+  })
+  await refreshApps()
+  // Смена этапа пишется в ленту (stage_changed) — сбрасываем кэш ленты
+  timelineLoaded.value = false
+  if (detailTab.value === 'timeline') void loadTimeline()
+  // Кандидат ушёл из сфокусированного списка — следующий занял его индекс.
+  // Клампим только если индекс вышел за границы.
+  const newLen = filteredApplications.value.length
+  if (newLen > 0 && currentIndex.value >= newLen) {
+    currentIndex.value = newLen - 1
+  }
+}
+
 async function changeStatus(status: string) {
   if (!currentSummary.value || isMutating.value) return
   const applicationId = currentSummary.value.id
@@ -1050,6 +1307,10 @@ async function changeStatus(status: string) {
     })
 
     await refreshApps()
+
+    // Смена статуса пишется в ленту (status_changed) — сбрасываем кэш ленты
+    timelineLoaded.value = false
+    if (detailTab.value === 'timeline') void loadTimeline()
 
     // After the moved candidate disappears from the list, the items that came after
     // it shift up by one index. currentIndex now naturally points to the next
@@ -1149,9 +1410,10 @@ function handleKeyNavigation(event: KeyboardEvent) {
     goToNextStage()
   }
 
-  // Number keys 1-9 trigger status transition buttons
+  // Number keys 1-9 trigger status transition buttons (только legacy-воронка:
+  // при новой воронке действия идут через ApplicationQuickActions)
   const num = parseInt(event.key)
-  if (num >= 1 && num <= 9 && allowedTransitions.value.length >= num) {
+  if (!hasNewPipeline.value && num >= 1 && num <= 9 && allowedTransitions.value.length >= num) {
     event.preventDefault()
     const targetStatus = allowedTransitions.value[num - 1]!
     if (targetStatus === 'interview') {
@@ -1221,7 +1483,7 @@ onBeforeUnmount(() => {
 })
 
 const isLoading = computed(() => {
-  return jobFetchStatus.value === 'pending' || appFetchStatus.value === 'pending'
+  return jobFetchStatus.value === 'pending' || appFetchStatus.value === 'pending' || !pipelineViewReady.value
 })
 
 // ─────────────────────────────────────────────
@@ -1310,33 +1572,75 @@ function closeDocPreview() {
       <!-- ═══════════════════════════════════════ -->
       <div class="shrink-0 border-b border-surface-200/80 bg-white dark:border-surface-800/60 dark:bg-surface-900">
         <div class="flex items-center gap-1 overflow-x-auto scrollbar-thin sm:scrollbar-none px-3 sm:px-5 py-2">
-          <button
-            v-for="status in PIPELINE_STATUSES"
-            :key="`tab-${status}`"
-            class="relative flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-200 focus:outline-none"
-            :class="isFocusStatus(status)
-              ? 'bg-brand-50 text-brand-700 shadow-sm ring-1 ring-brand-200/60 dark:bg-brand-950/40 dark:text-brand-300 dark:ring-brand-800/40'
-              : 'text-surface-500 hover:bg-surface-50 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-800/60 dark:hover:text-surface-200'"
-            @click="setFocusStatus(status)"
-          >
-            <span class="pipeline-status-dot size-2 rounded-full" :class="{
-              'bg-blue-500 dark:bg-blue-400': status === 'new',
-              'bg-violet-500 dark:bg-violet-400': status === 'screening',
-              'bg-amber-500 dark:bg-amber-400': status === 'interview',
-              'bg-teal-500 dark:bg-teal-400': status === 'offer',
-              'bg-green-600 dark:bg-green-300': status === 'hired',
-              'bg-surface-400 dark:bg-surface-500': status === 'rejected',
-            }" />
-            {{ formatStatusLabel(status) }}
-            <span
-              class="inline-flex min-w-[20px] items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums transition-colors duration-200"
-              :class="isFocusStatus(status)
-                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300'
-                : 'bg-surface-100 text-surface-500 dark:bg-surface-800/80 dark:text-surface-400'"
+          <!-- ─── Sprint 9: Динамические табы по stages воронки (если есть новая воронка) ─── -->
+          <template v-if="hasNewPipeline">
+            <button
+              v-for="stage in pipelineStages"
+              :key="`tab-stage-${stage.id}`"
+              class="relative flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-200 focus:outline-none"
+              :class="isFocusStage(stage.id)
+                ? 'bg-brand-50 text-brand-700 shadow-sm ring-1 ring-brand-200/60 dark:bg-brand-950/40 dark:text-brand-300 dark:ring-brand-800/40'
+                : (stage.bucket === 'rejected'
+                    ? 'text-surface-400 hover:bg-surface-50 hover:text-surface-600 dark:text-surface-500 dark:hover:bg-surface-800/60'
+                    : 'text-surface-500 hover:bg-surface-50 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-800/60 dark:hover:text-surface-200')"
+              :title="stage.description || stage.name"
+              @click="setFocusStage(stage.id)"
             >
-              {{ statusCounts[status] ?? 0 }}
-            </span>
-          </button>
+              <span
+                class="pipeline-status-dot size-2 rounded-full"
+                :style="{ backgroundColor: stageDisplayColor(stage) }"
+              />
+              {{ stage.name }}
+              <span
+                class="inline-flex min-w-[20px] items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums transition-colors duration-200"
+                :class="isFocusStage(stage.id)
+                  ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300'
+                  : 'bg-surface-100 text-surface-500 dark:bg-surface-800/80 dark:text-surface-400'"
+              >
+                {{ stageCounts[stage.id] ?? 0 }}
+              </span>
+            </button>
+          </template>
+
+          <!-- Скелетон табов, пока pipeline-view не загружен (анти-мигание) -->
+          <template v-else-if="!pipelineViewReady">
+            <span
+              v-for="i in 6"
+              :key="`tab-skel-${i}`"
+              class="inline-flex h-9 w-28 shrink-0 animate-pulse rounded-lg bg-surface-100 dark:bg-surface-800/70"
+            />
+          </template>
+
+          <!-- Legacy tabs (старая воронка 6 этапов) — fallback если новой воронки нет -->
+          <template v-else>
+            <button
+              v-for="status in PIPELINE_STATUSES"
+              :key="`tab-${status}`"
+              class="relative flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-200 focus:outline-none"
+              :class="isFocusStatus(status)
+                ? 'bg-brand-50 text-brand-700 shadow-sm ring-1 ring-brand-200/60 dark:bg-brand-950/40 dark:text-brand-300 dark:ring-brand-800/40'
+                : 'text-surface-500 hover:bg-surface-50 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-800/60 dark:hover:text-surface-200'"
+              @click="setFocusStatus(status)"
+            >
+              <span class="pipeline-status-dot size-2 rounded-full" :class="{
+                'bg-blue-500 dark:bg-blue-400': status === 'new',
+                'bg-violet-500 dark:bg-violet-400': status === 'screening',
+                'bg-amber-500 dark:bg-amber-400': status === 'interview',
+                'bg-teal-500 dark:bg-teal-400': status === 'offer',
+                'bg-green-600 dark:bg-green-300': status === 'hired',
+                'bg-surface-400 dark:bg-surface-500': status === 'rejected',
+              }" />
+              {{ formatStatusLabel(status) }}
+              <span
+                class="inline-flex min-w-[20px] items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums transition-colors duration-200"
+                :class="isFocusStatus(status)
+                  ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300'
+                  : 'bg-surface-100 text-surface-500 dark:bg-surface-800/80 dark:text-surface-400'"
+              >
+                {{ statusCounts[status] ?? 0 }}
+              </span>
+            </button>
+          </template>
 
           <!-- Sprint 3: счётчики источников + тумблер «Скрыть холодных» -->
           <div class="ml-auto flex items-center gap-2">
@@ -1376,6 +1680,45 @@ function closeDocPreview() {
               <Maximize2 v-else class="size-4" />
             </button>
           </div>
+        </div>
+
+        <!-- ─── Спринт 12.3: ряд подэтапов выбранного этапа ─── -->
+        <div
+          v-if="hasNewPipeline && focusedSubStages.length"
+          class="flex items-center gap-1 overflow-x-auto scrollbar-thin sm:scrollbar-none px-3 sm:px-5 pb-2 -mt-0.5"
+        >
+          <span class="shrink-0 text-[11px] uppercase tracking-wide text-surface-400 dark:text-surface-500 mr-1">Подэтапы:</span>
+          <button
+            class="relative flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200 focus:outline-none"
+            :class="focusSubStageId === null
+              ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200/60 dark:bg-brand-950/40 dark:text-brand-300 dark:ring-brand-800/40'
+              : 'text-surface-500 hover:bg-surface-50 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-800/60'"
+            @click="focusSubStageId = null"
+          >
+            Все
+            <span class="inline-flex min-w-[18px] items-center justify-center rounded px-1 py-0.5 text-[10px] font-semibold tabular-nums bg-surface-100 text-surface-500 dark:bg-surface-800/80 dark:text-surface-400">
+              {{ focusStageId ? (stageCounts[focusStageId] ?? 0) : 0 }}
+            </span>
+          </button>
+          <button
+            v-for="sub in focusedSubStages"
+            :key="`sub-${sub.id}`"
+            class="relative flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200 focus:outline-none"
+            :class="focusSubStageId === sub.id
+              ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200/60 dark:bg-brand-950/40 dark:text-brand-300 dark:ring-brand-800/40'
+              : 'text-surface-500 hover:bg-surface-50 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-800/60'"
+            :title="sub.description || sub.name"
+            @click="focusSubStageId = sub.id"
+          >
+            <span
+              class="pipeline-status-dot size-1.5 rounded-full"
+              :style="{ backgroundColor: stageDisplayColor(sub) }"
+            />
+            {{ sub.name }}
+            <span class="inline-flex min-w-[18px] items-center justify-center rounded px-1 py-0.5 text-[10px] font-semibold tabular-nums bg-surface-100 text-surface-500 dark:bg-surface-800/80 dark:text-surface-400">
+              {{ subStageCounts[sub.id] ?? 0 }}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -1565,7 +1908,7 @@ function closeDocPreview() {
                 {{ (searchTerm.trim() || hasActiveFilters) ? t('dashboard.jobs.detail.noMatchingCandidates') : t('dashboard.jobs.detail.noCandidatesYet') }}
               </p>
               <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">
-                {{ (searchTerm.trim() || hasActiveFilters) ? t('dashboard.jobs.detail.tryAdjusting') : t('dashboard.jobs.detail.noOneInStage', { stage: formatStatusLabel(focusStatus) }) }}
+                {{ (searchTerm.trim() || hasActiveFilters) ? t('dashboard.jobs.detail.tryAdjusting') : t('dashboard.jobs.detail.noOneInStage', { stage: focusedStageName }) }}
               </p>
               <button
                 v-if="hasActiveFilters"
@@ -1599,23 +1942,9 @@ function closeDocPreview() {
                 </p>
                 <p class="mt-0.5 block truncate text-xs text-surface-500 dark:text-surface-400">{{ app.candidateEmail }}</p>
                 <div class="mt-1.5 flex items-center gap-2">
-                  <!-- Sprint 3: иконка источника application (отклик/холодный/ручной/внешний) -->
-                  <component
-                    :is="getApplicationSourceMeta((app as any).source).icon"
-                    :class="['size-3.5', getApplicationSourceMeta((app as any).source).iconClass]"
-                    :title="getApplicationSourceMeta((app as any).source).tooltip"
-                  />
-                  <span
-                    v-if="app.score != null"
-                    class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset"
-                    :class="{
-                      'bg-success-50 text-success-700 ring-success-200 dark:bg-success-950/60 dark:text-success-400 dark:ring-success-800': app.score >= 75,
-                      'bg-warning-50 text-warning-700 ring-warning-200 dark:bg-warning-950/60 dark:text-warning-400 dark:ring-warning-800': app.score >= 40 && app.score < 75,
-                      'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950/60 dark:text-danger-400 dark:ring-danger-800': app.score < 40,
-                    }"
-                  >
-                    {{ app.score }} {{ t('common.points') }}
-                  </span>
+                  <!-- Спринт 3: источник application через SourceBadge — иконка в компактном виде -->
+                  <SourceBadge :source="(app as any).source" size="xs" icon-only />
+                  <ScoreBadge v-if="app.score != null" :score="app.score" size="xs" :show-unit="false" />
                   <span class="text-[11px] text-surface-400 dark:text-surface-500">{{ timeAgo(app.createdAt) }}</span>
                   <span v-if="applicationsWithInterviews.has(app.id)" class="inline-flex items-center text-warning-500 dark:text-warning-400" :title="t('dashboard.jobs.detail.interviewScheduledHint')">
                     <Calendar class="size-3" />
@@ -1640,7 +1969,7 @@ function closeDocPreview() {
               <UserRound class="size-7 text-surface-400 dark:text-surface-500" />
             </div>
             <p class="text-base font-semibold text-surface-700 dark:text-surface-200">
-              {{ t('dashboard.jobs.detail.noCandidatesIn', { stage: formatStatusLabel(focusStatus) }) }}
+              {{ t('dashboard.jobs.detail.noCandidatesIn', { stage: focusedStageName }) }}
             </p>
             <p class="mt-1.5 text-sm text-surface-500 dark:text-surface-400 max-w-xs">
               {{ t('dashboard.jobs.detail.switchStage') }}
@@ -1648,8 +1977,24 @@ function closeDocPreview() {
           </div>
 
           <template v-else>
-            <!-- Sticky status transitions (stays visible on scroll) -->
-            <div v-if="allowedTransitions.length > 0" class="shrink-0 border-b border-surface-200/80 bg-white/95 backdrop-blur-sm px-4 sm:px-6 py-2.5 dark:border-surface-800/60 dark:bg-surface-900/95">
+            <!-- Спринт 14: единый компонент быстрых действий (как в карточке отклика и drawer) -->
+            <div v-if="hasNewPipeline" class="shrink-0 border-b border-surface-200/80 bg-white/95 backdrop-blur-sm px-4 sm:px-6 py-2.5 dark:border-surface-800/60 dark:bg-surface-900/95">
+              <ApplicationQuickActions
+                :key="currentSummary.id"
+                class="mx-auto max-w-4xl"
+                :application-id="currentSummary.id"
+                :current-stage-id="(currentSummary as any).currentStageId ?? null"
+                :status="currentSummary.status"
+                :disabled="isMutating"
+                :hotkeys="true"
+                @stage-changed="handlePipelineStageChanged"
+                @legacy-transition="changeStatus"
+                @schedule="openInterviewScheduler"
+              />
+            </div>
+
+            <!-- Legacy status transitions (воронка без этапов) -->
+            <div v-else-if="pipelineViewReady && allowedTransitions.length > 0" class="shrink-0 border-b border-surface-200/80 bg-white/95 backdrop-blur-sm px-4 sm:px-6 py-2.5 dark:border-surface-800/60 dark:bg-surface-900/95">
               <div class="mx-auto max-w-4xl flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <button
                   v-for="(nextStatus, idx) in allowedTransitions"
@@ -1681,7 +2026,15 @@ function closeDocPreview() {
                       <h2 class="text-xl font-semibold tracking-tight text-surface-900 dark:text-surface-50 truncate">
                         {{ formatPersonName(currentSummary.candidateFirstName, currentSummary.candidateLastName) }}
                       </h2>
+                      <!-- Спринт 14: бейдж этапа воронки; legacy-статус — только без воронки -->
+                      <ApplicationStageBadge
+                        v-if="currentStageInfo"
+                        class="shrink-0"
+                        :name="currentStageInfo.name"
+                        :color="stageDisplayColor(currentStageInfo)"
+                      />
                       <span
+                        v-else
                         class="inline-flex shrink-0 items-center rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset"
                         :class="{
                           'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:ring-blue-800': currentSummary.status === 'new',
@@ -1710,17 +2063,7 @@ function closeDocPreview() {
                       </span>
                     </div>
                     <div class="mt-2 flex flex-wrap items-center gap-2">
-                      <span
-                        v-if="currentSummary.score != null"
-                        class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset"
-                        :class="{
-                          'bg-success-50 text-success-700 ring-success-200 dark:bg-success-950/60 dark:text-success-400 dark:ring-success-800': currentSummary.score >= 75,
-                          'bg-warning-50 text-warning-700 ring-warning-200 dark:bg-warning-950/60 dark:text-warning-400 dark:ring-warning-800': currentSummary.score >= 40 && currentSummary.score < 75,
-                          'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950/60 dark:text-danger-400 dark:ring-danger-800': currentSummary.score < 40,
-                        }"
-                      >
-                        {{ currentSummary.score }} {{ t('common.points') }}
-                      </span>
+                      <ScoreBadge v-if="currentSummary.score != null" :score="currentSummary.score" size="sm" />
                       <button
                         :disabled="isScoringIndividual"
                         class="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1898,6 +2241,22 @@ function closeDocPreview() {
                     class="ml-1 text-xs text-surface-400"
                   >
                     ({{ resolvedCurrentApplication.responses.length }})
+                  </span>
+                </button>
+                <button
+                  class="cursor-pointer px-3.5 py-2.5 text-sm font-medium transition-all duration-150 border-b-2 -mb-px flex items-center gap-1.5"
+                  :class="detailTab === 'chat'
+                    ? 'border-brand-600 text-brand-700 dark:border-brand-400 dark:text-brand-300'
+                    : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:text-surface-400 dark:hover:text-surface-300 dark:hover:border-surface-600'"
+                  @click="detailTab = 'chat'"
+                >
+                  <MessagesSquare class="size-3.5" />
+                  {{ t('dashboard.jobs.detail.tabChat') }}
+                  <span
+                    v-if="chatUnread > 0"
+                    class="ml-0.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white dark:bg-brand-500"
+                  >
+                    {{ chatUnread }}
                   </span>
                 </button>
                 <button
@@ -2424,6 +2783,15 @@ function closeDocPreview() {
                 </div>
               </div>
 
+              <!-- CHAT SECTION (Спринт 18) -->
+              <div v-if="showSection.chat && currentSummary" class="max-w-4xl mx-auto">
+                <CommsChatPanel
+                  :key="currentSummary.id"
+                  :application-id="currentSummary.id"
+                  @meta="chatUnread = $event.unreadCount"
+                />
+              </div>
+
               <!-- TIMELINE SECTION -->
               <div v-if="showSection.timeline" class="space-y-3 max-w-4xl mx-auto">
                 <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200 flex items-center gap-2 mb-3">
@@ -2488,16 +2856,21 @@ function closeDocPreview() {
                           <span class="text-[13px] font-medium text-surface-900 dark:text-surface-100 shrink-0">{{ timelineActionLabels[item.action] ?? item.action }}</span>
                           <span class="text-[13px] text-surface-500 dark:text-surface-400">{{ item.resourceType }}</span>
                           <template v-if="item.action === 'status_changed' && item.metadata">
-                            <span v-if="item.metadata.from_status || item.metadata.fromStatus" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getTimelineStatusBadge(String(item.metadata.from_status ?? item.metadata.fromStatus))">{{ formatStatusLabel(String(item.metadata.from_status ?? item.metadata.fromStatus)) }}</span>
+                            <span v-if="tlFrom(item)" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getTimelineStatusBadge(tlFrom(item))">{{ formatStatusLabel(tlFrom(item)) }}</span>
                             <ArrowRight class="size-2.5 text-surface-400 dark:text-surface-500 shrink-0" />
-                            <span v-if="item.metadata.to_status || item.metadata.toStatus" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getTimelineStatusBadge(String(item.metadata.to_status ?? item.metadata.toStatus))">{{ formatStatusLabel(String(item.metadata.to_status ?? item.metadata.toStatus)) }}</span>
+                            <span v-if="tlTo(item)" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getTimelineStatusBadge(tlTo(item))">{{ formatStatusLabel(tlTo(item)) }}</span>
+                          </template>
+                          <template v-else-if="item.action === 'stage_changed' && item.metadata">
+                            <span v-if="tlFrom(item)" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300" :style="stageEventBadgeStyle(tlFrom(item))">{{ tlFrom(item) }}</span>
+                            <ArrowRight class="size-2.5 text-surface-400 dark:text-surface-500 shrink-0" />
+                            <span v-if="tlTo(item)" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300" :style="stageEventBadgeStyle(tlTo(item))">{{ tlTo(item) }}</span>
                           </template>
                           <template v-else-if="item.action === 'scored' && item.metadata?.score">
-                            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none bg-accent-100 text-accent-700 dark:bg-accent-900/60 dark:text-accent-300">{{ item.metadata.score }} {{ t('common.points') }}</span>
+                            <ScoreBadge :score="item.metadata.score" size="xs" />
                           </template>
                         </div>
                         <div class="flex items-center gap-2 mt-0.5">
-                          <span v-if="item.actorName || item.actorEmail" class="text-[11px] text-surface-400 dark:text-surface-500">{{ item.actorName ?? item.actorEmail }}</span>
+                          <span class="text-[11px] text-surface-400 dark:text-surface-500">{{ item.actorName ?? item.actorEmail ?? 'Система' }}</span>
                           <span class="text-[11px] text-surface-400 dark:text-surface-500 tabular-nums">{{ formatTimelineDate(item.createdAt) }}</span>
                           <span
                             v-if="item.jobTitle"
@@ -2565,7 +2938,7 @@ function closeDocPreview() {
                     'text-danger-600 dark:text-danger-400': app.score < 40,
                   }"
                 >
-                  {{ app.score }} {{ t('common.points') }}
+                  <ScoreBadge :score=app.score size="xs" />
                 </span>
                 <span class="text-[10px] text-surface-400 dark:text-surface-500">{{ timeAgo(app.createdAt) }}</span>
               </div>
@@ -2587,7 +2960,7 @@ function closeDocPreview() {
         :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
       >
         <p class="text-xs text-surface-400 dark:text-surface-500">
-          {{ t('dashboard.jobs.detail.noCandidatesIn', { stage: formatStatusLabel(focusStatus) }) }}
+          {{ t('dashboard.jobs.detail.noCandidatesIn', { stage: focusedStageName }) }}
         </p>
       </div>
     </template>
@@ -2600,6 +2973,7 @@ function closeDocPreview() {
     <CandidateDetailDrawer
       v-if="showCandidateDrawer && resolvedCurrentApplication?.candidate?.id"
       :candidate-id="resolvedCurrentApplication.candidate.id"
+      :application-id="resolvedCurrentApplication.id"
       @close="showCandidateDrawer = false"
     />
 
@@ -2648,7 +3022,7 @@ function closeDocPreview() {
             v-if="docPreviewUrl && isDocPreviewPdf"
             :src="docPreviewUrl"
             class="flex-1 w-full rounded-b-2xl min-h-0"
-            title="Document preview"
+            title="Просмотр документа"
           />
           <!-- Non-PDF fallback -->
           <div v-else class="flex-1 flex items-center justify-center p-8 text-center">

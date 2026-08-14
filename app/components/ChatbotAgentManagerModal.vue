@@ -96,7 +96,7 @@ async function save() {
 
 async function remove() {
   if (!draft.value.id) return
-  if (!confirm(`Delete agent "${draft.value.name}"?`)) return
+  if (!confirm(`Удалить агента «${draft.value.name}»?`)) return
   await deleteAgent(draft.value.id)
   newAgent()
 }
@@ -118,7 +118,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
           <div class="flex items-center gap-2">
             <Sparkles class="size-5 text-brand-500" />
             <h2 class="text-base font-semibold text-surface-900 dark:text-surface-50">
-              Manage agents
+              Управление агентами
             </h2>
             <span class="rounded-full bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-[11px] text-surface-600 dark:text-surface-300">
               {{ agents.length }} / {{ CHATBOT_AGENT_MAX_PER_USER }}
@@ -139,11 +139,11 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
             <button
               class="mb-2 inline-flex w-full items-center gap-2 rounded-lg border border-dashed border-brand-300 dark:border-brand-700 px-3 py-2 text-sm font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/30 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 bg-transparent transition-colors"
               :disabled="atCap"
-              :title="atCap ? 'Agent limit reached' : 'New agent'"
+              :title="atCap ? 'Достигнут лимит агентов' : 'Создать агента'"
               @click="newAgent"
             >
               <Plus class="size-4" />
-              New agent
+              Создать агента
             </button>
             <ul class="space-y-1">
               <li
@@ -163,7 +163,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
                 v-if="agents.length === 0"
                 class="px-2 py-2 text-xs italic text-surface-400"
               >
-                No agents yet — pick "New agent" to get started.
+                Агентов пока нет — нажмите «Создать агента», чтобы начать.
               </li>
             </ul>
           </div>
@@ -173,33 +173,33 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
             <div class="space-y-4">
               <div>
                 <label class="block text-xs font-semibold text-surface-700 dark:text-surface-300 mb-1">
-                  Name
+                  Название
                 </label>
                 <input
                   v-model="draft.name"
                   type="text"
                   maxlength="80"
-                  placeholder="e.g. Recruiter coach"
+                  placeholder="Например, Наставник рекрутёра"
                   class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 >
               </div>
 
               <div>
                 <label class="block text-xs font-semibold text-surface-700 dark:text-surface-300 mb-1">
-                  Description <span class="font-normal text-surface-400">(optional, shown in the picker)</span>
+                  Описание <span class="font-normal text-surface-400">(необязательно, отображается при выборе)</span>
                 </label>
                 <input
                   v-model="draft.description"
                   type="text"
                   maxlength="200"
-                  placeholder="e.g. Reviews resumes against a job"
+                  placeholder="Например, сопоставляет резюме с вакансией"
                   class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 >
               </div>
 
               <div>
                 <label class="block text-xs font-semibold text-surface-700 dark:text-surface-300 mb-1">
-                  System prompt
+                  Инструкции
                   <span class="float-right font-normal" :class="promptTooLong ? 'text-danger-500' : 'text-surface-400'">
                     {{ promptCount }}
                   </span>
@@ -207,7 +207,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
                 <textarea
                   v-model="draft.systemPrompt"
                   rows="10"
-                  placeholder="Describe how this agent should behave. The default Reqcore tooling instructions are always prepended automatically."
+                  placeholder="Опишите, как должен вести себя этот агент. Базовые инструкции Huntfork добавляются автоматически."
                   class="w-full rounded-lg border bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-1 font-mono"
                   :class="promptTooLong
                     ? 'border-danger-400 focus:border-danger-500 focus:ring-danger-500'
@@ -218,7 +218,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-xs font-semibold text-surface-700 dark:text-surface-300 mb-1">
-                    Temperature <span class="font-normal text-surface-400">(0–2, blank = default)</span>
+                    Температура <span class="font-normal text-surface-400">(0–2, пусто — по умолчанию)</span>
                   </label>
                   <input
                     v-model.number="draft.temperature"
@@ -232,7 +232,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
                 </div>
                 <div>
                   <label class="block text-xs font-semibold text-surface-700 dark:text-surface-300 mb-1">
-                    Icon name <span class="font-normal text-surface-400">(lucide, optional)</span>
+                    Название иконки <span class="font-normal text-surface-400">(Lucide, необязательно)</span>
                   </label>
                   <input
                     v-model="draft.icon"
@@ -250,7 +250,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
                   type="checkbox"
                   class="size-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500"
                 >
-                Use this agent by default for new conversations
+                Использовать этого агента по умолчанию для новых диалогов
               </label>
             </div>
           </div>
@@ -264,7 +264,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
             @click="remove"
           >
             <Trash2 class="size-4" />
-            Delete
+            Удалить
           </button>
           <span v-else />
 
@@ -273,7 +273,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
               class="rounded-lg px-3 py-2 text-sm font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer border-0 bg-transparent"
               @click="emit('close')"
             >
-              Close
+              Закрыть
             </button>
             <button
               class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer transition-colors"
@@ -281,7 +281,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
               @click="save"
             >
               <Save class="size-4" />
-              {{ draft.id ? 'Save changes' : 'Create agent' }}
+              {{ draft.id ? 'Сохранить изменения' : 'Создать агента' }}
             </button>
           </div>
         </div>

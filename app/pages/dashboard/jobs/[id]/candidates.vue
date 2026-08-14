@@ -667,7 +667,7 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
             <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('dashboard.candidates.table.name') }}</th>
             <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">Email</th>
             <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('applications.stage.label') }}</th>
-            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">Status</th>
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">Статус</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -789,7 +789,7 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
             @click="panelOpen = !panelOpen"
           >
             <SlidersHorizontal class="size-4" />
-            View
+            Открыть
             <span
               v-if="activeFilterCount > 0"
               class="inline-flex items-center justify-center size-4 rounded-full bg-brand-500 text-white text-[10px] font-semibold"
@@ -1077,7 +1077,7 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
           {{ $t('dashboard.jobs.candidates.noCandidatesYet') }}
         </h3>
         <p class="text-sm text-surface-500 dark:text-surface-400 max-w-xs mx-auto">
-          Candidates will appear here when they apply to this job or when you link candidates from the Overview tab.
+          Кандидаты появятся здесь, когда откликнутся на эту вакансию или когда вы привяжете их на вкладке «Обзор».
         </p>
       </div>
 
@@ -1231,27 +1231,10 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                   >{{ app.candidateEmail }}</a>
                 </td>
                 <td v-if="visibleCols.score" class="px-4 py-3">
-                  <span
-                    v-if="app.score != null"
-                    class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ring-1 ring-inset"
-                    :class="scoreClass(app.score)"
-                  >
-                    {{ app.score }} pts
-                  </span>
-                  <span v-else class="text-surface-400 dark:text-surface-500 text-xs">—</span>
+                  <ScoreBadge :score="app.score" size="xs" />
                 </td>
                 <td v-if="visibleCols.source" class="px-4 py-3 whitespace-nowrap">
-                  <span
-                    class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium"
-                    :class="getApplicationSourceMeta((app as any).source).badgeClass"
-                    :title="getApplicationSourceMeta((app as any).source).tooltip"
-                  >
-                    <component
-                      :is="getApplicationSourceMeta((app as any).source).icon"
-                      :class="['size-3.5', getApplicationSourceMeta((app as any).source).iconClass]"
-                    />
-                    {{ getApplicationSourceMeta((app as any).source).label }}
-                  </span>
+                  <SourceBadge :source="(app as any).source" size="xs" />
                 </td>
                 <td v-if="visibleCols.stage" class="px-4 py-3" @click.stop>
                   <ApplicationStagePicker
@@ -1261,12 +1244,7 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                   />
                 </td>
                 <td v-if="visibleCols.status" class="px-4 py-3">
-                  <span
-                    class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold capitalize ring-1 ring-inset"
-                    :class="statusBadgeClasses[app.status] ?? 'bg-surface-100 text-surface-600 ring-surface-200'"
-                  >
-                    {{ app.status }}
-                  </span>
+                  <StatusBadge v-if="!app.currentStageId" :status="app.status" size="xs" />
                 </td>
                 <td v-if="visibleCols.createdAt" class="hidden md:table-cell px-4 py-3 text-surface-500 dark:text-surface-400 whitespace-nowrap text-xs font-medium">
                   <TimelineDateLink :date="app.createdAt">{{ timeAgo(app.createdAt) }}</TimelineDateLink>

@@ -1,20 +1,33 @@
 <script setup lang="ts">
 import {
-  ArrowLeft, Loader2, GitBranch, AlertTriangle, Copy,
-  Lock, Briefcase, Users,
+  ArrowLeft, Loader2, Lock, EyeOff, Eye, Trash2, Plus,
+  Briefcase, Users, GripVertical, ChevronDown, ChevronRight,
+  AlertTriangle, Settings,
 } from 'lucide-vue-next'
-import type { PipelineStage } from '~/components/PipelineStageEditor.vue'
 
 definePageMeta({})
 
 const route = useRoute()
-const { t } = useI18n()
 const toast = useToast()
 const localePath = useLocalePath()
 
 const pipelineId = computed(() => route.params.id as string)
 
-// ── Load pipeline ──
+interface StageDto {
+  id: string
+  name: string
+  description: string | null
+  type: string
+  bucket: 'working' | 'rejected'
+  color: string
+  displayOrder: number
+  isTerminal: boolean
+  isArchived: boolean
+  isSystemStage: boolean
+  isHidden: boolean
+  parentStageId: string | null
+}
+
 interface PipelineDetail {
   id: string
   name: string
@@ -24,313 +37,578 @@ interface PipelineDetail {
   isArchived: boolean
   jobsCount: number
   activeApplicationsCount: number
-  stages: Array<{
-    id: string
-    name: string
-    description: string | null
-    type: 'applied' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'custom'
-    color: string
-    displayOrder: number
-    isTerminal: boolean
-    isArchived: boolean
-    createdAt: string | Date
-    updatedAt: string | Date
-  }>
-  createdAt: string | Date
-  updatedAt: string | Date
+  stages: StageDto[]
 }
 
-const { data: pipeline, status, error: fetchError, refresh } = useFetch<PipelineDetail>(
+const { data: pipeline, status, refresh } = useFetch<PipelineDetail>(
   () => `/api/pipelines/${pipelineId.value}`,
-  {
-    headers: useRequestHeaders(['cookie']),
-  },
+  { headers: useRequestHeaders(['cookie']) },
 )
 
 useSeoMeta({
   title: computed(() => pipeline.value ? `${pipeline.value.name} — Воронка` : 'Воронка'),
 })
 
-const isLoadingPipeline = computed(() => status.value === 'pending')
+const isLoading = computed(() => status.value === 'pending')
 
-// ── Form state ──
-const name = ref('')
-const description = ref('')
-const stages = ref<PipelineStage[]>([])
+// ── Tab state ─────────────────────────────────────────────
+type TabKey = 'working' | 'rejected'
+const activeTab = ref<TabKey>('working')
 
-// Hydrate form when pipeline loads
-watch(pipeline, (val) => {
-  if (!val) return
-  name.value = val.name
-  description.value = val.description ?? ''
-  stages.value = val.stages
-    .slice()
-    .sort((a, b) => a.displayOrder - b.displayOrder)
-    .map(s => ({
-      id: s.id,
-      name: s.name,
-      description: s.description ?? undefined,
-      type: s.type,
-      isTerminal: s.isTerminal,
-      isArchived: s.isArchived,
-    }))
-}, { immediate: true })
+// Активные (не архивные) этапы верхнего уровня, разделённые по bucket
+const stagesByBucket = computed(() => {
+  const stages = pipeline.value?.stages ?? []
+  const topLevel = stages.filter((s) => !s.isArchived && !s.parentStageId)
+  const substagesByParent = new Map<string, StageDto[]>()
+  for (const s of stages.filter((s) => !s.isArchived && s.parentStageId)) {
+    const arr = substagesByParent.get(s.parentStageId!) ?? []
+    arr.push(s)
+    substagesByParent.set(s.parentStageId!, arr)
+  }
 
-// ── Stage editor ref ──
-const stageEditorRef = ref<{ isValid: boolean } | null>(null)
+  const working = topLevel.filter((s) => s.bucket === 'working').sort((a, b) => a.displayOrder - b.displayOrder)
+  const rejected = topLevel.filter((s) => s.bucket === 'rejected').sort((a, b) => a.displayOrder - b.displayOrder)
 
-const canSubmit = computed(() => {
-  if (pipeline.value?.isSystem) return false
-  const hasName = name.value.trim().length > 0
-  const stagesValid = stageEditorRef.value?.isValid ?? false
-  return hasName && stagesValid && !isSubmitting.value
+  return {
+    working: working.map((s) => ({ ...s, substages: (substagesByParent.get(s.id) ?? []).sort((a, b) => a.displayOrder - b.displayOrder) })),
+    rejected: rejected.map((s) => ({ ...s, substages: (substagesByParent.get(s.id) ?? []).sort((a, b) => a.displayOrder - b.displayOrder) })),
+  }
 })
 
-// ── Submit (PATCH) ──
-const isSubmitting = ref(false)
+const currentStages = computed(() => stagesByBucket.value[activeTab.value])
 
-async function handleSubmit() {
-  if (!canSubmit.value) return
-  isSubmitting.value = true
+// ── Actions ───────────────────────────────────────────────
+const busyStageId = ref<string | null>(null)
 
-  try {
-    await $fetch(`/api/pipelines/${pipelineId.value}`, {
-      method: 'PATCH',
-      body: {
-        name: name.value.trim(),
-        description: description.value.trim() || null,
-        stages: stages.value.map(s => ({
-          id: s.id,
-          name: s.name,
-          description: s.description || null,
-          type: s.type,
-          isTerminal: s.isTerminal,
-          isArchived: s.isArchived ?? false,
-        })),
-      },
-      headers: useRequestHeaders(['cookie']),
-    })
-    toast.success(t('pipelines.toast.updated'))
-    await navigateTo(localePath('/dashboard/settings/pipelines'))
+// ── Спринт 11.3: Drag-and-drop этапов ──────────────────────────
+// Перетаскивать можно только пользовательские (не базовые) этапы
+// верхнего уровня в пределах активного таба. Базовые — зафиксированы.
+const draggingStageId = ref<string | null>(null)
+const dragOverStageId = ref<string | null>(null)
+
+function onStageDragStart(stage: StageDto, e: DragEvent) {
+  if (stage.isSystemStage) {
+    e.preventDefault()
+    return
   }
-  catch (err: unknown) {
-    const msg = (err as { data?: { statusMessage?: string } })?.data?.statusMessage
-    if (msg) {
-      toast.error(msg)
-    }
-    else {
-      toast.error('Не удалось сохранить воронку')
-    }
-  }
-  finally {
-    isSubmitting.value = false
+  draggingStageId.value = stage.id
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', stage.id)
   }
 }
 
-// ── Clone (from system read-only view) ──
-const isCloningFromBanner = ref(false)
+function onStageDragOver(stage: StageDto, e: DragEvent) {
+  if (!draggingStageId.value || draggingStageId.value === stage.id) return
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+  dragOverStageId.value = stage.id
+}
 
-async function handleCloneAndNavigate() {
-  if (!pipeline.value) return
-  isCloningFromBanner.value = true
+function onStageDragLeave(stage: StageDto) {
+  if (dragOverStageId.value === stage.id) dragOverStageId.value = null
+}
+
+function onStageDragEnd() {
+  draggingStageId.value = null
+  dragOverStageId.value = null
+}
+
+async function onStageDrop(target: StageDto, e: DragEvent) {
+  e.preventDefault()
+  const sourceId = draggingStageId.value
+  draggingStageId.value = null
+  dragOverStageId.value = null
+  if (!sourceId || sourceId === target.id) return
+
+  const source = currentStages.value.find((s) => s.id === sourceId)
+  if (!source || source.isSystemStage) return
+
+  busyStageId.value = sourceId
   try {
-    const result = await $fetch<{ id: string }>(`/api/pipelines/${pipelineId.value}/clone`, {
-      method: 'POST',
-      body: {},
-      headers: useRequestHeaders(['cookie']),
+    await $fetch(`/api/pipelines/${pipelineId.value}/stages/${sourceId}`, {
+      method: 'PATCH',
+      body: { displayOrder: target.displayOrder },
     })
-    toast.success(t('pipelines.toast.cloned'))
-    await navigateTo(localePath(`/dashboard/settings/pipelines/${result.id}`))
+    toast.add({ title: 'Порядок этапов обновлён', color: 'success' })
+    await refresh()
+  } catch (e2: unknown) {
+    const err = e2 as { data?: { statusMessage?: string }, message?: string }
+    toast.add({
+      title: 'Не удалось переместить этап',
+      description: err.data?.statusMessage ?? err.message,
+      color: 'error',
+    })
+  } finally {
+    busyStageId.value = null
   }
-  catch (err: unknown) {
-    const msg = (err as { data?: { statusMessage?: string } })?.data?.statusMessage
-      ?? 'Ошибка при клонировании'
-    toast.error(msg)
+}
+
+async function toggleHide(stage: StageDto & { substages?: StageDto[] }) {
+  busyStageId.value = stage.id
+  try {
+    await $fetch(`/api/pipelines/${pipelineId.value}/stages/${stage.id}`, {
+      method: 'PATCH',
+      body: { isHidden: !stage.isHidden },
+    })
+    toast.add({
+      title: stage.isHidden ? 'Этап показан' : 'Этап скрыт',
+      color: 'success',
+    })
+    await refresh()
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({
+      title: 'Ошибка',
+      description: err.data?.statusMessage ?? err.message ?? 'Не удалось изменить видимость',
+      color: 'error',
+    })
+  } finally {
+    busyStageId.value = null
   }
-  finally {
-    isCloningFromBanner.value = false
+}
+
+async function deleteStage(stage: StageDto) {
+  if (stage.isSystemStage) return
+  if (!confirm(`Удалить этап «${stage.name}»? Действие мягкое — этап архивируется.`)) return
+
+  busyStageId.value = stage.id
+  try {
+    await $fetch(`/api/pipelines/${pipelineId.value}/stages/${stage.id}`, {
+      method: 'DELETE',
+    })
+    toast.add({ title: 'Этап удалён', color: 'success' })
+    await refresh()
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({
+      title: 'Не удалось удалить',
+      description: err.data?.statusMessage ?? err.message,
+      color: 'error',
+    })
+  } finally {
+    busyStageId.value = null
+  }
+}
+
+// ── Add-substage modal ───────────────────────────────────
+const showAddSubstage = ref(false)
+const substageParentId = ref<string | null>(null)
+const substageName = ref('')
+const substageBusy = ref(false)
+
+function openAddSubstage(parentId: string) {
+  substageParentId.value = parentId
+  substageName.value = ''
+  showAddSubstage.value = true
+}
+
+async function submitSubstage() {
+  if (!substageName.value.trim() || !substageParentId.value) return
+  substageBusy.value = true
+  try {
+    await $fetch(`/api/pipelines/${pipelineId.value}/stages`, {
+      method: 'POST',
+      body: {
+        name: substageName.value.trim(),
+        type: 'custom',
+        parentStageId: substageParentId.value,
+      },
+    })
+    toast.add({ title: 'Подстатус добавлен', color: 'success' })
+    showAddSubstage.value = false
+    await refresh()
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({
+      title: 'Не удалось добавить',
+      description: err.data?.statusMessage ?? err.message,
+      color: 'error',
+    })
+  } finally {
+    substageBusy.value = false
+  }
+}
+
+// ── Add-stage modal ──────────────────────────────────────
+const showAddStage = ref(false)
+const newStageName = ref('')
+const newStageBusy = ref(false)
+
+async function submitNewStage() {
+  if (!newStageName.value.trim()) return
+  newStageBusy.value = true
+  try {
+    await $fetch(`/api/pipelines/${pipelineId.value}/stages`, {
+      method: 'POST',
+      body: {
+        name: newStageName.value.trim(),
+        type: 'custom',
+        bucket: activeTab.value,
+        isTerminal: activeTab.value === 'rejected',
+      },
+    })
+    toast.add({ title: 'Этап добавлен', color: 'success' })
+    showAddStage.value = false
+    newStageName.value = ''
+    await refresh()
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({
+      title: 'Не удалось добавить',
+      description: err.data?.statusMessage ?? err.message,
+      color: 'error',
+    })
+  } finally {
+    newStageBusy.value = false
   }
 }
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl">
-    <!-- Back link -->
-    <NuxtLink
-      :to="localePath('/dashboard/settings/pipelines')"
-      class="inline-flex items-center gap-1.5 text-sm text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 transition-colors no-underline mb-5"
-    >
-      <ArrowLeft class="size-4" />
-      {{ $t('pipelines.title') }}
-    </NuxtLink>
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div class="max-w-6xl mx-auto flex items-center gap-4">
+        <NuxtLink
+          :to="localePath('/dashboard/settings/pipelines')"
+          class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        >
+          <ArrowLeft class="w-5 h-5 text-gray-600 dark:text-gray-400" />
+        </NuxtLink>
 
-    <!-- Loading state -->
-    <div v-if="isLoadingPipeline" class="flex items-center justify-center py-12 text-surface-400">
-      <Loader2 class="size-6 animate-spin mr-2" />
-      <span class="text-sm">Загрузка…</span>
-    </div>
-
-    <!-- Error state -->
-    <div v-else-if="fetchError" class="rounded-xl border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950/40 p-6 text-center">
-      <AlertTriangle class="size-8 text-danger-400 mx-auto mb-2" />
-      <p class="text-sm text-danger-700 dark:text-danger-400 mb-2">
-        Не удалось загрузить воронку.
-      </p>
-      <button
-        class="text-sm text-brand-600 hover:text-brand-700 underline"
-        @click="refresh"
-      >
-        Повторить
-      </button>
-    </div>
-
-    <!-- Content -->
-    <template v-else-if="pipeline">
-      <!-- Header -->
-      <div class="flex items-center gap-3 mb-4">
-        <div class="flex items-center justify-center size-9 rounded-lg bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400">
-          <GitBranch class="size-5" />
-        </div>
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <h1 class="text-lg font-semibold text-surface-900 dark:text-surface-50 truncate">
-              {{ pipeline.name }}
+          <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white truncate">
+              {{ pipeline?.name ?? 'Загрузка…' }}
             </h1>
             <span
-              v-if="pipeline.isSystem"
-              class="inline-flex items-center rounded-full bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-700"
+              v-if="pipeline?.isSystem"
+              class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
             >
-              {{ $t('pipelines.badges.system') }}
+              <Lock class="w-3 h-3" /> Системная
             </span>
             <span
-              v-if="pipeline.isDefault"
-              class="inline-flex items-center rounded-full bg-brand-50 dark:bg-brand-950/50 px-2 py-0.5 text-[10px] font-medium text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800"
+              v-if="pipeline?.isDefault"
+              class="px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
             >
-              {{ $t('pipelines.badges.default') }}
+              По умолчанию
             </span>
           </div>
+          <p v-if="pipeline?.description" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {{ pipeline.description }}
+          </p>
+        </div>
+
+        <div class="flex items-center gap-6 text-sm">
+          <div class="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+            <Briefcase class="w-4 h-4" />
+            <span>{{ pipeline?.jobsCount ?? 0 }} вакансий</span>
+          </div>
+          <div class="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+            <Users class="w-4 h-4" />
+            <span>{{ pipeline?.activeApplicationsCount ?? 0 }} активных</span>
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- Stats bar -->
-      <div class="flex items-center gap-4 mb-5 text-sm text-surface-500 dark:text-surface-400">
-        <span class="inline-flex items-center gap-1.5">
-          <Briefcase class="size-3.5" />
-          {{ $t('pipelines.stats.usedInJobs', { count: pipeline.jobsCount }) }}
-        </span>
-        <span class="inline-flex items-center gap-1.5">
-          <Users class="size-3.5" />
-          {{ $t('pipelines.stats.activeApplications', { count: pipeline.activeApplicationsCount }) }}
-        </span>
+    <!-- Body -->
+    <div v-if="isLoading" class="max-w-6xl mx-auto py-24 flex justify-center">
+      <Loader2 class="w-8 h-8 text-gray-400 animate-spin" />
+    </div>
+
+    <div v-else-if="pipeline" class="max-w-6xl mx-auto px-6 py-8">
+      <!-- Tabs -->
+      <div class="flex items-center gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          class="px-6 py-3 text-sm font-medium border-b-2 -mb-px transition-colors"
+          :class="activeTab === 'working'
+            ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
+          @click="activeTab = 'working'"
+        >
+          В работе
+          <span class="ml-2 text-xs opacity-70">({{ stagesByBucket.working.length }})</span>
+        </button>
+        <button
+          type="button"
+          class="px-6 py-3 text-sm font-medium border-b-2 -mb-px transition-colors"
+          :class="activeTab === 'rejected'
+            ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
+          @click="activeTab = 'rejected'"
+        >
+          Отказы
+          <span class="ml-2 text-xs opacity-70">({{ stagesByBucket.rejected.length }})</span>
+        </button>
       </div>
 
-      <!-- System read-only banner -->
+      <!-- Stage list -->
+      <div class="space-y-3">
+        <div
+          v-for="stage in currentStages"
+          :key="stage.id"
+          class="bg-white dark:bg-gray-800 rounded-xl border overflow-hidden transition-all"
+          :class="[
+            stage.isHidden ? 'opacity-60' : '',
+            dragOverStageId === stage.id
+              ? 'border-blue-500 ring-2 ring-blue-500/40'
+              : 'border-gray-200 dark:border-gray-700',
+            draggingStageId === stage.id ? 'opacity-40' : '',
+          ]"
+          :draggable="!stage.isSystemStage"
+          @dragstart="onStageDragStart(stage, $event)"
+          @dragover="onStageDragOver(stage, $event)"
+          @dragleave="onStageDragLeave(stage)"
+          @drop="onStageDrop(stage, $event)"
+          @dragend="onStageDragEnd"
+        >
+          <!-- Parent stage row -->
+          <div class="flex items-center gap-3 px-5 py-4">
+            <Lock
+              v-if="stage.isSystemStage"
+              class="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0"
+              title="Базовый этап зафиксирован — перемещение недоступно"
+            />
+            <GripVertical
+              v-else
+              class="w-4 h-4 text-gray-400 dark:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0"
+              title="Перетащите, чтобы изменить порядок"
+            />
+
+            <div
+              class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              :style="{ backgroundColor: stage.color }"
+            />
+
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-medium text-gray-900 dark:text-white">{{ stage.name }}</span>
+                <span
+                  v-if="stage.isSystemStage"
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                  title="Базовый этап — переименовать/удалить нельзя"
+                >
+                  <Lock class="w-2.5 h-2.5" /> базовый
+                </span>
+                <span
+                  v-if="stage.isHidden"
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                >
+                  <EyeOff class="w-2.5 h-2.5" /> скрыт
+                </span>
+                <span
+                  v-if="stage.isTerminal"
+                  class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+                >
+                  финал
+                </span>
+              </div>
+              <p v-if="stage.description" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {{ stage.description }}
+              </p>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                :disabled="busyStageId === stage.id"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500 dark:text-gray-400 disabled:opacity-40"
+                :title="stage.isHidden ? 'Показать' : 'Скрыть'"
+                @click="toggleHide(stage)"
+              >
+                <component :is="stage.isHidden ? Eye : EyeOff" class="w-4 h-4" />
+              </button>
+
+              <button
+                v-if="!stage.isSystemStage"
+                type="button"
+                :disabled="busyStageId === stage.id"
+                class="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-red-500 disabled:opacity-40"
+                title="Удалить"
+                @click="deleteStage(stage)"
+              >
+                <Trash2 class="w-4 h-4" />
+              </button>
+
+              <button
+                v-if="activeTab === 'working'"
+                type="button"
+                class="ml-2 flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-700 dark:text-gray-300"
+                @click="openAddSubstage(stage.id)"
+              >
+                <Plus class="w-3 h-3" /> Подстатус
+              </button>
+            </div>
+          </div>
+
+          <!-- Substages -->
+          <div
+            v-if="stage.substages?.length"
+            class="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30"
+          >
+            <div
+              v-for="sub in stage.substages"
+              :key="sub.id"
+              class="flex items-center gap-3 pl-12 pr-5 py-2.5"
+              :class="{ 'opacity-60': sub.isHidden }"
+            >
+              <ChevronRight class="w-3 h-3 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+
+              <div
+                class="w-2 h-2 rounded-full flex-shrink-0"
+                :style="{ backgroundColor: sub.color }"
+              />
+
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-gray-800 dark:text-gray-200">{{ sub.name }}</span>
+                  <span
+                    v-if="sub.isSystemStage"
+                    class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                  >
+                    базовый
+                  </span>
+                  <span
+                    v-if="sub.isHidden"
+                    class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                  >
+                    скрыт
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  :disabled="busyStageId === sub.id"
+                  class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors text-gray-500 dark:text-gray-400 disabled:opacity-40"
+                  @click="toggleHide(sub)"
+                >
+                  <component :is="sub.isHidden ? Eye : EyeOff" class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  v-if="!sub.isSystemStage"
+                  type="button"
+                  :disabled="busyStageId === sub.id"
+                  class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors text-red-500 disabled:opacity-40"
+                  @click="deleteStage(sub)"
+                >
+                  <Trash2 class="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add stage button -->
+        <button
+          type="button"
+          class="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-500 dark:text-gray-400 hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50/40 dark:hover:bg-brand-900/10 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+          @click="showAddStage = true"
+        >
+          <Plus class="w-4 h-4" />
+          Добавить этап в раздел «{{ activeTab === 'working' ? 'В работе' : 'Отказы' }}»
+        </button>
+      </div>
+
+      <!-- Info for system pipelines -->
       <div
         v-if="pipeline.isSystem"
-        class="mb-5 rounded-xl border border-warning-200 dark:border-warning-800 bg-warning-50 dark:bg-warning-950/40 p-4"
+        class="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex gap-3"
       >
-        <div class="flex items-start gap-3">
-          <Lock class="size-5 text-warning-600 dark:text-warning-400 shrink-0 mt-0.5" />
-          <div class="flex-1 min-w-0">
-            <p class="text-sm text-warning-800 dark:text-warning-300 font-medium mb-1">
-              {{ $t('pipelines.systemReadOnly') }}
-            </p>
-            <button
-              type="button"
-              :disabled="isCloningFromBanner"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-warning-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-warning-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
-              @click="handleCloneAndNavigate"
-            >
-              <Loader2 v-if="isCloningFromBanner" class="size-3.5 animate-spin" />
-              <Copy v-else class="size-3.5" />
-              {{ $t('pipelines.actions.cloneAndEdit') }}
-            </button>
-          </div>
+        <AlertTriangle class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+        <div class="text-sm text-blue-800 dark:text-blue-200">
+          <p class="font-medium">Это системная воронка</p>
+          <p class="mt-1 opacity-80">
+            Базовые этапы (помечены значком «базовый») зафиксированы: их нельзя удалять, переименовывать или перемещать — только скрывать.
+            Свои этапы и подстатусы можно добавлять и перетаскивать за ручку.
+            Для полной переработки клонируйте воронку.
+          </p>
         </div>
       </div>
+    </div>
 
-      <!-- Form (read-only for system pipelines) -->
-      <div class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 sm:p-6">
-        <form @submit.prevent="handleSubmit">
-          <!-- Name -->
-          <div class="mb-4">
-            <label
-              for="pipeline-name"
-              class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5"
-            >
-              {{ $t('pipelines.form.nameLabel') }}
-              <span v-if="!pipeline.isSystem" class="text-danger-500 ml-0.5">*</span>
-            </label>
-            <input
-              id="pipeline-name"
-              v-model="name"
-              type="text"
-              maxlength="100"
-              :placeholder="$t('pipelines.form.namePlaceholder')"
-              :disabled="pipeline.isSystem"
-              class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            />
-          </div>
-
-          <!-- Description -->
-          <div class="mb-6">
-            <label
-              for="pipeline-description"
-              class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5"
-            >
-              {{ $t('pipelines.form.descriptionLabel') }}
-            </label>
-            <textarea
-              id="pipeline-description"
-              v-model="description"
-              rows="2"
-              maxlength="500"
-              :placeholder="$t('pipelines.form.descriptionPlaceholder')"
-              :disabled="pipeline.isSystem"
-              class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-none disabled:opacity-60 disabled:cursor-not-allowed"
-            />
-          </div>
-
-          <!-- Stages -->
-          <div class="mb-6">
-            <div class="flex items-center gap-2 mb-2">
-              <h3 class="text-sm font-medium text-surface-700 dark:text-surface-300">
-                {{ $t('pipelines.form.stagesTitle') }}
-              </h3>
-            </div>
-            <p v-if="!pipeline.isSystem" class="text-xs text-surface-500 dark:text-surface-400 mb-3">
-              {{ $t('pipelines.form.stagesHint') }}
-            </p>
-
-            <PipelineStageEditor
-              ref="stageEditorRef"
-              v-model="stages"
-              :disabled="pipeline.isSystem"
-            />
-          </div>
-
-          <!-- Actions (hidden for system pipelines) -->
-          <div
-            v-if="!pipeline.isSystem"
-            class="flex items-center gap-3 justify-end pt-4 border-t border-surface-100 dark:border-surface-800"
+    <!-- Add substage modal -->
+    <div
+      v-if="showAddSubstage"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="showAddSubstage = false"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Новый подстатус</h3>
+        <input
+          v-model="substageName"
+          type="text"
+          placeholder="Название подстатуса"
+          maxlength="50"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          @keyup.enter="submitSubstage"
+        >
+        <div class="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            @click="showAddSubstage = false"
           >
-            <NuxtLink
-              :to="localePath('/dashboard/settings/pipelines')"
-              class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors no-underline"
-            >
-              {{ $t('common.cancel') }}
-            </NuxtLink>
-            <button
-              type="submit"
-              :disabled="!canSubmit"
-              class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Loader2 v-if="isSubmitting" class="size-4 animate-spin" />
-              {{ isSubmitting ? 'Сохранение…' : $t('common.save') }}
-            </button>
-          </div>
-        </form>
+            Отмена
+          </button>
+          <button
+            type="button"
+            :disabled="!substageName.trim() || substageBusy"
+            class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+            style="background-color: rgb(37 99 235); border: 1px solid rgb(37 99 235);"
+            :style="{ opacity: (!substageName.trim() || substageBusy) ? 0.5 : 1 }"
+            @click="submitSubstage"
+          >
+            {{ substageBusy ? 'Сохраняю…' : 'Добавить' }}
+          </button>
+        </div>
       </div>
-    </template>
+    </div>
+
+    <!-- Add stage modal -->
+    <div
+      v-if="showAddStage"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="showAddStage = false"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Новый этап</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Добавить в раздел «{{ activeTab === 'working' ? 'В работе' : 'Отказы' }}»
+        </p>
+        <input
+          v-model="newStageName"
+          type="text"
+          placeholder="Название этапа"
+          maxlength="50"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          @keyup.enter="submitNewStage"
+        >
+        <div class="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            @click="showAddStage = false"
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+            :disabled="!newStageName.trim() || newStageBusy"
+            class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+            style="background-color: rgb(37 99 235); border: 1px solid rgb(37 99 235);"
+            :style="{ opacity: (!newStageName.trim() || newStageBusy) ? 0.5 : 1 }"
+            @click="submitNewStage"
+          >
+            {{ newStageBusy ? 'Сохраняю…' : 'Добавить' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

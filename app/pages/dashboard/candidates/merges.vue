@@ -358,7 +358,7 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
         >
           <option value="all">Все</option>
           <option value="own">Своя организация</option>
-          <option value="cross">Cross-org</option>
+          <option value="cross">Между организациями</option>
         </select>
       </div>
       <div class="relative">

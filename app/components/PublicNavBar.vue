@@ -25,14 +25,14 @@ const isAstraBrand = useAstraBrand()
       >
         <img
           :src="isAstraBrand ? '/brand/falcon-emblem.jpg' : '/eagle-mascot-logo-128.png'"
-          :alt="isAstraBrand ? 'Группа Астра' : 'Reqcore mascot'"
+          :alt="isAstraBrand ? 'Группа Астра' : 'Талисман Huntfork'"
           width="28"
           height="28"
           loading="eager"
           decoding="sync"
           class="h-7 w-7 object-contain rounded-full"
         />
-        {{ isAstraBrand ? 'Huntfork' : 'Reqcore' }}
+        {{ 'Huntfork' }}
       </component>
 
       <!-- Center nav links (desktop) -->
@@ -64,7 +64,6 @@ const isAstraBrand = useAstraBrand()
             <div class="size-8" aria-hidden="true" />
           </template>
         </ClientOnly>
-        <LanguageSwitcher />
         <template v-if="session?.user">
           <NuxtLink
             :to="localePath('/dashboard')"

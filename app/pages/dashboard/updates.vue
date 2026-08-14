@@ -15,8 +15,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Updates',
-  description: 'Check for updates and manage your self-hosted instance',
+  title: 'Обновления',
+  description: 'Проверяйте обновления и управляйте собственной установкой',
 })
 
 const { allowed: isOwner } = usePermission({ organization: ['delete'] })
@@ -62,7 +62,7 @@ async function handleBackup() {
   catch (err: unknown) {
     backupResult.value = {
       success: false,
-      message: err instanceof Error ? err.message : 'Backup failed',
+      message: err instanceof Error ? err.message : 'Не удалось создать резервную копию',
     }
   }
   finally {
@@ -91,7 +91,7 @@ async function handleApplyUpdate() {
   catch (err: unknown) {
     updateResult.value = {
       success: false,
-      message: err instanceof Error ? err.message : 'Update failed unexpectedly',
+      message: err instanceof Error ? err.message : 'Не удалось обновить систему',
       steps: [],
     }
   }
@@ -186,7 +186,7 @@ function formatUptime(seconds: number): string {
 }
 
 function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return 'Unknown'
+  if (!dateString) return 'Неизвестно'
   return new Date(dateString).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',
@@ -202,10 +202,10 @@ function formatDate(dateString: string | null | undefined): string {
       <div class="flex items-start justify-between gap-4">
         <div>
           <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">
-            Updates
+            Обновления
           </h1>
           <p class="mt-1.5 text-sm text-surface-500 dark:text-surface-400">
-            Check for new versions and manage your self-hosted instance.
+            Проверяйте новые версии и управляйте своим экземпляром системы.
           </p>
         </div>
 
@@ -216,7 +216,7 @@ function formatDate(dateString: string | null | undefined): string {
         >
           <Package class="size-4 text-brand-500" />
           <div class="flex flex-col">
-            <span class="text-[11px] font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider leading-none">Current version</span>
+            <span class="text-[11px] font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider leading-none">Текущая версия</span>
             <span class="text-sm font-bold text-surface-900 dark:text-surface-100 tabular-nums mt-0.5">v{{ currentVersion }}</span>
           </div>
         </div>
@@ -243,20 +243,20 @@ function formatDate(dateString: string | null | undefined): string {
           </div>
           <div>
             <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">
-              {{ versionInfo?.updateAvailable ? 'Update available' : !versionInfo && !versionLoading ? 'Unable to check' : 'Up to date' }}
+              {{ versionInfo?.updateAvailable ? 'Доступно обновление' : !versionInfo && !versionLoading ? 'Не удалось проверить' : 'Актуальная версия' }}
             </h2>
             <p class="text-sm text-surface-500 dark:text-surface-400">
               <template v-if="versionLoading">
-                Checking for updates…
+                Проверка обновлений…
               </template>
               <template v-else-if="!versionInfo">
-                Could not check for updates. Verify your network connection and try again.
+                Не удалось проверить обновления. Проверьте подключение к сети и повторите попытку.
               </template>
               <template v-else-if="versionInfo.updateAvailable">
-                Version {{ versionInfo.latestVersion }} is available (you're on {{ versionInfo.currentVersion }})
+                Доступна версия {{ versionInfo.latestVersion }} (установлена {{ versionInfo.currentVersion }})
               </template>
               <template v-else>
-                You're running the latest version ({{ versionInfo.currentVersion }})
+                Установлена последняя версия ({{ versionInfo.currentVersion }})
               </template>
             </p>
           </div>
@@ -268,7 +268,7 @@ function formatDate(dateString: string | null | undefined): string {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">
-              Installed version
+              Установленная версия
             </p>
             <p class="text-sm font-semibold text-surface-900 dark:text-surface-100 mt-1">
               v{{ versionInfo?.currentVersion ?? '…' }}
@@ -276,7 +276,7 @@ function formatDate(dateString: string | null | undefined): string {
           </div>
           <div>
             <p class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">
-              Latest version
+              Последняя версия
             </p>
             <p class="text-sm font-semibold text-surface-900 dark:text-surface-100 mt-1">
               <template v-if="versionInfo?.latestVersion">
@@ -303,7 +303,7 @@ function formatDate(dateString: string | null | undefined): string {
             @click="handleCheckUpdate"
           >
             <RefreshCw :class="['size-4', (isChecking || versionLoading) && 'animate-spin']" />
-            {{ (isChecking || versionLoading) ? 'Checking…' : 'Check for updates' }}
+            {{ (isChecking || versionLoading) ? 'Проверка…' : 'Проверить обновления' }}
           </button>
 
           <a
@@ -314,7 +314,7 @@ function formatDate(dateString: string | null | undefined): string {
             class="inline-flex items-center gap-2 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors no-underline"
           >
             <ExternalLink class="size-4" />
-            View release notes
+            Список изменений
           </a>
         </div>
       </div>
@@ -331,7 +331,7 @@ function formatDate(dateString: string | null | undefined): string {
           </div>
           <div>
             <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">
-              Install update
+              Установить обновление
             </h2>
             <p class="text-sm text-surface-500 dark:text-surface-400">
               Update to v{{ versionInfo.latestVersion }} with one click. Your data is preserved.
@@ -345,11 +345,11 @@ function formatDate(dateString: string | null | undefined): string {
         <div class="flex items-start gap-3 rounded-lg bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-800 px-4 py-3">
           <Shield class="size-4 shrink-0 text-surface-500 mt-0.5" />
           <div class="text-sm text-surface-600 dark:text-surface-400">
-            <p class="font-medium text-surface-700 dark:text-surface-300 mb-1">Before updating</p>
+            <p class="font-medium text-surface-700 dark:text-surface-300 mb-1">Перед обновлением</p>
             <ul class="list-disc list-inside space-y-0.5 text-xs">
-              <li>Database migrations run automatically — your data is safe</li>
-              <li>The app will be briefly unavailable during the restart (under 1 minute)</li>
-              <li>We recommend creating a backup first (button below)</li>
+              <li>Миграции базы данных выполняются автоматически — ваши данные в безопасности</li>
+              <li>Во время перезапуска приложение будет кратковременно недоступно (менее минуты)</li>
+              <li>Рекомендуем сначала создать резервную копию (кнопка ниже)</li>
             </ul>
           </div>
         </div>
@@ -363,7 +363,7 @@ function formatDate(dateString: string | null | undefined): string {
           >
             <Loader2 v-if="isBackingUp" class="size-4 animate-spin" />
             <Database v-else class="size-4" />
-            {{ isBackingUp ? 'Creating backup…' : 'Create backup first' }}
+            {{ isBackingUp ? 'Создание резервной копии…' : 'Сначала создать резервную копию' }}
           </button>
         </div>
 
@@ -399,7 +399,7 @@ function formatDate(dateString: string | null | undefined): string {
         >
           <div v-if="showUpdateConfirm" class="rounded-lg border border-warning-200 dark:border-warning-800 bg-warning-50/50 dark:bg-warning-950/30 px-4 py-4 space-y-3">
             <p class="text-sm text-surface-700 dark:text-surface-300">
-              This will update your Reqcore instance from <strong>v{{ versionInfo.currentVersion }}</strong> to <strong>v{{ versionInfo.latestVersion }}</strong>. The app will restart during the update.
+              Эта операция обновит вашу установку Huntfork с <strong>v{{ versionInfo.currentVersion }}</strong> до <strong>v{{ versionInfo.latestVersion }}</strong>. Во время обновления приложение перезапустится.
             </p>
             <div class="flex items-center gap-2">
               <button
@@ -409,14 +409,14 @@ function formatDate(dateString: string | null | undefined): string {
               >
                 <Loader2 v-if="isUpdating" class="size-4 animate-spin" />
                 <Download v-else class="size-4" />
-                {{ isUpdating ? 'Updating…' : 'Confirm update' }}
+                {{ isUpdating ? 'Обновление…' : 'Подтвердить обновление' }}
               </button>
               <button
                 :disabled="isUpdating"
                 class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 transition-colors"
                 @click="showUpdateConfirm = false"
               >
-                Cancel
+                Отмена
               </button>
             </div>
           </div>
@@ -451,7 +451,7 @@ function formatDate(dateString: string | null | undefined): string {
 
     <!-- Read-only notice for non-owner users -->
     <div v-if="!isOwner && versionInfo?.updateAvailable" class="mb-6 rounded-lg bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-800 px-4 py-3 text-sm text-surface-500 dark:text-surface-400">
-      Only organization owners can apply updates. Contact the owner to update your instance.
+      Устанавливать обновления может только владелец организации. Обратитесь к владельцу.
     </div>
 
     <!-- ═══════════════════════════════════════════ -->
@@ -464,15 +464,15 @@ function formatDate(dateString: string | null | undefined): string {
             <Server class="size-5" />
           </div>
           <div>
-            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">System health</h2>
-            <p class="text-sm text-surface-500 dark:text-surface-400">Status of your self-hosted instance services.</p>
+            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Состояние системы</h2>
+            <p class="text-sm text-surface-500 dark:text-surface-400">Состояние сервисов собственной установки.</p>
           </div>
         </div>
       </div>
 
       <div v-if="systemLoading" class="px-6 py-8 text-center">
         <Loader2 class="size-5 animate-spin mx-auto text-surface-400" />
-        <p class="text-sm text-surface-400 mt-2">Loading system info…</p>
+        <p class="text-sm text-surface-400 mt-2">Загрузка сведений о системе…</p>
       </div>
 
       <div v-else-if="systemInfo" class="px-6 py-5 space-y-5">
@@ -482,9 +482,9 @@ function formatDate(dateString: string | null | undefined): string {
           <div class="rounded-lg border border-surface-200 dark:border-surface-800 px-4 py-3">
             <div class="flex items-center gap-2 mb-1.5">
               <div class="size-2 rounded-full bg-success-500" />
-              <span class="text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide">App</span>
+              <span class="text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide">Приложение</span>
             </div>
-            <p class="text-sm font-semibold text-surface-900 dark:text-surface-100">Running</p>
+            <p class="text-sm font-semibold text-surface-900 dark:text-surface-100">Работает</p>
             <p class="text-xs text-surface-400 mt-0.5">v{{ systemInfo.version }}</p>
           </div>
 
@@ -492,10 +492,10 @@ function formatDate(dateString: string | null | undefined): string {
           <div class="rounded-lg border border-surface-200 dark:border-surface-800 px-4 py-3">
             <div class="flex items-center gap-2 mb-1.5">
               <div class="size-2 rounded-full" :class="systemInfo.database.connected ? 'bg-success-500' : 'bg-danger-500'" />
-              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Database</span>
+              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">База данных</span>
             </div>
             <p class="text-sm font-semibold text-surface-900 dark:text-surface-100">
-              {{ systemInfo.database.connected ? 'Connected' : 'Disconnected' }}
+              {{ systemInfo.database.connected ? 'Подключено' : 'Отключено' }}
             </p>
             <p class="text-xs text-surface-400 mt-0.5">PostgreSQL</p>
           </div>
@@ -504,10 +504,10 @@ function formatDate(dateString: string | null | undefined): string {
           <div class="rounded-lg border border-surface-200 dark:border-surface-800 px-4 py-3">
             <div class="flex items-center gap-2 mb-1.5">
               <div class="size-2 rounded-full" :class="systemInfo.storage.connected ? 'bg-success-500' : 'bg-danger-500'" />
-              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Storage</span>
+              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Хранилище</span>
             </div>
             <p class="text-sm font-semibold text-surface-900 dark:text-surface-100">
-              {{ systemInfo.storage.connected ? 'Connected' : 'Disconnected' }}
+              {{ systemInfo.storage.connected ? 'Подключено' : 'Отключено' }}
             </p>
             <p class="text-xs text-surface-400 mt-0.5">MinIO / S3</p>
           </div>
@@ -518,7 +518,7 @@ function formatDate(dateString: string | null | undefined): string {
           <div>
             <div class="flex items-center gap-1.5 mb-1">
               <Clock class="size-3 text-surface-400" />
-              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Uptime</span>
+              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Время работы</span>
             </div>
             <p class="text-sm text-surface-700 dark:text-surface-300">{{ formatUptime(systemInfo.uptime) }}</p>
           </div>
@@ -526,7 +526,7 @@ function formatDate(dateString: string | null | undefined): string {
           <div>
             <div class="flex items-center gap-1.5 mb-1">
               <Cpu class="size-3 text-surface-400" />
-              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Platform</span>
+              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Платформа</span>
             </div>
             <p class="text-sm text-surface-700 dark:text-surface-300">{{ systemInfo.platform }}/{{ systemInfo.arch }}</p>
           </div>
@@ -534,18 +534,18 @@ function formatDate(dateString: string | null | undefined): string {
           <div>
             <div class="flex items-center gap-1.5 mb-1">
               <MemoryStick class="size-3 text-surface-400" />
-              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Memory</span>
+              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Память</span>
             </div>
-            <p class="text-sm text-surface-700 dark:text-surface-300">{{ systemInfo.memoryUsage.percentage }}% used</p>
+            <p class="text-sm text-surface-700 dark:text-surface-300">{{ systemInfo.memoryUsage.percentage }}% использовано</p>
           </div>
 
           <div>
             <div class="flex items-center gap-1.5 mb-1">
               <HardDrive class="size-3 text-surface-400" />
-              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Deployment</span>
+              <span class="text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wide">Развёртывание</span>
             </div>
             <p class="text-sm text-surface-700 dark:text-surface-300">
-              {{ systemInfo.deployment.isRailway ? 'Railway' : systemInfo.deployment.method === 'docker' ? 'Docker' : 'Standalone' }}
+              {{ systemInfo.deployment.isRailway ? 'Railway' : systemInfo.deployment.method === 'docker' ? 'Docker' : 'Автономная установка' }}
             </p>
           </div>
         </div>
@@ -559,28 +559,28 @@ function formatDate(dateString: string | null | undefined): string {
 
       <div v-else class="px-6 py-8 text-center">
         <AlertTriangle class="size-5 mx-auto text-surface-400 mb-2" />
-        <p class="text-sm text-surface-500 dark:text-surface-400">Failed to load system information.</p>
+        <p class="text-sm text-surface-500 dark:text-surface-400">Не удалось загрузить сведения о системе.</p>
       </div>
     </section>
 
     <!-- Expand / Collapse controls -->
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300 uppercase tracking-wider">
-        Changelog
+        История изменений
       </h2>
       <div class="flex items-center gap-2 text-xs">
         <button
           class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors cursor-pointer bg-transparent border-0"
           @click="expandAll"
         >
-          Expand all
+          Развернуть все
         </button>
         <span class="text-surface-300 dark:text-surface-600">·</span>
         <button
           class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors cursor-pointer bg-transparent border-0"
           @click="collapseAll"
         >
-          Collapse all
+          Свернуть все
         </button>
       </div>
     </div>
@@ -604,8 +604,8 @@ function formatDate(dateString: string | null | undefined): string {
       class="rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-12 text-center"
     >
       <RefreshCw class="size-8 text-surface-300 dark:text-surface-600 mx-auto mb-3" />
-      <div class="text-sm font-medium text-surface-500 dark:text-surface-400">No changelog entries found</div>
-      <div class="text-xs text-surface-400 dark:text-surface-500 mt-1">The CHANGELOG.md file may be missing or empty.</div>
+      <div class="text-sm font-medium text-surface-500 dark:text-surface-400">Записи истории изменений не найдены</div>
+      <div class="text-xs text-surface-400 dark:text-surface-500 mt-1">Файл CHANGELOG.md может отсутствовать или быть пустым.</div>
     </div>
 
     <!-- Changelog timeline -->
@@ -670,13 +670,13 @@ function formatDate(dateString: string | null | undefined): string {
                     v-if="entry.version && entry.version === currentVersion"
                     class="inline-flex items-center rounded-md bg-brand-50 dark:bg-brand-950/40 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:text-brand-300 ring-1 ring-inset ring-brand-200 dark:ring-brand-800"
                   >
-                    Current
+                    Текущая
                   </span>
                   <span
                     v-if="entry.title === 'Unreleased'"
                     class="inline-flex items-center rounded-md bg-accent-50 dark:bg-accent-950/40 px-1.5 py-0.5 text-[10px] font-semibold text-accent-700 dark:text-accent-300 ring-1 ring-inset ring-accent-200 dark:ring-accent-800"
                   >
-                    Next
+                    Следующая
                   </span>
                 </div>
                 <div v-if="entry.date" class="text-xs text-surface-400 dark:text-surface-500 mt-0.5">
@@ -742,7 +742,7 @@ function formatDate(dateString: string | null | undefined): string {
                           target="_blank"
                           rel="noopener noreferrer"
                           class="mt-0.5 shrink-0 text-surface-300 dark:text-surface-600 hover:text-brand-500 dark:hover:text-brand-400 transition-colors"
-                          title="View commit"
+                          title="Открыть коммит"
                         >
                           <GitCommit class="size-3.5" />
                         </a>
@@ -758,14 +758,14 @@ function formatDate(dateString: string | null | undefined): string {
                       rel="noopener noreferrer"
                       class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
                     >
-                      View full release on GitHub
+                      Открыть полный выпуск на GitHub
                       <ExternalLink class="size-3" />
                     </a>
                   </div>
 
                   <!-- Empty section fallback -->
                   <div v-if="entry.sections.length === 0" class="text-sm text-surface-400 dark:text-surface-500 italic">
-                    No detailed changes recorded for this entry.
+                    Для этой записи подробные изменения не указаны.
                   </div>
                 </div>
               </div>
@@ -785,8 +785,8 @@ function formatDate(dateString: string | null | undefined): string {
             <Info class="size-5" />
           </div>
           <div class="flex-1 min-w-0">
-            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Manual update</h2>
-            <p class="text-sm text-surface-500 dark:text-surface-400">If you prefer to update from the command line.</p>
+            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Ручное обновление</h2>
+            <p class="text-sm text-surface-500 dark:text-surface-400">Если вы предпочитаете обновлять из командной строки.</p>
           </div>
           <ChevronRight class="size-4 text-surface-400 transition-transform duration-200 group-open:rotate-90" />
         </summary>
@@ -794,24 +794,24 @@ function formatDate(dateString: string | null | undefined): string {
           <div>
             <h4 class="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-2">Docker Compose</h4>
             <div class="rounded-lg bg-surface-900 dark:bg-surface-950 px-4 py-3 font-mono text-sm text-surface-100 space-y-1 overflow-x-auto">
-              <p class="text-surface-500"># Pull the latest image and restart</p>
+              <p class="text-surface-500"># Загрузите последний образ и перезапустите</p>
               <p>docker compose pull</p>
               <p>docker compose up -d</p>
             </div>
           </div>
           <div>
-            <h4 class="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-2">Manual / Git deployment</h4>
+            <h4 class="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-2">Ручное развёртывание / Git</h4>
             <div class="rounded-lg bg-surface-900 dark:bg-surface-950 px-4 py-3 font-mono text-sm text-surface-100 space-y-1 overflow-x-auto">
-              <p class="text-surface-500"># Navigate to your Reqcore directory</p>
+              <p class="text-surface-500"># Перейдите в каталог Huntfork</p>
               <p>cd /path/to/reqcore</p>
-              <p class="text-surface-500 mt-3"># Pull the latest version</p>
+              <p class="text-surface-500 mt-3"># Загрузите последнюю версию</p>
               <p>git pull origin main</p>
-              <p class="text-surface-500 mt-3"># Rebuild and restart</p>
+              <p class="text-surface-500 mt-3"># Пересоберите и перезапустите</p>
               <p>docker compose up --build -d</p>
             </div>
           </div>
           <p class="text-xs text-surface-400 dark:text-surface-500">
-            Database migrations run automatically on startup. Your data is preserved across updates.
+            Миграции базы данных выполняются автоматически при запуске. Данные сохраняются при обновлениях.
           </p>
         </div>
       </details>
@@ -825,7 +825,7 @@ function formatDate(dateString: string | null | undefined): string {
         rel="noopener noreferrer"
         class="inline-flex items-center gap-1.5 text-xs font-medium text-surface-400 dark:text-surface-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
       >
-        View all releases on GitHub
+        Открыть все выпуски на GitHub
         <ExternalLink class="size-3" />
       </a>
     </div>

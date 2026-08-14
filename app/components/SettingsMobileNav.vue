@@ -8,37 +8,37 @@ const localePath = useLocalePath()
 
 const settingsNav = [
   {
-    label: 'General',
+    label: 'Основные',
     to: '/dashboard/settings',
     icon: Building2,
     exact: true,
   },
   {
-    label: 'Localization',
+    label: 'Локализация',
     to: '/dashboard/settings/localization',
     icon: Globe,
     exact: true,
   },
   {
-    label: 'Members',
+    label: 'Участники',
     to: '/dashboard/settings/members',
     icon: Users,
     exact: true,
   },
   {
-    label: 'Pipelines',
+    label: 'Воронки',
     to: '/dashboard/settings/pipelines',
     icon: GitBranch,
     exact: false,
   },
   {
-    label: 'Integrations',
+    label: 'Интеграции',
     to: '/dashboard/settings/integrations',
     icon: Plug,
     exact: true,
   },
   {
-    label: 'AI',
+    label: 'ИИ',
     to: '/dashboard/settings/ai',
     icon: Brain,
     exact: true,
@@ -50,7 +50,7 @@ const settingsNav = [
     exact: true,
   },
   {
-    label: 'Account',
+    label: 'Аккаунт',
     to: '/dashboard/settings/account',
     icon: UserCircle,
     exact: true,
@@ -73,10 +73,10 @@ function isActive(to: string, exact: boolean) {
         class="inline-flex items-center gap-1 text-xs font-medium text-surface-400 dark:text-surface-500 hover:text-surface-600 dark:hover:text-surface-300 transition-colors no-underline"
       >
         <ChevronLeft class="size-3.5" />
-        Back
+        Назад
       </NuxtLink>
       <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">
-        Settings
+        Настройки
       </h2>
     </div>
 

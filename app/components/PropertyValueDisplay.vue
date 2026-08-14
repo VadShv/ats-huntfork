@@ -76,7 +76,7 @@ defineExpose({ icon: ICON_MAP[props.definition.type] })
 
 <template>
   <span class="inline-flex min-w-0 items-center gap-1.5 text-sm">
-    <span v-if="isEmpty" class="text-surface-300 dark:text-surface-600 select-none" aria-label="Empty">—</span>
+    <span v-if="isEmpty" class="text-surface-300 dark:text-surface-600 select-none" aria-label="Не заполнено">—</span>
 
     <!-- text / long_text / person -->
     <span
@@ -137,7 +137,7 @@ defineExpose({ icon: ICON_MAP[props.definition.type] })
     <!-- file -->
     <span v-else-if="definition.type === 'file'" class="inline-flex items-center gap-1 text-surface-700 dark:text-surface-200">
       <Paperclip class="size-3.5" />
-      <span class="truncate">Attached</span>
+      <span class="truncate">Прикреплено</span>
     </span>
   </span>
 </template>

@@ -15,6 +15,6 @@ onMounted(() => {
 
 <template>
   <div class="flex items-center justify-center min-h-[60vh]">
-    <p class="text-sm text-surface-500 dark:text-surface-400">Redirecting…</p>
+    <p class="text-sm text-surface-500 dark:text-surface-400">Перенаправление…</p>
   </div>
 </template>

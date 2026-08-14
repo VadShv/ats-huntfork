@@ -9,8 +9,8 @@ definePageMeta({
 const isAstraBrand = useAstraBrand();
 
 useSeoMeta({
-    title: computed(() => isAstraBrand.value ? "Вход" : "Sign In"),
-    description: computed(() => isAstraBrand.value ? "Войти в аккаунт Huntfork" : "Sign in to your Reqcore account"),
+    title: computed(() => isAstraBrand.value ? "Войти" : "Войти"),
+    description: computed(() => isAstraBrand.value ? "Войти в аккаунт Huntfork" : "Войти в аккаунт Huntfork"),
     robots: "noindex, nofollow",
 });
 
@@ -54,7 +54,7 @@ onMounted(() => {
         const description = route.query.error_description as string | undefined;
         error.value =
             description?.replace(/\+/g, " ") ||
-            "SSO authentication failed. Please try again.";
+            "Не удалось войти через SSO. Попробуйте ещё раз.";
     }
 });
 
@@ -62,7 +62,7 @@ async function handleSignIn() {
     error.value = "";
 
     if (!email.value || !password.value) {
-        error.value = "Email and password are required.";
+        error.value = "Укажите Email и пароль.";
         return;
     }
 
@@ -76,7 +76,7 @@ async function handleSignIn() {
         });
     } catch (e: unknown) {
         error.value =
-            e instanceof Error ? e.message : "Sign-in failed. Please try again.";
+            e instanceof Error ? e.message : "Не удалось войти. Попробуйте ещё раз.";
         isLoading.value = false;
         return;
     }
@@ -86,11 +86,11 @@ async function handleSignIn() {
             error.value =
                 result.error.message && result.error.message !== "Server Error"
                     ? result.error.message
-                    : 'Sign-in failed due to a server error. If you are self-hosting, make sure the BETTER_AUTH_URL environment variable is set to your deployment domain (e.g. "https://your-app.up.railway.app") and redeploy.';
+                    : 'Не удалось войти из-за ошибки сервера. При самостоятельном развёртывании убедитесь, что переменная окружения BETTER_AUTH_URL указывает на домен развёртывания (например, "https://your-app.up.railway.app"), и повторно разверните приложение.';
         } else {
             error.value =
                 result.error.message ??
-                "Invalid credentials. Please try again.";
+                "Неверный Email или пароль. Попробуйте ещё раз.";
         }
         isLoading.value = false;
         return;
@@ -130,7 +130,7 @@ async function handleSelfHostedSso() {
         error.value =
             e instanceof Error
                 ? e.message
-                : "SSO sign-in failed. Please try again.";
+                : "Не удалось войти через SSO. Попробуйте ещё раз.";
         isLoading.value = false;
     }
 }
@@ -142,7 +142,7 @@ async function handleSelfHostedSso() {
 async function handleEnterpriseSso() {
     if (!email.value) {
         error.value =
-            "Enter your work email address to sign in with SSO.";
+            "Укажите рабочий Email для входа через SSO.";
         return;
     }
 
@@ -166,14 +166,14 @@ async function handleEnterpriseSso() {
         if (result.error) {
             error.value =
                 result.error.message ??
-                "No SSO provider found for this email domain. Sign in with email and password instead.";
+                "Для этого домена Email не найден SSO-провайдер. Войдите с помощью Email и пароля.";
             ssoRedirecting.value = false;
         }
     } catch (e: unknown) {
         error.value =
             e instanceof Error
                 ? e.message
-                : "SSO sign-in failed. Please try again.";
+                : "Не удалось войти через SSO. Попробуйте ещё раз.";
         ssoRedirecting.value = false;
     }
 }
@@ -198,7 +198,7 @@ async function handleSocialSignIn(providerId: string) {
         error.value =
             e instanceof Error
                 ? e.message
-                : "Social sign-in failed. Please try again.";
+                : "Не удалось войти через социальную сеть. Попробуйте ещё раз.";
         socialLoading.value = null;
     }
 }
@@ -210,7 +210,7 @@ async function handleSocialSignIn(providerId: string) {
         <h2
             class="text-xl font-semibold text-center text-surface-900 dark:text-surface-100 mb-2"
         >
-            Sign in to your account
+            Войти в аккаунт
         </h2>
 
         <div
@@ -233,7 +233,7 @@ async function handleSocialSignIn(providerId: string) {
                 >
                     <template v-if="socialLoading === provider.id">
                         <svg class="animate-spin size-4 text-surface-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
-                        Redirecting…
+                        Перенаправление…
                     </template>
                     <template v-else>
                         <!-- Google icon -->
@@ -254,7 +254,7 @@ async function handleSocialSignIn(providerId: string) {
                             <rect x="1" y="12" width="10" height="10" fill="#00A4EF"/>
                             <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
                         </svg>
-                        Continue with {{ provider.name }}
+                        Продолжить через {{ provider.name }}
                     </template>
                 </button>
             </div>
@@ -264,7 +264,7 @@ async function handleSocialSignIn(providerId: string) {
                     <div class="w-full border-t border-surface-200 dark:border-surface-700" />
                 </div>
                 <div class="relative flex justify-center text-xs">
-                    <span class="bg-white dark:bg-surface-900 px-2 text-surface-400">or continue with email</span>
+                    <span class="bg-white dark:bg-surface-900 px-2 text-surface-400">или продолжить с Email</span>
                 </div>
             </div>
         </template>
@@ -277,11 +277,11 @@ async function handleSocialSignIn(providerId: string) {
                 class="px-4 py-2.5 bg-surface-900 dark:bg-white text-white dark:text-surface-900 rounded-lg text-sm font-semibold shadow-md cursor-pointer hover:bg-surface-800 dark:hover:bg-surface-100 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2.5 ring-1 ring-surface-700 dark:ring-surface-300"
                 @click="handleSelfHostedSso"
             >
-                <template v-if="isLoading">Redirecting…</template>
+                <template v-if="isLoading">Перенаправление…</template>
                 <template v-else>
                     <ShieldCheck class="size-4" />
-                    Sign in with {{ oidcProviderName }}
-                    <span class="inline-flex items-center rounded-full bg-white/15 dark:bg-surface-900/15 px-1.5 py-0.5 text-[10px] font-medium text-white/80 dark:text-surface-900/80 ring-1 ring-white/20 dark:ring-surface-900/20">Beta</span>
+                    Войти через {{ oidcProviderName }}
+                    <span class="inline-flex items-center rounded-full bg-white/15 dark:bg-surface-900/15 px-1.5 py-0.5 text-[10px] font-medium text-white/80 dark:text-surface-900/80 ring-1 ring-white/20 dark:ring-surface-900/20">Бета</span>
                 </template>
             </button>
 
@@ -294,7 +294,7 @@ async function handleSocialSignIn(providerId: string) {
                 <div class="relative flex justify-center text-xs">
                     <span
                         class="bg-white dark:bg-surface-900 px-2 text-surface-400"
-                        >or continue with email</span
+                        >или продолжить с Email</span
                     >
                 </div>
             </div>
@@ -316,7 +316,7 @@ async function handleSocialSignIn(providerId: string) {
         <label
             class="flex flex-col gap-1 text-sm font-medium text-surface-700 dark:text-surface-300"
         >
-            <span>Password</span>
+            <span>Пароль</span>
             <input
                 v-model="password"
                 type="password"
@@ -331,7 +331,7 @@ async function handleSocialSignIn(providerId: string) {
                 :to="$localePath('/auth/forgot-password')"
                 class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
             >
-                Forgot password?
+                Забыли пароль?
             </NuxtLink>
         </div>
 
@@ -340,7 +340,7 @@ async function handleSocialSignIn(providerId: string) {
             :disabled="isLoading"
             class="mt-2 px-4 py-2.5 bg-brand-600 text-white rounded-md text-sm font-medium cursor-pointer hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
-            {{ isLoading ? "Signing in…" : "Sign in" }}
+            {{ isLoading ? "Вход…" : "Войти" }}
         </button>
 
         <!-- Enterprise SSO button — always available on cloud, uses per-org providers -->
@@ -354,7 +354,7 @@ async function handleSocialSignIn(providerId: string) {
                 <div class="relative flex justify-center text-xs">
                     <span
                         class="bg-white dark:bg-surface-900 px-2 text-surface-400"
-                        >or</span
+                        >или</span
                     >
                 </div>
             </div>
@@ -366,13 +366,13 @@ async function handleSocialSignIn(providerId: string) {
                 @click="handleEnterpriseSso"
             >
                 <ShieldCheck class="size-4" />
-                {{ ssoRedirecting ? "Redirecting to your IdP…" : "Sign in with SSO" }}
-                <span v-if="!ssoRedirecting" class="inline-flex items-center rounded-full bg-white/15 dark:bg-surface-900/15 px-1.5 py-0.5 text-[10px] font-medium text-white/80 dark:text-surface-900/80 ring-1 ring-white/20 dark:ring-surface-900/20">Beta</span>
+                {{ ssoRedirecting ? "Перенаправление к провайдеру идентификации…" : "Войти через SSO" }}
+                <span v-if="!ssoRedirecting" class="inline-flex items-center rounded-full bg-white/15 dark:bg-surface-900/15 px-1.5 py-0.5 text-[10px] font-medium text-white/80 dark:text-surface-900/80 ring-1 ring-white/20 dark:ring-surface-900/20">Бета</span>
             </button>
         </template>
 
         <p v-if="signupEnabled" class="text-center text-sm text-surface-500 dark:text-surface-400">
-            Don't have an account?
+            Нет аккаунта?
             <NuxtLink
                 :to="
                     route.query.invitation
@@ -383,7 +383,7 @@ async function handleSocialSignIn(providerId: string) {
                         : $localePath('/auth/sign-up')
                 "
                 class="text-brand-600 dark:text-brand-400 hover:underline"
-                >Sign up</NuxtLink
+                >Регистрация</NuxtLink
             >
         </p>
     </form>

@@ -16,8 +16,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Timeline',
-  description: 'Full activity timeline for your organization',
+  title: 'Лента',
+  description: 'Полная лента событий вашей организации',
 })
 
 const localePath = useLocalePath()
@@ -142,11 +142,11 @@ onMounted(async () => {
 // ─────────────────────────────────────────────
 
 const filters = [
-  { key: undefined, label: 'All activity', icon: History },
-  { key: 'job', label: 'Jobs', icon: Briefcase },
-  { key: 'candidate', label: 'Candidates', icon: Users },
-  { key: 'application', label: 'Applications', icon: FileText },
-  { key: 'interview', label: 'Interviews', icon: Calendar },
+  { key: undefined, label: 'Все события', icon: History },
+  { key: 'job', label: 'Вакансии', icon: Briefcase },
+  { key: 'candidate', label: 'Кандидаты', icon: Users },
+  { key: 'application', label: 'Отклики', icon: FileText },
+  { key: 'interview', label: 'Интервью', icon: Calendar },
 ] as const
 
 async function setFilter(type?: string) {
@@ -215,7 +215,18 @@ function getActionStyle(action: string, resourceType: string, metadata?: Record<
   if (action === 'status_changed' && metadata) {
     const toStatus = String(metadata.toStatus ?? metadata.to ?? '').toLowerCase()
     const colors = getPipelineStatusColors(toStatus)
-    return { icon: ArrowRight, ...colors, label: 'Moved' }
+    return { icon: ArrowRight, ...colors, label: 'Перемещено' }
+  }
+
+  // Спринт 15.1: смена этапа воронки — единый стиль
+  if (action === 'stage_changed') {
+    return {
+      icon: ArrowRight,
+      color: 'text-brand-600 dark:text-brand-400',
+      bg: 'bg-brand-50 dark:bg-brand-950/50',
+      ring: 'ring-brand-200 dark:ring-brand-800',
+      label: 'Этап изменён',
+    }
   }
 
   const map: Record<string, ActionStyle> = {
@@ -224,70 +235,70 @@ function getActionStyle(action: string, resourceType: string, metadata?: Record<
       color: 'text-success-600 dark:text-success-400',
       bg: 'bg-success-50 dark:bg-success-950/50',
       ring: 'ring-success-200 dark:ring-success-800',
-      label: 'Created',
+      label: 'Создано',
     },
     updated: {
       icon: Edit3,
       color: 'text-brand-600 dark:text-brand-400',
       bg: 'bg-brand-50 dark:bg-brand-950/50',
       ring: 'ring-brand-200 dark:ring-brand-800',
-      label: 'Updated',
+      label: 'Обновлено',
     },
     deleted: {
       icon: Trash2,
       color: 'text-danger-600 dark:text-danger-400',
       bg: 'bg-danger-50 dark:bg-danger-950/50',
       ring: 'ring-danger-200 dark:ring-danger-800',
-      label: 'Deleted',
+      label: 'Удалено',
     },
     status_changed: {
       icon: ArrowRight,
       color: 'text-blue-600 dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-950/50',
       ring: 'ring-blue-200 dark:ring-blue-800',
-      label: 'Status changed',
+      label: 'Статус изменён',
     },
     comment_added: {
       icon: MessageSquare,
       color: 'text-info-600 dark:text-info-400',
       bg: 'bg-info-50 dark:bg-info-950/50',
       ring: 'ring-info-200 dark:ring-info-800',
-      label: 'Comment added',
+      label: 'Добавлен комментарий',
     },
     member_invited: {
       icon: UserPlus,
       color: 'text-accent-600 dark:text-accent-400',
       bg: 'bg-accent-50 dark:bg-accent-950/50',
       ring: 'ring-accent-200 dark:ring-accent-800',
-      label: 'Member invited',
+      label: 'Участник приглашён',
     },
     member_removed: {
       icon: UserMinus,
       color: 'text-danger-600 dark:text-danger-400',
       bg: 'bg-danger-50 dark:bg-danger-950/50',
       ring: 'ring-danger-200 dark:ring-danger-800',
-      label: 'Member removed',
+      label: 'Участник удалён',
     },
     member_role_changed: {
       icon: ShieldCheck,
       color: 'text-brand-600 dark:text-brand-400',
       bg: 'bg-brand-50 dark:bg-brand-950/50',
       ring: 'ring-brand-200 dark:ring-brand-800',
-      label: 'Role changed',
+      label: 'Роль изменена',
     },
     scored: {
       icon: Sparkles,
       color: 'text-accent-600 dark:text-accent-400',
       bg: 'bg-accent-50 dark:bg-accent-950/50',
       ring: 'ring-accent-200 dark:ring-accent-800',
-      label: 'AI scored',
+      label: 'ИИ оценил',
     },
     scheduled: {
       icon: Calendar,
       color: 'text-brand-600 dark:text-brand-400',
       bg: 'bg-brand-50 dark:bg-brand-950/50',
       ring: 'ring-brand-200 dark:ring-brand-800',
-      label: 'Scheduled',
+      label: 'Запланировано',
     },
   }
 
@@ -362,25 +373,26 @@ function getStatusBadgeClasses(status: string): string {
 
 function getEventDescription(item: TimelineItem): string {
   const typeLabels: Record<string, string> = {
-    job: 'Job',
-    candidate: 'Candidate',
-    application: 'Application',
-    interview: 'Interview',
-    member: 'Team member',
+    job: 'Вакансия',
+    candidate: 'Кандидат',
+    application: 'Отклик',
+    interview: 'Интервью',
+    member: 'Участник команды',
   }
   const type = typeLabels[item.resourceType] ?? item.resourceType
 
   switch (item.action) {
-    case 'created': return `${type} created`
-    case 'updated': return `${type} updated`
-    case 'deleted': return `${type} deleted`
-    case 'status_changed': return `${type} moved`
-    case 'comment_added': return `Comment on ${type.toLowerCase()}`
-    case 'member_invited': return 'Member invited'
-    case 'member_removed': return 'Member removed'
-    case 'member_role_changed': return 'Role changed'
-    case 'scored': return `${type} scored by AI`
-    case 'scheduled': return `${type} scheduled`
+    case 'created': return `${type}: создано`
+    case 'updated': return `${type}: обновлено`
+    case 'deleted': return `${type}: удалено`
+    case 'status_changed': return `${type}: перемещено`
+    case 'stage_changed': return `${type}: этап изменён`
+    case 'comment_added': return `Комментарий к объекту: ${type.toLowerCase()}`
+    case 'member_invited': return 'Участник приглашён'
+    case 'member_removed': return 'Участник удалён'
+    case 'member_role_changed': return 'Роль изменена'
+    case 'scored': return `ИИ оценил: ${type}`
+    case 'scheduled': return `${type}: запланировано`
     default: return `${type} ${item.action.replace(/_/g, ' ')}`
   }
 }
@@ -393,7 +405,7 @@ function getEventDescription(item: TimelineItem): string {
       <div class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
           <h1 class="text-xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">
-            Timeline
+            Лента
           </h1>
           <span
             v-if="totalEvents > 0 && !isLoading"
@@ -410,7 +422,7 @@ function getEventDescription(item: TimelineItem): string {
           @click="scrollToToday"
         >
           <ArrowDown class="size-3" />
-          Today
+          Сегодня
         </button>
       </div>
 
@@ -437,7 +449,7 @@ function getEventDescription(item: TimelineItem): string {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search by name, date, or keyword…"
+            placeholder="Поиск по имени, дате или ключевому слову…"
             class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 pl-8 pr-8 py-1.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-400 dark:focus:border-brand-600 transition-colors"
           />
           <button
@@ -477,7 +489,7 @@ function getEventDescription(item: TimelineItem): string {
       <AlertCircle class="size-4 shrink-0" />
       <span>{{ error }}</span>
       <button class="underline ml-auto font-medium cursor-pointer" @click="loadInitial(activeFilter)">
-        Retry
+        Повторить
       </button>
     </div>
 
@@ -491,17 +503,17 @@ function getEventDescription(item: TimelineItem): string {
           <History class="size-6 text-white" />
         </div>
         <h2 class="text-lg font-bold text-surface-900 dark:text-surface-100 mb-2 tracking-tight">
-          No activity yet
+          Событий пока нет
         </h2>
         <p class="text-sm text-surface-500 dark:text-surface-400 leading-relaxed">
-          Activity will appear here as you create jobs, add candidates, and process applications.
+          События появятся здесь, когда вы создадите вакансию, добавите кандидата или обработаете отклик.
         </p>
         <NuxtLink
           :to="localePath('/dashboard/jobs')"
           class="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 transition-colors no-underline"
         >
           <Briefcase class="size-4" />
-          Create your first job
+          Создать первую вакансию
         </NuxtLink>
       </div>
     </div>
@@ -516,13 +528,13 @@ function getEventDescription(item: TimelineItem): string {
         No results for “{{ searchQuery.trim() }}”
       </p>
       <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">
-        Try searching by name, date, or keyword
+        Попробуйте искать по имени, дате или ключевому слову
       </p>
       <button
         class="mt-3 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
         @click="searchQuery = ''"
       >
-        Clear search
+        Очистить поиск
       </button>
     </div>
 
@@ -552,7 +564,7 @@ function getEventDescription(item: TimelineItem): string {
                 v-if="group.isToday"
                 class="text-[9px] font-bold text-white uppercase tracking-wider"
               >
-                Now
+                Сейчас
               </span>
               <Calendar
                 v-else-if="group.isFuture"
@@ -634,7 +646,7 @@ function getEventDescription(item: TimelineItem): string {
                     <div class="flex-1 min-w-0 flex items-center gap-1.5">
                       <span class="text-[13px] font-medium text-surface-900 dark:text-surface-100 shrink-0">{{ getEventDescription(item) }}</span>
                       <span v-if="item.resourceName" class="text-[13px] text-surface-600 dark:text-surface-300 truncate group-hover:text-brand-700 dark:group-hover:text-brand-300 transition-colors">&mdash; {{ item.resourceName }}</span>
-                      <template v-if="item.action === 'status_changed' && item.metadata">
+                      <template v-if="(item.action === 'status_changed' || item.action === 'stage_changed') && item.metadata">
                         <span v-if="item.metadata.fromStatus || item.metadata.from" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.fromStatus ?? item.metadata.from))">{{ item.metadata.fromStatus ?? item.metadata.from }}</span>
                         <ArrowRight class="size-2.5 text-surface-400 dark:text-surface-500 shrink-0" />
                         <span v-if="item.metadata.toStatus || item.metadata.to" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.toStatus ?? item.metadata.to))">{{ item.metadata.toStatus ?? item.metadata.to }}</span>
@@ -647,6 +659,12 @@ function getEventDescription(item: TimelineItem): string {
                           <span class="text-[8px] font-bold text-surface-500 dark:text-surface-400">{{ item.actorName.charAt(0).toUpperCase() }}</span>
                         </div>
                         <span class="text-[11px] text-surface-400 dark:text-surface-500 max-w-[80px] truncate">{{ item.actorName }}</span>
+                      </div>
+                      <div v-else-if="item.actorId === null" class="flex items-center gap-1">
+                        <div class="size-4 rounded-full bg-brand-100 dark:bg-brand-950 flex items-center justify-center">
+                          <span class="text-[8px] font-bold text-brand-600 dark:text-brand-400">A</span>
+                        </div>
+                        <span class="text-[11px] text-surface-400 dark:text-surface-500">Система</span>
                       </div>
                       <span class="text-[11px] text-surface-400 dark:text-surface-500 tabular-nums">{{ formatTime(item.createdAt) }}</span>
                     </div>
@@ -686,12 +704,12 @@ function getEventDescription(item: TimelineItem): string {
                       <div class="flex-1 min-w-0 flex items-center gap-1.5">
                         <span class="text-[12px] font-medium shrink-0" :class="getActionStyle(item.action, item.resourceType, item.metadata).color">{{ getEventDescription(item) }}</span>
                         <span v-if="item.resourceName" class="text-[12px] text-surface-600 dark:text-surface-300 truncate group-hover:text-brand-700 dark:group-hover:text-brand-300 transition-colors">{{ item.resourceName }}</span>
-                        <template v-if="item.action === 'status_changed' && item.metadata">
+                        <template v-if="(item.action === 'status_changed' || item.action === 'stage_changed') && item.metadata">
                           <span v-if="item.metadata.fromStatus || item.metadata.from" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.fromStatus ?? item.metadata.from))">{{ item.metadata.fromStatus ?? item.metadata.from }}</span>
                           <ArrowRight class="size-2.5 text-surface-400 dark:text-surface-500 shrink-0" />
                           <span v-if="item.metadata.toStatus || item.metadata.to" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none" :class="getStatusBadgeClasses(String(item.metadata.toStatus ?? item.metadata.to))">{{ item.metadata.toStatus ?? item.metadata.to }}</span>
                         </template>
-                        <span v-if="item.isUpcoming" class="text-[11px] font-medium text-accent-600 dark:text-accent-400 shrink-0">Upcoming</span>
+                        <span v-if="item.isUpcoming" class="text-[11px] font-medium text-accent-600 dark:text-accent-400 shrink-0">Предстоящие</span>
                       </div>
                       <div class="flex items-center gap-2 shrink-0">
                         <div v-if="item.actorName" class="flex items-center gap-1">
@@ -700,6 +718,12 @@ function getEventDescription(item: TimelineItem): string {
                             <span class="text-[7px] font-bold text-surface-500 dark:text-surface-400">{{ item.actorName.charAt(0).toUpperCase() }}</span>
                           </div>
                           <span class="text-[10px] text-surface-400 dark:text-surface-500 max-w-[70px] truncate">{{ item.actorName }}</span>
+                        </div>
+                        <div v-else-if="item.actorId === null" class="flex items-center gap-1">
+                          <div class="size-3.5 rounded-full bg-brand-100 dark:bg-brand-950 flex items-center justify-center">
+                            <span class="text-[7px] font-bold text-brand-600 dark:text-brand-400">A</span>
+                          </div>
+                          <span class="text-[10px] text-surface-400 dark:text-surface-500">Система</span>
                         </div>
                         <span class="text-[10px] text-surface-400 dark:text-surface-500 tabular-nums">{{ formatTime(item.createdAt) }}</span>
                       </div>
@@ -716,7 +740,7 @@ function getEventDescription(item: TimelineItem): string {
       <div ref="scrollSentinel" class="relative mt-6">
         <div v-if="isLoadingMore" class="flex items-center justify-center gap-2 py-6 text-xs text-surface-500 dark:text-surface-400">
           <Loader2 class="size-3.5 animate-spin" />
-          Loading more…
+          Загрузка…
         </div>
         <div v-else-if="hasMore" class="flex justify-center py-4">
           <button
@@ -724,12 +748,12 @@ function getEventDescription(item: TimelineItem): string {
             @click="loadMore"
           >
             <ChevronDown class="size-3.5" />
-            Load older events
+            Показать более раннее
           </button>
         </div>
         <div v-else-if="totalEvents > 0" class="flex items-center justify-center gap-2 py-6 text-xs text-surface-400 dark:text-surface-500">
           <Clock class="size-3.5" />
-          Beginning of timeline
+          Начало ленты
         </div>
       </div>
     </div>

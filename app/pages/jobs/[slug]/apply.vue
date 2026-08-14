@@ -28,8 +28,8 @@ const { data: job, status: fetchStatus, error: fetchError } = useFetch(
 )
 
 useSeoMeta({
-  title: computed(() => job.value ? `Apply — ${job.value.title}` : 'Apply'),
-  description: computed(() => job.value?.description?.slice(0, 160) ?? 'Submit your application'),
+  title: computed(() => job.value ? `Откликнуться — ${job.value.title}` : 'Откликнуться'),
+  description: computed(() => job.value?.description?.slice(0, 160) ?? 'Отправьте отклик'),
   robots: 'noindex, nofollow',
 })
 
@@ -232,7 +232,7 @@ async function handleSubmit() {
     track('application_submitted', { slug: jobSlug })
     await navigateTo(`/jobs/${jobSlug}/confirmation`)
   } catch (err: any) {
-    const message = err.data?.statusMessage ?? 'Something went wrong. Please try again.'
+    const message = err.data?.statusMessage ?? 'Не удалось отправить отклик. Попробуйте ещё раз.'
     submitError.value = message
 
     // Surface file-related errors next to the resume field so the user knows what to fix
@@ -362,7 +362,7 @@ const typeLabels = computed<Record<string, string>>(() => ({
           <form class="space-y-5" @submit.prevent="handleSubmit">
             <!-- Honeypot (hidden from humans) -->
             <div class="absolute -left-[9999px]" aria-hidden="true">
-              <label for="website">Website</label>
+              <label for="website">Веб-сайт</label>
               <input id="website" v-model="form.website" type="text" tabindex="-1" autocomplete="off" />
             </div>
 
@@ -377,7 +377,7 @@ const typeLabels = computed<Record<string, string>>(() => ({
                   id="firstName"
                   v-model="form.firstName"
                   type="text"
-                  placeholder="Jane"
+                  placeholder="Иван"
                   autocomplete="given-name"
                   class="w-full rounded-xl border px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                   :class="errors.firstName ? 'border-danger-300 dark:border-danger-700 focus:ring-danger-500 focus:border-danger-500' : 'border-surface-300 dark:border-surface-700'"
@@ -397,7 +397,7 @@ const typeLabels = computed<Record<string, string>>(() => ({
                   id="lastName"
                   v-model="form.lastName"
                   type="text"
-                  placeholder="Doe"
+                  placeholder="Иванов"
                   autocomplete="family-name"
                   class="w-full rounded-xl border px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                   :class="errors.lastName ? 'border-danger-300 dark:border-danger-700 focus:ring-danger-500 focus:border-danger-500' : 'border-surface-300 dark:border-surface-700'"
@@ -438,7 +438,7 @@ const typeLabels = computed<Record<string, string>>(() => ({
                 id="phone"
                 v-model="form.phone"
                 type="tel"
-                placeholder="+1 (555) 123-4567"
+                placeholder="+7 (999) 123-45-67"
                 autocomplete="tel"
                 class="w-full rounded-xl border border-surface-300 dark:border-surface-700 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
               />
@@ -465,7 +465,7 @@ const typeLabels = computed<Record<string, string>>(() => ({
                     </svg>
                     <div class="flex-1 min-w-0">
                       <p v-if="resumeFile" class="text-sm text-surface-900 dark:text-surface-100 truncate">{{ resumeFile.name }}</p>
-                      <p v-else class="text-sm text-surface-500">PDF, DOC, or DOCX — max 10 MB</p>
+                      <p v-else class="text-sm text-surface-500">PDF, DOC или DOCX — не более 10 МБ</p>
                     </div>
                     <label
                       for="resume"
@@ -497,7 +497,7 @@ const typeLabels = computed<Record<string, string>>(() => ({
                     v-model="coverLetterText"
                     rows="6"
                     maxlength="10000"
-                    placeholder="Tell us why you're interested in this role…"
+                    placeholder="Расскажите, почему вам интересна эта вакансия…"
                     class="w-full rounded-xl border px-4 py-3 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                     :class="errors.coverLetter ? 'border-danger-300 dark:border-danger-700' : 'border-surface-300 dark:border-surface-700'"
                     @input="delete errors.coverLetter"
@@ -506,7 +506,7 @@ const typeLabels = computed<Record<string, string>>(() => ({
                     <svg class="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     {{ errors.coverLetter }}
                   </p>
-                  <p v-else class="mt-1.5 text-xs text-surface-500">Max 10,000 characters.</p>
+                  <p v-else class="mt-1.5 text-xs text-surface-500">Не более 10 000 символов.</p>
                 </div>
               </div>
             </template>

@@ -68,7 +68,7 @@ const allTemplates = computed(() => [
 ])
 
 const selectedTemplateName = computed(() => {
-  return allTemplates.value.find(t => t.id === selectedTemplateId.value)?.name ?? 'Select template'
+  return allTemplates.value.find(t => t.id === selectedTemplateId.value)?.name ?? 'Выберите шаблон'
 })
 
 // Set a sensible default title
@@ -81,8 +81,8 @@ function toDateString(d: Date): string {
 }
 
 onMounted(() => {
-  form.title = `Interview — ${props.candidateName}`
-  calendarCustomization.eventTitle = `Interview — ${props.candidateName}`
+  form.title = `Интервью — ${props.candidateName}`
+  calendarCustomization.eventTitle = `Интервью — ${props.candidateName}`
   // Default date to tomorrow
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
@@ -169,7 +169,7 @@ const calendarDays = computed(() => {
 })
 
 const calendarMonthLabel = computed(() => {
-  return calendarMonth.value.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  return calendarMonth.value.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
 })
 
 function prevMonth() {
@@ -244,15 +244,15 @@ const commonTimezones = [
 const formattedDateTime = computed(() => {
   if (!form.date || !form.time) return ''
   const d = new Date(`${form.date}T${form.time}`)
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleDateString('ru-RU', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric',
-  }) + ' at ' + d.toLocaleTimeString('en-US', {
+  }) + ' в ' + d.toLocaleTimeString('ru-RU', {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true,
+    hour12: false,
   })
 })
 
@@ -260,26 +260,26 @@ const endTime = computed(() => {
   if (!form.date || !form.time) return ''
   const d = new Date(`${form.date}T${form.time}`)
   d.setMinutes(d.getMinutes() + form.duration)
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  return d.toLocaleTimeString('ru-RU', { hour: 'numeric', minute: '2-digit', hour12: false })
 })
 
 // ─── Submit ───────────────────────────────────────────────────────
 async function handleSubmit() {
   errors.value = {}
 
-  if (!form.title.trim()) errors.value.title = 'Title is required'
-  if (!form.date) errors.value.date = 'Date is required'
-  if (!form.time) errors.value.time = 'Time is required'
+  if (!form.title.trim()) errors.value.title = 'Укажите название'
+  if (!form.date) errors.value.date = 'Укажите дату'
+  if (!form.time) errors.value.time = 'Укажите время'
 
   const scheduledDate = new Date(`${form.date}T${form.time}`)
   if (isNaN(scheduledDate.getTime())) {
-    errors.value.date = 'Invalid date/time'
+    errors.value.date = 'Некорректные дата или время'
   }
 
   const filteredInterviewers = form.interviewers.filter(i => i.trim())
   const invalidEmails = filteredInterviewers.filter(e => !EMAIL_RE.test(e.trim()))
   if (invalidEmails.length > 0) {
-    errors.value.interviewers = 'All interviewers must have a valid email address'
+    errors.value.interviewers = 'Укажите корректный Email для каждого интервьюера'
   }
 
   if (Object.keys(errors.value).length > 0) return
@@ -325,7 +325,7 @@ async function handleSubmit() {
     createdInterview.value = created ? { id: created.id, googleCalendarEventLink: created.googleCalendarEventLink ?? null } : null
     showSuccess.value = true
   } catch (err: any) {
-    errors.value.submit = err?.data?.statusMessage ?? 'Failed to schedule interview'
+    errors.value.submit = err?.data?.statusMessage ?? 'Не удалось запланировать интервью'
   } finally {
     isSubmitting.value = false
   }
@@ -343,7 +343,7 @@ async function handleMoveToInterview() {
     await refreshNuxtData('interviews')
     emit('scheduled')
   } catch (err: any) {
-    errors.value.submit = err?.data?.statusMessage ?? 'Failed to move to interview stage'
+    errors.value.submit = err?.data?.statusMessage ?? 'Не удалось перевести на этап интервью'
   } finally {
     isMoving.value = false
   }
@@ -388,7 +388,7 @@ async function handleMoveToInterview() {
                     <Calendar v-else class="size-4 text-brand-600 dark:text-brand-400" />
                   </div>
                   <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-50 tracking-tight">
-                    {{ showSuccess ? 'Interview Scheduled' : 'Schedule Interview' }}
+                    {{ showSuccess ? 'Интервью запланировано' : 'Запланировать интервью' }}
                   </h2>
                 </div>
                 <p class="text-[13px] text-surface-500 dark:text-surface-400 truncate pl-[42px]">
@@ -415,29 +415,25 @@ async function handleMoveToInterview() {
               </div>
 
               <h3 class="text-base font-semibold text-surface-900 dark:text-surface-50 mb-1.5 text-center">
-                Interview successfully scheduled
-              </h3>
+                Интервью успешно запланировано              </h3>
               <p class="text-sm text-surface-500 dark:text-surface-400 text-center max-w-sm mb-6">
-                {{ form.title }} on {{ formattedDateTime }} ({{ form.duration }}m)
+                {{ form.title }} · {{ formattedDateTime }} ({{ form.duration }} мин.)
               </p>
 
               <!-- Notification summary -->
               <div v-if="notifyViaEmail || notifyViaCalendar" class="flex flex-wrap items-center justify-center gap-2 mb-6">
                 <span v-if="notifyViaEmail" class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 dark:bg-brand-950/30 px-2.5 py-1 text-xs font-medium text-brand-700 dark:text-brand-400">
                   <Mail class="size-3" />
-                  Email sent
-                </span>
+                  Письмо отправлено                </span>
                 <span v-if="notifyViaCalendar" class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
                   <Calendar class="size-3" />
-                  Calendar event created
-                </span>
+                  Событие в календаре создано                </span>
               </div>
 
               <!-- Quick links -->
               <div class="w-full max-w-sm space-y-2.5">
                 <p class="text-[11px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-2">
-                  Quick links
-                </p>
+                  Быстрые ссылки                </p>
 
                 <!-- Google Calendar link -->
                 <a
@@ -450,7 +446,7 @@ async function handleMoveToInterview() {
                   <div class="flex size-8 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30">
                     <Calendar class="size-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <span class="flex-1">Open in Google Calendar</span>
+                  <span class="flex-1">Открыть в Google Calendar</span>
                   <ExternalLink class="size-3.5 text-surface-400 group-hover:text-emerald-500 transition-colors" />
                 </a>
 
@@ -463,7 +459,7 @@ async function handleMoveToInterview() {
                   <div class="flex size-8 items-center justify-center rounded-lg bg-brand-50 dark:bg-brand-950/30">
                     <Eye class="size-4 text-brand-600 dark:text-brand-400" />
                   </div>
-                  <span class="flex-1">View application</span>
+                  <span class="flex-1">Открыть отклик</span>
                   <ArrowRight class="size-3.5 text-surface-400 group-hover:text-brand-500 transition-colors" />
                 </NuxtLink>
 
@@ -476,7 +472,7 @@ async function handleMoveToInterview() {
                   <div class="flex size-8 items-center justify-center rounded-lg bg-surface-100 dark:bg-surface-800">
                     <Plus class="size-4 text-surface-500 dark:text-surface-400" />
                   </div>
-                  <span class="flex-1 text-left">Schedule another interview</span>
+                  <span class="flex-1 text-left">Запланировать ещё одно интервью</span>
                   <ArrowRight class="size-3.5 text-surface-400 group-hover:text-surface-600 dark:group-hover:text-surface-300 transition-colors" />
                 </button>
               </div>
@@ -489,8 +485,7 @@ async function handleMoveToInterview() {
                 class="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 transition-colors cursor-pointer shadow-sm shadow-brand-600/20 dark:shadow-brand-500/10"
                 @click="emit('scheduled', createdInterview ?? undefined)"
               >
-                Done
-              </button>
+                Готово              </button>
             </div>
           </template>
 
@@ -508,8 +503,7 @@ async function handleMoveToInterview() {
             <div>
               <label class="block text-[13px] font-medium text-surface-700 dark:text-surface-300 mb-2.5">
                 <Send class="inline size-3.5 mr-1.5 -mt-0.5 text-surface-400" />
-                Notify candidate
-              </label>
+                Уведомить кандидата              </label>
 
               <div class="space-y-2">
                 <!-- Option: Standard email -->
@@ -523,11 +517,9 @@ async function handleMoveToInterview() {
                     <Mail class="size-4 shrink-0 transition-colors" :class="notifyViaEmail ? 'text-brand-600 dark:text-brand-400' : 'text-surface-400 dark:text-surface-500'" />
                     <div class="min-w-0 flex-1">
                       <p class="text-[13px] font-medium transition-colors" :class="notifyViaEmail ? 'text-surface-900 dark:text-surface-100' : 'text-surface-600 dark:text-surface-400'">
-                        Standard email
-                      </p>
+                        Стандартное письмо                      </p>
                       <p class="text-[11px] text-surface-400 dark:text-surface-500">
-                        Send interview invitation via email (noreply)
-                      </p>
+                        Отправить приглашение на интервью по Email (noreply)                      </p>
                     </div>
                   </label>
 
@@ -535,8 +527,7 @@ async function handleMoveToInterview() {
                   <div v-if="notifyViaEmail" class="px-3.5 pb-3.5 pt-0">
                     <div class="relative">
                       <label class="block text-[12px] font-medium text-surface-500 dark:text-surface-400 mb-1.5">
-                        Email template
-                      </label>
+                        Шаблон письма                      </label>
                       <button
                         type="button"
                         class="w-full flex items-center justify-between rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-left transition-all hover:border-surface-300 dark:hover:border-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 cursor-pointer"
@@ -558,7 +549,7 @@ async function handleMoveToInterview() {
                         <div v-if="showTemplateDropdown" class="absolute z-10 mt-1 w-full rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 shadow-lg shadow-surface-900/10 dark:shadow-black/20 overflow-hidden">
                           <!-- System templates -->
                           <div class="px-2.5 pt-2 pb-1">
-                            <span class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Built-in</span>
+                            <span class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Встроенный</span>
                           </div>
                           <button
                             v-for="t in allTemplates.filter(t => t.isSystem)"
@@ -581,7 +572,7 @@ async function handleMoveToInterview() {
                           <template v-if="allTemplates.some(t => !t.isSystem)">
                             <div class="border-t border-surface-100 dark:border-surface-700/60 mx-2.5" />
                             <div class="px-2.5 pt-2 pb-1">
-                              <span class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Custom</span>
+                              <span class="text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Свой</span>
                             </div>
                             <button
                               v-for="t in allTemplates.filter(t => !t.isSystem)"
@@ -620,11 +611,10 @@ async function handleMoveToInterview() {
                         Google Calendar
                       </p>
                       <p class="text-[11px] text-surface-400 dark:text-surface-500">
-                        <template v-if="calendarConnected">Create calendar event with invite</template>
+                        <template v-if="calendarConnected">Создать событие в календаре с приглашением</template>
                         <template v-else>
-                          <NuxtLink to="/dashboard/settings/integrations" class="underline underline-offset-2 hover:text-surface-600 dark:hover:text-surface-400 transition-colors" @click.stop>Connect in Settings</NuxtLink>
-                          to enable
-                        </template>
+                          <NuxtLink to="/dashboard/settings/integrations" class="underline underline-offset-2 hover:text-surface-600 dark:hover:text-surface-400 transition-colors" @click.stop>Подключите Google Calendar в настройках</NuxtLink>,
+                          чтобы включить интеграцию.                        </template>
                       </p>
                     </div>
                     <!-- Customize toggle -->
@@ -632,7 +622,7 @@ async function handleMoveToInterview() {
                       v-if="notifyViaCalendar && calendarConnected"
                       type="button"
                       class="shrink-0 rounded-lg p-1.5 text-surface-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-950/30 transition-colors cursor-pointer"
-                      title="Customize event"
+                      title="Настроить событие"
                       @click.prevent="calendarCustomization.showCustomize = !calendarCustomization.showCustomize"
                     >
                       <Pencil class="size-3.5" />
@@ -644,13 +634,12 @@ async function handleMoveToInterview() {
                     <!-- Event title -->
                     <div>
                       <label for="cal-event-title" class="block text-[12px] font-medium text-surface-500 dark:text-surface-400 mb-1.5">
-                        Event title
-                      </label>
+                        Название события                      </label>
                       <input
                         id="cal-event-title"
                         v-model="calendarCustomization.eventTitle"
                         type="text"
-                        placeholder="Defaults to interview title"
+                        placeholder="По умолчанию — название интервью"
                         class="w-full rounded-lg border border-surface-200 dark:border-surface-700/80 bg-white dark:bg-surface-800 px-3 py-1.5 text-[13px] text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
                       />
                     </div>
@@ -658,13 +647,12 @@ async function handleMoveToInterview() {
                     <!-- Event description -->
                     <div>
                       <label for="cal-event-desc" class="block text-[12px] font-medium text-surface-500 dark:text-surface-400 mb-1.5">
-                        Event description
-                      </label>
+                        Описание события                      </label>
                       <textarea
                         id="cal-event-desc"
                         v-model="calendarCustomization.eventDescription"
                         rows="3"
-                        placeholder="Leave empty to auto-generate from interview details"
+                        placeholder="Оставьте пустым, чтобы сформировать из данных интервью"
                         class="w-full rounded-lg border border-surface-200 dark:border-surface-700/80 bg-white dark:bg-surface-800 px-3 py-1.5 text-[13px] text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
                       />
                     </div>
@@ -678,7 +666,7 @@ async function handleMoveToInterview() {
                           class="size-3.5 rounded border-surface-300 dark:border-surface-600 text-emerald-600 focus:ring-emerald-500/20 focus:ring-offset-0 cursor-pointer"
                         />
                         <UserPlus class="size-3.5 text-surface-400" />
-                        <span class="text-[12px] text-surface-600 dark:text-surface-400">Add candidate as attendee</span>
+                        <span class="text-[12px] text-surface-600 dark:text-surface-400">Добавить кандидата как участника</span>
                       </label>
                       <label class="flex items-center gap-2 cursor-pointer">
                         <input
@@ -687,7 +675,7 @@ async function handleMoveToInterview() {
                           class="size-3.5 rounded border-surface-300 dark:border-surface-600 text-emerald-600 focus:ring-emerald-500/20 focus:ring-offset-0 cursor-pointer"
                         />
                         <Bell class="size-3.5 text-surface-400" />
-                        <span class="text-[12px] text-surface-600 dark:text-surface-400">Send Google Calendar notifications</span>
+                        <span class="text-[12px] text-surface-600 dark:text-surface-400">Отправлять уведомления Google Calendar</span>
                       </label>
                     </div>
                   </div>
@@ -696,20 +684,18 @@ async function handleMoveToInterview() {
 
               <!-- Hint if neither selected -->
               <p v-if="!notifyViaEmail && !notifyViaCalendar" class="mt-2 text-[11px] text-surface-400 dark:text-surface-500 italic">
-                No notification will be sent — the interview will only be recorded internally.
-              </p>
+                Уведомление не будет отправлено — интервью будет зафиксировано только во внутренней системе.              </p>
             </div>
 
             <!-- Title -->
             <div>
               <label for="interview-title" class="block text-[13px] font-medium text-surface-700 dark:text-surface-300 mb-2">
-                Title
-              </label>
+                Название              </label>
               <input
                 id="interview-title"
                 v-model="form.title"
                 type="text"
-                placeholder="e.g., Technical Interview Round 1"
+                placeholder="Например, техническое интервью — этап 1"
                 class="w-full rounded-xl border bg-surface-50/50 dark:bg-surface-800/50 px-4 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 focus:bg-white dark:focus:bg-surface-800 transition-all"
                 :class="errors.title ? 'border-danger-300 dark:border-danger-700' : 'border-surface-200 dark:border-surface-700/80'"
               />
@@ -719,8 +705,7 @@ async function handleMoveToInterview() {
             <!-- Date & Time -->
             <div>
               <label class="block text-[13px] font-medium text-surface-700 dark:text-surface-300 mb-2.5">
-                Date & time
-              </label>
+                Дата и время              </label>
               <div class="flex items-stretch gap-3 h-80">
                 <!-- Calendar Date Picker -->
                 <div class="flex-1 rounded-xl border border-surface-200/80 dark:border-surface-700/60 bg-white dark:bg-surface-800/40 overflow-hidden min-w-0 flex flex-col">
@@ -745,7 +730,7 @@ async function handleMoveToInterview() {
 
                   <!-- Weekday headers -->
                   <div class="grid grid-cols-7 text-center px-2">
-                    <div v-for="day in ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']" :key="day" class="pb-1.5 text-[11px] font-medium text-surface-400 dark:text-surface-500">
+                    <div v-for="day in ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']" :key="day" class="pb-1.5 text-[11px] font-medium text-surface-400 dark:text-surface-500">
                       {{ day }}
                     </div>
                   </div>
@@ -779,13 +764,12 @@ async function handleMoveToInterview() {
                 <div class="w-[96px] shrink-0 rounded-xl border border-surface-200/80 dark:border-surface-700/60 bg-white dark:bg-surface-800/40 overflow-hidden flex flex-col">
                   <!-- Time header -->
                   <div class="flex items-center justify-center px-3 py-2.5 shrink-0">
-                    <span class="text-sm font-semibold text-surface-800 dark:text-surface-200">Time</span>
+                    <span class="text-sm font-semibold text-surface-800 dark:text-surface-200">Время</span>
                   </div>
                   <!-- Spacer to perfectly match calendar weekday headers -->
                   <div class="px-2 shrink-0">
                     <div class="pb-1.5 text-[11px] font-medium text-transparent select-none whitespace-nowrap">
-                      Time
-                    </div>
+                      Время                    </div>
                   </div>
                   <!-- Time List -->
                   <div class="flex-1 overflow-y-auto px-1.5 pb-2 flex flex-col gap-0.5 min-h-0">
@@ -807,13 +791,13 @@ async function handleMoveToInterview() {
 
               <!-- Errors -->
               <div v-if="errors.date || errors.time" class="mt-1.5 flex flex-col gap-1">
-                <p v-if="errors.date" class="text-xs text-danger-600 dark:text-danger-400">Date: {{ errors.date }}</p>
-                <p v-if="errors.time" class="text-xs text-danger-600 dark:text-danger-400">Time: {{ errors.time }}</p>
+                <p v-if="errors.date" class="text-xs text-danger-600 dark:text-danger-400">Дата: {{ errors.date }}</p>
+                <p v-if="errors.time" class="text-xs text-danger-600 dark:text-danger-400">Время: {{ errors.time }}</p>
               </div>
 
               <!-- Duration -->
               <div class="mt-3">
-                <span class="text-[12px] font-medium text-surface-500 dark:text-surface-400 mb-2 block">Duration</span>
+                <span class="text-[12px] font-medium text-surface-500 dark:text-surface-400 mb-2 block">Длительность</span>
                 <div class="flex flex-wrap gap-2">
                   <button
                     v-for="preset in durationPresets"
@@ -825,7 +809,7 @@ async function handleMoveToInterview() {
                       : 'bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700'"
                     @click="form.duration = preset"
                   >
-                    {{ preset }}m
+                    {{ preset }} мин.
                   </button>
                 </div>
               </div>
@@ -834,8 +818,7 @@ async function handleMoveToInterview() {
               <div class="mt-3">
                 <label for="interview-timezone" class="text-[12px] font-medium text-surface-500 dark:text-surface-400 mb-1.5 flex items-center gap-1.5">
                   <Globe class="size-3 text-surface-400" />
-                  Timezone
-                </label>
+                  Часовой пояс                </label>
                 <select
                   id="interview-timezone"
                   v-model="form.timezone"
@@ -850,13 +833,12 @@ async function handleMoveToInterview() {
             <div>
               <label for="interview-location" class="block text-[13px] font-medium text-surface-700 dark:text-surface-300 mb-2">
                 <MapPin class="inline size-3.5 mr-1.5 -mt-0.5 text-surface-400" />
-                Location or meeting link
-              </label>
+                Локация / Ссылка              </label>
               <input
                 id="interview-location"
                 v-model="form.location"
                 type="text"
-                placeholder="Zoom link, office address…"
+                placeholder="Ссылка Zoom, адрес офиса…"
                 class="w-full rounded-xl border border-surface-200 dark:border-surface-700/80 bg-surface-50/50 dark:bg-surface-800/50 px-4 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 focus:bg-white dark:focus:bg-surface-800 transition-all"
               />
             </div>
@@ -865,8 +847,7 @@ async function handleMoveToInterview() {
             <div>
               <label class="block text-[13px] font-medium text-surface-700 dark:text-surface-300 mb-2">
                 <Users class="inline size-3.5 mr-1.5 -mt-0.5 text-surface-400" />
-                Interviewers
-                <span class="font-normal text-surface-400 dark:text-surface-500">(optional)</span>
+                Интервьюеры                <span class="font-normal text-surface-400 dark:text-surface-500">(необязательно)</span>
               </label>
               <div class="space-y-2">
                 <div v-for="(email, idx) in form.interviewers" :key="idx" class="flex items-center gap-2">
@@ -892,8 +873,7 @@ async function handleMoveToInterview() {
                   @click="addInterviewer"
                 >
                   <Plus class="size-3.5" />
-                  Add interviewer
-                </button>
+                  Добавить интервьюера                </button>
                 <p v-if="errors.interviewers" class="mt-1 text-xs text-danger-600 dark:text-danger-400">{{ errors.interviewers }}</p>
               </div>
             </div>
@@ -901,14 +881,13 @@ async function handleMoveToInterview() {
             <!-- Notes -->
             <div>
               <label for="interview-notes" class="block text-[13px] font-medium text-surface-700 dark:text-surface-300 mb-2">
-                Notes
-                <span class="font-normal text-surface-400 dark:text-surface-500">(optional)</span>
+                Заметки                <span class="font-normal text-surface-400 dark:text-surface-500">(необязательно)</span>
               </label>
               <textarea
                 id="interview-notes"
                 v-model="form.notes"
                 rows="2"
-                placeholder="Topics to cover, preparation notes…"
+                placeholder="Темы для обсуждения, заметки для подготовки…"
                 class="w-full rounded-xl border border-surface-200 dark:border-surface-700/80 bg-surface-50/50 dark:bg-surface-800/50 px-4 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 focus:bg-white dark:focus:bg-surface-800 transition-all resize-none"
               />
             </div>
@@ -921,7 +900,7 @@ async function handleMoveToInterview() {
             <div v-if="form.date && form.time" class="mb-3 flex items-center gap-2 min-w-0">
               <Calendar class="size-3.5 shrink-0 text-brand-500 dark:text-brand-400" />
               <span class="text-[12px] font-semibold text-surface-800 dark:text-surface-200 truncate">{{ formattedDateTime }}</span>
-              <span class="text-[12px] text-surface-400 dark:text-surface-500 shrink-0">· {{ form.duration }}m</span>
+              <span class="text-[12px] text-surface-400 dark:text-surface-500 shrink-0">· {{ form.duration }} мин.</span>
               <span class="text-[11px] text-surface-400 dark:text-surface-500 shrink-0">· {{ form.timezone.split('/').pop()?.replace(/_/g, ' ') }}</span>
             </div>
 
@@ -944,15 +923,14 @@ async function handleMoveToInterview() {
                 :disabled="isSubmitting || isMoving"
                 @click="emit('close')"
               >
-                Cancel
-              </button>
+                Отмена              </button>
               <button
                 type="button"
                 :disabled="isSubmitting || isMoving"
                 class="flex-[1.5] rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm shadow-brand-600/20 dark:shadow-brand-500/10"
                 @click="handleSubmit"
               >
-                {{ isSubmitting ? 'Scheduling…' : 'Schedule Interview' }}
+                {{ isSubmitting ? 'Планирование…' : 'Запланировать интервью' }}
               </button>
             </div>
             <div class="mt-2.5 text-center">
@@ -962,7 +940,7 @@ async function handleMoveToInterview() {
                 class="text-[12px] text-surface-400 hover:text-surface-600 dark:text-surface-500 dark:hover:text-surface-300 underline underline-offset-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 @click="handleMoveToInterview"
               >
-                {{ isMoving ? 'Moving…' : 'Skip scheduling — just move to interview stage' }}
+                {{ isMoving ? 'Перемещение…' : 'Пропустить планирование — перевести на этап интервью' }}
               </button>
             </div>
           </div>

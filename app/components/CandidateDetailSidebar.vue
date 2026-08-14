@@ -4,6 +4,7 @@ import {
   ExternalLink, Mail, Phone, Upload, Download, Eye, Trash2,
   ArrowLeft, AlertTriangle, Brain, History, RefreshCw,
 } from 'lucide-vue-next'
+import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
 const props = defineProps<{
@@ -36,7 +37,7 @@ const hasSubNav = computed(() => {
 // Tabs
 // ─────────────────────────────────────────────
 
-const activeTab = ref<'overview' | 'documents' | 'responses' | 'ai_analysis' | 'timeline'>('overview')
+const activeTab = ref<'overview' | 'documents' | 'responses' | 'ai_analysis' | 'timeline' | 'chat'>('overview')
 
 // ─────────────────────────────────────────────
 // Fetch application detail
@@ -129,7 +130,7 @@ async function handleTransition(newStatus: string) {
     emit('updated')
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to update status', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+    toast.error('Не удалось изменить статус', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   } finally {
     isTransitioning.value = false
   }
@@ -160,7 +161,7 @@ async function saveNotes() {
     isEditingNotes.value = false
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to save notes', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+    toast.error('Не удалось сохранить заметки', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   } finally {
     isSavingNotes.value = false
   }
@@ -191,9 +192,9 @@ const previewError = ref<string | null>(null)
 const isPdfPreview = computed(() => previewMimeType.value === 'application/pdf')
 
 const documentTypeLabels: Record<string, string> = {
-  resume: 'Resume',
-  cover_letter: 'Cover Letter',
-  other: 'Other',
+  resume: 'Резюме',
+  cover_letter: 'Сопроводительное письмо',
+  other: 'Другое',
 }
 
 function triggerFileSelect() {
@@ -212,7 +213,7 @@ async function handleFileSelected(event: Event) {
     await uploadDocument(candidateId.value, file, selectedDocType.value)
     await refreshCandidate()
   } catch (err: any) {
-    uploadError.value = err.data?.statusMessage ?? err.statusMessage ?? 'Upload failed'
+    uploadError.value = err.data?.statusMessage ?? err.statusMessage ?? 'Загрузка не удалась'
   } finally {
     isUploading.value = false
     input.value = ''
@@ -226,12 +227,12 @@ async function handleReparse(docId: string) {
       method: 'POST',
       headers: useRequestHeaders(['cookie']),
     })
-    toast.add({ title: 'Resume parsed successfully', type: 'success' })
+    toast.add({ title: 'Резюме успешно обработано', type: 'success' })
     await refreshCandidate()
   } catch (err: any) {
     toast.add({
-      title: 'Parse failed',
-      message: err?.data?.statusMessage ?? 'Could not extract text from this document.',
+      title: 'Не удалось обработать файл',
+      message: err?.data?.statusMessage ?? 'Не удалось извлечь текст из документа.',
       type: 'error',
     })
   } finally {
@@ -252,7 +253,7 @@ async function handlePreview(docId: string, mimeType?: string) {
 
   // Find the document name from the loaded data
   const doc = documents.value?.find((d: any) => d.id === docId)
-  previewFilename.value = doc?.originalFilename ?? 'Document'
+  previewFilename.value = doc?.originalFilename ?? 'Документ'
   previewMimeType.value = doc?.mimeType ?? 'application/pdf'
 
   // Use the API endpoint URL directly — server streams the PDF (same-origin)
@@ -273,7 +274,7 @@ async function handleDownload(docId: string) {
     track('document_downloaded', { document_id: docId })
     await downloadDocument(docId)
   } catch {
-    toast.error('Failed to download document')
+    toast.error('Не удалось скачать документ')
   }
 }
 
@@ -286,7 +287,7 @@ async function handleDeleteDoc(docId: string) {
     showDocDeleteConfirm.value = null
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    toast.error('Failed to delete document', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
+    toast.error('Не удалось удалить документ', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   } finally {
     isDeletingDoc.value = false
   }
@@ -296,20 +297,11 @@ async function handleDeleteDoc(docId: string) {
 // Escape key to close (layered: preview → delete → sidebar)
 // ─────────────────────────────────────────────
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showPreview.value) {
-      closePreview()
-    } else if (showDocDeleteConfirm.value) {
-      showDocDeleteConfirm.value = null
-    } else {
-      emit('close')
-    }
-  }
-}
-
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+// LIFO-стек Escape: sidebar → delete confirm → preview.
+// Самый верхний слой закрывается первым — sidebar последним.
+useEscapeStack(true, () => emit('close'))
+useEscapeStack(showDocDeleteConfirm as unknown as import('vue').Ref<boolean>, () => { showDocDeleteConfirm.value = null })
+useEscapeStack(showPreview, () => closePreview())
 
 // ─────────────────────────────────────────────
 // Timeline data for the candidate
@@ -335,13 +327,14 @@ const timelineError = ref<string | null>(null)
 const timelineLoaded = ref(false)
 
 const timelineActionLabels: Record<string, string> = {
-  created: 'Created',
-  updated: 'Updated',
-  deleted: 'Deleted',
-  status_changed: 'Status changed',
-  comment_added: 'Comment added',
-  scored: 'Scored',
-  scheduled: 'Scheduled',
+  created: 'Создано',
+  updated: 'Обновлено',
+  deleted: 'Удалено',
+  status_changed: 'Статус изменён',
+  stage_changed: 'Этап изменён',
+  comment_added: 'Добавлен комментарий',
+  scored: 'Оценено',
+  scheduled: 'Запланировано',
 }
 
 function formatTimelineDate(dateStr: string) {
@@ -353,6 +346,7 @@ function getTimelineActionColor(action: string): string {
   switch (action) {
     case 'created': return 'bg-green-500'
     case 'status_changed': return 'bg-blue-500'
+    case 'stage_changed': return 'bg-brand-500'
     case 'updated': return 'bg-amber-500'
     case 'deleted': return 'bg-danger-500'
     case 'comment_added': return 'bg-violet-500'
@@ -363,14 +357,15 @@ function getTimelineActionColor(action: string): string {
 }
 
 function describeTimelineItem(item: TimelineEntry): string {
-  const actor = item.actorName ?? item.actorEmail ?? 'System'
+  const actor = item.actorName ?? item.actorEmail ?? 'Система'
   const action = timelineActionLabels[item.action] ?? item.action
   const resource = item.resourceType
 
-  if (item.action === 'status_changed' && item.metadata) {
-    const from = item.metadata.from_status ?? item.metadata.fromStatus
-    const to = item.metadata.to_status ?? item.metadata.toStatus
-    if (from && to) return `${actor} changed ${resource} status from ${from} to ${to}`
+  if ((item.action === 'status_changed' || item.action === 'stage_changed') && item.metadata) {
+    const from = item.metadata.from_status ?? item.metadata.fromStatus ?? item.metadata.from
+    const to = item.metadata.to_status ?? item.metadata.toStatus ?? item.metadata.to
+    if (from && to) return `${actor}: ${from} → ${to}`
+    if (to) return `${actor}: → ${to}`
   }
 
   if (item.action === 'scored' && item.metadata) {
@@ -392,7 +387,7 @@ async function loadTimeline() {
     timelineItems.value = result.items
     timelineLoaded.value = true
   } catch (err: any) {
-    timelineError.value = err?.data?.statusMessage ?? 'Failed to load timeline'
+    timelineError.value = err?.data?.statusMessage ?? 'Не удалось загрузить ленту'
   } finally {
     timelineLoading.value = false
   }
@@ -405,6 +400,10 @@ watch(activeTab, (tab) => {
   }
 })
 
+
+// Чат вынесен в общий компонент CommsChatPanel (Спринт 18)
+const chatUnread = ref(0)
+
 // Reset state when switching to a different application
 watch(() => props.applicationId, () => {
   isEditingNotes.value = false
@@ -414,6 +413,7 @@ watch(() => props.applicationId, () => {
   timelineItems.value = []
   timelineLoaded.value = false
   timelineError.value = null
+  chatUnread.value = 0
   closePreview()
 })
 
@@ -423,7 +423,7 @@ watch(() => props.applicationId, () => {
 
 function formatResponseValue(value: unknown): string {
   if (Array.isArray(value)) return value.join(', ')
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'boolean') return value ? 'Да' : 'Нет'
   return String(value ?? '—')
 }
 
@@ -440,12 +440,12 @@ const { interviews: applicationInterviews } = useInterviews({
 })
 
 const interviewTypeLabels: Record<string, string> = {
-  phone: 'Phone',
-  video: 'Video',
-  in_person: 'In-person',
-  panel: 'Panel',
-  technical: 'Technical',
-  take_home: 'Take-home',
+  phone: 'Телефонное',
+  video: 'Видео',
+  in_person: 'Очное',
+  panel: 'Панельное',
+  technical: 'Техническое',
+  take_home: 'Тестовое задание',
 }
 
 function formatInterviewDate(dateStr: string) {
@@ -489,21 +489,21 @@ function formatInterviewDate(dateStr: string) {
           </div>
         </div>
         <div v-else class="min-w-0">
-          <h2 class="text-lg font-semibold text-surface-400">Loading…</h2>
+          <h2 class="text-lg font-semibold text-surface-400">Загрузка…</h2>
         </div>
         <div class="flex items-center gap-1 shrink-0 ml-3">
           <button
             v-if="application"
             class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 text-sm font-medium text-surface-600 dark:text-surface-400 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all cursor-pointer"
-            title="Schedule Interview"
+            title="Запланировать интервью"
             @click="showScheduleSidebar = true"
           >
             <Calendar class="size-3.5" />
-            Schedule
+            Запланировать
           </button>
           <button
             class="rounded-md p-1.5 text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:text-surface-300 dark:hover:bg-surface-800 transition-colors"
-            title="Close (Esc)"
+            title="Закрыть (Esc)"
             @click="emit('close')"
           >
             <X class="size-5" />
@@ -512,65 +512,32 @@ function formatInterviewDate(dateStr: string) {
       </div>
 
       <!-- Tabs -->
-      <div v-if="application" class="border-b border-surface-200/80 dark:border-surface-800/60 px-4 sm:px-6 shrink-0">
-        <div class="flex gap-1 overflow-x-auto scrollbar-none">
-          <button
-            class="cursor-pointer px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
-            :class="activeTab === 'overview'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
-            @click="activeTab = 'overview'"
-          >
-            Overview
-          </button>
-          <button
-            class="cursor-pointer px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
-            :class="activeTab === 'documents'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
-            @click="activeTab = 'documents'"
-          >
-            Documents ({{ documents.length }})
-          </button>
-          <button
-            v-if="responsesCount > 0"
-            class="cursor-pointer px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
-            :class="activeTab === 'responses'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
-            @click="activeTab = 'responses'"
-          >
-            Responses ({{ responsesCount }})
-          </button>
-          <button
-            class="cursor-pointer px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px inline-flex items-center gap-1.5"
-            :class="activeTab === 'ai_analysis'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
-            @click="activeTab = 'ai_analysis'"
-          >
-            <Brain class="size-3.5" />
-            {{ t('dashboard.jobs.tabs.aiAnalysis') }}
-          </button>
-          <button
-            class="cursor-pointer px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px inline-flex items-center gap-1.5"
-            :class="activeTab === 'timeline'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
-            @click="activeTab = 'timeline'"
-          >
-            <History class="size-3.5" />
-            Timeline
-          </button>
-        </div>
+      <div v-if="application" class="px-4 sm:px-6 shrink-0">
+        <DetailTabs
+          v-model="activeTab"
+          :tabs="[
+            { key: 'overview', label: 'Обзор' },
+            { key: 'ai_analysis', label: 'ИИ-анализ' },
+            { key: 'documents', label: 'Документы', count: documents.length },
+            { key: 'responses', label: 'Ответы', count: responsesCount },
+            { key: 'chat', label: 'Чат', count: chatUnread > 0 ? chatUnread : null },
+            { key: 'timeline', label: 'Активность' },
+          ]"
+        />
       </div>
 
       <!-- Body -->
       <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
         <!-- Loading -->
-        <div v-if="fetchStatus === 'pending'" class="text-center py-12 text-surface-400">
-          Loading details…
-        </div>
+        <DetailSkeleton v-if="fetchStatus === 'pending' && !application" :blocks="3" :with-header="false" />
+
+        <!-- Error -->
+        <EntityDetailError
+          v-else-if="fetchStatus === 'error'"
+          :message="'Не удалось получить данные отклика. Проверьте соединение и повторите.'"
+          :on-retry="() => refresh()"
+          :on-close="() => $emit('close')"
+        />
 
         <template v-else-if="application">
 
@@ -581,19 +548,14 @@ function formatInterviewDate(dateStr: string) {
             <!-- Status & transitions -->
             <div>
               <div class="flex items-center gap-2 mb-3">
-                <span
-                  class="inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold capitalize ring-1 ring-inset"
-                  :class="statusBadgeClasses[application.status] ?? 'bg-surface-100 text-surface-600 ring-surface-200'"
-                >
-                  {{ application.status }}
-                </span>
+                <StatusBadge v-if="!application.currentStageId" :status="application.status" />
                 <span class="text-sm text-surface-400">
                   Applied {{ new Date(application.createdAt).toLocaleDateString() }}
                 </span>
               </div>
 
               <div v-if="allowedTransitions.length > 0" class="flex flex-wrap items-center gap-2">
-                <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-0.5">Move to:</span>
+                <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-0.5">Перевести на:</span>
                 <button
                   v-for="nextStatus in allowedTransitions"
                   :key="nextStatus"
@@ -652,14 +614,14 @@ function formatInterviewDate(dateStr: string) {
               <dl class="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.score') }}</dt>
-                  <dd class="text-surface-800 dark:text-surface-200 font-medium">
-                    {{ application.score ?? '—' }}
+                  <dd>
+                    <ScoreBadge :score="application.score" size="sm" />
                   </dd>
                 </div>
                 <div>
                   <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.status') }}</dt>
-                  <dd class="text-surface-800 dark:text-surface-200 font-medium">
-                    {{ te(`dashboard.applications.stages.${application.status}`) ? t(`dashboard.applications.stages.${application.status}`) : application.status }}
+                  <dd>
+                    <StatusBadge :status="application.status as any" size="sm" />
                   </dd>
                 </div>
                 <div>
@@ -705,7 +667,7 @@ function formatInterviewDate(dateStr: string) {
                 <textarea
                   v-model="notesInput"
                   rows="4"
-                  placeholder="Add notes about this application…"
+                  placeholder="Добавьте заметки об этом отклике…"
                   class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                 />
                 <div class="flex items-center gap-2 mt-2">
@@ -740,7 +702,7 @@ function formatInterviewDate(dateStr: string) {
                 <div class="flex size-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/40">
                   <Calendar class="size-3.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Interviews</h3>
+                <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Интервью</h3>
               </div>
               <div class="space-y-3">
                 <div
@@ -763,7 +725,7 @@ function formatInterviewDate(dateStr: string) {
                         'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400': iv.status === 'cancelled' || iv.status === 'no_show',
                       }"
                     >
-                      {{ iv.status === 'no_show' ? 'No show' : iv.status }}
+                      {{ iv.status === 'no_show' ? 'Не явился' : iv.status }}
                     </span>
                   </div>
                   <div class="flex items-center gap-2 text-xs text-surface-400 dark:text-surface-500">
@@ -782,7 +744,7 @@ function formatInterviewDate(dateStr: string) {
                       class="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors"
                     >
                       <Calendar class="size-2.5" />
-                      Open in Google Calendar
+                      Открыть в Google Calendar
                       <ExternalLink class="size-2" />
                     </a>
                   </div>
@@ -797,14 +759,14 @@ function formatInterviewDate(dateStr: string) {
                 class="inline-flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
               >
                 <ExternalLink class="size-3.5" />
-                Full candidate profile
+                Полный профиль кандидата
               </NuxtLink>
               <NuxtLink
                 :to="$localePath(`/dashboard/applications/${application.id}`)"
                 class="inline-flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
               >
                 <ExternalLink class="size-3.5" />
-                Full application page
+                Страница отклика
               </NuxtLink>
             </div>
           </div>
@@ -831,13 +793,13 @@ function formatInterviewDate(dateStr: string) {
                   @click="closePreview"
                 >
                   <ArrowLeft class="size-3.5" />
-                  Back to documents
+                  Назад к документам
                 </button>
                 <div class="flex items-center gap-1">
                   <button
                     v-if="previewDocId"
                     class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                    title="Download"
+                    title="Скачать"
                     @click="handleDownload(previewDocId!)"
                   >
                     <Download class="size-4" />
@@ -864,7 +826,7 @@ function formatInterviewDate(dateStr: string) {
                   class="mt-3 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium"
                   @click="closePreview"
                 >
-                  Go back
+                  Назад
                 </button>
               </div>
 
@@ -874,7 +836,7 @@ function formatInterviewDate(dateStr: string) {
                 :src="previewUrl"
                 class="w-full rounded-lg border border-surface-200 dark:border-surface-800"
                 style="height: calc(100vh - 280px);"
-                title="Document preview"
+                title="Просмотр документа"
               />
             </template>
 
@@ -887,9 +849,9 @@ function formatInterviewDate(dateStr: string) {
                     v-model="selectedDocType"
                     class="rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-sm text-surface-700 dark:text-surface-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
-                    <option value="resume">Resume</option>
-                    <option value="cover_letter">Cover Letter</option>
-                    <option value="other">Other</option>
+                    <option value="resume">Резюме</option>
+                    <option value="cover_letter">Сопроводительное письмо</option>
+                    <option value="other">Другое</option>
                   </select>
                 </div>
                 <button
@@ -898,7 +860,7 @@ function formatInterviewDate(dateStr: string) {
                   @click="triggerFileSelect"
                 >
                   <Upload class="size-3.5" />
-                  {{ isUploading ? 'Uploading…' : 'Upload Document' }}
+                  {{ isUploading ? 'Загрузка…' : 'Загрузить документ' }}
                 </button>
               </div>
 
@@ -908,7 +870,7 @@ function formatInterviewDate(dateStr: string) {
                 class="rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 p-3 text-sm text-danger-700 dark:text-danger-400"
               >
                 {{ uploadError }}
-                <button class="underline ml-1" @click="uploadError = null">Dismiss</button>
+                <button class="underline ml-1" @click="uploadError = null">Закрыть</button>
               </div>
 
               <!-- Empty state -->
@@ -919,9 +881,9 @@ function formatInterviewDate(dateStr: string) {
                 <div class="flex size-14 items-center justify-center rounded-2xl bg-surface-100 dark:bg-surface-800/60 mx-auto mb-3">
                   <FileText class="size-6 text-surface-400 dark:text-surface-500" />
                 </div>
-                <p class="text-sm font-medium text-surface-600 dark:text-surface-300">No documents yet.</p>
+                <p class="text-sm font-medium text-surface-600 dark:text-surface-300">Пока нет документов.</p>
                 <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">
-                  Upload a resume, cover letter, or other document (PDF, DOC, DOCX — max 10 MB).
+                  Загрузите резюме, сопроводительное письмо или другой документ (PDF, DOC, DOCX — до 10 МБ).
                 </p>
               </div>
 
@@ -944,9 +906,9 @@ function formatInterviewDate(dateStr: string) {
                         {{ documentTypeLabels[doc.type] ?? doc.type }}
                         · {{ new Date(doc.createdAt).toLocaleDateString() }}
                         <template v-if="doc.parsed === false">
-                          · <span class="text-warning-500 dark:text-warning-400">Text extraction failed</span>
+                          · <span class="text-warning-500 dark:text-warning-400">Не удалось извлечь текст</span>
                         </template>
-                        <template v-else-if="doc.mimeType === 'application/pdf'"> · <span class="text-brand-500 dark:text-brand-400">Click to preview</span></template>
+                        <template v-else-if="doc.mimeType === 'application/pdf'"> · <span class="text-brand-500 dark:text-brand-400">Открыть предпросмотр</span></template>
                       </span>
                     </div>
                   </div>
@@ -955,7 +917,7 @@ function formatInterviewDate(dateStr: string) {
                       v-if="doc.parsed === false"
                       :disabled="reparsingDocId === doc.id"
                       class="rounded-lg p-1.5 text-warning-500 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors disabled:opacity-50"
-                      title="Retry text extraction"
+                      title="Повторить распознавание текста"
                       @click="handleReparse(doc.id)"
                     >
                       <RefreshCw class="size-4" :class="{ 'animate-spin': reparsingDocId === doc.id }" />
@@ -963,21 +925,21 @@ function formatInterviewDate(dateStr: string) {
                     <button
                       v-if="doc.mimeType === 'application/pdf'"
                       class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                      title="Preview PDF"
+                      title="Просмотреть PDF"
                       @click="handlePreview(doc.id, doc.mimeType)"
                     >
                       <Eye class="size-4" />
                     </button>
                     <button
                       class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                      title="Download"
+                      title="Скачать"
                       @click="handleDownload(doc.id)"
                     >
                       <Download class="size-4" />
                     </button>
                     <button
                       class="rounded-lg p-1.5 text-surface-400 hover:text-danger-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                      title="Delete"
+                      title="Удалить"
                       @click="showDocDeleteConfirm = doc.id"
                     >
                       <Trash2 class="size-4" />
@@ -998,7 +960,7 @@ function formatInterviewDate(dateStr: string) {
               <div class="flex size-14 items-center justify-center rounded-2xl bg-surface-100 dark:bg-surface-800/60 mx-auto mb-3">
                 <FileText class="size-6 text-surface-400 dark:text-surface-500" />
               </div>
-              <p class="text-sm font-medium text-surface-600 dark:text-surface-300">No application responses.</p>
+              <p class="text-sm font-medium text-surface-600 dark:text-surface-300">Нет ответов на отклик.</p>
             </div>
 
             <div v-else class="space-y-3">
@@ -1008,13 +970,20 @@ function formatInterviewDate(dateStr: string) {
                 class="rounded-xl border border-surface-200/80 dark:border-surface-800/60 bg-white dark:bg-surface-950 p-4 shadow-sm shadow-surface-900/[0.03] dark:shadow-none"
               >
                 <dt class="text-xs font-semibold text-surface-400 dark:text-surface-500 mb-1.5 uppercase tracking-wider">
-                  {{ response.question?.label ?? 'Unknown question' }}
+                  {{ response.question?.label ?? 'Вопрос неизвестен' }}
                 </dt>
                 <dd class="text-sm text-surface-700 dark:text-surface-200 leading-relaxed">
                   {{ formatResponseValue(response.value) }}
                 </dd>
               </div>
             </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════ -->
+          <!-- CHAT TAB (Спринт 18 — общий компонент)  -->
+          <!-- ═══════════════════════════════════════ -->
+          <div v-if="activeTab === 'chat'">
+            <CommsChatPanel :application-id="props.applicationId" @meta="chatUnread = $event.unreadCount" />
           </div>
 
           <!-- ═══════════════════════════════════════ -->
@@ -1031,7 +1000,7 @@ function formatInterviewDate(dateStr: string) {
             <!-- Loading -->
             <div v-if="timelineLoading" class="text-center py-12 text-surface-400">
               <div class="size-6 rounded-full border-2 border-brand-200 border-t-brand-600 dark:border-brand-800 dark:border-t-brand-400 animate-spin mx-auto mb-3" />
-              Loading timeline…
+              Загрузка ленты…
             </div>
 
             <!-- Error -->
@@ -1045,7 +1014,7 @@ function formatInterviewDate(dateStr: string) {
                 class="mt-3 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium"
                 @click="loadTimeline"
               >
-                Retry
+                Повторить
               </button>
             </div>
 
@@ -1057,8 +1026,8 @@ function formatInterviewDate(dateStr: string) {
               <div class="flex size-14 items-center justify-center rounded-2xl bg-surface-100 dark:bg-surface-800/60 mx-auto mb-3">
                 <History class="size-6 text-surface-400 dark:text-surface-500" />
               </div>
-              <p class="text-sm font-medium text-surface-600 dark:text-surface-300">No activity recorded yet.</p>
-              <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">Activity for this candidate will appear here.</p>
+              <p class="text-sm font-medium text-surface-600 dark:text-surface-300">Пока нет зафиксированных событий.</p>
+              <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">События этого кандидата появятся здесь.</p>
             </div>
 
             <!-- Timeline list -->
@@ -1123,9 +1092,9 @@ function formatInterviewDate(dateStr: string) {
     <div v-if="showDocDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center">
       <div class="absolute inset-0 bg-black/50" @click="showDocDeleteConfirm = null" />
       <div class="relative bg-white dark:bg-surface-900 rounded-2xl shadow-2xl shadow-surface-900/10 dark:shadow-black/30 ring-1 ring-surface-200/80 dark:ring-surface-700/60 p-6 max-w-sm w-full mx-4">
-        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50 mb-2">Delete Document</h3>
+        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50 mb-2">Удалить документ</h3>
         <p class="text-sm text-surface-600 dark:text-surface-400 mb-4">
-          Are you sure you want to delete this document? This action cannot be undone.
+          Удалить документ? Действие нельзя отменить.
         </p>
         <div class="flex justify-end gap-2">
           <button
@@ -1133,7 +1102,7 @@ function formatInterviewDate(dateStr: string) {
             class="rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
             @click="showDocDeleteConfirm = null"
           >
-            Cancel
+            Отмена
           </button>
           <button
             :disabled="isDeletingDoc"

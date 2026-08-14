@@ -9,8 +9,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'New Template — Email Templates',
-  description: 'Create a new interview invitation email template',
+  title: 'Новый шаблон — Шаблоны писем',
+  description: 'Создание шаблона письма для приглашения на интервью',
   robots: 'noindex, nofollow',
 })
 
@@ -37,19 +37,19 @@ const canSave = computed(() =>
 
 // ─── Preview ─────────────────────────────────────────────────────
 const sampleVariables: Record<string, string> = {
-  candidateName: 'Alex Johnson',
-  candidateFirstName: 'Alex',
-  candidateLastName: 'Johnson',
+  candidateName: 'Алексей Иванов',
+  candidateFirstName: 'Алексей',
+  candidateLastName: 'Иванов',
   candidateEmail: 'alex@example.com',
-  jobTitle: 'Senior Frontend Engineer',
-  interviewTitle: 'Technical Interview — Round 2',
-  interviewDate: 'Monday, March 16, 2026',
-  interviewTime: '2:00 PM',
+  jobTitle: 'Старший разработчик интерфейсов',
+  interviewTitle: 'Техническое интервью — этап 2',
+  interviewDate: 'Понедельник, 16 марта 2026 г.',
+  interviewTime: '14:00',
   interviewDuration: '60',
-  interviewType: 'Video Call',
+  interviewType: 'Видеозвонок',
   interviewLocation: 'https://meet.google.com/abc-defg-hij',
-  interviewers: 'Sarah Chen, Michael Park',
-  organizationName: 'Acme Corp',
+  interviewers: 'Анна Петрова, Михаил Смирнов',
+  organizationName: 'Компания «Альфа»',
 }
 
 const previewSubject = computed(() => renderTemplatePreview(form.subject, sampleVariables))
@@ -59,7 +59,7 @@ const previewBody = computed(() => renderTemplatePreview(form.body, sampleVariab
 async function handleCreate() {
   saveError.value = ''
   if (!canSave.value) {
-    saveError.value = 'All fields are required'
+    saveError.value = 'Заполните все поля'
     return
   }
 
@@ -73,7 +73,7 @@ async function handleCreate() {
     await navigateTo(localePath(`/dashboard/interviews/templates/${(created as any).id}`))
   } catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
-    saveError.value = err?.data?.statusMessage ?? 'Failed to create template'
+    saveError.value = err?.data?.statusMessage ?? 'Не удалось создать шаблон'
   } finally {
     isSaving.value = false
   }
@@ -88,8 +88,7 @@ async function handleCreate() {
       class="mb-6 inline-flex items-center gap-1 rounded-full border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-3 py-1.5 text-sm text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors no-underline"
     >
       <ArrowLeft class="size-4" />
-      All Templates
-    </NuxtLink>
+      Все шаблоны    </NuxtLink>
 
     <!-- Page header -->
     <div class="mb-6 flex items-start justify-between gap-4">
@@ -99,11 +98,9 @@ async function handleCreate() {
         </div>
         <div>
           <h1 class="text-xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">
-            New Template
-          </h1>
+            Новый шаблон          </h1>
           <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">
-            Create a reusable email template for interview invitations.
-          </p>
+            Создайте шаблон письма для повторного использования в приглашениях на интервью.          </p>
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -112,7 +109,7 @@ async function handleCreate() {
           @click="showPreview = !showPreview"
         >
           <component :is="showPreview ? EyeOff : Eye" class="size-4" />
-          {{ showPreview ? 'Hide Preview' : 'Preview' }}
+          {{ showPreview ? 'Скрыть предпросмотр' : 'Предпросмотр' }}
         </button>
         <button
           :disabled="!canSave || isSaving"
@@ -120,7 +117,7 @@ async function handleCreate() {
           @click="handleCreate"
         >
           <Save class="size-4" />
-          {{ isSaving ? 'Creating…' : 'Create Template' }}
+          {{ isSaving ? 'Создание…' : 'Создать шаблон' }}
         </button>
       </div>
     </div>
@@ -137,13 +134,12 @@ async function handleCreate() {
         <!-- Name -->
         <div class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
           <label for="template-name" class="block text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400 mb-2">
-            Template Name
-          </label>
+            Название шаблона          </label>
           <input
             id="template-name"
             v-model="form.name"
             type="text"
-            placeholder="e.g., Welcome Interview, Engineering Screen"
+            placeholder="Например, приветственное интервью, технический отбор"
             class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
           />
         </div>
@@ -151,13 +147,12 @@ async function handleCreate() {
         <!-- Subject -->
         <div class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
           <label for="template-subject" class="block text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400 mb-2">
-            Subject Line
-          </label>
+            Тема          </label>
           <input
             id="template-subject"
             v-model="form.subject"
             type="text"
-            placeholder="e.g., Interview Invitation: {{jobTitle}} at {{organizationName}}"
+            placeholder="Например, приглашение на интервью: {{jobTitle}} в {{organizationName}}"
             class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all font-mono text-[13px]"
           />
         </div>
@@ -165,13 +160,12 @@ async function handleCreate() {
         <!-- Body -->
         <div class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
           <label for="template-body" class="block text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400 mb-2">
-            Email Body
-          </label>
+            Текст письма          </label>
           <textarea
             id="template-body"
             v-model="form.body"
             rows="18"
-            placeholder="Write your invitation email here. Use {{variables}} for dynamic content…"
+            placeholder="Напишите текст приглашения. Используйте {{variables}} для динамических данных…"
             class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3.5 py-2.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all resize-none font-mono text-[13px] leading-relaxed"
           />
         </div>
@@ -192,27 +186,26 @@ async function handleCreate() {
             <div class="border-b border-brand-100 dark:border-brand-900/40 bg-brand-50/50 dark:bg-brand-950/20 px-5 py-3">
               <div class="flex items-center gap-2">
                 <Mail class="size-4 text-brand-500 dark:text-brand-400" />
-                <span class="text-xs font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">Live Preview</span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">Предпросмотр</span>
               </div>
             </div>
             <div class="p-5 space-y-4">
               <div>
-                <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400 block mb-1">Subject</span>
+                <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400 block mb-1">Тема</span>
                 <p class="text-sm font-semibold text-surface-800 dark:text-surface-200">
-                  {{ previewSubject || 'Enter a subject line…' }}
+                  {{ previewSubject || 'Введите тему письма…' }}
                 </p>
               </div>
               <div class="border-t border-surface-100 dark:border-surface-800 pt-4">
-                <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400 block mb-2">Body</span>
+                <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400 block mb-2">Текст письма</span>
                 <div class="text-sm text-surface-700 dark:text-surface-300 whitespace-pre-wrap leading-relaxed">
-                  {{ previewBody || 'Start writing to see a preview…' }}
+                  {{ previewBody || 'Начните писать, чтобы увидеть предпросмотр…' }}
                 </div>
               </div>
             </div>
             <div class="border-t border-surface-100 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-950/30 px-5 py-2.5">
               <p class="text-[11px] text-surface-400 dark:text-surface-500 italic">
-                Preview uses sample data. Actual values are populated when sending.
-              </p>
+                В предпросмотре используются примерные данные. При отправке будут подставлены фактические значения.              </p>
             </div>
           </div>
         </Transition>
@@ -220,11 +213,9 @@ async function handleCreate() {
         <!-- Variable reference -->
         <div class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
           <h3 class="text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400 mb-3">
-            Available Variables
-          </h3>
+            Доступные переменные          </h3>
           <p class="text-xs text-surface-400 dark:text-surface-500 mb-3">
-            Use these placeholders in your subject and body. They'll be replaced with real data when the email is sent.
-          </p>
+            Используйте эти переменные в теме и тексте письма. При отправке они будут заменены фактическими данными.          </p>
           <div class="space-y-1.5">
             <div
               v-for="v in AVAILABLE_VARIABLES"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   Briefcase, Bell, Plus, Kanban,
-  MapPin, Search, SlidersHorizontal, X,
+  MapPin, Search, SlidersHorizontal, X, Users,
   LayoutGrid, List, Table2, ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-vue-next'
 
@@ -11,8 +11,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'My Jobs',
-  description: 'Your active job postings',
+  title: 'Мои вакансии',
+  description: 'Ваши активные вакансии',
 })
 
 const { activeOrg } = useCurrentOrg()
@@ -34,6 +34,38 @@ const stageConfig = computed(() => [
 
 function getStageCount(pipeline: any, key: string): number {
   return pipeline?.[key] ?? 0
+}
+
+// ─── Sprint 10: динамические этапы воронки на плашке ───
+interface JobStageChip {
+  id: string
+  name: string
+  color: string
+  type: string
+  bucket: 'working' | 'rejected'
+  displayOrder: number
+  count: number
+}
+
+const NEW_STAGE_TYPES = new Set(['on_hold', 'contact', 'assessment', 'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred'])
+
+function jobHasNewPipeline(j: any): boolean {
+  return ((j?.stages ?? []) as JobStageChip[]).some(s => NEW_STAGE_TYPES.has(s.type))
+}
+
+function jobWorkingStages(j: any): JobStageChip[] {
+  return ((j?.stages ?? []) as JobStageChip[]).filter(s => s.bucket === 'working')
+}
+
+function jobRejectedTotal(j: any): number {
+  return ((j?.stages ?? []) as JobStageChip[])
+    .filter(s => s.bucket === 'rejected')
+    .reduce((sum, s) => sum + s.count, 0)
+}
+
+// ─── Спринт 11.4: итоговое значение с учётом всех отказов ───
+function jobGrandTotal(j: any): number {
+  return jobWorkingStages(j).reduce((sum, s) => sum + s.count, 0) + jobRejectedTotal(j)
 }
 
 // ─────────────────────────────────────────────
@@ -90,27 +122,27 @@ const experienceFilter = ref<ExperienceFilter[]>([])
 const remoteFilter = ref<RemoteFilter[]>([])
 
 const statusOptions: { value: StatusFilter, label: string }[] = [
-  { value: 'open', label: 'Open' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'closed', label: 'Closed' },
-  { value: 'archived', label: 'Archived' },
+  { value: 'open', label: 'Открыта' },
+  { value: 'draft', label: 'Черновик' },
+  { value: 'closed', label: 'Закрыта' },
+  { value: 'archived', label: 'В архиве' },
 ]
 const typeOptions: { value: TypeFilter, label: string }[] = [
-  { value: 'full_time', label: 'Full-time' },
-  { value: 'part_time', label: 'Part-time' },
-  { value: 'contract', label: 'Contract' },
-  { value: 'internship', label: 'Internship' },
+  { value: 'full_time', label: 'Полная занятость' },
+  { value: 'part_time', label: 'Частичная занятость' },
+  { value: 'contract', label: 'Договор' },
+  { value: 'internship', label: 'Стажировка' },
 ]
 const experienceOptions: { value: ExperienceFilter, label: string }[] = [
-  { value: 'junior', label: 'Junior' },
-  { value: 'mid', label: 'Mid' },
-  { value: 'senior', label: 'Senior' },
-  { value: 'lead', label: 'Lead' },
+  { value: 'junior', label: 'Начальный' },
+  { value: 'mid', label: 'Средний' },
+  { value: 'senior', label: 'Старший' },
+  { value: 'lead', label: 'Ведущий' },
 ]
 const remoteOptions: { value: RemoteFilter, label: string }[] = [
-  { value: 'remote', label: 'Remote' },
-  { value: 'hybrid', label: 'Hybrid' },
-  { value: 'onsite', label: 'On-site' },
+  { value: 'remote', label: 'Удалённо' },
+  { value: 'hybrid', label: 'Гибридный формат' },
+  { value: 'onsite', label: 'В офисе' },
 ]
 
 function toggleIn<T>(arr: T[], value: T): T[] {
@@ -459,7 +491,7 @@ const sortDirOptions = computed(() => [
             :class="viewMode === 'gallery'
               ? 'bg-surface-100 dark:bg-surface-800 text-surface-900 dark:text-surface-100'
               : 'text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            title="Gallery view"
+            title="Галерея"
             @click="viewMode = 'gallery'"
           >
             <LayoutGrid class="size-4" />
@@ -470,7 +502,7 @@ const sortDirOptions = computed(() => [
             :class="viewMode === 'list'
               ? 'bg-surface-100 dark:bg-surface-800 text-surface-900 dark:text-surface-100'
               : 'text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            title="List view"
+            title="Список"
             @click="viewMode = 'list'"
           >
             <List class="size-4" />
@@ -481,7 +513,7 @@ const sortDirOptions = computed(() => [
             :class="viewMode === 'table'
               ? 'bg-surface-100 dark:bg-surface-800 text-surface-900 dark:text-surface-100'
               : 'text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            title="Table view"
+            title="Таблица"
             @click="viewMode = 'table'"
           >
             <Table2 class="size-4" />
@@ -511,18 +543,18 @@ const sortDirOptions = computed(() => [
           @click="clearFilters"
         >
           <X class="size-3" />
-          Clear
+          Очистить
         </button>
       </div>
 
       <!-- ─── Filter Drawer ─── -->
       <FilterDrawer
         v-model="drawerOpen"
-        title="Filter jobs"
-        description="Customize your view, then save it for quick access."
+        title="Фильтры вакансий"
+        description="Настройте вид и сохраните его для быстрого доступа."
         :active-count="activeFilterCount"
         saveable
-        :default-save-name="`View ${views.length + 1}`"
+        :default-save-name="`Вид ${views.length + 1}`"
         @reset="applySettings(defaultSettings)"
         @save-view="onSaveView"
       >
@@ -636,7 +668,7 @@ const sortDirOptions = computed(() => [
               <tr class="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-800">
                 <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                   <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('title')">
-                    Title
+                    Название
                     <ArrowUp v-if="sortKey === 'title' && sortDir === 'asc'" class="size-3.5" />
                     <ArrowDown v-else-if="sortKey === 'title' && sortDir === 'desc'" class="size-3.5" />
                     <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -644,7 +676,7 @@ const sortDirOptions = computed(() => [
                 </th>
                 <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                   <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('status')">
-                    Status
+                    Статус
                     <ArrowUp v-if="sortKey === 'status' && sortDir === 'asc'" class="size-3.5" />
                     <ArrowDown v-else-if="sortKey === 'status' && sortDir === 'desc'" class="size-3.5" />
                     <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -652,7 +684,7 @@ const sortDirOptions = computed(() => [
                 </th>
                 <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden sm:table-cell">
                   <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('type')">
-                    Type
+                    Тип
                     <ArrowUp v-if="sortKey === 'type' && sortDir === 'asc'" class="size-3.5" />
                     <ArrowDown v-else-if="sortKey === 'type' && sortDir === 'desc'" class="size-3.5" />
                     <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -660,7 +692,7 @@ const sortDirOptions = computed(() => [
                 </th>
                 <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">
                   <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('location')">
-                    Location
+                    Локация
                     <ArrowUp v-if="sortKey === 'location' && sortDir === 'asc'" class="size-3.5" />
                     <ArrowDown v-else-if="sortKey === 'location' && sortDir === 'desc'" class="size-3.5" />
                     <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -668,7 +700,7 @@ const sortDirOptions = computed(() => [
                 </th>
                 <th class="text-center px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                   <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('new')">
-                    New
+                    Новые
                     <ArrowUp v-if="sortKey === 'new' && sortDir === 'asc'" class="size-3.5" />
                     <ArrowDown v-else-if="sortKey === 'new' && sortDir === 'desc'" class="size-3.5" />
                     <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -676,7 +708,7 @@ const sortDirOptions = computed(() => [
                 </th>
                 <th class="text-center px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden sm:table-cell">
                   <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('active')">
-                    Active
+                    Активные
                     <ArrowUp v-if="sortKey === 'active' && sortDir === 'asc'" class="size-3.5" />
                     <ArrowDown v-else-if="sortKey === 'active' && sortDir === 'desc'" class="size-3.5" />
                     <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -684,7 +716,7 @@ const sortDirOptions = computed(() => [
                 </th>
                 <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden lg:table-cell">
                   <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('created')">
-                    Created
+                    Создано
                     <ArrowUp v-if="sortKey === 'created' && sortDir === 'asc'" class="size-3.5" />
                     <ArrowDown v-else-if="sortKey === 'created' && sortDir === 'desc'" class="size-3.5" />
                     <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -709,7 +741,7 @@ const sortDirOptions = computed(() => [
                       {{ j.title }}
                     </NuxtLink>
                     <UiBadge v-if="(j.pipeline?.new ?? 0) > 0" tone="warning">
-                      {{ j.pipeline.new }} new
+                      {{ j.pipeline.new }} новых
                     </UiBadge>
                     <UiBadge
                       v-if="j.hhLinked"
@@ -794,10 +826,52 @@ const sortDirOptions = computed(() => [
                 <MapPin class="size-3 shrink-0" />
                 {{ j.location }}
               </span>
+              <!-- Спринт 11.4: итоговое значение (включая отказы) -->
+              <span
+                v-if="jobHasNewPipeline(j)"
+                class="inline-flex items-center gap-1 font-medium text-surface-500 dark:text-surface-400 tabular-nums"
+                title="Всего откликов, включая все отказы"
+              >
+                <Users class="size-3 shrink-0" />
+                {{ jobGrandTotal(j) }} всего
+              </span>
             </div>
 
             <!-- Pipeline mini-stats -->
-            <div class="grid grid-cols-3 gap-1.5 mt-auto">
+            <!-- ─── Sprint 10: динамические этапы новой воронки ─── -->
+            <div v-if="jobHasNewPipeline(j)" class="grid grid-cols-4 gap-1.5 mt-auto">
+              <NuxtLink
+                v-for="stage in jobWorkingStages(j)"
+                :key="stage.id"
+                :to="localePath(`/dashboard/jobs/${j.id}?stage=${stage.id}`)"
+                class="rounded-lg px-1.5 py-1 text-center transition-colors no-underline bg-surface-50 dark:bg-surface-800/60 hover:ring-1 hover:ring-brand-300 dark:hover:ring-brand-700"
+                :class="stage.count > 0 ? 'cursor-pointer' : 'opacity-50'"
+                :title="stage.name"
+                @click.stop
+              >
+                <div class="text-xs font-bold tabular-nums" :style="{ color: stage.color || undefined }">
+                  {{ stage.count }}
+                </div>
+                <div class="text-[9px] font-medium text-surface-500 dark:text-surface-400 leading-tight truncate">
+                  {{ stage.name }}
+                </div>
+              </NuxtLink>
+              <div
+                class="rounded-lg px-1.5 py-1 text-center bg-surface-100 dark:bg-surface-800"
+                :class="jobRejectedTotal(j) > 0 ? '' : 'opacity-50'"
+                :title="$t('dashboard.jobs.pipeline.stages.rejected')"
+              >
+                <div class="text-xs font-bold tabular-nums text-surface-500 dark:text-surface-400">
+                  {{ jobRejectedTotal(j) }}
+                </div>
+                <div class="text-[9px] font-medium text-surface-500 dark:text-surface-400 leading-tight truncate">
+                  {{ $t('dashboard.jobs.pipeline.stages.rejected') }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Legacy mini-stats (старая воронка) -->
+            <div v-else class="grid grid-cols-3 gap-1.5 mt-auto">
               <NuxtLink
                 v-for="stage in stageConfig"
                 :key="stage.key"
@@ -821,7 +895,7 @@ const sortDirOptions = computed(() => [
               class="flex items-center justify-between gap-2 -mx-4 -mb-4 px-4 py-2 rounded-b-xl bg-warning-50/60 dark:bg-warning-950/30 border-t border-warning-100 dark:border-warning-900/30"
             >
               <span class="text-xs font-medium text-warning-700 dark:text-warning-400">
-                {{ j.pipeline.new }} new application{{ j.pipeline.new === 1 ? '' : 's' }}
+                {{ j.pipeline.new }} новых откликов
               </span>
               <span class="inline-flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 font-medium">
                 <Kanban class="size-3" />
@@ -844,7 +918,7 @@ const sortDirOptions = computed(() => [
               {{ $t('dashboard.jobs.attention.needsYourAttention') }}
             </h2>
             <span class="text-xs text-surface-400 dark:text-surface-500">
-              {{ jobsNeedingAttention.length }} job{{ jobsNeedingAttention.length === 1 ? '' : 's' }}
+              {{ jobsNeedingAttention.length }} вакансий
             </span>
           </div>
 
@@ -899,7 +973,7 @@ const sortDirOptions = computed(() => [
               <!-- Action bar -->
               <div class="flex items-center gap-2 px-5 py-3 bg-warning-50/50 dark:bg-warning-950/20 border-t border-warning-100 dark:border-warning-900/30">
                 <span class="text-xs font-medium text-warning-700 dark:text-warning-400 mr-auto">
-                  {{ j.pipeline.new }} new application{{ j.pipeline.new === 1 ? '' : 's' }} to review
+                  {{ j.pipeline.new }} новых откликов на рассмотрении
                 </span>
                 <UiButton
                   :to="$localePath(`/dashboard/jobs/${j.id}`)"
@@ -921,7 +995,7 @@ const sortDirOptions = computed(() => [
               {{ $t('dashboard.jobs.allJobs') }}
             </h2>
             <span class="text-xs text-surface-400 dark:text-surface-500">
-              {{ otherJobs.length }} job{{ otherJobs.length === 1 ? '' : 's' }}
+              {{ otherJobs.length }} вакансий
             </span>
           </div>
 
@@ -977,10 +1051,10 @@ const sortDirOptions = computed(() => [
       <!-- Total count -->
       <p v-if="!noResults" class="text-xs text-surface-400 pt-4 px-1">
         <template v-if="search || activeFilterCount > 0">
-          Showing {{ filteredJobs.length }} of {{ total }} job{{ total === 1 ? '' : 's' }}
+          Показано {{ filteredJobs.length }} из {{ total }} вакансий
         </template>
         <template v-else>
-          {{ total }} job{{ total === 1 ? '' : 's' }} total
+          Всего вакансий: {{ total }}
         </template>
       </p>
     </template>

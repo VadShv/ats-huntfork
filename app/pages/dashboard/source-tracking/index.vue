@@ -14,8 +14,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Source Tracking',
-  description: 'Track where your applications come from',
+  title: 'Отслеживание источников',
+  description: 'Отслеживайте источники откликов',
 })
 
 const localePath = useLocalePath()
@@ -116,7 +116,7 @@ async function handleCreateLink() {
     newLink.value = { name: '', channel: 'custom', jobId: '', utmSource: '', utmMedium: '', utmCampaign: '' }
     await refreshStats()
   } catch (err: any) {
-    toast.error(err?.data?.statusMessage ?? 'Failed to create link')
+    toast.error(err?.data?.statusMessage ?? 'Не удалось создать ссылку')
   } finally {
     isCreating.value = false
   }
@@ -140,7 +140,7 @@ async function handleDelete() {
     await deleteLink(deletingId.value)
     await refreshStats()
   } catch (err: any) {
-    toast.error(err?.data?.statusMessage ?? 'Failed to delete')
+    toast.error(err?.data?.statusMessage ?? 'Не удалось удалить')
   } finally {
     showDeleteConfirm.value = false
     deletingId.value = null
@@ -195,14 +195,14 @@ const channelLabels: Record<string, string> = {
   instagram: 'Instagram',
   tiktok: 'TikTok',
   reddit: 'Reddit',
-  referral: 'Referral',
-  career_site: 'Career Site',
+  referral: 'Рекомендация',
+  career_site: 'Карьерный сайт',
   email: 'Email',
-  event: 'Event',
-  agency: 'Agency',
-  direct: 'Direct',
-  other: 'Other',
-  custom: 'Custom',
+  event: 'Мероприятие',
+  agency: 'Агентство',
+  direct: 'Прямой переход',
+  other: 'Другое',
+  custom: 'Свой',
 }
 
 const channelColors: Record<string, string> = {
@@ -283,10 +283,10 @@ function formatDate(dateStr: string) {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffMins < 1) return 'Только что'
+  if (diffMins < 60) return `${diffMins} мин назад`
+  if (diffHours < 24) return `${diffHours} ч назад`
+  if (diffDays < 7) return `${diffDays} дн. назад`
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
@@ -386,8 +386,8 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
       class="rounded-2xl border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950/60 p-5 text-sm text-danger-700 dark:text-danger-400 flex items-center gap-3"
     >
       <AlertCircle class="size-5 shrink-0" />
-      <span>Failed to load source tracking data.</span>
-      <button class="underline ml-auto font-medium cursor-pointer" @click="refreshStats()">Retry</button>
+      <span>Не удалось загрузить данные отслеживания источников.</span>
+      <button class="underline ml-auto font-medium cursor-pointer" @click="refreshStats()">Повторить</button>
     </div>
 
     <!-- ─── Main content ─── -->
@@ -395,9 +395,9 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
       <!-- ─── Header ─── -->
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-10">
         <div>
-          <h1 class="text-xl sm:text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">Source Tracking</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">Отслеживание источников</h1>
           <p class="text-sm text-surface-400 dark:text-surface-500 mt-1">
-            Track where your applications come from
+            Отслеживайте источники откликов
           </p>
         </div>
         <div class="flex items-center gap-2">
@@ -412,7 +412,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                 : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'"
               @click="dateRange = range"
             >
-              {{ range === 'all' ? 'All time' : range.toUpperCase() }}
+              {{ range === 'all' ? 'За всё время' : range.toUpperCase() }}
             </button>
           </div>
 
@@ -422,7 +422,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
               v-model="selectedJobId"
               class="appearance-none rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 pl-3 pr-8 py-2 text-xs font-medium text-surface-700 dark:text-surface-300 cursor-pointer"
             >
-              <option :value="undefined">All jobs</option>
+              <option :value="undefined">Все вакансии</option>
               <option v-for="j in jobs" :key="j.id" :value="j.id">{{ j.title }}</option>
             </select>
             <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-surface-400 pointer-events-none" />
@@ -435,7 +435,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
             @click="showCreateModal = true"
           >
             <Plus class="size-4" />
-            <span class="hidden sm:inline">New Link</span>
+            <span class="hidden sm:inline">Новая ссылка</span>
           </button>
         </div>
       </div>
@@ -444,9 +444,9 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
       <div class="flex items-center gap-1 mb-6 border-b border-surface-200 dark:border-surface-800">
         <button
           v-for="tab in [
-            { key: 'overview', label: 'Overview', icon: BarChart3 },
-            { key: 'links', label: 'Tracking Links', icon: Link2 },
-            { key: 'table', label: 'Attribution Log', icon: Users },
+            { key: 'overview', label: 'Обзор', icon: BarChart3 },
+            { key: 'links', label: 'Ссылки отслеживания', icon: Link2 },
+            { key: 'table', label: 'Журнал атрибуции', icon: Users },
           ] as const"
           :key="tab.key"
           class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors"
@@ -486,8 +486,8 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                 </span>
                 <span class="size-1.5 rounded-full bg-brand-500 shrink-0 mb-1" />
               </div>
-              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Tracked</span>
-              <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">With source attribution</p>
+              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">С отслеживанием</span>
+              <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">С определённым источником</p>
             </div>
           </div>
 
@@ -502,8 +502,8 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                 </span>
                 <span class="size-1.5 rounded-full bg-teal-500 shrink-0 mb-1" />
               </div>
-              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Attribution</span>
-              <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">Of all applications</p>
+              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Атрибуция</span>
+              <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">От всех откликов</p>
             </div>
           </div>
 
@@ -518,8 +518,8 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                 </span>
                 <span class="size-1.5 rounded-full bg-violet-500 shrink-0 mb-1" />
               </div>
-              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Active Links</span>
-              <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">{{ totalLinks }} total created</p>
+              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Активные ссылки</span>
+              <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">{{ totalLinks }} всего создано</p>
             </div>
           </div>
 
@@ -552,9 +552,9 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   <span v-if="summary.totalUntracked > 0" class="absolute inset-0 size-1.5 rounded-full bg-warning-500 animate-ping" />
                 </span>
               </div>
-              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Untracked</span>
+              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Без отслеживания</span>
               <p class="text-[11px] mt-1" :class="summary.totalUntracked > 0 ? 'text-warning-500 dark:text-warning-500 font-medium' : 'text-surface-300 dark:text-surface-600'">
-                {{ summary.totalUntracked > 0 ? 'Without attribution' : 'All attributed' }}
+                {{ summary.totalUntracked > 0 ? 'Без атрибуции' : 'Все с атрибуцией' }}
               </p>
             </div>
           </div>
@@ -571,18 +571,18 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                     <BarChart3 class="size-3.5 text-surface-500 dark:text-surface-400" />
                   </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Applications by Source</h2>
+                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Отклики по источникам</h2>
                 </div>
-                <span class="text-xs text-surface-400 tabular-nums font-medium">{{ totalApplications }} total</span>
+                <span class="text-xs text-surface-400 tabular-nums font-medium">{{ totalApplications }} всего</span>
               </div>
 
               <div v-if="channelBreakdown.length === 0" class="px-6 py-12 text-center">
                 <div class="mx-auto mb-4 flex items-center justify-center size-12 rounded-2xl bg-surface-100 dark:bg-surface-800">
                   <BarChart3 class="size-5 text-surface-400 dark:text-surface-500" />
                 </div>
-                <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">No attributed applications yet</p>
+                <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">Пока нет откликов с атрибуцией</p>
                 <p class="text-xs text-surface-400 dark:text-surface-500 max-w-xs mx-auto">
-                  Create tracking links and share them on job boards to start collecting source data.
+                  Создайте ссылки отслеживания и размещайте их на джоб-бордах, чтобы собирать данные об источниках.
                 </p>
               </div>
 
@@ -630,7 +630,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                     <TrendingUp class="size-3.5 text-surface-500 dark:text-surface-400" />
                   </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Conversion by Source</h2>
+                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Конверсия по источникам</h2>
                 </div>
               </div>
 
@@ -638,13 +638,13 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="border-b border-surface-100 dark:border-surface-800">
-                      <th class="px-6 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Source</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">New</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Screening</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Interview</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Offer</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Hired</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Hire Rate</th>
+                      <th class="px-6 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Источник</th>
+                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Новый</th>
+                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Скрининг</th>
+                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Интервью</th>
+                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Оффер</th>
+                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Принят</th>
+                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Конверсия в найм</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -693,13 +693,13 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                     <Link2 class="size-3.5 text-surface-500 dark:text-surface-400" />
                   </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Top Links</h2>
+                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Популярные ссылки</h2>
                 </div>
                 <button
                   class="text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 inline-flex items-center gap-1 group/link"
                   @click="showTab = 'links'"
                 >
-                  View all
+                  Смотреть все
                   <ArrowRight class="size-3 group-hover/link:translate-x-0.5 transition-transform" />
                 </button>
               </div>
@@ -708,7 +708,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                 <div class="mx-auto mb-3 flex items-center justify-center size-10 rounded-2xl bg-surface-100 dark:bg-surface-800">
                   <Link2 class="size-4 text-surface-400 dark:text-surface-500" />
                 </div>
-                <p class="text-xs font-medium text-surface-500 dark:text-surface-400">No links created yet</p>
+                <p class="text-xs font-medium text-surface-500 dark:text-surface-400">Пока нет созданных ссылок</p>
               </div>
 
               <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -730,11 +730,11 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   <div class="flex items-center gap-4 text-xs text-surface-400">
                     <span class="inline-flex items-center gap-1 tabular-nums">
                       <MousePointerClick class="size-3" />
-                      {{ link.clickCount }} clicks
+                      {{ link.clickCount }} переходов
                     </span>
                     <span class="inline-flex items-center gap-1 tabular-nums">
                       <Users class="size-3" />
-                      {{ link.applicationCount }} apps
+                      {{ link.applicationCount }} откликов
                     </span>
                     <span v-if="link.clickCount > 0" class="tabular-nums font-medium" :class="link.applicationCount > 0 ? 'text-green-600 dark:text-green-400' : ''">
                       {{ Math.round((link.applicationCount / link.clickCount) * 100) }}% CVR
@@ -751,7 +751,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                     <Globe class="size-3.5 text-surface-500 dark:text-surface-400" />
                   </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Top Referrers</h2>
+                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Основные рефереры</h2>
                 </div>
               </div>
 
@@ -759,7 +759,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                 <div class="mx-auto mb-3 flex items-center justify-center size-10 rounded-2xl bg-surface-100 dark:bg-surface-800">
                   <Globe class="size-4 text-surface-400 dark:text-surface-500" />
                 </div>
-                <p class="text-xs font-medium text-surface-500 dark:text-surface-400">No referrer data yet</p>
+                <p class="text-xs font-medium text-surface-500 dark:text-surface-400">Пока нет данных о реферерах</p>
               </div>
 
               <div v-else class="px-5 py-4 space-y-3">
@@ -772,7 +772,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                     <div class="size-5 rounded bg-surface-100 dark:bg-surface-800 flex items-center justify-center shrink-0">
                       <Globe class="size-3 text-surface-400" />
                     </div>
-                    <span class="text-sm text-surface-700 dark:text-surface-300 truncate">{{ ref.domain ?? 'Unknown' }}</span>
+                    <span class="text-sm text-surface-700 dark:text-surface-300 truncate">{{ ref.domain ?? 'Неизвестно' }}</span>
                   </div>
                   <span class="text-sm font-bold text-surface-900 dark:text-surface-100 tabular-nums shrink-0 ml-2">{{ ref.count }}</span>
                 </div>
@@ -786,19 +786,19 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
                     <Clock class="size-3.5 text-surface-500 dark:text-surface-400" />
                   </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Recent Attributed</h2>
+                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Недавние с атрибуцией</h2>
                 </div>
                 <button
                   class="text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 inline-flex items-center gap-1 group/link"
                   @click="showTab = 'table'"
                 >
-                  View all
+                  Смотреть все
                   <ArrowRight class="size-3 group-hover/link:translate-x-0.5 transition-transform" />
                 </button>
               </div>
 
               <div v-if="recentAttributed.length === 0" class="px-5 py-10 text-center">
-                <p class="text-xs text-surface-400">No attributed applications yet</p>
+                <p class="text-xs text-surface-400">Пока нет откликов с атрибуцией</p>
               </div>
 
               <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -842,10 +842,10 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
               <Link2 class="size-9 text-white" />
             </div>
             <h2 class="text-2xl font-bold text-surface-900 dark:text-surface-100 mb-3 tracking-tight">
-              Create Your First Tracking Link
+              Создать первую ссылку
             </h2>
             <p class="text-sm text-surface-500 dark:text-surface-400 mb-10 leading-relaxed max-w-sm mx-auto">
-              Generate unique links for each job board, campaign, or referral source. Track clicks, applications, and conversions in real time.
+              Создавайте уникальные ссылки для каждого джоб-борда, кампании или источника рекомендаций. Отслеживайте переходы, отклики и конверсии в реальном времени.
             </p>
             <button
               v-if="canManageLinks"
@@ -853,7 +853,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
               @click="showCreateModal = true"
             >
               <Plus class="size-4" />
-              Create Tracking Link
+              Создать ссылку
             </button>
           </div>
         </div>
@@ -864,25 +864,25 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
               <thead>
                 <tr class="border-b border-surface-100 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-800/30">
                   <th class="px-5 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none hover:text-surface-700 dark:hover:text-surface-200 transition-colors" @click="toggleLinkSort('name')">
-                    <span class="inline-flex items-center gap-1">Name <component :is="linkSortKey === 'name' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'name' ? 'opacity-100' : 'opacity-0'" /></span>
+                    <span class="inline-flex items-center gap-1">Название <component :is="linkSortKey === 'name' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'name' ? 'opacity-100' : 'opacity-0'" /></span>
                   </th>
                   <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none hover:text-surface-700 dark:hover:text-surface-200 transition-colors" @click="toggleLinkSort('channel')">
-                    <span class="inline-flex items-center gap-1">Source <component :is="linkSortKey === 'channel' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'channel' ? 'opacity-100' : 'opacity-0'" /></span>
+                    <span class="inline-flex items-center gap-1">Источник <component :is="linkSortKey === 'channel' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'channel' ? 'opacity-100' : 'opacity-0'" /></span>
                   </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Job</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Вакансия</th>
                   <th class="px-4 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none hover:text-surface-700 dark:hover:text-surface-200 transition-colors" @click="toggleLinkSort('clickCount')">
-                    <span class="inline-flex items-center gap-1">Clicks <component :is="linkSortKey === 'clickCount' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'clickCount' ? 'opacity-100' : 'opacity-0'" /></span>
+                    <span class="inline-flex items-center gap-1">Переходы <component :is="linkSortKey === 'clickCount' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'clickCount' ? 'opacity-100' : 'opacity-0'" /></span>
                   </th>
                   <th class="px-4 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none hover:text-surface-700 dark:hover:text-surface-200 transition-colors" @click="toggleLinkSort('applicationCount')">
-                    <span class="inline-flex items-center gap-1">Apps <component :is="linkSortKey === 'applicationCount' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'applicationCount' ? 'opacity-100' : 'opacity-0'" /></span>
+                    <span class="inline-flex items-center gap-1">Отклики <component :is="linkSortKey === 'applicationCount' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'applicationCount' ? 'opacity-100' : 'opacity-0'" /></span>
                   </th>
                   <th class="px-4 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none hover:text-surface-700 dark:hover:text-surface-200 transition-colors" @click="toggleLinkSort('cvr')">
-                    <span class="inline-flex items-center gap-1">CVR <component :is="linkSortKey === 'cvr' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'cvr' ? 'opacity-100' : 'opacity-0'" /></span>
+                    <span class="inline-flex items-center gap-1">Конверсия <component :is="linkSortKey === 'cvr' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'cvr' ? 'opacity-100' : 'opacity-0'" /></span>
                   </th>
                   <th class="px-4 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none hover:text-surface-700 dark:hover:text-surface-200 transition-colors" @click="toggleLinkSort('isActive')">
-                    <span class="inline-flex items-center gap-1">Status <component :is="linkSortKey === 'isActive' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'isActive' ? 'opacity-100' : 'opacity-0'" /></span>
+                    <span class="inline-flex items-center gap-1">Статус <component :is="linkSortKey === 'isActive' ? (linkSortAsc ? ChevronUp : ChevronDown) : ChevronDown" class="size-3" :class="linkSortKey === 'isActive' ? 'opacity-100' : 'opacity-0'" /></span>
                   </th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Actions</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Действия</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -910,7 +910,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   </td>
                   <!-- Job -->
                   <td class="px-4 py-3.5 text-surface-600 dark:text-surface-300 truncate max-w-[150px]">
-                    {{ link.jobTitle ?? 'All jobs' }}
+                    {{ link.jobTitle ?? 'Все вакансии' }}
                   </td>
                   <!-- Clicks -->
                   <td class="px-4 py-3.5 text-center tabular-nums font-medium text-surface-700 dark:text-surface-200">
@@ -936,7 +936,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                     >
                       <CheckCircle2 v-if="link.isActive" class="size-3" />
                       <XCircle v-else class="size-3" />
-                      {{ link.isActive ? 'Active' : 'Inactive' }}
+                      {{ link.isActive ? 'Активная' : 'Неактивная' }}
                     </span>
                   </td>
                   <!-- Actions -->
@@ -944,7 +944,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                     <div class="inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         class="p-1.5 rounded-lg text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                        title="Copy tracking URL"
+                        title="Копировать URL отслеживания"
                         @click="copyTrackingUrl(link.code)"
                       >
                         <Copy v-if="copiedCode !== link.code" class="size-3.5" />
@@ -953,7 +953,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                       <button
                         v-if="canManageLinks"
                         class="p-1.5 rounded-lg text-surface-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                        :title="link.isActive ? 'Deactivate' : 'Activate'"
+                        :title="link.isActive ? 'Отключить' : 'Включить'"
                         @click="toggleLink(link.id, !link.isActive)"
                       >
                         <ToggleRight v-if="link.isActive" class="size-3.5" />
@@ -962,7 +962,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                       <button
                         v-if="canManageLinks"
                         class="p-1.5 rounded-lg text-surface-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                        title="Delete"
+                        title="Удалить"
                         @click="confirmDelete(link.id)"
                       >
                         <Trash2 class="size-3.5" />
@@ -982,7 +982,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
       <div v-if="showTab === 'table'">
         <!-- Channel filter chip -->
         <div v-if="selectedChannel" class="mb-4 flex items-center gap-2">
-          <span class="text-xs text-surface-500 dark:text-surface-400">Filtered by:</span>
+          <span class="text-xs text-surface-500 dark:text-surface-400">Фильтр:</span>
           <span
             class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset"
             :class="getChannelBadge(selectedChannel)"
@@ -999,9 +999,9 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
           <div class="mx-auto mb-4 flex items-center justify-center size-14 rounded-2xl bg-surface-100 dark:bg-surface-800">
             <Users class="size-6 text-surface-400 dark:text-surface-500" />
           </div>
-          <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">No attributed applications</p>
+          <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">Нет откликов с атрибуцией</p>
           <p class="text-xs text-surface-400 dark:text-surface-500 max-w-sm">
-            Start sharing your tracking links to see source attribution data here.
+            Начните делиться ссылками отслеживания, чтобы увидеть данные об источниках.
           </p>
         </div>
 
@@ -1010,12 +1010,12 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
             <table class="w-full text-sm">
               <thead>
                 <tr class="border-b border-surface-100 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-800/30">
-                  <th class="px-5 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Candidate</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Job</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Source</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Campaign</th>
-                  <th class="px-4 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Status</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Applied</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Кандидат</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Вакансия</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Источник</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Кампания</th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Статус</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Откликнулся</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -1066,12 +1066,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   </td>
                   <!-- Status -->
                   <td class="px-4 py-3.5 text-center">
-                    <span
-                      class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ring-1 ring-inset"
-                      :class="statusBadgeClasses[app.status] ?? 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400 ring-surface-200 dark:ring-surface-700'"
-                    >
-                      {{ app.status }}
-                    </span>
+                    <StatusBadge :status="app.status" size="xs" />
                   </td>
                   <!-- Applied date -->
                   <td class="px-4 py-3.5 text-right text-[11px] text-surface-400 tabular-nums font-medium">
@@ -1094,7 +1089,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
         <div class="relative w-full max-w-lg rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-2xl">
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-surface-100 dark:border-surface-800">
-            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Create Tracking Link</h2>
+            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Создать ссылку отслеживания</h2>
             <button
               class="p-1.5 rounded-lg text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
               @click="showCreateModal = false"
@@ -1107,31 +1102,31 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
           <form class="px-6 py-5 space-y-4" @submit.prevent="handleCreateLink">
             <!-- Name -->
             <div>
-              <label for="link-name" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Link Name</label>
+              <label for="link-name" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Название ссылки</label>
               <input
                 id="link-name"
                 v-model="newLink.name"
                 type="text"
-                placeholder="e.g. LinkedIn Spring Campaign"
+                placeholder="например, весенняя кампания в LinkedIn"
                 class="w-full rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all"
               />
             </div>
 
             <!-- Channel -->
             <div>
-              <label for="link-channel" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Source Channel</label>
+              <label for="link-channel" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Канал источника</label>
               <select
                 id="link-channel"
                 v-model="newLink.channel"
                 class="w-full rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2.5 text-sm text-surface-900 dark:text-surface-100 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all"
               >
-                <optgroup label="Job Boards">
+                <optgroup label="Джоб-борды">
                   <option v-for="ch in ['linkedin', 'indeed', 'glassdoor', 'ziprecruiter', 'monster', 'handshake', 'angellist', 'wellfound', 'dice', 'stackoverflow', 'weworkremotely', 'remoteok', 'builtin', 'hired', 'lever', 'greenhouse_board', 'google_jobs']" :key="ch" :value="ch">{{ getChannelLabel(ch) }}</option>
                 </optgroup>
-                <optgroup label="Social Media">
+                <optgroup label="Социальные сети">
                   <option v-for="ch in ['facebook', 'twitter', 'instagram', 'tiktok', 'reddit']" :key="ch" :value="ch">{{ getChannelLabel(ch) }}</option>
                 </optgroup>
-                <optgroup label="Other">
+                <optgroup label="Другое">
                   <option v-for="ch in ['referral', 'career_site', 'email', 'event', 'agency', 'direct', 'custom', 'other']" :key="ch" :value="ch">{{ getChannelLabel(ch) }}</option>
                 </optgroup>
               </select>
@@ -1139,13 +1134,13 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
 
             <!-- Job (optional) -->
             <div>
-              <label for="link-job" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Scope to Job <span class="text-surface-400 font-normal">(optional)</span></label>
+              <label for="link-job" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Привязать к вакансии <span class="text-surface-400 font-normal">(необязательно)</span></label>
               <select
                 id="link-job"
                 v-model="newLink.jobId"
                 class="w-full rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2.5 text-sm text-surface-900 dark:text-surface-100 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all"
               >
-                <option value="">All jobs (org-wide)</option>
+                <option value="">Все вакансии (для всей организации)</option>
                 <option v-for="j in jobs" :key="j.id" :value="j.id">{{ j.title }}</option>
               </select>
             </div>
@@ -1154,7 +1149,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
             <details class="group">
               <summary class="flex items-center gap-2 text-sm font-medium text-surface-500 dark:text-surface-400 cursor-pointer select-none hover:text-surface-700 dark:hover:text-surface-200 transition-colors">
                 <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
-                UTM Parameters (optional)
+                UTM-параметры (необязательно)
               </summary>
               <div class="mt-3 grid grid-cols-2 gap-3">
                 <div>
@@ -1179,14 +1174,14 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                 class="rounded-xl px-4 py-2.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
                 @click="showCreateModal = false"
               >
-                Cancel
+                Отмена
               </button>
               <button
                 type="submit"
                 :disabled="!newLink.name.trim() || isCreating"
                 class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 shadow-sm shadow-brand-600/15 transition-all"
               >
-                {{ isCreating ? 'Creating…' : 'Create Link' }}
+                {{ isCreating ? 'Создание…' : 'Создать ссылку' }}
               </button>
             </div>
           </form>
@@ -1204,22 +1199,22 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
           <div class="mx-auto mb-4 flex items-center justify-center size-12 rounded-2xl bg-danger-50 dark:bg-danger-950/40">
             <Trash2 class="size-5 text-danger-600 dark:text-danger-400" />
           </div>
-          <h3 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-2">Delete Tracking Link?</h3>
+          <h3 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-2">Удалить ссылку отслеживания?</h3>
           <p class="text-sm text-surface-500 dark:text-surface-400 mb-6">
-            Existing attribution data will be preserved, but new clicks won't be tracked.
+            Существующие данные атрибуции сохранятся, но новые переходы не будут отслеживаться.
           </p>
           <div class="flex items-center justify-center gap-3">
             <button
               class="rounded-xl px-4 py-2.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
               @click="showDeleteConfirm = false"
             >
-              Cancel
+              Отмена
             </button>
             <button
               class="rounded-xl bg-danger-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-danger-700 transition-colors"
               @click="handleDelete"
             >
-              Delete
+              Удалить
             </button>
           </div>
         </div>

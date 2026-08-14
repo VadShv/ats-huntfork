@@ -385,7 +385,7 @@ async function copyTrackingUrl(code: string) {
               <button
                 v-if="canManageLinks"
                 class="p-1.5 rounded-lg text-surface-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                title="Delete"
+                title="Удалить"
                 @click="confirmDeleteLink(link.id)"
               >
                 <Trash2 class="size-3.5" />
@@ -431,7 +431,7 @@ async function copyTrackingUrl(code: string) {
                 id="link-name"
                 v-model="newLink.name"
                 type="text"
-                placeholder="e.g. LinkedIn Spring Campaign"
+                placeholder="например, весенняя кампания в LinkedIn"
                 class="w-full rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all"
               />
             </div>

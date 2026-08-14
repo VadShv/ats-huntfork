@@ -98,12 +98,12 @@ async function moveToFolder(c: ChatbotConversationSummary, folderId: string | nu
 
 async function confirmDeleteConv(c: ChatbotConversationSummary) {
   openMenuId.value = null
-  if (!confirm(`Delete "${c.title}"? This cannot be undone.`)) return
+  if (!confirm(`Удалить «${c.title}»? Действие необратимо.`)) return
   await deleteConversation(c.id)
 }
 
 async function confirmDeleteFolder(f: ChatbotFolder) {
-  if (!confirm(`Delete folder "${f.name}"? Conversations inside will be moved to Uncategorised.`)) return
+  if (!confirm(`Удалить папку «${f.name}»? Диалоги внутри будут перемещены в раздел «Без категории».`)) return
   await deleteFolder(f.id)
 }
 
@@ -137,12 +137,12 @@ function relativeTime(ms: number | null) {
   if (!ms) return ''
   const diff = Date.now() - ms
   const mins = Math.round(diff / 60_000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m`
+  if (mins < 1) return 'только что'
+  if (mins < 60) return `${mins} мин.`
   const hrs = Math.round(mins / 60)
-  if (hrs < 24) return `${hrs}h`
+  if (hrs < 24) return `${hrs} ч.`
   const days = Math.round(hrs / 24)
-  if (days < 7) return `${days}d`
+  if (days < 7) return `${days} дн.`
   return new Date(ms).toLocaleDateString()
 }
 </script>
@@ -156,11 +156,11 @@ function relativeTime(ms: number | null) {
         @click="handleNewChat()"
       >
         <Plus class="size-4" />
-        New chat
+        Новый чат
       </button>
       <button
         class="inline-flex items-center justify-center size-9 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-500 hover:text-surface-800 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors cursor-pointer"
-        title="New folder"
+        title="Новая папка"
         @click="startNewFolder"
       >
         <FolderPlus class="size-4" />
@@ -175,20 +175,20 @@ function relativeTime(ms: number | null) {
           ref="newFolderInput"
           v-model="newFolderName"
           class="flex-1 bg-transparent text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none"
-          placeholder="Folder name"
+          placeholder="Название папки"
           @keydown.enter="commitNewFolder"
           @keydown.escape="showNewFolder = false"
         />
         <button
           class="inline-flex size-6 items-center justify-center rounded text-surface-500 hover:text-success-600 hover:bg-success-50 dark:hover:bg-success-950/30 cursor-pointer border-0 bg-transparent"
-          title="Create"
+          title="Создать"
           @click="commitNewFolder"
         >
           <Check class="size-3.5" />
         </button>
         <button
           class="inline-flex size-6 items-center justify-center rounded text-surface-500 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30 cursor-pointer border-0 bg-transparent"
-          title="Cancel"
+          title="Отмена"
           @click="showNewFolder = false"
         >
           <X class="size-3.5" />
@@ -207,7 +207,7 @@ function relativeTime(ms: number | null) {
         <div class="group flex items-center gap-1 px-2 py-1">
           <button
             class="inline-flex size-5 items-center justify-center rounded text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 cursor-pointer border-0 bg-transparent"
-            :title="collapsed.has(f.id) ? 'Expand' : 'Collapse'"
+            :title="collapsed.has(f.id) ? 'Развернуть' : 'Свернуть'"
             @click="toggleFolder(f.id)"
           >
             <ChevronRight class="size-3 transition-transform" :class="collapsed.has(f.id) ? '' : 'rotate-90'" />
@@ -234,21 +234,21 @@ function relativeTime(ms: number | null) {
           </button>
           <button
             class="invisible inline-flex size-5 items-center justify-center rounded text-surface-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 group-hover:visible cursor-pointer border-0 bg-transparent"
-            title="New chat in this folder"
+            title="Новый чат в этой папке"
             @click="handleNewChat(f.id)"
           >
             <Plus class="size-3" />
           </button>
           <button
             class="invisible inline-flex size-5 items-center justify-center rounded text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 group-hover:visible cursor-pointer border-0 bg-transparent"
-            title="Rename folder"
+            title="Переименовать папку"
             @click="startRenameFolder(f)"
           >
             <Pencil class="size-3" />
           </button>
           <button
             class="invisible inline-flex size-5 items-center justify-center rounded text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30 group-hover:visible cursor-pointer border-0 bg-transparent"
-            title="Delete folder"
+            title="Удалить папку"
             @click="confirmDeleteFolder(f)"
           >
             <Trash2 class="size-3" />
@@ -257,7 +257,7 @@ function relativeTime(ms: number | null) {
 
         <ul v-if="!collapsed.has(f.id)" class="space-y-0.5 px-1.5 pl-5">
           <li v-if="conversationsForFolder(f.id).length === 0" class="px-2 py-1 text-xs italic text-surface-400">
-            Empty.
+            Пусто.
           </li>
           <li
             v-for="c in [...conversationsForFolder(f.id)].sort((a, b) => Number(b.pinned) - Number(a.pinned))"
@@ -289,13 +289,13 @@ function relativeTime(ms: number | null) {
       <div class="mb-2">
         <div class="flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-surface-500">
           <Inbox class="size-3" />
-          Uncategorised
+          Без категории
         </div>
         <p
           v-if="uncategorised.length === 0"
           class="px-3 py-1 text-xs italic text-surface-400 dark:text-surface-500"
         >
-          No chats yet.
+          Чатов пока нет.
         </p>
         <ul v-else class="space-y-0.5 px-1.5">
           <li
@@ -332,7 +332,7 @@ function relativeTime(ms: number | null) {
         @click="emit('openAgents')"
       >
         <Sparkles class="size-4 text-brand-500" />
-        Manage agents
+        Управление агентами
       </button>
     </div>
   </aside>

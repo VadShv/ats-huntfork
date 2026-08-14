@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { X, ExternalLink, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Download, Eye, AlertTriangle, MapPin, Linkedin, Github, Send } from 'lucide-vue-next'
+import { X, ExternalLink, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Download, Eye, AlertTriangle, MapPin, Linkedin, Github, Send, MessageSquare } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
 const props = defineProps<{
   candidateId: string
+  /** Контекст отклика — включает вкладку «Чат» (Спринт 18) */
+  applicationId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -20,7 +23,7 @@ const { t, te } = useI18n()
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const activeTab = ref<'applications' | 'documents'>('applications')
+const activeTab = ref<'applications' | 'documents' | 'chat'>('applications')
 
 // ─── Resume version ───────────────────────────────────────────────────────────
 
@@ -83,7 +86,7 @@ async function handleDownload(docId: string) {
   try {
     await downloadDocument(docId)
   } catch {
-    toast.error('Failed to download document')
+    toast.error('Не удалось скачать документ')
   }
 }
 
@@ -120,19 +123,11 @@ function formatFileSize(bytes: number | null | undefined): string {
 
 // ─── Body scroll lock + keyboard handling ─────────────────────────────────────
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') emit('close')
-}
+// Escape через единый LIFO-стек: при вложенных drawer'ах закрывается только верхний
+useEscapeStack(true, () => emit('close'))
 
-onMounted(() => {
-  document.addEventListener('keydown', onKeydown)
-  document.body.style.overflow = 'hidden'
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', onKeydown)
-  document.body.style.overflow = ''
-})
+onMounted(() => { document.body.style.overflow = 'hidden' })
+onUnmounted(() => { document.body.style.overflow = '' })
 </script>
 
 <template>
@@ -161,7 +156,7 @@ onUnmounted(() => {
         class="fixed inset-y-0 right-0 z-[60] w-full max-w-2xl flex flex-col bg-white dark:bg-surface-900 shadow-2xl border-l border-surface-200 dark:border-surface-800"
         role="dialog"
         aria-modal="true"
-        aria-label="Candidate detail"
+        aria-label="Карточка кандидата"
       >
         <!-- Header -->
         <header class="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-200 dark:border-surface-800 shrink-0">
@@ -343,27 +338,18 @@ onUnmounted(() => {
             </div>
 
             <!-- Tabs -->
-            <div class="border-b border-surface-200 dark:border-surface-800">
-              <div class="flex gap-1">
-                <button
-                  class="cursor-pointer px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
-                  :class="activeTab === 'applications'
-                    ? 'border-brand-600 text-brand-600'
-                    : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
-                  @click="activeTab = 'applications'"
-                >
-                  {{ t('dashboard.candidateDrawer.applicationsTab') }} ({{ candidate.applications?.length ?? 0 }})
-                </button>
-                <button
-                  class="cursor-pointer px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
-                  :class="activeTab === 'documents'
-                    ? 'border-brand-600 text-brand-600'
-                    : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300 dark:hover:text-surface-300'"
-                  @click="activeTab = 'documents'"
-                >
-                  {{ t('dashboard.candidateDrawer.documentsTab') }} ({{ candidate.documents?.length ?? 0 }})
-                </button>
-              </div>
+            <DetailTabs
+              v-model="activeTab"
+              :tabs="[
+                { key: 'applications', label: 'Отклики', count: candidate.applications?.length ?? 0 },
+                { key: 'documents', label: 'Документы', count: candidate.documents?.length ?? 0 },
+                { key: 'chat', label: 'Чат по отклику', hidden: !props.applicationId },
+              ]"
+            />
+
+            <!-- Chat tab (Спринт 18) -->
+            <div v-if="activeTab === 'chat' && props.applicationId">
+              <CommsChatPanel :application-id="props.applicationId" />
             </div>
 
             <!-- Applications tab -->
@@ -412,12 +398,7 @@ onUnmounted(() => {
                       <Calendar class="size-3" />
                       {{ $t('dashboard.interviews.schedule') }}
                     </button>
-                    <span
-                      class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
-                      :class="applicationStatusClasses[app.status] ?? 'bg-surface-100 text-surface-600'"
-                    >
-                      {{ te(`dashboard.applications.stages.${app.status}`) ? t(`dashboard.applications.stages.${app.status}`) : app.status }}
-                    </span>
+                    <StatusBadge :status="app.status as any" size="xs" />
                   </div>
                 </div>
               </div>

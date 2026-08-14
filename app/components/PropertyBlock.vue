@@ -111,7 +111,7 @@ function openEditor(scope: 'org' | 'job') {
         <div class="flex items-center gap-1.5 pt-1 text-sm text-surface-500 dark:text-surface-400 min-w-0">
           <component :is="iconFor(entry.definition) as never" class="size-3.5 shrink-0" />
           <span class="truncate">{{ entry.definition.name }}</span>
-          <span class="ml-1 rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-surface-500">Form</span>
+          <span class="ml-1 rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-surface-500">Форма</span>
         </div>
         <div class="min-w-0 px-2 py-1">
           <PropertyValueDisplay :definition="entry.definition" :value="entry.value" />
@@ -132,8 +132,8 @@ function openEditor(scope: 'org' | 'job') {
         <span
           v-if="entry.definition.jobId"
           class="ml-1 rounded bg-brand-50 dark:bg-brand-950/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-600 dark:text-brand-300"
-          title="Defined for this job only"
-        >Job</span>
+          title="Только для этой вакансии"
+        >Вакансия</span>
       </div>
       <div class="min-w-0">
         <PropertyValueEditor

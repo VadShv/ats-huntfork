@@ -4,8 +4,8 @@ import { Building2, Save, AlertTriangle, Trash2, Loader2 } from 'lucide-vue-next
 definePageMeta({})
 
 useSeoMeta({
-  title: 'Organization Settings',
-  description: 'Manage your organization settings',
+  title: 'Настройки организации',
+  description: 'Управляйте настройками организации',
 })
 
 const { activeOrg } = useCurrentOrg()
@@ -28,7 +28,7 @@ const slugPattern = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/
 const slugError = computed(() => {
   const s = orgSlug.value.trim()
   if (!s) return ''
-  if (!slugPattern.test(s)) return 'Only lowercase letters, numbers, and hyphens. Must start and end with a letter or number.'
+  if (!slugPattern.test(s)) return 'Используйте только строчные латинские буквы, цифры и дефисы. Идентификатор должен начинаться и заканчиваться буквой или цифрой.'
   return ''
 })
 
@@ -47,11 +47,11 @@ async function handleSaveOrg() {
 
   // Prevent saving empty or invalid values
   if (!trimmedName) {
-    saveError.value = 'Organization name cannot be empty.'
+    saveError.value = 'Название организации не может быть пустым.'
     return
   }
   if (!trimmedSlug || slugError.value) {
-    saveError.value = slugError.value || 'URL slug cannot be empty.'
+    saveError.value = slugError.value || 'Идентификатор URL не может быть пустым.'
     return
   }
 
@@ -71,7 +71,7 @@ async function handleSaveOrg() {
     setTimeout(() => { saveSuccess.value = false }, 3000)
   }
   catch (err: unknown) {
-    saveError.value = err instanceof Error ? err.message : 'Failed to update organization'
+    saveError.value = err instanceof Error ? err.message : 'Не удалось обновить организацию'
   }
   finally {
     isSaving.value = false
@@ -107,7 +107,7 @@ async function handleDeleteOrg() {
     await navigateTo(localePath('/onboarding/create-org'), { external: true })
   }
   catch (err: unknown) {
-    deleteError.value = err instanceof Error ? err.message : 'Failed to delete organization'
+    deleteError.value = err instanceof Error ? err.message : 'Не удалось удалить организацию'
   }
   finally {
     isDeleting.value = false
@@ -120,10 +120,10 @@ async function handleDeleteOrg() {
     <!-- Page title -->
     <div class="mb-6">
       <h1 class="text-lg font-semibold text-surface-900 dark:text-surface-50">
-        General
+        Основные
       </h1>
       <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">
-        Manage your organization's profile and configuration.
+        Управляйте профилем и настройками организации.
       </p>
     </div>
 
@@ -135,8 +135,8 @@ async function handleDeleteOrg() {
             <Building2 class="size-5" />
           </div>
           <div>
-            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Organization profile</h2>
-            <p class="text-sm text-surface-500 dark:text-surface-400">Basic information about your organization.</p>
+            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Профиль организации</h2>
+            <p class="text-sm text-surface-500 dark:text-surface-400">Основная информация об организации.</p>
           </div>
         </div>
       </div>
@@ -144,7 +144,7 @@ async function handleDeleteOrg() {
       <div class="px-4 sm:px-6 py-5 space-y-5">
         <div>
           <label for="org-name" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-            Organization name
+            Название организации
           </label>
           <input
             id="org-name"
@@ -152,17 +152,17 @@ async function handleDeleteOrg() {
             type="text"
             :disabled="!canUpdateOrg"
             class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            placeholder="My Company"
+            placeholder="Моя компания"
           />
         </div>
 
         <div>
           <label for="org-slug" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-            URL slug
+            Идентификатор URL
           </label>
           <div class="flex items-center rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 overflow-hidden focus-within:ring-2 focus-within:ring-brand-500 focus-within:border-brand-500 transition-colors">
             <span class="px-3 text-sm text-surface-400 dark:text-surface-500 select-none bg-surface-50 dark:bg-surface-800/50 border-r border-surface-200 dark:border-surface-700 py-2">
-              reqcore.com/
+              huntfork.ru/
             </span>
             <input
               id="org-slug"
@@ -174,7 +174,7 @@ async function handleDeleteOrg() {
             />
           </div>
           <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">
-            Used in your public job board URL. Only lowercase letters, numbers, and hyphens.
+            Используется в URL публичного джоб-борда. Допустимы только строчные латинские буквы, цифры и дефисы.
           </p>
           <p v-if="slugError" class="mt-1 text-xs text-danger-500">
             {{ slugError }}
@@ -190,7 +190,7 @@ async function handleDeleteOrg() {
           >
             <Loader2 v-if="isSaving" class="size-4 animate-spin" />
             <Save v-else class="size-4" />
-            {{ isSaving ? 'Saving…' : 'Save changes' }}
+            {{ isSaving ? 'Сохранение…' : 'Сохранить изменения' }}
           </button>
 
           <Transition
@@ -200,7 +200,7 @@ async function handleDeleteOrg() {
             leave-to-class="opacity-0"
           >
             <span v-if="saveSuccess" class="text-sm text-success-600 dark:text-success-400 font-medium">
-              Changes saved
+              Изменения сохранены
             </span>
           </Transition>
         </div>
@@ -219,8 +219,8 @@ async function handleDeleteOrg() {
             <AlertTriangle class="size-5" />
           </div>
           <div>
-            <h2 class="text-base font-semibold text-danger-700 dark:text-danger-300">Danger zone</h2>
-            <p class="text-sm text-danger-600/80 dark:text-danger-400/80">Irreversible and destructive actions.</p>
+            <h2 class="text-base font-semibold text-danger-700 dark:text-danger-300">Опасная зона</h2>
+            <p class="text-sm text-danger-600/80 dark:text-danger-400/80">Необратимые действия с данными.</p>
           </div>
         </div>
       </div>
@@ -228,9 +228,9 @@ async function handleDeleteOrg() {
       <div class="px-4 sm:px-6 py-5">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Delete organization</h3>
+            <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Удалить организацию</h3>
             <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">
-              Permanently delete this organization and all its data. This action cannot be undone.
+              Безвозвратно удалить организацию и все её данные. Это действие нельзя отменить.
             </p>
           </div>
           <button
@@ -238,7 +238,7 @@ async function handleDeleteOrg() {
             @click="showDeleteConfirm = true"
           >
             <Trash2 class="size-4" />
-            Delete
+            Удалить
           </button>
         </div>
 
@@ -251,7 +251,7 @@ async function handleDeleteOrg() {
         >
           <div v-if="showDeleteConfirm" class="mt-5 rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50/50 dark:bg-danger-950/30 px-4 py-4 space-y-3">
             <p class="text-sm text-surface-700 dark:text-surface-300">
-              Type <strong class="text-surface-900 dark:text-surface-100 font-semibold">{{ activeOrg?.name }}</strong> to confirm deletion:
+              Введите <strong class="text-surface-900 dark:text-surface-100 font-semibold">{{ activeOrg?.name }}</strong> для подтверждения удаления:
             </p>
             <input
               v-model="deleteConfirmText"
@@ -267,13 +267,13 @@ async function handleDeleteOrg() {
               >
                 <Loader2 v-if="isDeleting" class="size-4 animate-spin" />
                 <Trash2 v-else class="size-4" />
-                {{ isDeleting ? 'Deleting…' : 'Permanently delete' }}
+                {{ isDeleting ? 'Удаление…' : 'Удалить безвозвратно' }}
               </button>
               <button
                 class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 transition-colors"
                 @click="showDeleteConfirm = false; deleteConfirmText = ''"
               >
-                Cancel
+                Отмена
               </button>
             </div>
             <div v-if="deleteError" class="text-sm text-danger-600 dark:text-danger-400">
@@ -286,7 +286,7 @@ async function handleDeleteOrg() {
 
     <!-- Read-only notice for non-admin users -->
     <div v-if="!canUpdateOrg" class="mt-6 rounded-lg bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-800 px-4 py-3 text-sm text-surface-500 dark:text-surface-400">
-      You don't have permission to modify organization settings. Contact an admin or owner for changes.
+      У вас недостаточно прав для изменения настроек организации. Обратитесь к администратору или владельцу.
     </div>
   </div>
 </template>

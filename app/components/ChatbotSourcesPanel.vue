@@ -19,11 +19,11 @@ const emit = defineEmits<{ close: [] }>()
 const { sources } = useChatbot()
 
 const KIND_META: Record<ChatbotSourceKind, { label: string; icon: unknown }> = {
-  job: { label: 'Jobs', icon: Briefcase },
-  candidate: { label: 'Candidates', icon: User },
-  application: { label: 'Applications', icon: ClipboardList },
-  document: { label: 'Documents', icon: FileText },
-  attachment: { label: 'Attachments', icon: FileText },
+  job: { label: 'Вакансии', icon: Briefcase },
+  candidate: { label: 'Кандидаты', icon: User },
+  application: { label: 'Отклики', icon: ClipboardList },
+  document: { label: 'Документы', icon: FileText },
+  attachment: { label: 'Вложения', icon: FileText },
 }
 
 const grouped = computed(() => {
@@ -54,7 +54,7 @@ function hrefFor(s: ChatbotSource): string | null {
       <div class="flex items-center gap-2">
         <BookOpen class="size-4 text-brand-500" />
         <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
-          Sources
+          Источники
         </h2>
         <span
           v-if="sources.length"
@@ -73,7 +73,7 @@ function hrefFor(s: ChatbotSource): string | null {
 
     <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-4">
       <div v-if="sources.length === 0" class="text-xs italic text-surface-500 px-2 py-4 text-center">
-        Citations from tool calls will appear here as the assistant references jobs, candidates, applications, and uploaded documents.
+        Здесь появятся ссылки на источники, когда ассистент обратится к вакансиям, кандидатам, откликам и загруженным документам.
       </div>
 
       <template v-for="(items, kind) in grouped" :key="kind">

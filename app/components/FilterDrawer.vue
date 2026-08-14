@@ -28,7 +28,7 @@ const nameInput = ref<HTMLInputElement | null>(null)
 
 async function openSaveForm() {
   showSaveForm.value = true
-  newName.value = props.defaultSaveName ?? 'New view'
+  newName.value = props.defaultSaveName ?? 'Новый сохранённый вид'
   await nextTick()
   nameInput.value?.focus()
   nameInput.value?.select()
@@ -93,13 +93,13 @@ onUnmounted(() => {
         class="fixed inset-y-0 right-0 z-[60] w-full max-w-md flex flex-col bg-white dark:bg-surface-900 shadow-2xl border-l border-surface-200 dark:border-surface-800"
         role="dialog"
         aria-modal="true"
-        :aria-label="title || 'Filters'"
+        :aria-label="title || 'Фильтры'"
       >
         <!-- Header -->
         <header class="flex items-start justify-between gap-3 px-5 py-4 border-b border-surface-200 dark:border-surface-800">
           <div class="min-w-0">
             <h2 class="text-base font-semibold text-surface-900 dark:text-surface-50 flex items-center gap-2">
-              {{ title || 'Filters' }}
+              {{ title || 'Фильтры' }}
               <span
                 v-if="activeCount && activeCount > 0"
                 class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-brand-600 text-white text-xs font-semibold"
@@ -112,7 +112,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="shrink-0 rounded-md p-1.5 text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-            aria-label="Close"
+            aria-label="Закрыть"
             @click="close"
           >
             <X class="size-4" />
@@ -133,7 +133,7 @@ onUnmounted(() => {
               ref="nameInput"
               v-model="newName"
               type="text"
-              placeholder="Name this view"
+              placeholder="Назовите этот вид"
               maxlength="60"
               class="flex-1 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2.5 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               @keydown.enter.prevent="submitSave"
@@ -146,12 +146,12 @@ onUnmounted(() => {
               @click="submitSave"
             >
               <Check class="size-3.5" />
-              Save
+              Сохранить
             </button>
             <button
               type="button"
               class="rounded-md p-1.5 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-              aria-label="Cancel"
+              aria-label="Отмена"
               @click="showSaveForm = false; newName = ''"
             >
               <X class="size-3.5" />
@@ -165,7 +165,7 @@ onUnmounted(() => {
               @click="emit('reset')"
             >
               <RotateCcw class="size-3.5" />
-              Reset all
+              Сбросить все
             </button>
             <div class="flex items-center gap-2">
               <button
@@ -175,7 +175,7 @@ onUnmounted(() => {
                 @click="openSaveForm"
               >
                 <Plus class="size-3.5" />
-                Save as view
+                Сохранить как вид
               </button>
               <slot name="footer">
                 <button
@@ -183,7 +183,7 @@ onUnmounted(() => {
                   class="rounded-lg bg-surface-900 dark:bg-surface-100 px-4 py-2 text-sm font-medium text-white dark:text-surface-900 hover:opacity-90 transition-opacity"
                   @click="close"
                 >
-                  Done
+                  Готово
                 </button>
               </slot>
             </div>

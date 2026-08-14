@@ -4,7 +4,7 @@
  *
  * Sibling of ChatbotAgentPicker. Lets the user pick which AI configuration
  * powers the next message. "Default" sits at the top and resolves server-side
- * (org's default chatbot config). Includes a "Manage models…" entry that
+ * (org's default chatbot config). Includes a "Управление моделями…" entry that
  * emits `manage` so the host can navigate to /dashboard/settings/ai.
  */
 import { Brain, Check, ChevronUp, Settings, Star, AlertTriangle } from 'lucide-vue-next'
@@ -74,14 +74,14 @@ onUnmounted(() => window.removeEventListener('click', onWindowClick))
         />
         <div class="min-w-0 flex-1">
           <div class="text-sm font-medium text-surface-800 dark:text-surface-100">
-            Org default
+            По умолчанию в организации
           </div>
           <div class="text-[11px] text-surface-500 truncate">
             <template v-if="defaultChatbotConfig">
               Currently {{ defaultChatbotConfig.name }} · <span class="font-mono">{{ defaultChatbotConfig.model }}</span>
             </template>
             <template v-else>
-              No default configured yet
+              Модель по умолчанию не выбрана
             </template>
           </div>
         </div>
@@ -121,7 +121,7 @@ onUnmounted(() => window.removeEventListener('click', onWindowClick))
         @click="open = false; emit('manage')"
       >
         <Settings class="size-3.5" />
-        Manage models…
+        Управление моделями…
       </button>
     </div>
   </div>

@@ -12,8 +12,8 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Dashboard',
-  description: 'Your recruiting command center',
+  title: 'Панель',
+  description: 'Ваш центр управления подбором',
 })
 
 const { activeOrg } = useCurrentOrg()
@@ -89,6 +89,42 @@ function getJobActiveTotal(job: (typeof topJobs.value)[number]): number {
     + getJobStageCount(job, 'screening')
     + getJobStageCount(job, 'interview')
     + getJobStageCount(job, 'offer')
+}
+
+// ─── Sprint 10: динамические этапы воронки на карточках topJobs ───
+interface JobStageChip {
+  id: string
+  name: string
+  color: string
+  type: string
+  bucket: 'working' | 'rejected'
+  displayOrder: number
+  count: number
+}
+
+const NEW_STAGE_TYPES = new Set(['on_hold', 'contact', 'assessment', 'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred'])
+
+function jobHasNewPipeline(j: any): boolean {
+  return ((j?.stages ?? []) as JobStageChip[]).some(s => NEW_STAGE_TYPES.has(s.type))
+}
+
+function jobWorkingStages(j: any): JobStageChip[] {
+  return ((j?.stages ?? []) as JobStageChip[]).filter(s => s.bucket === 'working')
+}
+
+function jobRejectedTotal(j: any): number {
+  return ((j?.stages ?? []) as JobStageChip[])
+    .filter(s => s.bucket === 'rejected')
+    .reduce((sum, s) => sum + s.count, 0)
+}
+
+function jobWorkingTotal(j: any): number {
+  return jobWorkingStages(j).reduce((sum, s) => sum + s.count, 0)
+}
+
+// ─── Спринт 11.4: итоговое значение с учётом всех отказов ───
+function jobGrandTotal(j: any): number {
+  return jobWorkingTotal(j) + jobRejectedTotal(j)
 }
 
 const statusBadgeClasses: Record<string, string> = {
@@ -379,41 +415,99 @@ const isEmpty = computed(() =>
                   >
                     {{ j.title }}
                   </NuxtLink>
-                  <span class="text-xs text-surface-400 dark:text-surface-500 shrink-0 ml-3 tabular-nums font-medium">
-                    {{ j.applicationCount }} {{ $t('dashboard.index.total') }}
+                  <!-- Спринт 11.4: итоговое значение включает все отказы -->
+                  <span
+                    class="text-xs text-surface-400 dark:text-surface-500 shrink-0 ml-3 tabular-nums font-medium"
+                    :title="jobHasNewPipeline(j) ? `В работе: ${jobWorkingTotal(j)} · Отказы: ${jobRejectedTotal(j)}` : undefined"
+                  >
+                    {{ jobHasNewPipeline(j) ? jobGrandTotal(j) : j.applicationCount }} {{ $t('dashboard.index.total') }}
                   </span>
                 </div>
 
-                <!-- Pipeline bar for this job -->
-                <div v-if="j.applicationCount > 0" class="mb-3.5">
-                  <div class="flex h-1.5 rounded-full overflow-hidden bg-surface-100 dark:bg-surface-800">
-                    <div
-                      v-for="stage in stageConfig.filter(s => getJobStageCount(j, s.key) > 0)"
-                      :key="stage.key"
-                      class="transition-all duration-500"
-                      :class="stage.color"
-                      :style="{ width: `${(getJobStageCount(j, stage.key) / j.applicationCount) * 100}%` }"
-                    />
+                <!-- ─── Sprint 10: динамическая воронка ─── -->
+                <template v-if="jobHasNewPipeline(j)">
+                  <!-- Pipeline bar (динамические этапы) -->
+                  <div v-if="jobGrandTotal(j) > 0" class="mb-3.5">
+                    <div class="flex h-1.5 rounded-full overflow-hidden bg-surface-100 dark:bg-surface-800">
+                      <div
+                        v-for="stage in jobWorkingStages(j).filter(s => s.count > 0)"
+                        :key="stage.id"
+                        class="transition-all duration-500"
+                        :style="{ width: `${(stage.count / jobGrandTotal(j)) * 100}%`, backgroundColor: stage.color || '#94a3b8' }"
+                      />
+                      <div
+                        v-if="jobRejectedTotal(j) > 0"
+                        class="transition-all duration-500 bg-surface-300 dark:bg-surface-600"
+                        :style="{ width: `${(jobRejectedTotal(j) / jobGrandTotal(j)) * 100}%` }"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <!-- Stage counts for this job -->
-                <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                  <NuxtLink
-                    v-for="stage in stageConfig"
-                    :key="stage.key"
-                    :to="localePath(`/dashboard/jobs/${j.id}?stage=${stage.key}`)"
-                    class="rounded-lg px-2 py-1.5 text-center transition-all duration-150 no-underline hover:ring-1 hover:ring-brand-300/50 dark:hover:ring-brand-700/50 hover:shadow-sm"
-                    :class="[stage.bgColor, getJobStageCount(j, stage.key) > 0 ? 'cursor-pointer' : 'opacity-50']"
-                  >
-                    <div class="text-sm font-bold tabular-nums" :class="stage.textColor">
-                      {{ getJobStageCount(j, stage.key) }}
+                  <!-- Stage counts (динамические этапы) -->
+                  <div class="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                    <NuxtLink
+                      v-for="stage in jobWorkingStages(j)"
+                      :key="stage.id"
+                      :to="localePath(`/dashboard/jobs/${j.id}?stage=${stage.id}`)"
+                      class="rounded-lg px-2 py-1.5 text-center transition-all duration-150 no-underline bg-surface-50 dark:bg-surface-800/60 hover:ring-1 hover:ring-brand-300/50 dark:hover:ring-brand-700/50 hover:shadow-sm"
+                      :class="stage.count > 0 ? 'cursor-pointer' : 'opacity-50'"
+                      :title="stage.name"
+                    >
+                      <div class="text-sm font-bold tabular-nums" :style="{ color: stage.color || undefined }">
+                        {{ stage.count }}
+                      </div>
+                      <div class="text-[10px] font-medium text-surface-500 dark:text-surface-400 leading-tight truncate">
+                        {{ stage.name }}
+                      </div>
+                    </NuxtLink>
+                    <div
+                      class="rounded-lg px-2 py-1.5 text-center bg-surface-100 dark:bg-surface-800"
+                      :class="jobRejectedTotal(j) > 0 ? '' : 'opacity-50'"
+                      :title="$t('dashboard.jobs.pipeline.stages.rejected')"
+                    >
+                      <div class="text-sm font-bold tabular-nums text-surface-500 dark:text-surface-400">
+                        {{ jobRejectedTotal(j) }}
+                      </div>
+                      <div class="text-[10px] font-medium text-surface-500 dark:text-surface-400 leading-tight truncate">
+                        {{ $t('dashboard.jobs.pipeline.stages.rejected') }}
+                      </div>
                     </div>
-                    <div class="text-[10px] font-medium text-surface-500 dark:text-surface-400 leading-tight">
-                      {{ stage.label }}
+                  </div>
+                </template>
+
+                <!-- ─── Legacy воронка ─── -->
+                <template v-else>
+                  <!-- Pipeline bar for this job -->
+                  <div v-if="j.applicationCount > 0" class="mb-3.5">
+                    <div class="flex h-1.5 rounded-full overflow-hidden bg-surface-100 dark:bg-surface-800">
+                      <div
+                        v-for="stage in stageConfig.filter(s => getJobStageCount(j, s.key) > 0)"
+                        :key="stage.key"
+                        class="transition-all duration-500"
+                        :class="stage.color"
+                        :style="{ width: `${(getJobStageCount(j, stage.key) / j.applicationCount) * 100}%` }"
+                      />
                     </div>
-                  </NuxtLink>
-                </div>
+                  </div>
+
+                  <!-- Stage counts for this job -->
+                  <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                    <NuxtLink
+                      v-for="stage in stageConfig"
+                      :key="stage.key"
+                      :to="localePath(`/dashboard/jobs/${j.id}?stage=${stage.key}`)"
+                      class="rounded-lg px-2 py-1.5 text-center transition-all duration-150 no-underline hover:ring-1 hover:ring-brand-300/50 dark:hover:ring-brand-700/50 hover:shadow-sm"
+                      :class="[stage.bgColor, getJobStageCount(j, stage.key) > 0 ? 'cursor-pointer' : 'opacity-50']"
+                    >
+                      <div class="text-sm font-bold tabular-nums" :class="stage.textColor">
+                        {{ getJobStageCount(j, stage.key) }}
+                      </div>
+                      <div class="text-[10px] font-medium text-surface-500 dark:text-surface-400 leading-tight">
+                        {{ stage.label }}
+                      </div>
+                    </NuxtLink>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -463,12 +557,7 @@ const isEmpty = computed(() =>
                     <span class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                       {{ formatPersonName(app.candidateFirstName, app.candidateLastName) }}
                     </span>
-                    <span
-                      class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize shrink-0 ring-1 ring-inset"
-                      :class="statusBadgeClasses[app.status] ?? 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400 ring-surface-200 dark:ring-surface-700'"
-                    >
-                      {{ app.status }}
-                    </span>
+                    <StatusBadge :status="app.status" size="xs" />
                   </div>
                   <div class="text-xs text-surface-400 dark:text-surface-500 truncate">
                     {{ app.jobTitle }}
@@ -499,7 +588,7 @@ const isEmpty = computed(() =>
                 :to="localePath('/dashboard/interviews')"
                 class="text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 no-underline inline-flex items-center gap-1 group/link"
               >
-                All
+                Все
                 <ArrowRight class="size-3 group-hover/link:translate-x-0.5 transition-transform" />
               </NuxtLink>
             </div>

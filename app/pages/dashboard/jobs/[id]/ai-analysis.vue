@@ -524,7 +524,7 @@ function resetCriteria() {
               v-model="customCriterionForm.name"
               @input="customCriterionForm.key = autoGenerateKey(customCriterionForm.name)"
               type="text"
-              placeholder="e.g. React Expertise"
+              placeholder="например, знание React"
               class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>

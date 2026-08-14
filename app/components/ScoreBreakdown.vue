@@ -50,7 +50,7 @@ const defaultAnalysisConfig = computed(() =>
 )
 const selectedAiConfigId = ref<string | null>(null)
 
-// Cache last successful data so switching candidates doesn't flash "Loading scores…"
+// Cache last successful data so switching candidates doesn't flash "Загрузка оценок…"
 const cachedScoreData = ref(scoreData.value)
 watch(scoreData, (val) => {
   if (val) cachedScoreData.value = val
@@ -75,9 +75,9 @@ function barColor(score: number, max: number): string {
 }
 
 function confidenceLabel(confidence: number): string {
-  if (confidence >= 80) return 'High'
-  if (confidence >= 50) return 'Medium'
-  return 'Low'
+  if (confidence >= 80) return 'Высокая'
+  if (confidence >= 50) return 'Средняя'
+  return 'Низкая'
 }
 
 function confidenceColor(confidence: number): string {
@@ -108,7 +108,7 @@ async function runAnalysis() {
     if (data?.code === 'PARSE_FAILED' && data?.documentId) {
       parseFailedDocId.value = data.documentId
     }
-    analyzeError.value = err?.data?.statusMessage ?? 'Analysis failed. Make sure AI is configured in settings.'
+    analyzeError.value = err?.data?.statusMessage ?? 'Анализ не выполнен. Убедитесь, что ИИ настроен в параметрах.'
   } finally {
     isAnalyzing.value = false
   }
@@ -127,7 +127,7 @@ async function retryParse() {
     // Automatically re-run analysis after successful parse
     await runAnalysis()
   } catch (err: any) {
-    analyzeError.value = err?.data?.statusMessage ?? 'Failed to re-parse the resume. The file may be corrupted or image-based.'
+    analyzeError.value = err?.data?.statusMessage ?? 'Не удалось повторно обработать резюме. Возможно, файл повреждён или содержит изображение.'
     parseFailedDocId.value = null
   } finally {
     isRetryingParse.value = false
@@ -145,7 +145,7 @@ async function retryParse() {
             <Brain class="size-3.5 text-brand-600 dark:text-brand-400" />
           </div>
           <div>
-            <p class="text-sm font-medium text-surface-600 dark:text-surface-300">No AI analysis yet</p>
+            <p class="text-sm font-medium text-surface-600 dark:text-surface-300">Пока нет ИИ-анализа</p>
           </div>
         </div>
         <div class="flex items-center gap-1.5">
@@ -154,9 +154,9 @@ async function retryParse() {
             v-model="selectedAiConfigId"
             :disabled="isAnalyzing"
             class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-xs text-surface-700 dark:text-surface-300 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer max-w-[140px] truncate"
-            :title="selectedAiConfigId ?? 'Use org default'"
+            :title="selectedAiConfigId ?? 'Использовать настройки организации'"
           >
-            <option :value="null">Default{{ defaultAnalysisConfig ? ` (${defaultAnalysisConfig.name})` : '' }}</option>
+            <option :value="null">По умолчанию{{ defaultAnalysisConfig ? ` (${defaultAnalysisConfig.name})` : '' }}</option>
             <option v-for="c in aiConfigOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
           </select>
           <button
@@ -166,7 +166,7 @@ async function retryParse() {
           >
             <Loader2 v-if="isAnalyzing" class="size-3.5 animate-spin" />
             <Sparkles v-else class="size-3.5" />
-            {{ isAnalyzing ? 'Analyzing…' : 'Run Analysis' }}
+            {{ isAnalyzing ? 'Анализ…' : 'Запустить анализ' }}
           </button>
         </div>
       </div>
@@ -174,7 +174,7 @@ async function retryParse() {
 
     <!-- Loading (only on very first load with no cached data) -->
     <div v-else-if="isInitialLoad" class="text-center py-8 text-surface-400">
-      Loading scores…
+      Загрузка оценок…
     </div>
 
     <!-- Score breakdown -->
@@ -195,7 +195,7 @@ async function retryParse() {
               :disabled="isAnalyzing"
               class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-[11px] text-surface-700 dark:text-surface-300 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer max-w-[140px] truncate"
             >
-              <option :value="null">Default{{ defaultAnalysisConfig ? ` (${defaultAnalysisConfig.name})` : '' }}</option>
+              <option :value="null">По умолчанию{{ defaultAnalysisConfig ? ` (${defaultAnalysisConfig.name})` : '' }}</option>
               <option v-for="c in aiConfigOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
             <button
@@ -274,7 +274,7 @@ async function retryParse() {
           <div v-if="expandedCriterion === cs.criterionKey" class="px-3 pb-3 space-y-3 border-t border-surface-100 dark:border-surface-800 pt-3">
             <!-- Confidence -->
             <div class="flex items-center gap-2 text-xs">
-              <span class="text-surface-400">Confidence:</span>
+              <span class="text-surface-400">Уверенность:</span>
               <span class="font-semibold" :class="confidenceColor(cs.confidence)">
                 {{ confidenceLabel(cs.confidence) }} ({{ cs.confidence }}%)
               </span>
@@ -282,13 +282,13 @@ async function retryParse() {
 
             <!-- Evidence -->
             <div v-if="cs.evidence">
-              <h4 class="text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1 uppercase tracking-wider">Evidence</h4>
+              <h4 class="text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1 uppercase tracking-wider">Доказательства</h4>
               <p class="text-xs text-surface-600 dark:text-surface-300 leading-relaxed">{{ cs.evidence }}</p>
             </div>
 
             <!-- Strengths -->
             <div v-if="cs.strengths?.length">
-              <h4 class="text-xs font-semibold text-success-600 dark:text-success-400 mb-1">Strengths</h4>
+              <h4 class="text-xs font-semibold text-success-600 dark:text-success-400 mb-1">Сильные стороны</h4>
               <ul class="space-y-0.5">
                 <li v-for="s in cs.strengths" :key="s" class="text-xs text-surface-600 dark:text-surface-300 flex items-start gap-1.5">
                   <span class="text-success-500 mt-0.5 shrink-0">✓</span>
@@ -299,7 +299,7 @@ async function retryParse() {
 
             <!-- Gaps -->
             <div v-if="cs.gaps?.length">
-              <h4 class="text-xs font-semibold text-warning-600 dark:text-warning-400 mb-1">Gaps</h4>
+              <h4 class="text-xs font-semibold text-warning-600 dark:text-warning-400 mb-1">Пробелы</h4>
               <ul class="space-y-0.5">
                 <li v-for="g in cs.gaps" :key="g" class="text-xs text-surface-600 dark:text-surface-300 flex items-start gap-1.5">
                   <span class="text-warning-500 mt-0.5 shrink-0">△</span>
@@ -334,9 +334,9 @@ async function retryParse() {
           >
             <Loader2 v-if="isRetryingParse" class="size-3 animate-spin" />
             <RefreshCw v-else class="size-3" />
-            {{ isRetryingParse ? 'Re-parsing…' : 'Retry CV Parse' }}
+            {{ isRetryingParse ? 'Повторная обработка…' : 'Повторить обработку резюме' }}
           </button>
-          <button class="underline" @click="analyzeError = null; parseFailedDocId = null">Dismiss</button>
+          <button class="underline" @click="analyzeError = null; parseFailedDocId = null">Скрыть</button>
         </div>
       </div>
     </div>
