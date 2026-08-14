@@ -10,7 +10,9 @@
  *  - Вакансия с hh-воронкой → кнопки по этапам: Пригласить / Подумать / Отказать / Ещё ▾.
  *    Спринт 13.4: «Пригласить» переводит на «Первичный контакт» (type=contact) —
  *    при включённом пуше кандидат на hh.ru получает приглашение связаться.
- *    «Запланировать интервью» — отдельная кнопка (emit schedule).
+ *    Спринт 18.x: действие «Интервью» объединено с планированием — перевод на
+ *    этап типа interview открывает календарь планирования интервью (emit schedule),
+ *    и наоборот: кнопка «Интервью» переводит на этап и открывает календарь.
  *  - Без воронки → legacy-переходы статуса (русифицированы), выполняет родитель.
  *
  * Спринт 15.2: меню «Ещё» показывает полное дерево воронки — root-этапы
@@ -99,6 +101,8 @@ function firstRootOfType(type: string): QuickStage | null {
 const inviteStage = computed(() => firstRootOfType('contact') ?? firstRootOfType('interview'))
 const considerStage = computed(() => firstRootOfType('on_hold'))
 const rejectStage = computed(() => firstRootOfType('not_fit'))
+// Объединённое действие «Интервью»: перевод на этап + открытие календаря планирования
+const interviewStage = computed(() => firstRootOfType('interview'))
 
 // ─── Спринт 15.2: полное дерево воронки в меню «Ещё» (root-этапы + подэтапы) ──
 
@@ -150,6 +154,18 @@ function menuItemHotkey(item: MenuItem): number | null {
 const showMoreMenu = ref(false)
 const isQuickMoving = ref(false)
 
+// Объединённое действие «Интервью»: сменить этап (календарь откроется через
+// quickMoveToStage) либо, если кандидат уже на этапе интервью, просто открыть календарь.
+async function interviewAction() {
+  if (isQuickMoving.value) return
+  if (interviewStage.value && interviewStage.value.id !== props.currentStageId) {
+    await quickMoveToStage(interviewStage.value)
+  }
+  else {
+    emit('schedule')
+  }
+}
+
 async function quickMoveToStage(stage: QuickStage | null) {
   if (!stage || isQuickMoving.value || stage.id === props.currentStageId) return
   showMoreMenu.value = false
@@ -159,6 +175,10 @@ async function quickMoveToStage(stage: QuickStage | null) {
       method: 'PATCH',
       body: { stageId: stage.id },
     })
+    // Синхронизация действий: перевод на этап интервью открывает календарь
+    // планирования. schedule эмитим ДО stage-changed, чтобы родитель захватил
+    // текущего кандидата до обновления списка (фокус может уйти на следующего).
+    if (stage.type === 'interview') emit('schedule')
     emit('stage-changed', { newStageId: stage.id, newStageName: stage.name, newStageColor: stage.color })
     quickStages.value = quickStages.value.map(s => ({ ...s, isCurrent: s.id === stage.id }))
     toast.success(`Кандидат перемещён: ${stage.name}`)
@@ -259,7 +279,7 @@ function onHotkey(e: KeyboardEvent) {
         break
       case 5:
         e.preventDefault()
-        emit('schedule')
+        void interviewAction()
         break
     }
     return
@@ -411,8 +431,23 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
         </button>
       </template>
 
-      <!-- Запланировать интервью — всегда отдельная кнопка -->
+      <!-- Объединённое действие «Интервью»: перевод на этап + календарь планирования -->
       <button
+        v-if="stagesReady && hasHhPipeline && interviewStage"
+        :disabled="isQuickMoving"
+        class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+        :title="currentStageId === interviewStage.id
+          ? 'Запланировать интервью'
+          : `Перевести на этап «${interviewStage.name}» и запланировать интервью`"
+        @click="interviewAction"
+      >
+        <Calendar class="size-3.5" />
+        {{ interviewStage.name }}
+        <kbd v-if="hotkeys" class="ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">5</kbd>
+      </button>
+      <!-- Фолбэк: без воронки (или без этапа интервью) — только планирование -->
+      <button
+        v-else-if="stagesReady"
         class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
         @click="emit('schedule')"
       >

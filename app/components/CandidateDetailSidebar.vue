@@ -76,46 +76,20 @@ watch(candidateId, (id) => {
 const documents = computed(() => candidateData.value?.documents ?? [])
 
 // ─────────────────────────────────────────────
-// Status transitions
+// Действия по отклику — единый блок ApplicationQuickActions (этапы воронки;
+// legacy-переходы статуса — только фолбэк для вакансий без воронки)
 // ─────────────────────────────────────────────
-import { APPLICATION_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
-
-const transitionLabels = computed<Record<string, string>>(() => ({
-  new: t('dashboard.pipeline.transitions.reopen'),
-  screening: t('dashboard.pipeline.transitions.toScreening'),
-  interview: t('dashboard.pipeline.transitions.toInterview'),
-  offer: t('dashboard.pipeline.transitions.toOffer'),
-  hired: t('dashboard.pipeline.transitions.toHired'),
-  rejected: t('dashboard.pipeline.transitions.reject'),
-}))
-
-// Единый визуальный язык действий: одна primary (первая разрешённая) + neutral outline + danger-outline для отклонения
-const BUTTON_BASE = 'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-const BUTTON_PRIMARY = 'bg-brand-600 text-white hover:bg-brand-700'
-const BUTTON_NEUTRAL = 'border border-surface-300 dark:border-surface-600 text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'
-const BUTTON_DANGER = 'border border-danger-300 dark:border-danger-800 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40'
-
-function transitionClass(status: string, index: number): string {
-  if (status === 'rejected') return `${BUTTON_BASE} ${BUTTON_DANGER}`
-  // Первое не-rejected действие — primary, остальные — neutral
-  return `${BUTTON_BASE} ${index === 0 ? BUTTON_PRIMARY : BUTTON_NEUTRAL}`
-}
-
-const statusBadgeClasses: Record<string, string> = {
-  new: 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:ring-blue-800',
-  screening: 'bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-950/50 dark:text-violet-400 dark:ring-violet-800',
-  interview: 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:ring-amber-800',
-  offer: 'bg-teal-50 text-teal-700 ring-teal-200 dark:bg-teal-950/50 dark:text-teal-400 dark:ring-teal-800',
-  hired: 'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950/50 dark:text-green-400 dark:ring-green-800',
-  rejected: 'bg-surface-100 text-surface-500 ring-surface-200 dark:bg-surface-800/50 dark:text-surface-400 dark:ring-surface-700',
-}
-
-const allowedTransitions = computed(() => {
-  if (!application.value) return []
-  return APPLICATION_STATUS_TRANSITIONS[application.value.status] ?? []
-})
 
 const isTransitioning = ref(false)
+
+async function handleStageChanged(payload: { newStageId: string, newStageName: string, newStageColor: string }) {
+  track('sidebar_stage_changed', {
+    application_id: props.applicationId,
+    to_stage: payload.newStageId,
+  })
+  await refresh()
+  emit('updated')
+}
 
 async function handleTransition(newStatus: string) {
   isTransitioning.value = true
@@ -438,9 +412,17 @@ const responsesCount = computed(() => application.value?.responses?.length ?? 0)
 
 const showScheduleSidebar = ref(false)
 
-const { interviews: applicationInterviews } = useInterviews({
+const { interviews: applicationInterviews, refresh: refreshInterviews } = useInterviews({
   applicationId: computed(() => props.applicationId),
 })
+
+// После планирования интервью — синхронизируем список интервью, данные
+// отклика (этап мог смениться) и родительский список
+async function handleInterviewScheduled() {
+  showScheduleSidebar.value = false
+  await Promise.all([refreshInterviews(), refresh()])
+  emit('updated')
+}
 
 const interviewTypeLabels: Record<string, string> = {
   phone: 'Телефонное',
@@ -496,15 +478,6 @@ function formatInterviewDate(dateStr: string) {
         </div>
         <div class="flex items-center gap-1 shrink-0 ml-3">
           <button
-            v-if="application"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 text-sm font-medium text-surface-600 dark:text-surface-400 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all cursor-pointer"
-            title="Запланировать интервью"
-            @click="showScheduleSidebar = true"
-          >
-            <Calendar class="size-3.5" />
-            Запланировать
-          </button>
-          <button
             class="rounded-md p-1.5 text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:text-surface-300 dark:hover:bg-surface-800 transition-colors"
             title="Закрыть (Esc)"
             @click="emit('close')"
@@ -551,24 +524,27 @@ function formatInterviewDate(dateStr: string) {
             <!-- Status & transitions -->
             <div>
               <div class="flex items-center gap-2 mb-3">
-                <StatusBadge v-if="!application.currentStageId" :status="application.status" />
+                <ApplicationStageBadge
+                  v-if="application.currentStage"
+                  :name="application.currentStage.name"
+                  :color="application.currentStage.color"
+                />
+                <StatusBadge v-else :status="application.status" />
                 <span class="text-sm text-surface-400">
                   {{ t('applications.applied_label') }} {{ new Date(application.createdAt).toLocaleDateString() }}
                 </span>
               </div>
 
-              <div v-if="allowedTransitions.length > 0" class="flex flex-wrap items-center gap-2">
-                <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-0.5">Перевести на:</span>
-                <button
-                  v-for="(nextStatus, i) in allowedTransitions"
-                  :key="nextStatus"
-                  :disabled="isTransitioning"
-                  :class="transitionClass(nextStatus, i)"
-                  @click="handleTransition(nextStatus)"
-                >
-                  {{ transitionLabels[nextStatus] ?? nextStatus }}
-                </button>
-              </div>
+              <!-- Единые быстрые действия по этапам воронки (как в воронке и на странице отклика) -->
+              <ApplicationQuickActions
+                :application-id="props.applicationId"
+                :current-stage-id="application.currentStageId ?? null"
+                :status="application.status"
+                :disabled="isTransitioning"
+                @stage-changed="handleStageChanged"
+                @legacy-transition="handleTransition"
+                @schedule="showScheduleSidebar = true"
+              />
             </div>
 
             <!-- Candidate info -->
@@ -1084,7 +1060,7 @@ function formatInterviewDate(dateStr: string) {
     :candidate-name="`${application.candidate.firstName} ${application.candidate.lastName}`"
     :job-title="application.job?.title ?? ''"
     @close="showScheduleSidebar = false"
-    @scheduled="showScheduleSidebar = false"
+    @scheduled="handleInterviewScheduled"
   />
 
 
