@@ -16,6 +16,7 @@ import {
 import { getValidAccessToken } from '../hh/tokens'
 import { apiGet } from '../hh/client'
 import { hhGetChatMessages, hhMarkMessageRead, hhSendChatMessage, type HhChatMessage } from './hhChat'
+import { getJobAssistantSettings } from './assistant'
 
 export type CommsConversationRow = typeof commsConversation.$inferSelect
 export type CommsMessageRow = typeof commsMessage.$inferSelect
@@ -95,6 +96,19 @@ export async function ensureHhConversation(
   }
   if (!chatId) return { conversation: null, reason: 'no_chat_id' }
 
+  // Чат 2.0: режим ассистента для НОВОГО диалога — из настроек ИИ-чата вакансии
+  // (только при insert; у существующих диалогов режим не трогаем)
+  let defaultAssistantMode = 'off'
+  if (app.jobId) {
+    try {
+      const jobSettings = await getJobAssistantSettings(app.jobId)
+      if (jobSettings?.enabled && jobSettings.defaultAssistantMode) {
+        defaultAssistantMode = jobSettings.defaultAssistantMode
+      }
+    }
+    catch { /* некритично — оставим off */ }
+  }
+
   // 5. Upsert по (org, channel, external_chat_id) — гонки схлопываются на уникальном индексе
   const inserted = await db.insert(commsConversation)
     .values({
@@ -106,6 +120,7 @@ export async function ensureHhConversation(
       jobId: app.jobId,
       hhNegotiationId: neg.id,
       hhAccountId: link.hhAccountId,
+      assistantMode: defaultAssistantMode,
     })
     .onConflictDoUpdate({
       target: [commsConversation.organizationId, commsConversation.channel, commsConversation.externalChatId],
@@ -201,7 +216,8 @@ export function listConversationMessages(conversationId: string, limit = 200): P
     .from(commsMessage)
     .where(and(
       eq(commsMessage.conversationId, conversationId),
-      notInArray(commsMessage.status, ['suggested', 'discarded']),
+      // Чат 2.0: generating-черновики тоже не показываем в ленте — они едут отдельным полем draft
+      notInArray(commsMessage.status, ['suggested', 'discarded', 'generating']),
     ))
     .orderBy(asc(commsMessage.externalCreatedAt), asc(commsMessage.createdAt))
     .limit(limit)
@@ -213,8 +229,11 @@ export function listConversationMessages(conversationId: string, limit = 200): P
  */
 export async function sendHhMessage(
   conv: CommsConversationRow,
-  args: { userId: string, userName: string | null, text: string },
+  // Чат 2.0: senderType/senderName опциональны — автопилот шлёт от имени агента (userId может быть null)
+  args: { userId: string | null, userName: string | null, text: string, senderType?: 'recruiter' | 'agent', senderName?: string | null },
 ): Promise<CommsMessageRow> {
+  const senderType = args.senderType ?? 'recruiter'
+  const senderName = args.senderName ?? args.userName
   if (!conv.canWrite) {
     throw createError({ statusCode: 400, statusMessage: 'Чат недоступен для отправки сообщений' })
   }
@@ -233,9 +252,9 @@ export async function sendHhMessage(
       organizationId: conv.organizationId,
       conversationId: conv.id,
       direction: 'out',
-      senderType: 'recruiter',
+      senderType,
       senderUserId: args.userId,
-      senderName: args.userName,
+      senderName,
       body: args.text,
       status: 'failed',
       errorMessage: msg.slice(0, 500),
@@ -250,9 +269,9 @@ export async function sendHhMessage(
       conversationId: conv.id,
       externalMessageId: externalId,
       direction: 'out',
-      senderType: 'recruiter',
+      senderType,
       senderUserId: args.userId,
-      senderName: args.userName,
+      senderName,
       body: args.text,
       status: 'sent',
       externalCreatedAt: new Date(),

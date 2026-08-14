@@ -17,6 +17,7 @@ import { and, eq } from 'drizzle-orm'
 import { commsChannelEvent, commsConversation, hhVacancyLink } from '../../database/schema'
 import { getBoss } from '../queue/boss'
 import { refreshHhConversation } from './commsService'
+import { maybeTriggerAutopilot } from './assistantJobs'
 import { syncVacancyLink } from '../hh/sync'
 
 export const HH_WEBHOOK_QUEUE = 'comms-hh-webhook'
@@ -129,6 +130,16 @@ async function processOneWebhookEvent(data: HhWebhookJobPayload): Promise<void> 
           return
         }
         await refreshHhConversation(conv)
+        // Чат 2.0: автопилот — best-effort, ошибка не должна валить ингест сообщения
+        try {
+          await maybeTriggerAutopilot(conv.id)
+        }
+        catch (err) {
+          logWarn('comms.autopilot_trigger_failed', {
+            conversation_id: conv.id,
+            error_message: err instanceof Error ? err.message : String(err),
+          })
+        }
         await finishEvent(row.id, 'processed')
         logInfo('comms.hh_webhook_chat_refreshed', {
           conversation_id: conv.id,

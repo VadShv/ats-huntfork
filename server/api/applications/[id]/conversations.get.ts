@@ -4,6 +4,7 @@ import {
   listConversationMessages,
   refreshHhConversation,
 } from '../../../utils/comms/commsService'
+import { getLatestDraft } from '../../../utils/comms/assistantJobs'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 
@@ -38,6 +39,8 @@ export default defineEventHandler(async (event) => {
     where: (t, { eq }) => eq(t.id, conversation.id),
   })
   const messages = await listConversationMessages(conversation.id)
+  // Чат 2.0: текущий черновик ассистента — чтобы генерация переживала перезагрузку страницы
+  const draft = await getLatestDraft(conversation.id)
 
   return {
     conversation: {
@@ -61,6 +64,7 @@ export default defineEventHandler(async (event) => {
       errorMessage: m.errorMessage,
       createdAt: (m.externalCreatedAt ?? m.createdAt)?.toISOString?.() ?? null,
     })),
+    draft,
     syncError,
   }
 })

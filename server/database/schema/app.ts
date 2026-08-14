@@ -1842,6 +1842,7 @@ export const commsMessageStatusEnum = pgEnum('comms_message_status', [
   'failed', // исходящее, отправка не удалась
   'suggested', // черновик ИИ-агента (ждёт одобрения) — задел на будущее
   'discarded', // отклонённый черновик агента
+  'generating', // Чат 2.0: черновик генерируется в фоне (живучая генерация)
 ])
 
 /**
@@ -1933,6 +1934,37 @@ export const commsAssistantProfile = pgTable('comms_assistant_profile', {
 }, (t) => ([
   uniqueIndex('comms_assistant_profile_org_idx').on(t.organizationId),
 ]))
+
+/**
+ * Чат 2.0: настройки ИИ-ассистента под конкретную вакансию.
+ * Дополняют глобальный профиль (comms_assistant_profile): цели общения,
+ * доп. контекст, переопределение тона и режим по умолчанию для новых диалогов.
+ */
+export const commsJobAssistantSettings = pgTable('comms_job_assistant_settings', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  /** Применять ли ассистента на этой вакансии (false = чат только вручную). */
+  enabled: boolean('enabled').notNull().default(true),
+  /** Цели общения: что выяснить у кандидата по этой вакансии. */
+  goals: text('goals'),
+  /** Доп. база знаний по вакансии (команда, стек, условия — сверх описания). */
+  extraContext: text('extra_context'),
+  /** Переопределение тона: null = наследовать из глобального профиля. */
+  toneOverride: text('tone_override'),
+  /** Режим ассистента для НОВЫХ диалогов вакансии: off | copilot | autopilot_review | autopilot. */
+  defaultAssistantMode: text('default_assistant_mode').notNull().default('off'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('comms_job_assistant_settings_job_idx').on(t.jobId),
+  index('comms_job_assistant_settings_org_idx').on(t.organizationId),
+]))
+
+export const commsJobAssistantSettingsRelations = relations(commsJobAssistantSettings, ({ one }) => ({
+  organization: one(organization, { fields: [commsJobAssistantSettings.organizationId], references: [organization.id] }),
+  job: one(job, { fields: [commsJobAssistantSettings.jobId], references: [job.id] }),
+}))
 
 export const commsConversationRelations = relations(commsConversation, ({ one, many }) => ({
   organization: one(organization, { fields: [commsConversation.organizationId], references: [organization.id] }),

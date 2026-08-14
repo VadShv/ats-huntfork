@@ -40,6 +40,16 @@ interface ChatConversation {
   assistantMode: string
 }
 
+/** Чат 2.0: черновик ассистента живёт на сервере — переживает перезагрузку страницы. */
+interface AssistantDraft {
+  id: string
+  status: 'generating' | 'suggested'
+  body: string | null
+  senderName: string | null
+  errorMessage: string | null
+  createdAt: string | Date | null
+}
+
 const chatConversation = ref<ChatConversation | null>(null)
 const chatMessages = ref<ChatMessage[]>([])
 const chatReason = ref<string | null>(null)
@@ -80,6 +90,7 @@ async function loadChat(silent = false) {
       messages: ChatMessage[]
       reason?: string
       syncError?: string | null
+      draft?: AssistantDraft | null
     }>(`/api/applications/${props.applicationId}/conversations`)
     const prevCount = chatMessages.value.length
     chatConversation.value = res.conversation
@@ -87,6 +98,7 @@ async function loadChat(silent = false) {
     chatSyncError.value = res.syncError ?? null
     chatMessages.value = res.messages ?? []
     chatLoaded.value = true
+    adoptDraft(res.draft ?? null) // Чат 2.0: возобновляем генерацию/черновик после перезагрузки
     if (!silent || chatMessages.value.length !== prevCount) scrollChatToBottom()
     if (res.conversation) {
       emit('meta', { unreadCount: res.conversation.unreadCount })
@@ -147,15 +159,112 @@ const chatSuggesting = ref(false)
 const chatSuggestError = ref<string | null>(null)
 const assistantSwitching = ref(false)
 
-/** «✨ Предложить ответ» — черновик от ассистента в композер (суфлёр, 18.5). */
+// ── Чат 2.0: живучий черновик ассистента (генерация в фоне на сервере) ──
+const chatDraft = ref<AssistantDraft | null>(null)
+const draftResolving = ref(false)
+let draftPollTimer: ReturnType<typeof setInterval> | null = null
+let draftDeadline = 0
+
+/** Суфлёрский черновик автоматом уезжает в композер; автопилотный — на ревью. */
+const draftNeedsReview = computed(() =>
+  chatDraft.value?.status === 'suggested'
+  && (chatConversation.value?.assistantMode === 'autopilot_review' || chatConversation.value?.assistantMode === 'autopilot'))
+
+function stopDraftPolling() {
+  if (draftPollTimer) {
+    clearInterval(draftPollTimer)
+    draftPollTimer = null
+  }
+}
+
+function startDraftPolling() {
+  if (draftPollTimer) return
+  draftDeadline = Date.now() + 4.5 * 60 * 1000
+  draftPollTimer = setInterval(async () => {
+    const conv = chatConversation.value
+    if (!conv) return
+    if (Date.now() > draftDeadline) {
+      stopDraftPolling()
+      chatDraft.value = null
+      chatSuggestError.value = t('dashboard.chat.draftTimeout')
+      return
+    }
+    try {
+      const res = await $fetch<{ draft: AssistantDraft | null }>(`/api/conversations/${conv.id}/suggest`)
+      adoptDraft(res.draft)
+    }
+    catch { /* сетевая икота — попробуем в следующий тик */ }
+  }, 2500)
+}
+
+/** Единая точка приёма черновика (из loadChat, POST suggest и поллинга). */
+function adoptDraft(draft: AssistantDraft | null) {
+  const prev = chatDraft.value
+  if (!draft) {
+    // Шла генерация и черновик пропал — значит, генерация упала
+    if (prev?.status === 'generating') {
+      chatSuggestError.value = t('dashboard.chat.draftFailed')
+    }
+    chatDraft.value = null
+    stopDraftPolling()
+    return
+  }
+  if (draft.status === 'generating') {
+    chatDraft.value = draft
+    startDraftPolling()
+    return
+  }
+  // suggested
+  stopDraftPolling()
+  const mode = chatConversation.value?.assistantMode
+  if ((mode === 'copilot' || mode === 'off') && !chatText.value.trim()) {
+    // Суфлёр: готовый черновик — сразу в композер, на сервере помечаем использованным
+    chatText.value = draft.body ?? ''
+    chatDraft.value = null
+    resolveDraft(draft.id, 'consume', { silent: true })
+  }
+  else {
+    // Ревью-карточка (автопилот) или в композере уже есть текст
+    chatDraft.value = draft
+  }
+}
+
+async function resolveDraft(draftId: string, action: 'consume' | 'discard' | 'approve', opts: { silent?: boolean } = {}) {
+  const conv = chatConversation.value
+  if (!conv) return
+  if (!opts.silent) draftResolving.value = true
+  try {
+    const res = await $fetch<{ ok: boolean, message?: ChatMessage }>(`/api/conversations/${conv.id}/drafts/${draftId}`, {
+      method: 'POST',
+      body: { action },
+    })
+    if (action === 'approve' && res.message) {
+      chatMessages.value = [...chatMessages.value, res.message]
+      scrollChatToBottom()
+      track('chat_assistant_approve', { channel: 'hh' })
+    }
+    if (action === 'consume' && !opts.silent) {
+      chatText.value = chatDraft.value?.body ?? chatText.value
+    }
+    if (!opts.silent || action !== 'consume') chatDraft.value = null
+  }
+  catch (err: any) {
+    chatSuggestError.value = err?.data?.statusMessage ?? t('dashboard.chat.assistantError')
+  }
+  finally {
+    draftResolving.value = false
+  }
+}
+
+/** «✨ Предложить ответ» — запуск фоновой генерации черновика (Чат 2.0). */
 async function suggestAssistantReply() {
   const conv = chatConversation.value
-  if (!conv || chatSuggesting.value || !conv.canWrite) return
+  if (!conv || chatSuggesting.value || chatDraft.value || !conv.canWrite) return
   chatSuggesting.value = true
   chatSuggestError.value = null
   try {
-    const res = await $fetch<{ text: string }>(`/api/conversations/${conv.id}/suggest`, { method: 'POST' })
-    chatText.value = res.text
+    const res = await $fetch<{ draft: AssistantDraft }>(`/api/conversations/${conv.id}/suggest`, { method: 'POST' })
+    adoptDraft(res.draft)
     track('chat_assistant_suggest', { channel: 'hh' })
   }
   catch (err: any) {
@@ -169,19 +278,27 @@ async function suggestAssistantReply() {
   }
 }
 
-/** Переключатель «Передать боту / Забрать у бота» per-диалог. */
-async function toggleAssistantMode() {
+/** Чат 2.0: четыре режима ассистента per-диалог. */
+const assistantModes = computed(() => ([
+  { value: 'off', label: t('dashboard.chat.modeOff') },
+  { value: 'copilot', label: t('dashboard.chat.modeCopilot') },
+  { value: 'autopilot_review', label: t('dashboard.chat.modeAutopilotReview') },
+  { value: 'autopilot', label: t('dashboard.chat.modeAutopilot') },
+]))
+
+async function changeAssistantMode(event: Event) {
   const conv = chatConversation.value
-  if (!conv || assistantSwitching.value) return
-  const next = conv.assistantMode === 'off' ? 'copilot' : 'off'
+  const next = (event.target as HTMLSelectElement).value
+  if (!conv || assistantSwitching.value || next === conv.assistantMode) return
+  const prev = conv.assistantMode
   assistantSwitching.value = true
+  conv.assistantMode = next
   try {
     await $fetch(`/api/conversations/${conv.id}/assistant`, { method: 'PATCH', body: { mode: next } })
-    conv.assistantMode = next
     track('chat_assistant_mode', { mode: next })
   }
   catch {
-    // молча — состояние не поменялось
+    conv.assistantMode = prev // откат — состояние на сервере не поменялось
   }
   finally {
     assistantSwitching.value = false
@@ -194,8 +311,11 @@ watch(() => props.applicationId, () => {
   chatReason.value = null
   chatSyncError.value = null
   chatSendError.value = null
+  chatSuggestError.value = null
   chatText.value = ''
   chatLoaded.value = false
+  chatDraft.value = null
+  stopDraftPolling()
   loadChat()
 })
 
@@ -204,7 +324,10 @@ onMounted(() => {
   startChatPolling()
 })
 
-onBeforeUnmount(stopChatPolling)
+onBeforeUnmount(() => {
+  stopChatPolling()
+  stopDraftPolling()
+})
 </script>
 
 <template>
@@ -235,18 +358,25 @@ onBeforeUnmount(stopChatPolling)
           {{ t('dashboard.chat.viaHh') }}
         </span>
         <div class="flex items-center gap-2">
-          <button
-            class="cursor-pointer inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors"
+          <!-- Чат 2.0: режим ассистента — выкл / суфлёр / автопилот+ревью / автопилот -->
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full pl-2 pr-1 py-0.5 text-[11px] font-medium transition-colors"
             :class="chatConversation.assistantMode !== 'off'
-              ? 'bg-brand-600 text-white hover:bg-brand-700'
-              : 'bg-surface-100 dark:bg-surface-800/60 text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'"
-            :disabled="assistantSwitching"
-            :title="chatConversation.assistantMode !== 'off' ? t('dashboard.chat.assistantTakeOver') : t('dashboard.chat.assistantHandOff')"
-            @click="toggleAssistantMode()"
+              ? 'bg-brand-600 text-white'
+              : 'bg-surface-100 dark:bg-surface-800/60 text-surface-500 dark:text-surface-400'"
           >
-            <Bot class="size-3.5" />
-            {{ chatConversation.assistantMode !== 'off' ? t('dashboard.chat.assistantOn') : t('dashboard.chat.assistantOff') }}
-          </button>
+            <Bot class="size-3.5 shrink-0" />
+            <select
+              :value="chatConversation.assistantMode"
+              :disabled="assistantSwitching"
+              class="cursor-pointer bg-transparent border-0 py-0.5 pr-1 text-[11px] font-medium focus:outline-none disabled:opacity-60"
+              :class="chatConversation.assistantMode !== 'off' ? 'text-white [&>option]:text-surface-800' : 'text-surface-600 dark:text-surface-300 [&>option]:text-surface-800'"
+              :title="t('dashboard.chat.modeLabel')"
+              @change="changeAssistantMode"
+            >
+              <option v-for="m in assistantModes" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+          </span>
           <button
             class="cursor-pointer inline-flex items-center gap-1 text-xs text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors"
             :disabled="chatLoading"
@@ -287,6 +417,9 @@ onBeforeUnmount(stopChatPolling)
             <p v-if="m.senderName && m.direction === 'in'" class="text-[11px] font-semibold mb-0.5 opacity-70">
               {{ m.senderName }}
             </p>
+            <p v-else-if="m.senderType === 'agent'" class="text-[11px] font-semibold mb-0.5 opacity-80 inline-flex items-center gap-1">
+              <Bot class="size-3" />{{ m.senderName || t('dashboard.chat.agentLabel') }}
+            </p>
             <p class="whitespace-pre-wrap break-words">{{ m.body ?? t('dashboard.chat.attachment') }}</p>
             <p
               class="text-[10px] mt-1 tabular-nums"
@@ -295,6 +428,52 @@ onBeforeUnmount(stopChatPolling)
               {{ formatChatTime(m.createdAt) }}<template v-if="m.status === 'failed'"> · {{ t('dashboard.chat.failed') }}</template>
             </p>
           </div>
+        </div>
+      </div>
+
+      <!-- Чат 2.0: состояние черновика ассистента -->
+      <div
+        v-if="chatDraft?.status === 'generating'"
+        class="mt-3 flex items-center gap-2 rounded-xl border border-brand-200/80 dark:border-brand-900/60 bg-brand-50/60 dark:bg-brand-950/30 px-3 py-2.5 text-xs text-brand-700 dark:text-brand-300"
+      >
+        <div class="size-3.5 rounded-full border-2 border-brand-300 border-t-brand-600 dark:border-brand-800 dark:border-t-brand-400 animate-spin shrink-0" />
+        {{ t('dashboard.chat.draftGenerating') }}
+      </div>
+      <div
+        v-else-if="chatDraft?.status === 'suggested'"
+        class="mt-3 rounded-xl border border-brand-200/80 dark:border-brand-900/60 bg-brand-50/60 dark:bg-brand-950/30 p-3"
+      >
+        <p class="text-[11px] font-semibold text-brand-700 dark:text-brand-300 uppercase tracking-wider inline-flex items-center gap-1.5 mb-1.5">
+          <Bot class="size-3.5" />
+          {{ draftNeedsReview ? t('dashboard.chat.reviewTitle') : t('dashboard.chat.draftReadyTitle') }}
+        </p>
+        <p class="text-sm text-surface-800 dark:text-surface-100 whitespace-pre-wrap break-words">{{ chatDraft.body }}</p>
+        <div class="mt-2.5 flex items-center gap-2">
+          <button
+            v-if="draftNeedsReview"
+            class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+            :disabled="draftResolving || !chatConversation.canWrite"
+            @click="resolveDraft(chatDraft.id, 'approve')"
+          >
+            <Send class="size-3.5" />
+            {{ t('dashboard.chat.reviewSend') }}
+          </button>
+          <button
+            v-else
+            class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+            :disabled="draftResolving"
+            @click="resolveDraft(chatDraft.id, 'consume')"
+          >
+            <Sparkles class="size-3.5" />
+            {{ t('dashboard.chat.draftToComposer') }}
+          </button>
+          <button
+            class="cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium text-surface-500 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
+            :disabled="draftResolving"
+            @click="resolveDraft(chatDraft.id, 'discard')"
+          >
+            {{ t('dashboard.chat.reviewDiscard') }}
+          </button>
         </div>
       </div>
 
@@ -316,7 +495,7 @@ onBeforeUnmount(stopChatPolling)
           />
           <button
             class="cursor-pointer inline-flex items-center justify-center size-9 rounded-xl border border-surface-200/80 dark:border-surface-700/60 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 transition-colors"
-            :disabled="chatSuggesting"
+            :disabled="chatSuggesting || !!chatDraft"
             :title="t('dashboard.chat.suggestReply')"
             @click="suggestAssistantReply()"
           >

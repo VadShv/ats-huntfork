@@ -5,6 +5,12 @@ import {
   processHhWebhookJob,
   processHhWebhookSyncJob,
 } from '../utils/comms/hhWebhooks'
+import {
+  COMMS_AUTOPILOT_QUEUE,
+  COMMS_SUGGEST_QUEUE,
+  processAutopilotJob,
+  processSuggestJob,
+} from '../utils/comms/assistantJobs'
 import { getBoss, stopBoss } from '../utils/queue/boss'
 
 /**
@@ -79,6 +85,34 @@ export default defineNitroPlugin(async (nitroApp) => {
     )
 
     logInfo('queue.workers_registered', { queue: `${HH_WEBHOOK_QUEUE},${HH_WEBHOOK_SYNC_QUEUE}` })
+
+    // ── Чат 2.0 — фоновая генерация черновиков и автопилот ──
+    for (const q of [COMMS_SUGGEST_QUEUE, COMMS_AUTOPILOT_QUEUE]) {
+      try {
+        await boss.createQueue(q)
+      }
+      catch (err) {
+        logDebug('queue.create_queue_skipped', {
+          queue: q,
+          error_message: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+
+    // Генерация — IO-bound (ждём LLM), но бережём лимиты провайдера: по 2 параллельно
+    await boss.work(
+      COMMS_SUGGEST_QUEUE,
+      { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
+      processSuggestJob as any,
+    )
+
+    await boss.work(
+      COMMS_AUTOPILOT_QUEUE,
+      { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
+      processAutopilotJob as any,
+    )
+
+    logInfo('queue.workers_registered', { queue: `${COMMS_SUGGEST_QUEUE},${COMMS_AUTOPILOT_QUEUE}` })
 
     // Graceful shutdown
     nitroApp.hooks.hook('close', async () => {

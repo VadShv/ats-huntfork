@@ -386,6 +386,13 @@
       "when": 1801000020000,
       "tag": "0055_activity_stage_changed",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1801000030000,
+      "tag": "0056_chat2",
+      "breakpoints": true
     }
   ]
 }

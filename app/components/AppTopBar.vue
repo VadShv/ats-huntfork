@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Calendar, ArrowUpCircle,
   Cloud, Server, Sparkles, Radio, History,
   MessageCircle, MoreHorizontal, GitMerge, History as HistoryIcon, Upload,
-  Inbox,
+  Inbox, Bot,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -116,6 +116,7 @@ const jobTabs = computed(() => {
     { label: t('dashboard.jobs.tabs.table'), to: `${base}/candidates`, icon: Table2, exact: true },
     { label: t('dashboard.jobs.tabs.applicationForm'), to: `${base}/application-form`, icon: FileText, exact: true },
     { label: t('dashboard.jobs.tabs.aiAnalysis'), to: `${base}/ai-analysis`, icon: Sparkles, exact: true },
+    { label: t('dashboard.jobs.tabs.aiChat'), to: `${base}/ai-chat`, icon: Bot, exact: true }, // Чат 2.0
     { label: t('dashboard.jobs.tabs.settings'), to: `${base}/settings`, icon: Settings, exact: true },
   ]
 })
