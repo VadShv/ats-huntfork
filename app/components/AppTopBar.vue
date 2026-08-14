@@ -157,9 +157,9 @@ const navItems = computed(() => {
   return merged
 })
 
-// Спринт 19.5: бейдж непрочитанных на «Входящие» — фоновый опрос раз в 30с
-const { unread: inboxUnread, startPolling: startInboxUnreadPolling } = useInboxUnread()
-onMounted(() => startInboxUnreadPolling())
+// Спринт 19.5: бейдж непрочитанных на «Входящие» — мгновенно через SSE
+const { unread: inboxUnread, startStream: startInboxUnreadStream } = useInboxUnread()
+onMounted(() => startInboxUnreadStream())
 
 function isActiveRoute(to: string, exact: boolean) {
   const localizedTo = localePath(to)

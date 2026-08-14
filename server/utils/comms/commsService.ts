@@ -19,6 +19,7 @@ import { apiGet } from '../hh/client'
 import { hhGetChatMessages, hhMarkMessageRead, hhSendChatMessage, type HhChatMessage } from './hhChat'
 import { getBotToken, getTelegramBotForOrg, parseBizExternalChatId, tgSendMessage, TelegramApiError } from './telegram'
 import { getJobAssistantSettings } from './assistant'
+import { notifyUnreadChanged } from './unreadBus'
 
 export type CommsConversationRow = typeof commsConversation.$inferSelect
 export type CommsMessageRow = typeof commsMessage.$inferSelect
@@ -210,6 +211,9 @@ export async function refreshHhConversation(conv: CommsConversationRow): Promise
       updatedAt: new Date(),
     })
     .where(eq(commsConversation.id, conv.id))
+
+  // Спринт 19.5: SSE-бейдж «Входящие» — счётчик мог измениться
+  notifyUnreadChanged(conv.organizationId)
 }
 
 /** Сообщения диалога в хронологическом порядке. */
@@ -377,4 +381,7 @@ export async function markConversationRead(conv: CommsConversationRow): Promise<
   await db.update(commsConversation)
     .set({ unreadCount: 0, updatedAt: new Date() })
     .where(eq(commsConversation.id, conv.id))
+
+  // Спринт 19.5: SSE-бейдж «Входящие» — диалог прочитан
+  notifyUnreadChanged(conv.organizationId)
 }

@@ -23,6 +23,7 @@ import { getBoss } from '../queue/boss'
 import { sendConversationMessage, preview, type CommsConversationRow } from './commsService'
 import { getJobAssistantSettings } from './assistant'
 import { maybeTriggerAutopilot } from './assistantJobs'
+import { notifyUnreadChanged } from './unreadBus'
 import {
   buildBizExternalChatId,
   getBotToken,
@@ -353,6 +354,9 @@ async function handleInbound(
     })
     .where(eq(commsConversation.id, conv.id))
 
+  // Спринт 19.5: SSE-бейдж «Входящие» — новое входящее
+  notifyUnreadChanged(organizationId)
+
   // Чат 2.0: автопилот/суфлёр — best-effort
   try {
     await maybeTriggerAutopilot(conv.id)
@@ -625,6 +629,9 @@ async function handleBusinessMessage(
       updatedAt: new Date(),
     })
     .where(eq(commsConversation.id, conv.id))
+
+  // Спринт 19.5: SSE-бейдж «Входящие» — входящее в business-чате
+  if (direction === 'in') notifyUnreadChanged(organizationId)
 
   if (direction === 'in') {
     try {
