@@ -45,6 +45,10 @@ const selectedId = ref<string | null>(null)
 const conversations = computed(() => data.value?.items ?? [])
 const unreadTotal = computed(() => data.value?.unreadTotal ?? 0)
 
+// Спринт 19.5: синхронизируем глобальный бейдж «Входящие» в навигации
+const { unread: inboxUnreadShared } = useInboxUnread()
+watch(unreadTotal, (v) => { inboxUnreadShared.value = v }, { immediate: true })
+
 const filteredConversations = computed(() => {
   let list = conversations.value
   if (onlyUnread.value) list = list.filter(c => c.unreadCount > 0)

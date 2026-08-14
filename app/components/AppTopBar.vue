@@ -157,6 +157,10 @@ const navItems = computed(() => {
   return merged
 })
 
+// Спринт 19.5: бейдж непрочитанных на «Входящие» — фоновый опрос раз в 30с
+const { unread: inboxUnread, startPolling: startInboxUnreadPolling } = useInboxUnread()
+onMounted(() => startInboxUnreadPolling())
+
 function isActiveRoute(to: string, exact: boolean) {
   const localizedTo = localePath(to)
   if (exact) return route.path === localizedTo
@@ -264,6 +268,10 @@ onUnmounted(() => {
             >
               <component :is="item.icon" class="size-4" />
               {{ item.label }}
+              <span
+                v-if="item.to === '/dashboard/inbox' && inboxUnread > 0"
+                class="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-brand-600 text-white text-[10px] font-bold px-1 tabular-nums"
+              >{{ inboxUnread > 99 ? '99+' : inboxUnread }}</span>
             </NuxtLink>
 
             <!-- More nav dropdown -->
@@ -518,6 +526,10 @@ onUnmounted(() => {
                   >
                     <component :is="item.icon" class="size-4" />
                     {{ item.label }}
+                    <span
+                      v-if="item.to === '/dashboard/inbox' && inboxUnread > 0"
+                      class="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-brand-600 text-white text-[10px] font-bold px-1 tabular-nums"
+                    >{{ inboxUnread > 99 ? '99+' : inboxUnread }}</span>
                     <span
                       v-if="item.comingSoon"
                       class="ml-auto inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-200/60 dark:ring-amber-800/40"
