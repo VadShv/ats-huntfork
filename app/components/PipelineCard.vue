@@ -27,13 +27,15 @@ const transitionLabels = computed<Record<string, string>>(() => ({
   rejected: t('dashboard.pipeline.transitions.reject'),
 }))
 
-const transitionClasses: Record<string, string> = {
-  new: 'text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700',
-  screening: 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950',
-  interview: 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950',
-  offer: 'text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950',
-  hired: 'text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900',
-  rejected: 'text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950',
+// Единый визуальный язык: neutral текстовые кнопки + danger только для rejected + brand акцент для первого действия
+const TRANSITION_BASE = 'rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+const TRANSITION_PRIMARY = 'text-brand-700 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40'
+const TRANSITION_NEUTRAL = 'text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800'
+const TRANSITION_DANGER = 'text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40'
+
+function transitionClass(status: string, index: number): string {
+  if (status === 'rejected') return `${TRANSITION_BASE} ${TRANSITION_DANGER}`
+  return `${TRANSITION_BASE} ${index === 0 ? TRANSITION_PRIMARY : TRANSITION_NEUTRAL}`
 }
 
 const { formatPersonName, formatDateTime } = useOrgSettings()
@@ -72,11 +74,10 @@ const { formatPersonName, formatDateTime } = useOrgSettings()
     <!-- Transition buttons -->
     <div v-if="allowedTransitions.length > 0" class="flex flex-wrap gap-1 mt-2 pt-2 border-t border-surface-100 dark:border-surface-800/60">
       <button
-        v-for="nextStatus in allowedTransitions"
+        v-for="(nextStatus, i) in allowedTransitions"
         :key="nextStatus"
         :disabled="isTransitioning"
-        class="rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50"
-        :class="transitionClasses[nextStatus] ?? 'text-surface-500 hover:bg-surface-100'"
+        :class="transitionClass(nextStatus, i)"
         @click.prevent="emit('transition', nextStatus)"
       >
         {{ transitionLabels[nextStatus] ?? nextStatus }}

@@ -89,13 +89,16 @@ const transitionLabels = computed<Record<string, string>>(() => ({
   rejected: t('dashboard.pipeline.transitions.reject'),
 }))
 
-const transitionClasses: Record<string, string> = {
-  new: 'border border-surface-300 dark:border-surface-600 text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800',
-  screening: 'bg-violet-600 text-white hover:bg-violet-700',
-  interview: 'bg-amber-600 text-white hover:bg-amber-700',
-  offer: 'bg-teal-600 text-white hover:bg-teal-700',
-  hired: 'bg-green-700 text-white hover:bg-green-800',
-  rejected: 'bg-danger-600 text-white hover:bg-danger-700',
+// Единый визуальный язык действий: одна primary (первая разрешённая) + neutral outline + danger-outline для отклонения
+const BUTTON_BASE = 'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+const BUTTON_PRIMARY = 'bg-brand-600 text-white hover:bg-brand-700'
+const BUTTON_NEUTRAL = 'border border-surface-300 dark:border-surface-600 text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'
+const BUTTON_DANGER = 'border border-danger-300 dark:border-danger-800 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40'
+
+function transitionClass(status: string, index: number): string {
+  if (status === 'rejected') return `${BUTTON_BASE} ${BUTTON_DANGER}`
+  // Первое не-rejected действие — primary, остальные — neutral
+  return `${BUTTON_BASE} ${index === 0 ? BUTTON_PRIMARY : BUTTON_NEUTRAL}`
 }
 
 const statusBadgeClasses: Record<string, string> = {
@@ -550,18 +553,17 @@ function formatInterviewDate(dateStr: string) {
               <div class="flex items-center gap-2 mb-3">
                 <StatusBadge v-if="!application.currentStageId" :status="application.status" />
                 <span class="text-sm text-surface-400">
-                  Applied {{ new Date(application.createdAt).toLocaleDateString() }}
+                  {{ t('applications.applied_label') }} {{ new Date(application.createdAt).toLocaleDateString() }}
                 </span>
               </div>
 
               <div v-if="allowedTransitions.length > 0" class="flex flex-wrap items-center gap-2">
                 <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-0.5">Перевести на:</span>
                 <button
-                  v-for="nextStatus in allowedTransitions"
+                  v-for="(nextStatus, i) in allowedTransitions"
                   :key="nextStatus"
                   :disabled="isTransitioning"
-                  class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-                  :class="transitionClasses[nextStatus] ?? 'border border-surface-300 text-surface-600 hover:bg-surface-50'"
+                  :class="transitionClass(nextStatus, i)"
                   @click="handleTransition(nextStatus)"
                 >
                   {{ transitionLabels[nextStatus] ?? nextStatus }}
