@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existingJob) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   const activeApplicationsCount = await countActiveApplicationsForJob(db, id)

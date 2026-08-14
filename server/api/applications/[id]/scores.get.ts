@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     columns: { id: true, score: true, jobId: true },
   })
   if (!app) {
-    throw createError({ statusCode: 404, statusMessage: 'Application not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
   // Fetch criterion scores with joined criterion metadata

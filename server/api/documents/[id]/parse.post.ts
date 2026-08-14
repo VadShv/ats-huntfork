@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!doc) {
-    throw createError({ statusCode: 404, statusMessage: 'Document not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
   }
 
   // Download file from S3
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
   if (!parsedContent) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'Failed to extract text from this document. The file may be image-based or corrupted.',
+      statusMessage: 'Не удалось извлечь текст из документа. Возможно, файл содержит изображения или повреждён',
     })
   }
 

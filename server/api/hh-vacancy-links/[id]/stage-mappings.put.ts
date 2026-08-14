@@ -4,7 +4,8 @@
  * Заменить все mapping'ы для связки (full-replace).
  * Body: { mappings: [{ pipelineStageId, hhCollection, messageTemplate? }, ...] }
  *
- * hh_collection допустимые значения: response | consider | invitation | discard.
+ * Спринт 11.5: допустимые значения hh_collection — реальные коллекции работодателя hh.ru:
+ * response | consider | phone_interview | assessment | interview | offer | hired | discard_by_employer.
  */
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -12,7 +13,16 @@ import { hhStageMapping, hhVacancyLink } from '../../../database/schema'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 
-const HH_COLLECTIONS = ['response', 'consider', 'invitation', 'discard'] as const
+const HH_COLLECTIONS = [
+  'response',
+  'consider',
+  'phone_interview',
+  'assessment',
+  'interview',
+  'offer',
+  'hired',
+  'discard_by_employer',
+] as const
 
 const bodySchema = z.object({
   mappings: z.array(z.object({

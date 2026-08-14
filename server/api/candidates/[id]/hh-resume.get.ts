@@ -27,9 +27,9 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  if (!row) throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
+  if (!row) throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   if (!row.hhResumeRaw) {
-    throw createError({ statusCode: 404, statusMessage: 'No hh.ru resume snapshot for this candidate' })
+    throw createError({ statusCode: 404, statusMessage: 'Нет снимка резюме кандидата из hh.ru' })
   }
 
   const parsed = parseHhResume(row.hhResumeRaw as Record<string, unknown>)

@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existingJob) {
-    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   // Update each question's displayOrder inside a transaction for atomicity

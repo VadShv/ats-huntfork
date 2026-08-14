@@ -47,7 +47,7 @@ import {
 const limiter = createRateLimiter({
   windowMs: 60_000,
   maxRequests: 30,
-  message: 'Too many chat requests. Please wait a moment.',
+  message: 'Слишком много запросов в чат. Подождите немного',
 })
 
 const bodySchema = z.object({
@@ -72,7 +72,7 @@ const bodySchema = z.object({
 })
 
 const BASE_SYSTEM_PROMPT = [
-  'You are Reqcore Assistant, an AI copilot embedded in an applicant tracking system.',
+  'You are Huntfork Assistant, an AI copilot embedded in an applicant tracking system.',
   'You help recruiters and hiring managers analyse candidates, jobs, and applications.',
   'Respond in Russian by default (the product UI is Russian-language). Switch to English only if the user clearly writes in English.',
   '',
@@ -146,7 +146,7 @@ export default defineEventHandler(async (event) => {
     ),
   })
   if (!conversation) {
-    throw createError({ statusCode: 404, statusMessage: 'Conversation not found.' })
+    throw createError({ statusCode: 404, statusMessage: 'Диалог не найден' })
   }
 
   // ── Load AI config (override → conversation pin → org chatbot default) ──
@@ -161,7 +161,7 @@ export default defineEventHandler(async (event) => {
   let scopeLabel = 'entire organization'
   if (body.scope.kind === 'job') {
     if (!body.scope.jobId) {
-      throw createError({ statusCode: 400, statusMessage: 'jobId required for job scope.' })
+      throw createError({ statusCode: 400, statusMessage: 'Для области видимости вакансии требуется jobId' })
     }
     const jobRow = await db.query.job.findFirst({
       where: (jobTable, { and: a, eq: e }) => a(
@@ -171,7 +171,7 @@ export default defineEventHandler(async (event) => {
       columns: { id: true, title: true },
     })
     if (!jobRow) {
-      throw createError({ statusCode: 404, statusMessage: 'Job not found.' })
+      throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
     }
     scopeLabel = `job "${jobRow.title}" (only)`
   }
@@ -190,7 +190,7 @@ export default defineEventHandler(async (event) => {
       ),
     })
     if (!agentRow) {
-      throw createError({ statusCode: 404, statusMessage: 'Agent not found.' })
+      throw createError({ statusCode: 404, statusMessage: 'Ассистент не найден' })
     }
     agentPrompt = agentRow.systemPrompt
     agentTemperature = agentRow.temperature ? Number(agentRow.temperature) : null
@@ -199,7 +199,7 @@ export default defineEventHandler(async (event) => {
   // ── Resolve attachments referenced by the latest user message ──
   const lastUser = [...body.messages].reverse().find((m) => m.role === 'user')
   if (!lastUser) {
-    throw createError({ statusCode: 400, statusMessage: 'No user message in request.' })
+    throw createError({ statusCode: 400, statusMessage: 'В запросе нет сообщения пользователя' })
   }
   const attachmentIds = lastUser.attachmentIds ?? []
   const attachmentRecords = attachmentIds.length
@@ -209,7 +209,7 @@ export default defineEventHandler(async (event) => {
   if (attachmentIds.length > 0 && attachmentRecords.length === 0) {
     throw createError({
       statusCode: 410,
-      statusMessage: 'Attachments expired. Please re-upload your files.',
+      statusMessage: 'Срок действия вложений истёк. Загрузите файлы повторно',
     })
   }
 
@@ -408,7 +408,7 @@ export default defineEventHandler(async (event) => {
           }
         }
       } catch (err) {
-        const errMsg = err instanceof Error ? err.message : 'Unknown streaming error'
+        const errMsg = err instanceof Error ? err.message : 'Неизвестная ошибка потоковой передачи'
         // Surface to caller AND server log so failures don't go unnoticed.
         console.error('[chatbot] stream failed', err)
         writeEvent(controller, {

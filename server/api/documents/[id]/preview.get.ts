@@ -39,14 +39,14 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!doc) {
-    throw createError({ statusCode: 404, statusMessage: 'Document not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
   }
 
   // Only allow inline preview for PDFs — DOC/DOCX can contain macros
   if (doc.mimeType !== 'application/pdf') {
     throw createError({
       statusCode: 415,
-      statusMessage: 'Inline preview is only available for PDF files',
+      statusMessage: 'Предпросмотр доступен только для PDF-файлов',
     })
   }
 
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
   )
 
   if (!s3Response.Body) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to retrieve document' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось получить документ' })
   }
 
   // Stream the PDF directly through the server (same-origin for iframe)

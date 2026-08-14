@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!link) {
-    throw createError({ statusCode: 404, statusMessage: 'Tracking link not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Ссылка отслеживания не найдена' })
   }
 
   return link

@@ -4,23 +4,19 @@ import { pipeline, pipelineStage } from '../../database/schema'
 /**
  * GET /api/pipelines/stages-summary
  *
- * Returns all non-archived pipelines (system + custom) and their
- * non-archived stages — grouped by pipeline. Intended for populating
- * stage filter dropdowns in the global applications list.
+ * Возвращает все не-архивные воронки (системные + пользовательские) и их
+ * не-архивные + не-скрытые этапы, сгруппированные по воронкам. Используется
+ * для дропдаунов фильтров в глобальном списке заявок.
+ *
+ * Скрытые этапы (isHidden=true) не возвращаются — они убраны из воронки
+ * пользователем и не должны быть выбираемы.
  *
  * requirePermission: { pipeline: ['read'] }
- *
- * Returns: Array<{
- *   pipelineId: string,
- *   pipelineName: string,
- *   stages: Array<{ id, name, color, type, displayOrder }>
- * }>
  */
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { pipeline: ['read'] })
   const orgId = session.session.activeOrganizationId
 
-  // Fetch non-archived pipelines for this org
   const pipelines = await db
     .select({
       id: pipeline.id,
@@ -38,7 +34,6 @@ export default defineEventHandler(async (event) => {
 
   const pipelineIds = pipelines.map((p) => p.id)
 
-  // Fetch non-archived stages for those pipelines
   const stages = await db
     .select({
       id: pipelineStage.id,
@@ -46,6 +41,9 @@ export default defineEventHandler(async (event) => {
       name: pipelineStage.name,
       color: pipelineStage.color,
       type: pipelineStage.type,
+      bucket: pipelineStage.bucket,
+      parentStageId: pipelineStage.parentStageId,
+      isSystemStage: pipelineStage.isSystemStage,
       displayOrder: pipelineStage.displayOrder,
     })
     .from(pipelineStage)
@@ -53,11 +51,11 @@ export default defineEventHandler(async (event) => {
       and(
         eq(pipelineStage.organizationId, orgId),
         eq(pipelineStage.isArchived, false),
+        eq(pipelineStage.isHidden, false),
       ),
     )
     .orderBy(asc(pipelineStage.displayOrder))
 
-  // Group stages by pipeline
   const stagesByPipeline = new Map<string, typeof stages>()
   for (const stage of stages) {
     if (!pipelineIds.includes(stage.pipelineId)) continue
@@ -76,6 +74,9 @@ export default defineEventHandler(async (event) => {
         name: s.name,
         color: s.color,
         type: s.type,
+        bucket: s.bucket,
+        parentStageId: s.parentStageId,
+        isSystemStage: s.isSystemStage,
         displayOrder: s.displayOrder,
       })),
     }))

@@ -56,7 +56,7 @@ export default defineEventHandler(async (event): Promise<{ agent: ChatbotAgent }
     if (existing >= CHATBOT_AGENT_MAX_PER_USER) {
       throw createError({
         statusCode: 422,
-        statusMessage: `Agent limit reached (${CHATBOT_AGENT_MAX_PER_USER}). Delete an agent before adding another.`,
+        statusMessage: `Достигнут лимит ассистентов (${CHATBOT_AGENT_MAX_PER_USER}). Удалите ассистента перед добавлением нового`,
       })
     }
 
@@ -85,7 +85,7 @@ export default defineEventHandler(async (event): Promise<{ agent: ChatbotAgent }
   })
 
   if (!created) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create agent.' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось создать ассистента' })
   }
 
   return {

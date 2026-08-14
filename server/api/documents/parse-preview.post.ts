@@ -34,12 +34,12 @@ export default defineEventHandler(async (event) => {
   // ─────────────────────────────────────────────
   const formData = await readMultipartFormData(event)
   if (!formData) {
-    throw createError({ statusCode: 400, statusMessage: 'No form data received' })
+    throw createError({ statusCode: 400, statusMessage: 'Данные формы не получены' })
   }
 
   const filePart = formData.find((part) => part.name === 'file')
   if (!filePart || !filePart.data || !filePart.filename) {
-    throw createError({ statusCode: 400, statusMessage: 'No file provided' })
+    throw createError({ statusCode: 400, statusMessage: 'Файл не выбран' })
   }
 
   // ─────────────────────────────────────────────
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
   if (fileBuffer.length > MAX_FILE_SIZE) {
     throw createError({
       statusCode: 413,
-      statusMessage: `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024} MB`,
+      statusMessage: `Файл слишком большой. Максимальный размер: ${MAX_FILE_SIZE / 1024 / 1024} МБ`,
     })
   }
 
@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
   if (!mimeType || !(ALLOWED_MIME_TYPES as readonly string[]).includes(mimeType)) {
     throw createError({
       statusCode: 415,
-      statusMessage: 'Unsupported file type. Only PDF, DOC, and DOCX files are allowed.',
+      statusMessage: 'Неподдерживаемый тип файла. Разрешены только файлы PDF, DOC и DOCX',
     })
   }
 
@@ -84,7 +84,7 @@ export default defineEventHandler(async (event) => {
   if (!parsed || !parsed.text) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'Could not extract text from the document',
+      statusMessage: 'Не удалось извлечь текст из документа',
     })
   }
 

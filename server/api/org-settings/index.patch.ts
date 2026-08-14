@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     })
 
   if (!result) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to save settings' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось сохранить настройки' })
   }
 
   logApiRequest(event, session, 'org_settings.updated', {})

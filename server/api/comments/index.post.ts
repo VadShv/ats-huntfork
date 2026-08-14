@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
   if (!targetExists) {
     throw createError({
       statusCode: 404,
-      statusMessage: `${body.targetType} not found`,
+      statusMessage: 'Объект не найден',
     })
   }
 
@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!created) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create comment' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось создать комментарий' })
   }
 
   // Record activity (fire-and-forget)

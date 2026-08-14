@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     if (!query.jobId || query.entityType !== 'application') {
       throw createError({
         statusCode: 400,
-        statusMessage: 'jobOnly requires entityType=application and a jobId',
+        statusMessage: 'Для jobOnly требуются entityType=application и jobId',
       })
     }
     const rows = await db

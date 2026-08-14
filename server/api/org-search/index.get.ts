@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   const session = await auth.api.getSession({ headers: event.headers })
 
   if (!session) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Требуется вход' })
   }
 
   const query = await getValidatedQuery(event, orgSearchSchema.parse)

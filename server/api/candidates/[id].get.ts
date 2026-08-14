@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!result) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 
   // Replace heavy parsedContent with a lightweight `parsed` boolean

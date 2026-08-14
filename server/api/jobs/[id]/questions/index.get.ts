@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existingJob) {
-    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   const questions = await db.query.jobQuestion.findMany({

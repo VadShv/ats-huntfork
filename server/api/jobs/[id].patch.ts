@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   // Validate status transition if status is being changed
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     if (!allowed.includes(body.status)) {
       throw createError({
         statusCode: 422,
-        statusMessage: `Cannot transition from '${existing.status}' to '${body.status}'`,
+        statusMessage: `Нельзя изменить статус с «${existing.status}» на «${body.status}»`,
       })
     }
   }
@@ -120,7 +120,7 @@ export default defineEventHandler(async (event) => {
     })
 
   if (!updated) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   recordActivity({

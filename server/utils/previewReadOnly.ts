@@ -1,4 +1,4 @@
-const PREVIEW_READ_ONLY_MESSAGE = 'This is a read-only demo so you can explore the interface. Editing is disabled here, but it\'s fully unlocked when you self-host.'
+const PREVIEW_READ_ONLY_MESSAGE = 'Это демонстрационная версия только для просмотра. Редактирование здесь недоступно, но будет полностью доступно при самостоятельном развёртывании.'
 
 export function createPreviewReadOnlyError() {
   return createError({

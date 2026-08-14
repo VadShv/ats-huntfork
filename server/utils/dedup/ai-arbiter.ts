@@ -161,7 +161,7 @@ export async function arbitrateDuplicatePair(params: {
 
   const result = await generateStructuredOutput(
     {
-      provider: config.provider as 'openai' | 'anthropic' | 'google' | 'openai_compatible' | 'yandex',
+      provider: config.provider as 'openai' | 'anthropic' | 'google' | 'openai_compatible' | 'yandex' | 'cloud_ru',
       model: config.model,
       apiKeyEncrypted: config.apiKeyEncrypted,
       baseUrl: config.baseUrl,

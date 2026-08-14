@@ -40,11 +40,11 @@ const registerSsoSchema = z.object({
   issuer: z.string().url()
     .refine(
       (url) => url.startsWith('https://') || url.startsWith('http://'),
-      'Issuer URL must use HTTPS (or HTTP for local development)',
+      'URL издателя должен использовать HTTPS (или HTTP для локальной разработки)',
     )
     .refine(
       (url) => !isBlockedIssuerUrl(url),
-      'Issuer URL must not target internal or private network addresses',
+      'URL издателя не должен указывать на внутренние или частные сетевые адреса',
     ),
   domain: z.string().min(1).max(253).regex(
     /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/,
@@ -75,7 +75,7 @@ export default defineEventHandler(async (event) => {
   if (existingDomain.length) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'This email domain is already registered by another organization.',
+      statusMessage: 'Этот домен Email уже зарегистрирован другой организацией',
     })
   }
 
@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
   if (existingProvider.length) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'A provider with this ID already exists. Choose a different provider ID.',
+      statusMessage: 'Поставщик с таким ID уже существует. Выберите другой ID поставщика',
     })
   }
 
@@ -123,25 +123,25 @@ export default defineEventHandler(async (event) => {
       domain: result.domain,
     }
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to register SSO provider'
+    const message = err instanceof Error ? err.message : 'Не удалось зарегистрировать поставщика SSO'
 
     // Map Better Auth discovery errors to user-friendly messages
     if (message.includes('discovery_not_found')) {
       throw createError({
         statusCode: 422,
-        statusMessage: 'Could not reach the OIDC discovery endpoint. Verify the issuer URL is correct.',
+        statusMessage: 'Не удалось подключиться к конечной точке обнаружения OIDC. Проверьте правильность URL издателя',
       })
     }
     if (message.includes('discovery_timeout')) {
       throw createError({
         statusCode: 422,
-        statusMessage: 'The identity provider did not respond in time. Please try again.',
+        statusMessage: 'Поставщик идентификации не ответил вовремя. Повторите попытку',
       })
     }
     if (message.includes('issuer_mismatch')) {
       throw createError({
         statusCode: 422,
-        statusMessage: 'The issuer in the discovery document does not match the provided issuer URL.',
+        statusMessage: 'Издатель в документе обнаружения не соответствует указанному URL издателя',
       })
     }
 

@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!app) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
   // Use Drizzle relational queries — relations are defined in schema

@@ -51,14 +51,14 @@ export async function requirePermission(
   })
 
   if (!session) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Требуется вход' })
   }
 
   // ── Step 2: Active organization ──
   const activeOrganizationId = (session.session as { activeOrganizationId?: string }).activeOrganizationId
 
   if (!activeOrganizationId) {
-    throw createError({ statusCode: 403, statusMessage: 'No active organization' })
+    throw createError({ statusCode: 403, statusMessage: 'Нет активной организации' })
   }
 
   // ── Step 3: Permission check (Better Auth AC) ──
@@ -75,7 +75,7 @@ export async function requirePermission(
   if (error) {
     throw createError({
       statusCode: 403,
-      statusMessage: 'Forbidden: insufficient permissions',
+      statusMessage: 'Нет доступа: недостаточно прав',
     })
   }
 

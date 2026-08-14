@@ -37,7 +37,7 @@ export default defineEventHandler(async (event): Promise<{ agent: ChatbotAgent }
     ),
   })
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Agent not found.' })
+    throw createError({ statusCode: 404, statusMessage: 'Ассистент не найден' })
   }
 
   const updates: Partial<typeof chatbotAgent.$inferInsert> = { updatedAt: new Date() }
@@ -75,7 +75,7 @@ export default defineEventHandler(async (event): Promise<{ agent: ChatbotAgent }
   })
 
   if (!updated) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to update agent.' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось изменить ассистента' })
   }
 
   return {

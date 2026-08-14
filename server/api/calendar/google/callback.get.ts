@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!code || !state) {
-    throw createError({ statusCode: 400, statusMessage: 'Missing authorization code or state' })
+    throw createError({ statusCode: 400, statusMessage: 'Не указан код авторизации или состояние' })
   }
 
   // Validate CSRF state token from cookie
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   deleteCookie(event, 'gcal_oauth_state', { path: '/api/calendar/google/callback' })
 
   if (!storedState || storedState.length !== state.length) {
-    throw createError({ statusCode: 403, statusMessage: 'Invalid OAuth state — possible CSRF attack' })
+    throw createError({ statusCode: 403, statusMessage: 'Некорректное состояние OAuth' })
   }
 
   const stateMatch = timingSafeEqual(
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
   )
 
   if (!stateMatch) {
-    throw createError({ statusCode: 403, statusMessage: 'Invalid OAuth state — possible CSRF attack' })
+    throw createError({ statusCode: 403, statusMessage: 'Некорректное состояние OAuth' })
   }
 
   // Exchange authorization code for tokens

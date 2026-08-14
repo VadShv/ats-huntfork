@@ -237,6 +237,10 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
           break
         }
         const items = data.items || []
+        // Спринт 11.5: тегируем каждый отклик коллекцией-источником —
+        // иначе мы не знаем, в какой коллекции hh сейчас лежит negotiation,
+        // а это нужно для корректного скипа в push-синхронизации.
+        for (const it of items) it.collection = collection
         collected.push(...items)
         result.fetched += items.length
         inCollection += items.length
@@ -303,11 +307,14 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
       const existing = existingByHhId.get(neg.id)
 
       if (existing) {
-        // Обновим last_seen + сырой JSON
+        // Обновим last_seen + сырой JSON.
+        // Спринт 11.5: также актуализируем hhCollection — если рекрутёр двигал
+        // отклик на стороне hh.ru, локальное значение устаревает.
         await db.update(hhNegotiation).set({
           rawNegotiationJson: neg as unknown,
           hhState: neg.state?.id ?? null,
           hhUpdatedAt: neg.updated_at ? new Date(neg.updated_at) : null,
+          ...(typeof neg.collection === 'string' ? { hhCollection: neg.collection } : {}),
           lastSeenAt: new Date(),
           updatedAt: new Date(),
         }).where(eq(hhNegotiation.id, existing.id))

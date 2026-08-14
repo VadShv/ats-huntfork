@@ -39,7 +39,7 @@ export default defineEventHandler(async (event): Promise<{ conversation: Chatbot
       ),
       columns: { id: true },
     })
-    if (!f) throw createError({ statusCode: 404, statusMessage: 'Folder not found.' })
+    if (!f) throw createError({ statusCode: 404, statusMessage: 'Папка не найдена' })
   }
   if (body.agentId) {
     const a = await db.query.chatbotAgent.findFirst({
@@ -50,24 +50,24 @@ export default defineEventHandler(async (event): Promise<{ conversation: Chatbot
       ),
       columns: { id: true },
     })
-    if (!a) throw createError({ statusCode: 404, statusMessage: 'Agent not found.' })
+    if (!a) throw createError({ statusCode: 404, statusMessage: 'Ассистент не найден' })
   }
   if (body.aiConfigId) {
     const c = await db.query.aiConfig.findFirst({
       where: and(eq(aiConfig.id, body.aiConfigId), eq(aiConfig.organizationId, orgId)),
       columns: { id: true },
     })
-    if (!c) throw createError({ statusCode: 404, statusMessage: 'AI configuration not found.' })
+    if (!c) throw createError({ statusCode: 404, statusMessage: 'Конфигурация ИИ не найдена' })
   }
   if (body.scope?.kind === 'job') {
     if (!body.scope.jobId) {
-      throw createError({ statusCode: 400, statusMessage: 'jobId required for job scope.' })
+      throw createError({ statusCode: 400, statusMessage: 'Для области видимости вакансии требуется jobId' })
     }
     const j = await db.query.job.findFirst({
       where: and(eq(job.id, body.scope.jobId), eq(job.organizationId, orgId)),
       columns: { id: true },
     })
-    if (!j) throw createError({ statusCode: 404, statusMessage: 'Job not found.' })
+    if (!j) throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   const updates: Partial<typeof chatbotConversation.$inferInsert> = { updatedAt: new Date() }
@@ -89,7 +89,7 @@ export default defineEventHandler(async (event): Promise<{ conversation: Chatbot
     .returning()
 
   if (!updated) {
-    throw createError({ statusCode: 404, statusMessage: 'Conversation not found.' })
+    throw createError({ statusCode: 404, statusMessage: 'Диалог не найден' })
   }
 
   return {

@@ -7,7 +7,7 @@ import { createRateLimiter } from '../../../../utils/rateLimit'
 import { z } from 'zod'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
-const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 10, message: 'Too many AI criteria generation requests. Please wait before retrying.' })
+const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 10, message: 'Слишком много запросов на генерацию ИИ-критериев. Повторите позже' })
 
 /**
  * POST /api/jobs/:id/criteria/generate
@@ -27,14 +27,14 @@ export default defineEventHandler(async (event) => {
     columns: { id: true, title: true, description: true },
   })
   if (!jobRecord) {
-    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   // If a pre-made template is specified, return it directly
   if (body.template) {
     const template = PREMADE_CRITERIA[body.template]
     if (!template) {
-      throw createError({ statusCode: 400, statusMessage: 'Unknown template' })
+      throw createError({ statusCode: 400, statusMessage: 'Неизвестный шаблон' })
     }
     return { criteria: template, source: 'template' }
   }
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
   if (!jobRecord.description) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'Job description is required to generate AI criteria. Add a description first.',
+      statusMessage: 'Для генерации ИИ-критериев требуется описание вакансии. Сначала добавьте описание',
     })
   }
 
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
   if (!config) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'AI provider not configured. Set up your AI provider in Settings first.',
+      statusMessage: 'Поставщик ИИ не настроен. Сначала настройте поставщика ИИ в настройках',
     })
   }
 

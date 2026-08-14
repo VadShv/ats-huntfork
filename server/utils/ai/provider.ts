@@ -13,7 +13,7 @@ import type { z } from 'zod'
 import { decrypt } from '../encryption'
 import { createYandexFetch } from './yandexFetch'
 
-export type SupportedProvider = 'openai' | 'anthropic' | 'google' | 'openai_compatible' | 'yandex'
+export type SupportedProvider = 'openai' | 'anthropic' | 'google' | 'openai_compatible' | 'yandex' | 'cloud_ru'
 
 export interface ProviderConfig {
   provider: SupportedProvider
@@ -126,6 +126,32 @@ export const PROVIDER_REGISTRY: Record<string, {
       { id: 'gpt://__FOLDER_ID__/llama-3.3-70b-instruct/latest', label: 'Llama 3.3 70B Instruct', description: 'Meta Llama в Yandex Cloud. Альтернатива YandexGPT для экспериментов.' },
     ],
   },
+  cloud_ru: {
+    name: 'Cloud.ru Foundation Models',
+    tagline: 'Evolution Foundation Models — российский провайдер (cloud.ru): GLM-5.2, DeepSeek V4, Qwen3-Coder, GigaChat 3.5, Kimi K2.6. OpenAI-совместимый endpoint, хостинг в РФ.',
+    modelsUrl: 'https://cloud.ru/products/evolution-ai-factory/catalog-foundation-models',
+    apiKeyUrl: 'https://console.cloud.ru/ai-factory/foundation-models/keys',
+    signupUrl: 'https://cloud.ru/products/evolution-foundation-models',
+    supportsBaseUrl: false,
+    defaultModel: 'zai-org/GLM-5.2',
+    // Цены пересчитаны из тарифов Cloud.ru (руб/1M токенов с НДС) по курсу ≈90 руб/$.
+    // Пересматривай при существенном изменении курса — это только подсказка для формы, точный биллинг в личном кабинете.
+    models: [
+      { id: 'zai-org/GLM-5.2', label: 'GLM-5.2', description: 'Флагман Z.ai: сильна в кодинге и агентных задачах. Reasoning, контекст 1M. Рекомендованный дефолт для скрининга.', inputPricePer1m: 2.7, outputPricePer1m: 11.2, badge: 'recommended' },
+      { id: 'zai-org/GLM-5.1', label: 'GLM-5.1', description: 'Предыдущее поколение GLM. Хороший баланс цена/качество, контекст 200K.', inputPricePer1m: 2.2, outputPricePer1m: 8.9 },
+      { id: 'zai-org/GLM-4.7', label: 'GLM-4.7', description: 'Быстрая и дешёвая модель GLM. Reasoning, контекст 200K.', inputPricePer1m: 2.0, outputPricePer1m: 8.1 },
+      { id: 'deepseek-ai/DeepSeek-V4-Pro', label: 'DeepSeek V4 Pro', description: 'Флагман DeepSeek: reasoning, tool calling, контекст 1M токенов. Отличен для сложного анализа резюме.', inputPricePer1m: 3.9, outputPricePer1m: 5.3, badge: 'powerful' },
+      { id: 'deepseek-ai/DeepSeek-V4-Flash', label: 'DeepSeek V4 Flash', description: 'Быстрая версия DeepSeek V4 с контекстом 1M. Хороша для массового скоринга.', inputPricePer1m: 0.2, outputPricePer1m: 0.4, badge: 'cheap' },
+      { id: 'ai-sage/GigaChat3.5-432B-A28B', label: 'GigaChat 3.5 Ultra', description: 'Флагман Сбера: 432B параметров, контекст 262K. Function Calling, Structured Output. Полностью российская модель.', inputPricePer1m: 1.1, outputPricePer1m: 3.2 },
+      { id: 'ai-sage/GigaChat3-10B-A1.8B', label: 'GigaChat 3 Lite', description: 'Быстрая и дешёвая версия GigaChat. Хороша для чат-бота и лёгких задач.', inputPricePer1m: 0.15, outputPricePer1m: 0.6, badge: 'cheap' },
+      { id: 'Qwen/Qwen3-Coder-Next', label: 'Qwen3-Coder', description: 'Специализирована на коде и структурированных данных. Полезна для парсинга резюме и генерации JSON.', inputPricePer1m: 0.5, outputPricePer1m: 0.9 },
+      { id: 'Qwen/Qwen3.5-397B-A17B', label: 'Qwen3.5 397B', description: 'Крупная MoE-модель Alibaba: reasoning, vision, контекст 262K.', inputPricePer1m: 3.9, outputPricePer1m: 8.1 },
+      { id: 'Qwen/Qwen3.6-35B-A3B', label: 'Qwen3.6 35B', description: 'Компактная MoE-модель Qwen: reasoning, vision, дешёвая. Хорошо для чат-ассистента.', inputPricePer1m: 0.2, outputPricePer1m: 1.0, badge: 'fast' },
+      { id: 'moonshotai/Kimi-K2.6', label: 'Kimi K2.6', description: 'Открытая MoE от Moonshot AI: reasoning, vision, tool calling, контекст 262K.', inputPricePer1m: 0.8, outputPricePer1m: 3.4 },
+      { id: 'MiniMaxAI/MiniMax-M3', label: 'MiniMax M3', description: 'Флагман MiniMax: reasoning, контекст 524K. Полезна для длинных документов.', inputPricePer1m: 0.6, outputPricePer1m: 2.4 },
+      { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', description: 'Открытая модель OpenAI: reasoning, function calling. Контекст 131K.', inputPricePer1m: 0.4, outputPricePer1m: 1.6 },
+    ],
+  },
 }
 
 /**
@@ -139,7 +165,7 @@ export function createLanguageModel(config: ProviderConfig) {
   if (!apiKey) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to decrypt AI API key. The key may be corrupted.',
+      statusMessage: 'Не удалось расшифровать ключ API ИИ. Возможно, ключ повреждён',
     })
   }
 
@@ -151,6 +177,15 @@ export function createLanguageModel(config: ProviderConfig) {
         ...(config.baseUrl ? { baseURL: config.baseUrl } : {}),
       })
       return openai(config.model)
+    }
+    case 'cloud_ru': {
+      // Cloud.ru Foundation Models: OpenAI-совместимый endpoint, хостинг в РФ.
+      // Использует Chat Completions API (`/v1/chat/completions`), не Responses API.
+      const openai = createOpenAI({
+        apiKey,
+        baseURL: config.baseUrl || 'https://foundation-models.api.cloud.ru/v1',
+      })
+      return openai.chat(config.model)
     }
     case 'yandex': {
       // Yandex Foundation Models exposes an OpenAI-compatible endpoint.
@@ -184,7 +219,7 @@ export function createLanguageModel(config: ProviderConfig) {
     default:
       throw createError({
         statusCode: 400,
-        statusMessage: `Unsupported AI provider: ${config.provider}`,
+        statusMessage: `Неподдерживаемый поставщик ИИ: ${config.provider}`,
       })
   }
 }

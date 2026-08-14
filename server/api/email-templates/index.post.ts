@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     createdById: session.user.id,
   }).returning()
 
-  if (!created) throw createError({ statusCode: 500, statusMessage: 'Failed to create email template' })
+  if (!created) throw createError({ statusCode: 500, statusMessage: 'Не удалось создать шаблон письма' })
 
   recordActivity({
     organizationId: orgId,

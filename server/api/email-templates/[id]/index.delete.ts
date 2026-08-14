@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Email template not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Шаблон письма не найден' })
   }
 
   await db.delete(emailTemplate).where(and(

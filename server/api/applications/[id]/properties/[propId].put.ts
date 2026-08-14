@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     where: and(eq(application.id, id), eq(application.organizationId, orgId)),
     columns: { id: true, jobId: true },
   })
-  if (!app) throw createError({ statusCode: 404, statusMessage: 'Application not found' })
+  if (!app) throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
 
   // Verify property belongs to org and is valid in this application's context
   const def = await db.query.propertyDefinition.findFirst({
@@ -37,14 +37,14 @@ export default defineEventHandler(async (event) => {
       eq(propertyDefinition.organizationId, orgId),
     ),
   })
-  if (!def) throw createError({ statusCode: 404, statusMessage: 'Property not found' })
+  if (!def) throw createError({ statusCode: 404, statusMessage: 'Свойство не найдено' })
   if (def.entityType !== 'application') {
-    throw createError({ statusCode: 422, statusMessage: 'Property is not an application property' })
+    throw createError({ statusCode: 422, statusMessage: 'Это свойство не относится к отклику' })
   }
   if (def.jobId && def.jobId !== app.jobId) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'Property is scoped to a different job',
+      statusMessage: 'Свойство относится к другой вакансии',
     })
   }
 

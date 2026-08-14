@@ -189,7 +189,7 @@ export default defineEventHandler(async (event) => {
   // ─── XLSX
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'Reqcore'
+  wb.creator = 'Huntfork'
   wb.created = new Date()
   const ws = wb.addWorksheet('Журнал слияний', {
     views: [{ state: 'frozen', ySplit: 1 }],

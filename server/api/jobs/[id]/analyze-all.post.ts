@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     columns: { id: true },
   })
   if (!jobRecord) {
-    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   // Find all applications without scores

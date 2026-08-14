@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
   if (!link) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Invalid, expired, or revoked invite link',
+      statusMessage: 'Ссылка-приглашение недействительна, срок её действия истёк или она отозвана',
     })
   }
 
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
   if (link.maxUses !== null && link.useCount >= link.maxUses) {
     throw createError({
       statusCode: 410,
-      statusMessage: 'This invite link has reached its maximum number of uses',
+      statusMessage: 'Достигнут лимит использований ссылки-приглашения',
     })
   }
 

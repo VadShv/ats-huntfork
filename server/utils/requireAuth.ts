@@ -20,13 +20,13 @@ export async function requireAuth(event: H3Event) {
   })
 
   if (!session) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Требуется вход' })
   }
 
   const activeOrganizationId = (session.session as { activeOrganizationId?: string }).activeOrganizationId
 
   if (!activeOrganizationId) {
-    throw createError({ statusCode: 403, statusMessage: 'No active organization' })
+    throw createError({ statusCode: 403, statusMessage: 'Нет активной организации' })
   }
 
   return {

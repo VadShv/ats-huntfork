@@ -81,13 +81,13 @@ export async function mergeCandidates(params: MergeCandidatesParams): Promise<Me
   // 1. Подтянем обоих кандидатов
   const [primary] = await db.select().from(candidate).where(eq(candidate.id, primaryCandidateId)).limit(1)
   const [merged] = await db.select().from(candidate).where(eq(candidate.id, mergedCandidateId)).limit(1)
-  if (!primary) throw createError({ statusCode: 404, statusMessage: 'Primary кандидат не найден' })
-  if (!merged) throw createError({ statusCode: 404, statusMessage: 'Merged кандидат не найден' })
+  if (!primary) throw createError({ statusCode: 404, statusMessage: 'Основной кандидат не найден' })
+  if (!merged) throw createError({ statusCode: 404, statusMessage: 'Объединяемый кандидат не найден' })
   if (primary.mergeStatus === 'merged') {
-    throw createError({ statusCode: 400, statusMessage: 'Primary кандидат уже слит — выберите другого' })
+    throw createError({ statusCode: 400, statusMessage: 'Основной кандидат уже объединён — выберите другого' })
   }
   if (merged.mergeStatus === 'merged') {
-    throw createError({ statusCode: 400, statusMessage: 'Merged кандидат уже слит ранее' })
+    throw createError({ statusCode: 400, statusMessage: 'Объединяемый кандидат уже объединён ранее' })
   }
 
   // 2. Проверка группы: либо одна org, либо одна group

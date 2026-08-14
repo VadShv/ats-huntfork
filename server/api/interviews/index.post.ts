@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   if (!app) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Application not found',
+      statusMessage: 'Отклик не найден',
     })
   }
 
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
     createdById: session.user.id,
   }).returning()
 
-  if (!created) throw createError({ statusCode: 500, statusMessage: 'Failed to create interview' })
+  if (!created) throw createError({ statusCode: 500, statusMessage: 'Не удалось создать интервью' })
 
   // Sync to Google Calendar only when explicitly requested
   let calendarEventLink: string | null = null
@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
       ...(body.location ? [`Location: ${body.location}`] : []),
       ...(body.notes ? [`\nNotes: ${body.notes}`] : []),
       '',
-      `Scheduled via ${org?.name || 'Reqcore'}`,
+      `Запланировано через ${org?.name || 'Huntfork'}`,
     ].join('\n')
     const addCandidate = body.calendarAddCandidateAttendee !== false
     const sendUpdates = body.calendarSendUpdates !== false

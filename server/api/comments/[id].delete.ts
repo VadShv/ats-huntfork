@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Comment not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Комментарий не найден' })
   }
 
   // Admins/owners can delete any comment; members can only delete their own
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     })
     const isAdminOrOwner = mem?.role === 'admin' || mem?.role === 'owner'
     if (!isAdminOrOwner) {
-      throw createError({ statusCode: 403, statusMessage: 'You can only delete your own comments' })
+      throw createError({ statusCode: 403, statusMessage: 'Можно удалять только свои комментарии' })
     }
   }
 

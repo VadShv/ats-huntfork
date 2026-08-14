@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     where: and(eq(candidate.id, id), eq(candidate.organizationId, orgId)),
     columns: { id: true },
   })
-  if (!cand) throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
+  if (!cand) throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
 
   const def = await db.query.propertyDefinition.findFirst({
     where: and(
@@ -33,9 +33,9 @@ export default defineEventHandler(async (event) => {
       eq(propertyDefinition.organizationId, orgId),
     ),
   })
-  if (!def) throw createError({ statusCode: 404, statusMessage: 'Property not found' })
+  if (!def) throw createError({ statusCode: 404, statusMessage: 'Свойство не найдено' })
   if (def.entityType !== 'candidate') {
-    throw createError({ statusCode: 422, statusMessage: 'Property is not a candidate property' })
+    throw createError({ statusCode: 422, statusMessage: 'Это свойство не относится к кандидату' })
   }
 
   const normalized = validateValueForType(def.type as PropertyType, value, def.config)

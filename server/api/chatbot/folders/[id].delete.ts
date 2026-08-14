@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     .returning({ id: chatbotFolder.id })
 
   if (result.length === 0) {
-    throw createError({ statusCode: 404, statusMessage: 'Folder not found.' })
+    throw createError({ statusCode: 404, statusMessage: 'Папка не найдена' })
   }
 
   return { success: true }

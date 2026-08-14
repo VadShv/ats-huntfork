@@ -55,7 +55,7 @@ export const createPropertyDefinitionSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['jobId'],
-      message: 'Candidate properties cannot be scoped to a job',
+      message: 'Свойства кандидата нельзя привязать к вакансии',
     })
   }
 })

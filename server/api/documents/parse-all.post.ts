@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
         failures.push({
           id: doc.id,
           filename: doc.originalFilename,
-          error: 'No text could be extracted',
+          error: 'Не удалось извлечь текст',
         })
       }
     }

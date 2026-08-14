@@ -26,14 +26,14 @@ export default defineEventHandler(async (event) => {
     .limit(1)
   const account = accountRows[0]
   if (!account) {
-    throw createError({ statusCode: 422, statusMessage: 'No active hh.ru account for this organization' })
+    throw createError({ statusCode: 422, statusMessage: 'В этой организации нет активного аккаунта hh.ru' })
   }
   let token: string
   try {
     token = await getValidAccessToken(account.id)
   }
   catch (err) {
-    throw createError({ statusCode: 422, statusMessage: `hh token error: ${err instanceof Error ? err.message : 'unknown'}` })
+    throw createError({ statusCode: 422, statusMessage: `Ошибка токена hh.ru: ${err instanceof Error ? err.message : 'неизвестная ошибка'}` })
   }
 
   // 2) Находим кандидатов без hh_resume_raw, но с hh-applications.

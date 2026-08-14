@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!link) {
-    throw createError({ statusCode: 404, statusMessage: 'Link not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Ссылка не найдена' })
   }
 
   // Increment click counter (fire-and-forget, non-blocking)
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
   // Build redirect URL with ref param
   const baseUrl = env.BETTER_AUTH_URL
   if (!baseUrl) {
-    throw createError({ statusCode: 500, statusMessage: 'Server misconfiguration' })
+    throw createError({ statusCode: 500, statusMessage: 'Ошибка конфигурации сервера' })
   }
   const targetPath = link.job?.slug
     ? `/jobs/${link.job.slug}/apply?ref=${encodeURIComponent(code)}`

@@ -15,18 +15,35 @@ const moveStageBodySchema = z.object({
 })
 
 type ApplicationStatus = 'new' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected'
-type PipelineStageType = 'applied' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'custom'
 
-/** Map pipeline stage type → legacy application status enum value */
-function stageTypeToStatus(type: PipelineStageType): ApplicationStatus | null {
+/**
+ * Map pipeline stage type → legacy application status enum value.
+ * Спринт 11.5: расширено на все 16 типов этапов новой hh-воронки.
+ */
+function stageTypeToStatus(type: string): ApplicationStatus | null {
   switch (type) {
     case 'hired': return 'hired'
-    case 'rejected': return 'rejected'
     case 'offer': return 'offer'
     case 'interview': return 'interview'
     case 'screening': return 'screening'
     case 'applied': return 'new'
-    case 'custom': return null
+    case 'new': return 'new'
+    // Промежуточные рабочие этапы → legacy 'screening'
+    case 'on_hold':
+    case 'contact':
+    case 'assessment':
+      return 'screening'
+    // Все виды отказов → legacy 'rejected'
+    case 'rejected':
+    case 'not_fit':
+    case 'withdrawn':
+    case 'no_show':
+    case 'job_closed':
+    case 'transferred':
+      return 'rejected'
+    // custom и неизвестные — legacy-статус не трогаем
+    default:
+      return null
   }
 }
 
@@ -44,7 +61,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!current) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
   // 2. Load job to get pipelineId

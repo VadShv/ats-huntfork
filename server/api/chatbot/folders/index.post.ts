@@ -33,7 +33,7 @@ export default defineEventHandler(async (event): Promise<{ folder: ChatbotFolder
   if (existing >= CHATBOT_FOLDER_MAX_PER_USER) {
     throw createError({
       statusCode: 422,
-      statusMessage: `Folder limit reached (${CHATBOT_FOLDER_MAX_PER_USER}).`,
+      statusMessage: `Достигнут лимит папок (${CHATBOT_FOLDER_MAX_PER_USER})`,
     })
   }
 
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event): Promise<{ folder: ChatbotFolder
   }).returning()
 
   if (!created) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create folder.' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось создать папку' })
   }
 
   return {

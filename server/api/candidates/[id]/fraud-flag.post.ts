@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
     columns: { id: true, fraudFlag: true, fraudReason: true },
   })
   if (!me) {
-    throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 
   await setFraudFlagManually({

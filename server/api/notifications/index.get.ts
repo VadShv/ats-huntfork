@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
   const userId = session.user.id
 
-  if (!orgId) throw createError({ statusCode: 400, statusMessage: 'No active organization' })
+  if (!orgId) throw createError({ statusCode: 400, statusMessage: 'Нет активной организации' })
 
   const query = await getValidatedQuery(event, notificationListSchema.parse)
   const offset = (query.page - 1) * query.limit

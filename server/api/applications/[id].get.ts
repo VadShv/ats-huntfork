@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!result) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
   // Load current stage details if available

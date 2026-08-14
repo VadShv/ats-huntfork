@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
       updatedAt: true,
     },
   })
-  if (!row) throw createError({ statusCode: 404, statusMessage: 'AI configuration not found.' })
+  if (!row) throw createError({ statusCode: 404, statusMessage: 'Конфигурация ИИ не найдена' })
 
   const { apiKeyEncrypted, ...rest } = row
   return {

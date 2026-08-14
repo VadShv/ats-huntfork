@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(interview.id, id), eq(interview.organizationId, orgId)))
 
   if (!data) {
-    throw createError({ statusCode: 404, statusMessage: 'Interview not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Интервью не найдено' })
   }
 
   return data

@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm'
 import { application, candidate, job, applicationStageHistory } from '../../database/schema'
 import { createApplicationSchema } from '../../utils/schemas/application'
 import { getEntryStageForPipeline } from '../../utils/pipeline-helpers'
+import { autoScoreApplication } from '../../utils/ai/autoScore'
 
 /**
  * POST /api/applications
@@ -21,17 +22,17 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existingCandidate) {
-    throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 
   // Verify job belongs to this org — also fetch pipelineId for stage assignment
   const existingJob = await db.query.job.findFirst({
     where: and(eq(job.id, body.jobId), eq(job.organizationId, orgId)),
-    columns: { id: true, pipelineId: true },
+    columns: { id: true, pipelineId: true, autoScoreOnApply: true },
   })
 
   if (!existingJob) {
-    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   // Check for duplicate application
@@ -47,7 +48,7 @@ export default defineEventHandler(async (event) => {
   if (existing) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'This candidate has already been applied to this job',
+      statusMessage: 'Этот кандидат уже откликнулся на эту вакансию',
     })
   }
 
@@ -85,7 +86,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!created) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create application' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось создать отклик' })
   }
 
   // Write initial stage history row if a pipeline entry stage was resolved
@@ -108,6 +109,18 @@ export default defineEventHandler(async (event) => {
     resourceId: created.id,
     metadata: { candidateId: body.candidateId, jobId: body.jobId },
   })
+
+  // Спринт 16: автооценка при ручном добавлении на вакансию —
+  // тот же fire-and-forget, что и при публичном отклике / hh-импорте.
+  if (existingJob.autoScoreOnApply) {
+    autoScoreApplication(created.id, orgId).catch((err) => {
+      logError('application.auto_score_failed', {
+        application_id: created.id,
+        job_id: body.jobId,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    })
+  }
 
   setResponseStatus(event, 201)
   return created

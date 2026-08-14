@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!created) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create candidate' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось создать кандидата' })
   }
 
   // ─── 5. Identity-записи (email/phone/linkedin/telegram/github) — для участия в дедупе

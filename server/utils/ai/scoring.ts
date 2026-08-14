@@ -46,24 +46,24 @@ export const PREMADE_CRITERIA: Record<string, CriterionDefinition[]> = {
   standard: [
     {
       key: 'technical_skills',
-      name: 'Technical Skills',
-      description: 'Evaluate the candidate\'s technical competencies, tools, programming languages, and frameworks mentioned in their resume against the job requirements.',
+      name: 'Технические навыки',
+      description: 'Оцени технические компетенции, инструменты, языки программирования и фреймворки, указанные в резюме, и сопоставь их с требованиями вакансии.',
       category: 'technical',
       maxScore: 10,
       weight: 50,
     },
     {
       key: 'relevant_experience',
-      name: 'Relevant Experience',
-      description: 'Assess years and quality of experience directly relevant to the role. Consider industry, company size, and scope of responsibilities.',
+      name: 'Релевантный опыт',
+      description: 'Оцени годы и качество опыта, напрямую связанного с ролью. Учти отрасль, размер компании и зону ответственности.',
       category: 'experience',
       maxScore: 10,
       weight: 50,
     },
     {
       key: 'education_fit',
-      name: 'Education & Certifications',
-      description: 'Evaluate educational background and professional certifications relevant to the position requirements.',
+      name: 'Образование и сертификаты',
+      description: 'Оцени образование и профессиональные сертификаты, релевантные требованиям позиции.',
       category: 'education',
       maxScore: 10,
       weight: 30,
@@ -72,40 +72,40 @@ export const PREMADE_CRITERIA: Record<string, CriterionDefinition[]> = {
   technical: [
     {
       key: 'core_tech_stack',
-      name: 'Core Tech Stack Match',
-      description: 'How well the candidate\'s technical skills match the primary technologies required for this role.',
+      name: 'Соответствие основному стеку',
+      description: 'Насколько технические навыки кандидата соответствуют ключевым технологиям, требуемым для этой роли.',
       category: 'technical',
       maxScore: 10,
       weight: 70,
     },
     {
       key: 'system_design',
-      name: 'System Design & Architecture',
-      description: 'Evidence of system design experience, scalability thinking, and architectural decision-making.',
+      name: 'Системный дизайн и архитектура',
+      description: 'Свидетельства опыта проектирования систем, мышления о масштабировании и принятия архитектурных решений.',
       category: 'technical',
       maxScore: 10,
       weight: 50,
     },
     {
       key: 'engineering_practices',
-      name: 'Engineering Practices',
-      description: 'Testing, CI/CD, code review, documentation, and software development lifecycle experience.',
+      name: 'Инженерные практики',
+      description: 'Тестирование, CI/CD, code review, документация и опыт работы с жизненным циклом разработки.',
       category: 'technical',
       maxScore: 10,
       weight: 40,
     },
     {
       key: 'relevant_experience',
-      name: 'Relevant Experience',
-      description: 'Years and depth of experience in similar roles, projects, or domains.',
+      name: 'Релевантный опыт',
+      description: 'Годы и глубина опыта в похожих ролях, проектах или доменах.',
       category: 'experience',
       maxScore: 10,
       weight: 50,
     },
     {
       key: 'leadership_collab',
-      name: 'Leadership & Collaboration',
-      description: 'Evidence of mentoring, tech leadership, cross-team collaboration, and communication skills.',
+      name: 'Лидерство и коммуникация',
+      description: 'Свидетельства менторинга, тех-лидерства, кросс-командного взаимодействия и коммуникационных навыков.',
       category: 'soft_skills',
       maxScore: 10,
       weight: 30,
@@ -114,40 +114,40 @@ export const PREMADE_CRITERIA: Record<string, CriterionDefinition[]> = {
   non_technical: [
     {
       key: 'relevant_experience',
-      name: 'Relevant Experience',
-      description: 'Depth and breadth of experience directly applicable to the role responsibilities.',
+      name: 'Релевантный опыт',
+      description: 'Глубина и широта опыта, напрямую применимого к обязанностям роли.',
       category: 'experience',
       maxScore: 10,
       weight: 60,
     },
     {
       key: 'communication',
-      name: 'Communication Skills',
-      description: 'Evidence of written and verbal communication ability from resume quality, cover letter, and described accomplishments.',
+      name: 'Коммуникационные навыки',
+      description: 'Свидетельства навыков письменной и устной коммуникации из качества резюме, сопроводительного письма и описанных достижений.',
       category: 'soft_skills',
       maxScore: 10,
       weight: 50,
     },
     {
       key: 'domain_knowledge',
-      name: 'Domain Knowledge',
-      description: 'Relevant industry or domain expertise that demonstrates understanding of the business context.',
+      name: 'Знание предметной области',
+      description: 'Релевантная отраслевая экспертиза, демонстрирующая понимание бизнес-контекста.',
       category: 'experience',
       maxScore: 10,
       weight: 40,
     },
     {
       key: 'education_fit',
-      name: 'Education & Certifications',
-      description: 'Educational background and certifications relevant to the position.',
+      name: 'Образование и сертификаты',
+      description: 'Образование и сертификаты, релевантные позиции.',
       category: 'education',
       maxScore: 10,
       weight: 30,
     },
     {
       key: 'culture_fit',
-      name: 'Culture & Values Alignment',
-      description: 'Indicators of alignment with company values, work style, and team culture based on career trajectory and interests.',
+      name: 'Культурное соответствие',
+      description: 'Индикаторы совпадения с ценностями компании, стилем работы и культурой команды на основе карьерной траектории и интересов.',
       category: 'culture',
       maxScore: 10,
       weight: 30,
@@ -178,20 +178,20 @@ export async function generateCriteriaFromDescription(
   jobDescription: string,
 ): Promise<CriterionDefinition[]> {
   const result = await generateStructuredOutput(config, {
-    system: `You are an expert HR analyst specializing in creating objective, unbiased candidate evaluation criteria.
-Your task is to analyze a job description and create 4–6 measurable scoring criteria.
+    system: `Ты — опытный HR-аналитик, который создаёт объективные и непредвзятые критерии оценки кандидатов.
+Твоя задача — проанализировать описание вакансии и сформировать 4–6 измеримых критериев оценки.
 
-Rules:
-- Each criterion must be specific and measurable from a resume/CV
-- Avoid criteria that could introduce bias (age, gender, ethnicity, disability)
-- Focus on skills, experience, and qualifications that are directly relevant to the role
-- Use clear, professional language
-- Each key must be unique, lowercase, and use underscores (e.g. "react_expertise")
-- Set suggestedWeight higher for more critical criteria (10–100 scale)`,
-    prompt: `Job Title: ${jobTitle}\n\nJob Description:\n${jobDescription}`,
+Правила:
+— Каждый критерий должен быть конкретным и измеримым на основе резюме/CV.
+— Избегай критериев, которые могут привнести дискриминацию (возраст, пол, этническая принадлежность, инвалидность).
+— Фокусируйся на навыках, опыте и квалификации, напрямую релевантных роли.
+— Пиши ясным деловым русским языком. Названия критериев (name) и описания (description) всегда на русском.
+— Каждый key должен быть уникальным, в нижнем регистре и использовать латинские буквы + подчёркивание (например, "react_expertise").
+— suggestedWeight выше для более важных критериев (шкала 10–100).`,
+    prompt: `Название вакансии: ${jobTitle}\n\nОписание вакансии:\n${jobDescription}`,
     schema: generatedCriteriaSchema,
     schemaName: 'GeneratedCriteria',
-    schemaDescription: 'Scoring criteria generated from job description',
+    schemaDescription: 'Критерии оценки, сгенерированные из описания вакансии',
   })
 
   return result.object.criteria.map((c, i) => ({
@@ -222,43 +222,45 @@ export async function scoreApplication(
   },
 ): Promise<{ scoring: ScoringResponse; usage: { promptTokens: number; completionTokens: number } }> {
   const criteriaBlock = params.criteria
-    .map((c, i) => `${i + 1}. **${c.name}** (key: "${c.key}", max: ${c.maxScore})\n   ${c.description ?? 'No description provided.'}`)
+    .map((c, i) => `${i + 1}. **${c.name}** (key: "${c.key}", max: ${c.maxScore})\n   ${c.description ?? 'Описание не указано.'}`)
     .join('\n\n')
 
   const candidateInfo = [
-    `RESUME:\n${params.resumeText}`,
-    params.coverLetterText ? `\nCOVER LETTER:\n${params.coverLetterText}` : '',
-    params.applicationNotes ? `\nAPPLICATION NOTES:\n${params.applicationNotes}` : '',
+    `РЕЗЮМЕ:\n${params.resumeText}`,
+    params.coverLetterText ? `\nСОПРОВОДИТЕЛЬНОЕ ПИСЬМО:\n${params.coverLetterText}` : '',
+    params.applicationNotes ? `\nЗАМЕТКИ ПО ОТКЛИКУ:\n${params.applicationNotes}` : '',
   ].filter(Boolean).join('\n')
 
   const result = await generateStructuredOutput(config, {
-    system: `You are an expert, unbiased candidate evaluator for an applicant tracking system.
-Your task is to objectively evaluate a candidate against specific scoring criteria for a job.
+    system: `Ты — опытный, непредвзятый эксперт по оценке кандидатов в ATS-системе.
+Твоя задача — объективно оценить кандидата по заданным критериям для конкретной вакансии.
 
-IMPORTANT RULES:
-- Score ONLY based on evidence found in the provided materials (resume, cover letter, notes)
-- If information for a criterion is missing, give a low score and note it in gaps
-- Be fair and consistent — avoid bias based on name, gender, age, or background
-- Confidence reflects how much relevant information was available (0–100)
-- Evidence must cite specific details from the candidate's materials
-- Each strength and gap must be a single, specific statement
-- applicantScore must not exceed maxScore for each criterion
-- Provide a brief summary of the overall evaluation`,
-    prompt: `JOB TITLE: ${params.jobTitle}
+ВАЖНЫЕ ПРАВИЛА:
+— Оценивай ТОЛЬКО на основе фактов, найденных в предоставленных материалах (резюме, сопроводительное письмо, заметки).
+— Если информации по критерию нет, ставь низкий балл и укажи это в gaps (пробелах).
+— Будь честным и последовательным — избегай предвзятости по имени, полу, возрасту или происхождению.
+— confidence (уверенность) отражает, насколько много релевантной информации было доступно (шкала 0–100).
+— evidence (доказательства) должны цитировать конкретные детали из материалов кандидата.
+— Каждая сильная сторона (strength) и пробел (gap) — одно конкретное утверждение.
+— applicantScore не должен превышать maxScore для каждого критерия.
+— Сделай краткий summary (вывод) по общей оценке кандидата.
 
-JOB DESCRIPTION:
+ЯЗЫК ОТВЕТА: ВСЕ поля ответа (summary, evidence, strengths, gaps) должны быть на РУССКОМ языке, даже если резюме или вакансия на английском. Пиши деловым, конкретным тоном.`,
+    prompt: `НАЗВАНИЕ ВАКАНСИИ: ${params.jobTitle}
+
+ОПИСАНИЕ ВАКАНСИИ:
 ${params.jobDescription}
 
-SCORING CRITERIA:
+КРИТЕРИИ ОЦЕНКИ:
 ${criteriaBlock}
 
-CANDIDATE MATERIALS:
+МАТЕРИАЛЫ КАНДИДАТА:
 ${candidateInfo}
 
-Evaluate this candidate against each criterion. Return your evaluation.`,
+Оцени этого кандидата по каждому критерию. Верни свою оценку на русском языке.`,
     schema: scoringResponseSchema,
     schemaName: 'CandidateScoring',
-    schemaDescription: 'Structured candidate evaluation with per-criterion scores',
+    schemaDescription: 'Структурированная оценка кандидата с баллами по каждому критерию',
   })
 
   // Clamp applicantScore to maxScore — LLMs may occasionally exceed the maximum

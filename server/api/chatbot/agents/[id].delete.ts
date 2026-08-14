@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     .returning({ id: chatbotAgent.id })
 
   if (result.length === 0) {
-    throw createError({ statusCode: 404, statusMessage: 'Agent not found.' })
+    throw createError({ statusCode: 404, statusMessage: 'Ассистент не найден' })
   }
 
   return { success: true }

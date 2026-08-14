@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
 
   const payload = verifyInterviewToken(token, env.BETTER_AUTH_SECRET)
   if (!payload) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid or expired token' })
+    throw createError({ statusCode: 400, statusMessage: 'Некорректный или истёкший токен' })
   }
 
   // Fetch the interview to verify it still exists and is in a respondable state
@@ -29,13 +29,13 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!interviewRecord) {
-    throw createError({ statusCode: 404, statusMessage: 'Interview not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Интервью не найдено' })
   }
 
   if (interviewRecord.status !== 'scheduled') {
     throw createError({
       statusCode: 400,
-      statusMessage: `This interview has been ${interviewRecord.status} and can no longer be responded to.`,
+      statusMessage: `Это интервью имеет статус ${interviewRecord.status}, ответить на приглашение больше нельзя`,
     })
   }
 

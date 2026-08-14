@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
   catch {
     return {
       success: false,
-      message: 'Updates via UI are only available for Docker-based deployments. For other deployment methods, please update manually.',
+      message: 'Обновление через интерфейс доступно только для развёртываний в Docker. При других способах развёртывания обновите приложение вручную',
       previousVersion,
       steps: [],
     } satisfies UpdateResult
@@ -63,7 +63,7 @@ export default defineEventHandler(async (event) => {
     catch {
       return {
         success: false,
-        message: `The "${cmd}" command is not available inside this container. One-click updates require git and docker CLI to be installed in the container image, and the Docker socket to be mounted. Please update manually instead.`,
+        message: `Команда «${cmd}» недоступна в контейнере. Для обновления в один клик в образе контейнера должны быть установлены git и Docker CLI, а сокет Docker должен быть подключён. Обновите приложение вручную`,
         previousVersion,
         steps: [],
       } satisfies UpdateResult
@@ -83,11 +83,11 @@ export default defineEventHandler(async (event) => {
     })
   }
   catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
+    const message = err instanceof Error ? err.message : 'Неизвестная ошибка'
     steps.push({ step: 'Pull latest code', status: 'failed', detail: message })
     return {
       success: false,
-      message: 'Failed to pull latest code. Check your network connection and try again.',
+      message: 'Не удалось получить последнюю версию кода. Проверьте подключение к сети и повторите попытку',
       previousVersion,
       steps,
     } satisfies UpdateResult
@@ -109,11 +109,11 @@ export default defineEventHandler(async (event) => {
     })
   }
   catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
+    const message = err instanceof Error ? err.message : 'Неизвестная ошибка'
     steps.push({ step: 'Rebuild & restart', status: 'failed', detail: message })
     return {
       success: false,
-      message: 'Failed to rebuild. Your current version is still running safely. Try running the update manually.',
+      message: 'Не удалось пересобрать приложение. Текущая версия продолжает работать. Обновите вручную',
       previousVersion,
       steps,
     } satisfies UpdateResult
@@ -121,7 +121,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     success: true,
-    message: 'Update started successfully. The application will restart momentarily. Refresh this page in about 30 seconds.',
+    message: 'Обновление запущено. Приложение скоро перезапустится. Обновите страницу примерно через 30 секунд',
     previousVersion,
     steps,
   } satisfies UpdateResult

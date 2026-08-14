@@ -1,17 +1,36 @@
 import { z } from 'zod'
 import { eq, and, ne } from 'drizzle-orm'
 import { pipeline, pipelineStage } from '../../../../database/schema'
-import { validatePipelineStages } from '../../../../utils/pipeline-validation'
+import { validatePipelineStages, ALL_STAGE_TYPES } from '../../../../utils/pipeline-validation'
+import { colorForStageType } from '../../../../utils/pipeline-colors'
+import type { PipelineStageType } from '../../../../utils/pipeline-validation'
 
 const paramsSchema = z.object({
   id: z.string().min(1),
   stageId: z.string().min(1),
 })
 
+/**
+ * PATCH /api/pipelines/[id]/stages/[stageId]
+ *
+ * Для системных этапов (isSystemStage=true) разрешено ТОЛЬКО:
+ *   - isHidden (скрыть/показать)
+ * Спринт 11.3: displayOrder для системных запрещён — базовые этапы зафиксированы (порядок как на hh.ru).
+ * Все остальные поля (name, type, bucket, isTerminal, parentStageId, isArchived)
+ * запрещены — вернётся 403.
+ *
+ * Для пользовательских этапов разрешены все поля.
+ */
 const updateStageSchema = z.object({
   name: z.string().min(1).max(50).optional(),
-  displayOrder: z.number().int().min(0).optional(),
+  description: z.string().max(500).optional().nullable(),
+  type: z.enum(ALL_STAGE_TYPES).optional(),
+  bucket: z.enum(['working', 'rejected']).optional(),
+  isTerminal: z.boolean().optional(),
+  isHidden: z.boolean().optional(),
   isArchived: z.boolean().optional(),
+  displayOrder: z.number().int().min(0).optional(),
+  parentStageId: z.string().uuid().nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -28,14 +47,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!parentPipeline) {
-    throw createError({ statusCode: 404, statusMessage: 'Pipeline not found' })
-  }
-
-  if (parentPipeline.isSystem) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Системный пресет нельзя редактировать. Клонируйте его и редактируйте копию',
-    })
+    throw createError({ statusCode: 404, statusMessage: 'Воронка не найдена' })
   }
 
   // Verify stage exists
@@ -45,36 +57,70 @@ export default defineEventHandler(async (event) => {
       eq(pipelineStage.pipelineId, pipelineId),
       eq(pipelineStage.organizationId, orgId),
     ),
-    columns: {
-      id: true,
-      name: true,
-      type: true,
-      isTerminal: true,
-      isArchived: true,
-      displayOrder: true,
-    },
   })
 
   if (!existingStage) {
-    throw createError({ statusCode: 404, statusMessage: 'Stage not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Этап не найден' })
   }
 
-  // If archiving, validate the remaining active stages still satisfy rules
-  if (body.isArchived === true && !existingStage.isArchived) {
+  // ── Защита системных этапов ────────────────────────────────────────
+  // Системные этапы: разрешено только isHidden.
+  // Спринт 11.3: displayOrder запрещён — базовые этапы зафиксированы.
+  if (existingStage.isSystemStage) {
+    const forbiddenFields: string[] = []
+    if (body.name !== undefined) forbiddenFields.push('name')
+    if (body.type !== undefined) forbiddenFields.push('type')
+    if (body.bucket !== undefined) forbiddenFields.push('bucket')
+    if (body.isTerminal !== undefined) forbiddenFields.push('isTerminal')
+    if (body.parentStageId !== undefined) forbiddenFields.push('parentStageId')
+    if (body.isArchived !== undefined) forbiddenFields.push('isArchived')
+    if (body.description !== undefined) forbiddenFields.push('description')
+    if (body.displayOrder !== undefined) forbiddenFields.push('displayOrder')
+
+    if (forbiddenFields.length > 0) {
+      throw createError({
+        statusCode: 403,
+        statusMessage: `Базовый этап зафиксирован: его нельзя менять или перемещать — только скрыть. Запрещены: ${forbiddenFields.join(', ')}`,
+      })
+    }
+  }
+
+  // ── Валидация bucket подстатуса относительно родителя ────────────
+  if (body.parentStageId !== undefined && body.parentStageId !== null) {
+    const parent = await db.query.pipelineStage.findFirst({
+      where: and(
+        eq(pipelineStage.id, body.parentStageId),
+        eq(pipelineStage.pipelineId, pipelineId),
+        eq(pipelineStage.organizationId, orgId),
+      ),
+      columns: { id: true, parentStageId: true, bucket: true, name: true },
+    })
+    if (!parent) {
+      throw createError({ statusCode: 400, statusMessage: 'Родительский этап не найден' })
+    }
+    if (parent.parentStageId) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: `Родительский этап «${parent.name}» сам является подстатусом. Максимум 1 уровень вложенности`,
+      })
+    }
+    if (parent.id === stageId) {
+      throw createError({ statusCode: 400, statusMessage: 'Этап не может быть подстатусом сам себя' })
+    }
+  }
+
+  // ── Если скрываем этап — валидируем что воронка останется корректной ──
+  if (body.isHidden === true && !existingStage.isHidden) {
     const allStages = await db.query.pipelineStage.findMany({
       where: and(
         eq(pipelineStage.pipelineId, pipelineId),
         eq(pipelineStage.organizationId, orgId),
       ),
-      columns: { id: true, name: true, type: true, isTerminal: true, isArchived: true },
     })
-
-    // Simulate archiving this stage
-    const afterArchive = allStages.map((s) =>
-      s.id === stageId ? { ...s, isArchived: true } : s,
+    const afterHide = allStages.map((s) =>
+      s.id === stageId ? { ...s, isHidden: true } : s,
     )
-
-    validatePipelineStages(afterArchive)
+    validatePipelineStages(afterHide as never)
   }
 
   const result = await db.transaction(async (tx) => {
@@ -90,20 +136,16 @@ export default defineEventHandler(async (event) => {
           ne(pipelineStage.id, stageId),
         ),
         columns: { id: true, displayOrder: true },
-        orderBy: (s, { asc }) => [asc(s.displayOrder)],
       })
 
-      // Shift other stages to keep order monotonic
       for (const s of allOtherStages) {
         if (newOrder > oldOrder) {
-          // Moving down: shift stages between old+1..new DOWN by 1
           if (s.displayOrder > oldOrder && s.displayOrder <= newOrder) {
             await tx.update(pipelineStage)
               .set({ displayOrder: s.displayOrder - 1, updatedAt: new Date() })
               .where(eq(pipelineStage.id, s.id))
           }
         } else {
-          // Moving up: shift stages between new..old-1 UP by 1
           if (s.displayOrder >= newOrder && s.displayOrder < oldOrder) {
             await tx.update(pipelineStage)
               .set({ displayOrder: s.displayOrder + 1, updatedAt: new Date() })
@@ -116,8 +158,17 @@ export default defineEventHandler(async (event) => {
     // Update the target stage
     const updatePayload: Record<string, unknown> = { updatedAt: new Date() }
     if (body.name !== undefined) updatePayload.name = body.name
-    if (body.displayOrder !== undefined) updatePayload.displayOrder = body.displayOrder
+    if (body.description !== undefined) updatePayload.description = body.description
+    if (body.type !== undefined) {
+      updatePayload.type = body.type
+      updatePayload.color = colorForStageType(body.type as PipelineStageType)
+    }
+    if (body.bucket !== undefined) updatePayload.bucket = body.bucket
+    if (body.isTerminal !== undefined) updatePayload.isTerminal = body.isTerminal
+    if (body.isHidden !== undefined) updatePayload.isHidden = body.isHidden
     if (body.isArchived !== undefined) updatePayload.isArchived = body.isArchived
+    if (body.displayOrder !== undefined) updatePayload.displayOrder = body.displayOrder
+    if (body.parentStageId !== undefined) updatePayload.parentStageId = body.parentStageId
 
     const [updated] = await tx.update(pipelineStage)
       .set(updatePayload)
@@ -126,21 +177,10 @@ export default defineEventHandler(async (event) => {
         eq(pipelineStage.pipelineId, pipelineId),
         eq(pipelineStage.organizationId, orgId),
       ))
-      .returning({
-        id: pipelineStage.id,
-        name: pipelineStage.name,
-        description: pipelineStage.description,
-        type: pipelineStage.type,
-        color: pipelineStage.color,
-        displayOrder: pipelineStage.displayOrder,
-        isTerminal: pipelineStage.isTerminal,
-        isArchived: pipelineStage.isArchived,
-        createdAt: pipelineStage.createdAt,
-        updatedAt: pipelineStage.updatedAt,
-      })
+      .returning()
 
     if (!updated) {
-      throw createError({ statusCode: 404, statusMessage: 'Stage not found' })
+      throw createError({ statusCode: 404, statusMessage: 'Этап не найден' })
     }
 
     return updated

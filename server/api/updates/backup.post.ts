@@ -66,15 +66,15 @@ export default defineEventHandler(async (event) => {
 
     return {
       success: true,
-      message: `Database backup created successfully at ${backupPath}`,
+      message: `Резервная копия базы данных создана: ${backupPath}`,
       filename,
     } satisfies BackupResult
   }
   catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
+    const message = err instanceof Error ? err.message : 'Неизвестная ошибка'
     return {
       success: false,
-      message: `Backup failed: ${message}. You can create a manual backup using: docker compose exec db pg_dump -U reqcore reqcore > backup.sql`,
+      message: `Не удалось создать резервную копию: ${message}. Создайте её вручную командой: docker compose exec db pg_dump -U reqcore reqcore > backup.sql`,
     } satisfies BackupResult
   }
 })

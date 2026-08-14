@@ -25,12 +25,12 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Comment not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Комментарий не найден' })
   }
 
   // Only the author can edit their own comment
   if (existing.authorId !== session.user.id) {
-    throw createError({ statusCode: 403, statusMessage: 'You can only edit your own comments' })
+    throw createError({ statusCode: 403, statusMessage: 'Можно изменять только свои комментарии' })
   }
 
   const [updated] = await db

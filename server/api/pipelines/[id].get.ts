@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { eq, and, count, ne, inArray } from 'drizzle-orm'
-import { pipeline, pipelineStage, job, application } from '../../database/schema'
+import { pipeline, job, application } from '../../database/schema'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -29,10 +29,14 @@ export default defineEventHandler(async (event) => {
           name: true,
           description: true,
           type: true,
+          bucket: true,
           color: true,
           displayOrder: true,
           isTerminal: true,
           isArchived: true,
+          isSystemStage: true,
+          isHidden: true,
+          parentStageId: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -42,7 +46,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!found) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Воронка не найдена' })
   }
 
   // jobsCount — jobs using this pipeline
@@ -53,8 +57,7 @@ export default defineEventHandler(async (event) => {
 
   const jobsCount = jobsCountRow?.count ?? 0
 
-  // activeApplicationsCount — applications on jobs using this pipeline
-  // where the OLD status enum is NOT hired/rejected (back-compat)
+  // activeApplicationsCount
   const jobIds = await db
     .select({ id: job.id })
     .from(job)

@@ -21,7 +21,7 @@
  * и возвращает outcome 'error' — основной поток скоринга не должен падать.
  */
 
-import { eq, and, isNotNull } from 'drizzle-orm'
+import { eq, and, isNotNull, inArray } from 'drizzle-orm'
 import {
   application, applicationStageHistory, candidate, job,
   pipelineStage, criterionScore, scoringCriterion,
@@ -97,7 +97,7 @@ export async function applyAutoRejectIfNeeded(
             autoRejectReasonNote: true,
           },
         },
-        currentStage: { columns: { id: true, isTerminal: true, type: true } },
+        currentStage: { columns: { id: true, isTerminal: true, type: true, name: true } },
       },
     })
 
@@ -127,11 +127,14 @@ export async function applyAutoRejectIfNeeded(
     }
 
     // ── Защита 5: рекрутёр уже двигал заявку (movedByUserId IS NOT NULL хотя бы в одной записи)
+    // Начальную запись при создании отклика (fromStageId IS NULL) не считаем:
+    // это размещение на входном этапе, а не осознанный перевод по воронке.
     const recruiterTouch = await db.query.applicationStageHistory.findFirst({
       where: and(
         eq(applicationStageHistory.applicationId, applicationId),
         eq(applicationStageHistory.organizationId, orgId),
         isNotNull(applicationStageHistory.movedByUserId),
+        isNotNull(applicationStageHistory.fromStageId),
       ),
       columns: { id: true },
     })
@@ -205,11 +208,13 @@ export async function applyAutoRejectIfNeeded(
       return { outcome: 'skip_no_reject_stage', meta: { score: app.score, threshold, confidence } }
     }
 
+    // Спринт 16: в новой hh-воронке отказной этап — type='not_fit'
+    // («Не подходит»), 'rejected' — legacy-алиас старых воронок.
     const rejectStage = await db.query.pipelineStage.findFirst({
       where: and(
         eq(pipelineStage.pipelineId, app.job.pipelineId),
         eq(pipelineStage.organizationId, orgId),
-        eq(pipelineStage.type, 'rejected'),
+        inArray(pipelineStage.type, ['not_fit', 'rejected']),
         eq(pipelineStage.isTerminal, true),
         eq(pipelineStage.isArchived, false),
       ),
@@ -247,6 +252,22 @@ export async function applyAutoRejectIfNeeded(
         movedByUserId: null, // system actor
         comment: reasonComment,
       })
+    })
+
+    // Спринт 16: событие смены этапа в ленте изменений (actorId=null → «Система»).
+    // Формат metadata {from, to} — тот же, что у ручной смены этапа.
+    recordActivity({
+      organizationId: orgId,
+      actorId: null,
+      action: 'stage_changed',
+      resourceType: 'application',
+      resourceId: applicationId,
+      metadata: {
+        from: app.currentStage?.name ?? null,
+        to: rejectStage.name,
+        comment: reasonComment,
+        auto: true,
+      },
     })
 
     return {

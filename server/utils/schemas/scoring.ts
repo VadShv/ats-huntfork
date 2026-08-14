@@ -15,7 +15,7 @@ const safeBaseUrl = z.string().url().max(500)
 
 export const createAiConfigSchema = z.object({
   name: z.string().min(1).max(80).trim(),
-  provider: z.enum(['openai', 'anthropic', 'google', 'openai_compatible', 'yandex']),
+  provider: z.enum(['openai', 'anthropic', 'google', 'openai_compatible', 'yandex', 'cloud_ru']),
   model: z.string().min(1).max(200),
   apiKey: z.string().min(1).max(500),
   baseUrl: safeBaseUrl.nullish(),
@@ -29,7 +29,7 @@ export const createAiConfigSchema = z.object({
 
 export const updateAiConfigSchema = z.object({
   name: z.string().min(1).max(80).trim().optional(),
-  provider: z.enum(['openai', 'anthropic', 'google', 'openai_compatible', 'yandex']).optional(),
+  provider: z.enum(['openai', 'anthropic', 'google', 'openai_compatible', 'yandex', 'cloud_ru']).optional(),
   model: z.string().min(1).max(200).optional(),
   apiKey: z.string().min(1).max(500).optional(),
   baseUrl: safeBaseUrl.nullish(),

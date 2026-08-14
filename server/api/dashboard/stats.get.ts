@@ -1,5 +1,5 @@
-import { eq, and, desc, sql, count } from 'drizzle-orm'
-import { application, candidate, job } from '../../database/schema'
+import { eq, and, desc, sql, count, inArray, asc } from 'drizzle-orm'
+import { application, candidate, job, pipelineStage } from '../../database/schema'
 
 /**
  * GET /api/dashboard/stats
@@ -86,6 +86,7 @@ export default defineEventHandler(async (event) => {
         title: job.title,
         slug: job.slug,
         status: job.status,
+        pipelineId: job.pipelineId,
         createdAt: job.createdAt,
         applicationCount: count(application.id).as('application_count'),
         newCount: sql<number>`count(case when ${application.status} = 'new' then 1 end)`.as('new_count'),
@@ -128,6 +129,92 @@ export default defineEventHandler(async (event) => {
     jobsByStatus[row.status] = row.count
   }
 
+  // ─── Sprint 10: динамические этапы для topJobs ───
+  const topJobIds = topJobs.map(j => j.id)
+  const topPipelineIds = [...new Set(topJobs.map(j => j.pipelineId).filter((v): v is string => !!v))]
+
+  type StageRow = {
+    id: string
+    pipelineId: string
+    name: string
+    color: string
+    type: string
+    bucket: 'working' | 'rejected'
+    displayOrder: number
+    isHidden: boolean
+    parentStageId: string | null
+  }
+  const stagesByPipeline: Record<string, StageRow[]> = {}
+  const stageCountMap: Record<string, Record<string, number>> = {}
+
+  if (topPipelineIds.length > 0) {
+    const stageRows = await db
+      .select({
+        id: pipelineStage.id,
+        pipelineId: pipelineStage.pipelineId,
+        name: pipelineStage.name,
+        color: pipelineStage.color,
+        type: pipelineStage.type,
+        bucket: pipelineStage.bucket,
+        displayOrder: pipelineStage.displayOrder,
+        isHidden: pipelineStage.isHidden,
+        parentStageId: pipelineStage.parentStageId,
+      })
+      .from(pipelineStage)
+      .where(and(
+        eq(pipelineStage.organizationId, orgId),
+        inArray(pipelineStage.pipelineId, topPipelineIds),
+        eq(pipelineStage.isArchived, false),
+      ))
+      .orderBy(asc(pipelineStage.displayOrder))
+    for (const row of stageRows) {
+      (stagesByPipeline[row.pipelineId] ??= []).push(row as StageRow)
+    }
+
+    const stageCountRows = await db
+      .select({
+        jobId: application.jobId,
+        stageId: application.currentStageId,
+        count: count().as('count'),
+      })
+      .from(application)
+      .where(and(
+        eq(application.organizationId, orgId),
+        inArray(application.jobId, topJobIds),
+      ))
+      .groupBy(application.jobId, application.currentStageId)
+    for (const row of stageCountRows) {
+      if (!row.stageId) continue
+      (stageCountMap[row.jobId] ??= {})[row.stageId] = row.count
+    }
+  }
+
+  function buildJobStages(pipelineId: string | null, jobId: string) {
+    if (!pipelineId) return []
+    const all = stagesByPipeline[pipelineId] ?? []
+    if (all.length === 0) return []
+    const counts = stageCountMap[jobId] ?? {}
+    const roots = all.filter(s => !s.parentStageId && !s.isHidden)
+    return roots.map((root) => {
+      const childIds = all.filter(s => s.parentStageId === root.id).map(s => s.id)
+      const total = (counts[root.id] ?? 0) + childIds.reduce((sum, cid) => sum + (counts[cid] ?? 0), 0)
+      return {
+        id: root.id,
+        name: root.name,
+        color: root.color,
+        type: root.type,
+        bucket: root.bucket,
+        displayOrder: root.displayOrder,
+        count: total,
+      }
+    })
+  }
+
+  const topJobsEnriched = topJobs.map(j => ({
+    ...j,
+    stages: buildJobStages(j.pipelineId, j.id),
+  }))
+
   return {
     counts: {
       openJobs: openJobsCount,
@@ -138,6 +225,6 @@ export default defineEventHandler(async (event) => {
     pipeline,
     jobsByStatus,
     recentApplications,
-    topJobs,
+    topJobs: topJobsEnriched,
   }
 })

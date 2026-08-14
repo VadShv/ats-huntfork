@@ -248,7 +248,7 @@ export async function entityIdsMatchingFilters(opts: {
       // of silently collapsing the match set to empty.
       throw createError({
         statusCode: 400,
-        statusMessage: "Filter operator 'isEmpty' is not supported in list queries",
+        statusMessage: "Оператор фильтра isEmpty не поддерживается в запросах списка",
       })
     }
 

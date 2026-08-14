@@ -42,6 +42,8 @@ export default defineEventHandler(async (event) => {
       lastRefreshedAt: acc.lastRefreshedAt,
       accessTokenExpiresAt: acc.accessTokenExpiresAt,
       lastError: acc.lastError,
+      webhookEnabled: Boolean(acc.webhookSubscriptionId && acc.webhookEnabledAt),
+      webhookLastEventAt: acc.webhookLastEventAt,
     },
   }
 })

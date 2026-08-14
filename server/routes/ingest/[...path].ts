@@ -99,8 +99,8 @@ export default defineEventHandler(async (event) => {
   } catch (err) {
     throw createError({
       statusCode: 502,
-      statusMessage: 'Bad Gateway',
-      message: `PostHog proxy upstream error: ${(err as Error).message}`,
+      statusMessage: 'Ошибка шлюза',
+      message: `Ошибка прокси PostHog: ${(err as Error).message}`,
     })
   }
 

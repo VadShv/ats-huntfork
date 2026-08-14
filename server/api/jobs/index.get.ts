@@ -1,5 +1,5 @@
-import { eq, and, desc, count, inArray } from 'drizzle-orm'
-import { job, application, hhVacancyLink } from '../../database/schema'
+import { eq, and, desc, count, inArray, asc } from 'drizzle-orm'
+import { job, application, hhVacancyLink, pipelineStage } from '../../database/schema'
 import { jobQuerySchema } from '../../utils/schemas/job'
 
 interface PipelineCounts {
@@ -74,6 +74,90 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // ─── Sprint 10: динамические этапы воронки + счётчики по current_stage_id ───
+  const pipelineIds = [...new Set(data.map(j => j.pipelineId).filter((v): v is string => !!v))]
+
+  // Этапы всех воронок списка (включая подстатусы — для roll-up счётчиков)
+  type StageRow = {
+    id: string
+    pipelineId: string
+    name: string
+    color: string
+    type: string
+    bucket: 'working' | 'rejected'
+    displayOrder: number
+    isHidden: boolean
+    parentStageId: string | null
+  }
+  let stagesByPipeline: Record<string, StageRow[]> = {}
+  if (pipelineIds.length > 0) {
+    const stageRows = await db
+      .select({
+        id: pipelineStage.id,
+        pipelineId: pipelineStage.pipelineId,
+        name: pipelineStage.name,
+        color: pipelineStage.color,
+        type: pipelineStage.type,
+        bucket: pipelineStage.bucket,
+        displayOrder: pipelineStage.displayOrder,
+        isHidden: pipelineStage.isHidden,
+        parentStageId: pipelineStage.parentStageId,
+      })
+      .from(pipelineStage)
+      .where(and(
+        eq(pipelineStage.organizationId, orgId),
+        inArray(pipelineStage.pipelineId, pipelineIds),
+        eq(pipelineStage.isArchived, false),
+      ))
+      .orderBy(asc(pipelineStage.displayOrder))
+    for (const row of stageRows) {
+      (stagesByPipeline[row.pipelineId] ??= []).push(row as StageRow)
+    }
+  }
+
+  // Счётчики заявок по этапам
+  let stageCountMap: Record<string, Record<string, number>> = {}
+  if (jobIds.length > 0) {
+    const stageCountRows = await db
+      .select({
+        jobId: application.jobId,
+        stageId: application.currentStageId,
+        count: count().as('count'),
+      })
+      .from(application)
+      .where(and(
+        eq(application.organizationId, orgId),
+        inArray(application.jobId, jobIds),
+      ))
+      .groupBy(application.jobId, application.currentStageId)
+    for (const row of stageCountRows) {
+      if (!row.stageId) continue
+      (stageCountMap[row.jobId] ??= {})[row.stageId] = row.count
+    }
+  }
+
+  /** Root-этапы воронки с roll-up счётчиков подстатусов */
+  function buildJobStages(pipelineId: string | null, jobId: string) {
+    if (!pipelineId) return []
+    const all = stagesByPipeline[pipelineId] ?? []
+    if (all.length === 0) return []
+    const counts = stageCountMap[jobId] ?? {}
+    const roots = all.filter(s => !s.parentStageId && !s.isHidden)
+    return roots.map((root) => {
+      const childIds = all.filter(s => s.parentStageId === root.id).map(s => s.id)
+      const total = (counts[root.id] ?? 0) + childIds.reduce((sum, cid) => sum + (counts[cid] ?? 0), 0)
+      return {
+        id: root.id,
+        name: root.name,
+        color: root.color,
+        type: root.type,
+        bucket: root.bucket,
+        displayOrder: root.displayOrder,
+        count: total,
+      }
+    })
+  }
+
   // hh.ru linked-jobs (для чипа «hh» в списке)
   let hhLinkedMap: Record<string, { hhVacancyId: string, importedCount: number }> = {}
   if (jobIds.length > 0) {
@@ -95,6 +179,7 @@ export default defineEventHandler(async (event) => {
     ...j,
     pipelineName: j.pipeline?.name ?? null,
     pipeline: pipelineMap[j.id] ?? { new: 0, screening: 0, interview: 0, offer: 0, hired: 0, rejected: 0 },
+    stages: buildJobStages(j.pipelineId, j.id), // Sprint 10: динамические этапы с ролл-ап счётчиками
     hhLinked: !!hhLinkedMap[j.id],
     hhVacancyId: hhLinkedMap[j.id]?.hhVacancyId ?? null,
     hhImportedCount: hhLinkedMap[j.id]?.importedCount ?? 0,

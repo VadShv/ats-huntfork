@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
     .returning({ id: ssoProvider.id })
 
   if (!deleted) {
-    throw createError({ statusCode: 404, statusMessage: 'SSO provider not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Поставщик SSO не найден' })
   }
 
   return { success: true }

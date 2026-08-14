@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const memberId = getRouterParam(event, 'id')
 
   if (!memberId) {
-    throw createError({ statusCode: 400, statusMessage: 'Member ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Не указан ID участника' })
   }
 
   // Verify the member belongs to the current org and is pending
@@ -28,11 +28,11 @@ export default defineEventHandler(async (event) => {
     .limit(1)
 
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Member not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Участник не найден' })
   }
 
   if (existing.status !== 'pending') {
-    throw createError({ statusCode: 409, statusMessage: 'Member is not in pending status' })
+    throw createError({ statusCode: 409, statusMessage: 'Участник не ожидает подтверждения' })
   }
 
   await db

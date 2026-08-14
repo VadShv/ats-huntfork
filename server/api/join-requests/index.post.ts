@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   const session = await auth.api.getSession({ headers: event.headers })
 
   if (!session) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Требуется вход' })
   }
 
   const body = await readValidatedBody(event, createJoinRequestSchema.parse)
@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
     .limit(1)
 
   if (!org) {
-    throw createError({ statusCode: 404, statusMessage: 'Organization not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Организация не найдена' })
   }
 
   // ── Check if already a member ──
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
   if (existingMember) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'You are already a member of this organization',
+      statusMessage: 'Вы уже состоите в этой организации',
     })
   }
 
@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
   if (existingRequest) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'You already have a pending request to join this organization',
+      statusMessage: 'У вас уже есть ожидающий запрос на вступление в эту организацию',
     })
   }
 
@@ -90,7 +90,7 @@ export default defineEventHandler(async (event) => {
   if (recentRejection) {
     throw createError({
       statusCode: 429,
-      statusMessage: 'Your previous request was recently declined. Please wait before reapplying.',
+      statusMessage: 'Предыдущий запрос был недавно отклонён. Подождите перед повторной подачей',
     })
   }
 
@@ -109,7 +109,7 @@ export default defineEventHandler(async (event) => {
     })
 
   if (!created) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create join request' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось создать запрос на вступление' })
   }
 
   setResponseStatus(event, 201)

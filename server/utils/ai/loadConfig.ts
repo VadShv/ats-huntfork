@@ -42,6 +42,6 @@ export async function loadAiConfig(
 
   throw createError({
     statusCode: 422,
-    statusMessage: `No AI provider configured. Add one in Settings → AI to enable ${opts.purpose === 'chatbot' ? 'the assistant' : 'candidate analysis'}.`,
+    statusMessage: `Поставщик ИИ не настроен. Добавьте его в Настройках → ИИ, чтобы включить ${opts.purpose === 'chatbot' ? 'ассистента' : 'анализ кандидата'}`,
   })
 }

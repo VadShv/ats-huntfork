@@ -14,12 +14,12 @@ export default defineEventHandler(async (event) => {
   const token = typeof query.token === 'string' ? query.token : ''
 
   if (!token) {
-    throw createError({ statusCode: 400, statusMessage: 'Missing token' })
+    throw createError({ statusCode: 400, statusMessage: 'Не указан токен' })
   }
 
   const payload = verifyInterviewToken(token, env.BETTER_AUTH_SECRET)
   if (!payload) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid or expired token' })
+    throw createError({ statusCode: 400, statusMessage: 'Некорректный или истёкший токен' })
   }
 
   const interviewRecord = await db.query.interview.findFirst({
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!interviewRecord) {
-    throw createError({ statusCode: 404, statusMessage: 'Interview not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Интервью не найдено' })
   }
 
   // Fetch related data for display

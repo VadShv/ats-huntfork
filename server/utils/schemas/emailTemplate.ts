@@ -51,7 +51,7 @@ export const sendInterviewInvitationSchema = z.object({
   customBody: z.string().min(1).max(MAX_BODY_LENGTH).optional(),
 }).refine(
   data => data.templateId || (data.customSubject && data.customBody),
-  { message: 'Either a template ID or both custom subject and body are required' },
+  { message: 'Требуется ID шаблона или собственные тема и текст письма' },
 )
 
 // ─────────────────────────────────────────────

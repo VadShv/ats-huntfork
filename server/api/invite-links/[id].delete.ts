@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     .returning({ id: inviteLink.id })
 
   if (!revoked) {
-    throw createError({ statusCode: 404, statusMessage: 'Invite link not found or already revoked' })
+    throw createError({ statusCode: 404, statusMessage: 'Ссылка-приглашение не найдена или уже отозвана' })
   }
 
   recordActivity({

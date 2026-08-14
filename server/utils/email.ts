@@ -138,7 +138,7 @@ export async function sendVerificationEmail(data: {
   try {
     await sendEmail({
       to: data.user.email,
-      subject: 'Verify your email address — Reqcore',
+      subject: 'Подтвердите адрес email — Huntfork',
       html: buildVerificationHtml({ url: data.url }),
       text: buildVerificationText({ url: data.url }),
       resendTags: [{ name: 'category', value: 'verification' }],
@@ -164,7 +164,7 @@ export async function sendPasswordResetEmail(data: {
   try {
     await sendEmail({
       to: data.user.email,
-      subject: 'Reset your password — Reqcore',
+      subject: 'Сброс пароля — Huntfork',
       html: buildPasswordResetHtml({ url: data.url }),
       text: buildPasswordResetText({ url: data.url }),
       resendTags: [{ name: 'category', value: 'password-reset' }],
@@ -190,7 +190,7 @@ export async function sendOrgInvitationEmail(data: {
 }, inviteLink: string): Promise<void> {
   await sendEmail({
     to: data.email,
-    subject: `You're invited to join ${data.organization.name} on Reqcore`,
+    subject: `Приглашение в ${data.organization.name} — Huntfork`,
     html: buildInvitationHtml({
       inviteeName: data.email,
       inviterName: data.inviter.user.name,
@@ -234,11 +234,11 @@ function buildInvitationHtml(params: {
   const { inviterName, organizationName, role, inviteLink } = params
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>You're invited to ${escapeHtml(organizationName)}</title>
+  <title>Приглашение в ${escapeHtml(organizationName)}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 20px;">
@@ -248,19 +248,19 @@ function buildInvitationHtml(params: {
           <!-- Header -->
           <tr>
             <td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid #f4f4f5;">
-              <h1 style="margin:0;font-size:20px;font-weight:600;color:#09090b;">Reqcore</h1>
+              <h1 style="margin:0;font-size:20px;font-weight:600;color:#09090b;">Huntfork</h1>
             </td>
           </tr>
           <!-- Body -->
           <tr>
             <td style="padding:32px;">
-              <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;color:#09090b;">You've been invited</h2>
+              <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;color:#09090b;">Вас пригласили</h2>
               <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#3f3f46;">
-                <strong>${escapeHtml(inviterName)}</strong> has invited you to join
-                <strong>${escapeHtml(organizationName)}</strong> as a <strong>${escapeHtml(role)}</strong>.
+                <strong>${escapeHtml(inviterName)}</strong> приглашает вас присоединиться к
+                <strong>${escapeHtml(organizationName)}</strong> в роли <strong>${escapeHtml(role)}</strong>.
               </p>
               <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">
-                Click the button below to accept the invitation. You'll need to sign in or create an account first.
+                Нажмите кнопку ниже, чтобы принять приглашение. Сначала войдите в аккаунт или создайте его.
               </p>
               <!-- CTA Button -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -268,13 +268,13 @@ function buildInvitationHtml(params: {
                   <td align="center">
                     <a href="${escapeHtml(inviteLink)}" target="_blank" rel="noopener noreferrer"
                        style="display:inline-block;padding:12px 32px;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;border-radius:8px;line-height:1;">
-                      Accept Invitation
+                      Принять приглашение
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#71717a;">
-                This invitation expires in 48 hours. If you didn't expect this email, you can safely ignore it.
+                Срок действия приглашения — 48 часов. Если вы не ожидали это письмо, можете просто проигнорировать его.
               </p>
             </td>
           </tr>
@@ -282,7 +282,7 @@ function buildInvitationHtml(params: {
           <tr>
             <td style="padding:16px 32px;text-align:center;border-top:1px solid #f4f4f5;background-color:#fafafa;">
               <p style="margin:0;font-size:12px;color:#a1a1aa;">
-                Sent by Reqcore &mdash; Open-source applicant tracking
+                Отправлено Huntfork &mdash; системой управления подбором персонала с открытым исходным кодом
               </p>
             </td>
           </tr>
@@ -301,17 +301,17 @@ function buildInvitationText(params: {
   inviteLink: string
 }): string {
   return [
-    `You've been invited to join ${params.organizationName}`,
+    `Вас пригласили в ${params.organizationName}`,
     '',
-    `${params.inviterName} has invited you to join ${params.organizationName} as a ${params.role}.`,
+    `${params.inviterName} приглашает вас присоединиться к ${params.organizationName} в роли ${params.role}.`,
     '',
-    'Accept the invitation by visiting the link below:',
+    'Чтобы принять приглашение, перейдите по ссылке:',
     params.inviteLink,
     '',
-    'This invitation expires in 48 hours.',
-    'If you didn\'t expect this email, you can safely ignore it.',
+    'Срок действия приглашения — 48 часов.',
+    'Если вы не ожидали это письмо, можете просто проигнорировать его.',
     '',
-    '— Reqcore',
+    '— Huntfork',
   ].join('\n')
 }
 
@@ -333,11 +333,11 @@ function escapeHtml(str: string): string {
 
 function buildVerificationHtml(params: { url: string }): string {
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Verify your email</title>
+  <title>Подтвердите адрес Email</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 20px;">
@@ -346,33 +346,33 @@ function buildVerificationHtml(params: { url: string }): string {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
           <tr>
             <td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid #f4f4f5;">
-              <h1 style="margin:0;font-size:20px;font-weight:600;color:#09090b;">Reqcore</h1>
+              <h1 style="margin:0;font-size:20px;font-weight:600;color:#09090b;">Huntfork</h1>
             </td>
           </tr>
           <tr>
             <td style="padding:32px;">
-              <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;color:#09090b;">Verify your email</h2>
+              <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;color:#09090b;">Подтвердите адрес Email</h2>
               <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">
-                Click the button below to verify your email address and activate your account.
+                Нажмите кнопку ниже, чтобы подтвердить адрес Email и активировать аккаунт.
               </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
                     <a href="${escapeHtml(params.url)}" target="_blank" rel="noopener noreferrer"
                        style="display:inline-block;padding:12px 32px;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;border-radius:8px;line-height:1;">
-                      Verify Email
+                      Подтвердить Email
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#71717a;">
-                If you didn't create an account, you can safely ignore this email.
+                Если вы не создавали аккаунт, можете просто проигнорировать это письмо.
               </p>
             </td>
           </tr>
           <tr>
             <td style="padding:16px 32px;text-align:center;border-top:1px solid #f4f4f5;background-color:#fafafa;">
-              <p style="margin:0;font-size:12px;color:#a1a1aa;">Sent by Reqcore &mdash; Open-source applicant tracking</p>
+              <p style="margin:0;font-size:12px;color:#a1a1aa;">Отправлено Huntfork &mdash; системой управления подбором персонала с открытым исходным кодом</p>
             </td>
           </tr>
         </table>
@@ -385,24 +385,24 @@ function buildVerificationHtml(params: { url: string }): string {
 
 function buildVerificationText(params: { url: string }): string {
   return [
-    'Verify your email address',
+    'Подтвердите адрес Email',
     '',
-    'Click the link below to verify your email and activate your Reqcore account:',
+    'Перейдите по ссылке ниже, чтобы подтвердить адрес Email и активировать аккаунт Huntfork:',
     params.url,
     '',
-    'If you didn\'t create an account, you can safely ignore this email.',
+    'Если вы не создавали аккаунт, можете просто проигнорировать это письмо.',
     '',
-    '— Reqcore',
+    '— Huntfork',
   ].join('\n')
 }
 
 function buildPasswordResetHtml(params: { url: string }): string {
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reset your password</title>
+  <title>Сброс пароля</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 20px;">
@@ -411,33 +411,33 @@ function buildPasswordResetHtml(params: { url: string }): string {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
           <tr>
             <td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid #f4f4f5;">
-              <h1 style="margin:0;font-size:20px;font-weight:600;color:#09090b;">Reqcore</h1>
+              <h1 style="margin:0;font-size:20px;font-weight:600;color:#09090b;">Huntfork</h1>
             </td>
           </tr>
           <tr>
             <td style="padding:32px;">
-              <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;color:#09090b;">Reset your password</h2>
+              <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;color:#09090b;">Сброс пароля</h2>
               <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">
-                Click the button below to reset your password. This link will expire shortly.
+                Нажмите кнопку ниже, чтобы сбросить пароль. Срок действия ссылки ограничен.
               </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
                     <a href="${escapeHtml(params.url)}" target="_blank" rel="noopener noreferrer"
                        style="display:inline-block;padding:12px 32px;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;border-radius:8px;line-height:1;">
-                      Reset Password
+                      Сбросить пароль
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#71717a;">
-                If you didn't request a password reset, you can safely ignore this email.
+                Если вы не запрашивали сброс пароля, можете просто проигнорировать это письмо.
               </p>
             </td>
           </tr>
           <tr>
             <td style="padding:16px 32px;text-align:center;border-top:1px solid #f4f4f5;background-color:#fafafa;">
-              <p style="margin:0;font-size:12px;color:#a1a1aa;">Sent by Reqcore &mdash; Open-source applicant tracking</p>
+              <p style="margin:0;font-size:12px;color:#a1a1aa;">Отправлено Huntfork &mdash; системой управления подбором персонала с открытым исходным кодом</p>
             </td>
           </tr>
         </table>
@@ -450,14 +450,14 @@ function buildPasswordResetHtml(params: { url: string }): string {
 
 function buildPasswordResetText(params: { url: string }): string {
   return [
-    'Reset your password',
+    'Сброс пароля',
     '',
-    'Click the link below to reset your Reqcore password:',
+    'Перейдите по ссылке ниже, чтобы сбросить пароль Huntfork:',
     params.url,
     '',
-    'If you didn\'t request this, you can safely ignore this email.',
+    'Если вы не запрашивали это действие, можете просто проигнорировать это письмо.',
     '',
-    '— Reqcore',
+    '— Huntfork',
   ].join('\n')
 }
 
@@ -505,8 +505,8 @@ export function renderTemplate(template: string, data: InterviewEmailData): stri
     interviewTime: data.interviewTime,
     interviewDuration: String(data.interviewDuration),
     interviewType: data.interviewType,
-    interviewLocation: data.interviewLocation ?? 'To be confirmed',
-    interviewers: data.interviewers?.join(', ') ?? 'To be confirmed',
+    interviewLocation: data.interviewLocation ?? 'Будет уточнено',
+    interviewers: data.interviewers?.join(', ') ?? 'Будет уточнено',
     organizationName: data.organizationName,
   }
 
@@ -562,7 +562,7 @@ function buildInterviewInvitationHtml(subject: string, bodyText: string, data: I
             <td style="padding:0 32px 32px;">
               <div style="border-top:1px solid #e4e4e7;padding-top:24px;">
                 <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#09090b;text-align:center;">
-                  Can you make it?
+                  Сможете участвовать?
                 </p>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
@@ -572,19 +572,19 @@ function buildInterviewInvitationHtml(subject: string, bodyText: string, data: I
                           <td style="padding:0 4px;">
                             <a href="${escapeHtml(data.responseUrls.accepted)}" target="_blank" rel="noopener noreferrer"
                                style="display:inline-block;padding:10px 20px;background-color:#16a34a;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;border-radius:6px;line-height:1;">
-                              &#10003; Accept
+                              &#10003; Принять
                             </a>
                           </td>
                           <td style="padding:0 4px;">
                             <a href="${escapeHtml(data.responseUrls.tentative)}" target="_blank" rel="noopener noreferrer"
                                style="display:inline-block;padding:10px 20px;background-color:#ca8a04;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;border-radius:6px;line-height:1;">
-                              &#63; Maybe
+                              &#63; Возможно
                             </a>
                           </td>
                           <td style="padding:0 4px;">
                             <a href="${escapeHtml(data.responseUrls.declined)}" target="_blank" rel="noopener noreferrer"
                                style="display:inline-block;padding:10px 20px;background-color:#dc2626;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;border-radius:6px;line-height:1;">
-                              &#10005; Decline
+                              &#10005; Отклонить
                             </a>
                           </td>
                         </tr>
@@ -598,7 +598,7 @@ function buildInterviewInvitationHtml(subject: string, bodyText: string, data: I
     : ''
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -627,7 +627,7 @@ function buildInterviewInvitationHtml(subject: string, bodyText: string, data: I
           <tr>
             <td style="padding:16px 32px;text-align:center;border-top:1px solid #f4f4f5;background-color:#fafafa;">
               <p style="margin:0;font-size:12px;color:#a1a1aa;">
-                Sent by ${escapeHtml(data.organizationName)} via Reqcore
+                Отправлено ${escapeHtml(data.organizationName)} через Huntfork
               </p>
             </td>
           </tr>
@@ -652,11 +652,11 @@ function buildInterviewInvitationText(
     renderedBody,
     '',
     '─────────────────────────────',
-    'Respond to this invitation:',
+    'Ответьте на приглашение:',
     '',
-    `✓ Accept: ${responseUrls.accepted}`,
-    `? Maybe:  ${responseUrls.tentative}`,
-    `✗ Decline: ${responseUrls.declined}`,
+    `✓ Принять: ${responseUrls.accepted}`,
+    `? Возможно:  ${responseUrls.tentative}`,
+    `✗ Отклонить: ${responseUrls.declined}`,
     '',
     '─────────────────────────────',
   ].join('\n')

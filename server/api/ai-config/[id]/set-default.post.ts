@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     where: and(eq(aiConfig.id, id), eq(aiConfig.organizationId, orgId)),
     columns: { id: true },
   })
-  if (!existing) throw createError({ statusCode: 404, statusMessage: 'AI configuration not found.' })
+  if (!existing) throw createError({ statusCode: 404, statusMessage: 'Конфигурация ИИ не найдена' })
 
   await db.transaction(async (tx) => {
     if (body.purposes.includes('chatbot')) {

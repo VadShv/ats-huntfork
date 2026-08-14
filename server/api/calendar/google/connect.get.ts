@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   if (!isGoogleCalendarConfigured()) {
     throw createError({
       statusCode: 503,
-      statusMessage: 'Google Calendar integration is not configured',
+      statusMessage: 'Интеграция с Google Calendar не настроена',
     })
   }
 

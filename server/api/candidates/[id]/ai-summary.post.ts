@@ -10,7 +10,7 @@ import { createRateLimiter } from '../../../utils/rateLimit'
 const limiter = createRateLimiter({
   windowMs: 60_000,
   maxRequests: 30,
-  message: 'Too many AI summary requests. Please wait a moment.',
+  message: 'Слишком много запросов на создание ИИ-сводки. Подождите немного',
 })
 
 const summarySchema = z.object({
@@ -36,11 +36,11 @@ export default defineEventHandler(async (event) => {
     columns: { id: true, firstName: true, lastName: true, hhResumeRaw: true },
   })
 
-  if (!row) throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
+  if (!row) throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   if (!row.hhResumeRaw) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'No resume snapshot for this candidate — cannot generate AI summary.',
+      statusMessage: 'Нет снимка резюме кандидата — невозможно создать ИИ-сводку',
     })
   }
 

@@ -74,7 +74,7 @@ export async function prefetchOidcEndpointOrigins(issuerUrl: string): Promise<vo
   if (isBlockedHost(issuerUrl)) {
     throw createError({
       statusCode: 422,
-      statusMessage: "Issuer URL must not target internal or private network addresses.",
+      statusMessage: "URL издателя не должен указывать на внутренние или частные сетевые адреса",
     });
   }
 

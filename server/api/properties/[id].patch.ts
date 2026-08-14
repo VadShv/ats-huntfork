@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     .returning()
 
   if (!updated) {
-    throw createError({ statusCode: 404, statusMessage: 'Property not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Свойство не найдено' })
   }
 
   recordActivity({

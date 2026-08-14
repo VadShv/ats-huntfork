@@ -31,11 +31,11 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!interviewRecord) {
-    throw createError({ statusCode: 404, statusMessage: 'Interview not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Интервью не найдено' })
   }
 
   if (interviewRecord.status !== 'scheduled') {
-    throw createError({ statusCode: 400, statusMessage: `Cannot send invitation for a ${interviewRecord.status} interview` })
+    throw createError({ statusCode: 400, statusMessage: `Нельзя отправить приглашение для интервью со статусом ${interviewRecord.status}` })
   }
 
   // Rate-limit: enforce a 2-minute cooldown between invitation sends
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
     const cooldownMs = 2 * 60 * 1000
     const elapsed = Date.now() - new Date(interviewRecord.invitationSentAt).getTime()
     if (elapsed < cooldownMs) {
-      throw createError({ statusCode: 429, statusMessage: 'Invitation was already sent recently. Please wait before resending.' })
+      throw createError({ statusCode: 429, statusMessage: 'Приглашение уже было недавно отправлено. Подождите перед повторной отправкой' })
     }
   }
 
@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!app || !app.candidate) {
-    throw createError({ statusCode: 404, statusMessage: 'Application or candidate not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Отклик или кандидат не найден' })
   }
 
   // Fetch organization name
@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!org) {
-    throw createError({ statusCode: 404, statusMessage: 'Organization not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Организация не найдена' })
   }
 
   // Resolve template subject and body
@@ -90,7 +90,7 @@ export default defineEventHandler(async (event) => {
       })
 
       if (!customTemplate) {
-        throw createError({ statusCode: 404, statusMessage: 'Email template not found' })
+        throw createError({ statusCode: 404, statusMessage: 'Шаблон письма не найден' })
       }
 
       emailSubject = customTemplate.subject
@@ -100,7 +100,7 @@ export default defineEventHandler(async (event) => {
     emailSubject = body.customSubject
     emailBody = body.customBody
   } else {
-    throw createError({ statusCode: 400, statusMessage: 'Either a template or custom subject/body is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Требуется шаблон или собственные тема и текст письма' })
   }
 
   // Build template data

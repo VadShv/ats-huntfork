@@ -24,26 +24,26 @@ export default defineEventHandler(async (event) => {
       })
       throw createError({
         statusCode: 500,
-        statusMessage: 'Auth configuration error',
+        statusMessage: 'Ошибка конфигурации входа',
         data: {
           code: 'AUTH_URL_MISMATCH',
-          message: `BETTER_AUTH_URL is set to "${configuredOrigin}" but this request came from "${requestOrigin}". `
-            + 'Update the BETTER_AUTH_URL environment variable to match your deployment domain, then redeploy.',
+          message: `BETTER_AUTH_URL указывает на «${configuredOrigin}», но запрос пришёл с «${requestOrigin}». `
+            + 'Обновите переменную окружения BETTER_AUTH_URL в соответствии с доменом развёртывания и выполните повторное развёртывание.',
         },
       })
     }
 
     const exposeDetails = isRailwayPreviewEnvironment(env.RAILWAY_ENVIRONMENT_NAME) || import.meta.dev
-    const details = error instanceof Error ? error.message : 'Unknown error'
+    const details = error instanceof Error ? error.message : 'Неизвестная ошибка'
 
     throw createError({
       statusCode: 500,
-      statusMessage: 'Server Error',
+      statusMessage: 'Ошибка сервера',
       data: {
         code: 'AUTH_HANDLER_ERROR',
         message: exposeDetails
           ? details
-          : 'Authentication failed. If you are self-hosting, verify that the BETTER_AUTH_URL environment variable matches your deployment domain (e.g. "https://your-app.up.railway.app") and redeploy.',
+          : 'Не удалось выполнить вход. При самостоятельном развёртывании проверьте, что переменная окружения BETTER_AUTH_URL соответствует домену развёртывания (например, «https://your-app.up.railway.app»), затем выполните повторное развёртывание.',
       },
     })
   }

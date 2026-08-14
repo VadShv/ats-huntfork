@@ -7,11 +7,11 @@
  * Ответ:
  *   { linked: true, link: { id, hhVacancyId, hhVacancyUrl, hhVacancyTitle,
  *                            lastSyncAt, lastSyncStatus, lastSyncError,
- *                            importedCount, autoSyncEnabled } }
+ *                            importedCount, autoSyncEnabled, pushSyncEnabled } }
  *   либо { linked: false }
  */
-import { and, eq } from 'drizzle-orm'
-import { hhVacancyLink, job } from '../../../database/schema'
+import { and, desc, eq } from 'drizzle-orm'
+import { application, hhActionLog, hhVacancyLink, job } from '../../../database/schema'
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -43,6 +43,7 @@ export default defineEventHandler(async (event) => {
       lastSyncError: hhVacancyLink.lastSyncError,
       importedCount: hhVacancyLink.importedCount,
       autoSyncEnabled: hhVacancyLink.autoSyncEnabled,
+      pushSyncEnabled: hhVacancyLink.pushSyncEnabled,
     })
     .from(hhVacancyLink)
     .where(and(
@@ -54,5 +55,28 @@ export default defineEventHandler(async (event) => {
   if (rows.length === 0) {
     return { linked: false as const }
   }
-  return { linked: true as const, link: rows[0] }
+
+  // Спринт 13.5: диагностика последнего пуша этапа на hh.ru по этой вакансии.
+  // Берём последнюю запись hh_action_log типа stage_change по откликам вакансии.
+  const lastPushRows = await db
+    .select({
+      createdAt: hhActionLog.createdAt,
+      targetCollection: hhActionLog.targetCollection,
+      responseStatus: hhActionLog.responseStatus,
+      error: hhActionLog.error,
+    })
+    .from(hhActionLog)
+    .innerJoin(application, eq(hhActionLog.applicationId, application.id))
+    .where(and(
+      eq(application.jobId, jobId),
+      eq(hhActionLog.organizationId, orgId),
+      eq(hhActionLog.actionType, 'stage_change'),
+    ))
+    .orderBy(desc(hhActionLog.createdAt))
+    .limit(1)
+
+  return {
+    linked: true as const,
+    link: { ...rows[0], lastPush: lastPushRows[0] ?? null },
+  }
 })

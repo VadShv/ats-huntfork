@@ -36,7 +36,7 @@ export default defineEventHandler(async (event): Promise<{ folder: ChatbotFolder
     .returning()
 
   if (!updated) {
-    throw createError({ statusCode: 404, statusMessage: 'Folder not found.' })
+    throw createError({ statusCode: 404, statusMessage: 'Папка не найдена' })
   }
 
   return {

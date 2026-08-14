@@ -11,7 +11,8 @@ type ActivityAction = typeof activityLog.$inferInsert.action
  */
 export async function recordActivity(params: {
   organizationId: string
-  actorId: string
+  /** null = системное действие (автоматизация); в лентах отображается как «Система». */
+  actorId: string | null
   action: ActivityAction
   resourceType: string
   resourceId: string

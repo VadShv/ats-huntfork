@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Tracking link not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Ссылка отслеживания не найдена' })
   }
 
   const [updated] = await db.update(trackingLink)

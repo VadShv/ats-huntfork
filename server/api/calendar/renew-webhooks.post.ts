@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     const valid = cronSecret.length === env.CRON_SECRET.length
       && timingSafeEqual(a, b)
     if (!valid) {
-      throw createError({ statusCode: 403, statusMessage: 'Invalid cron secret' })
+      throw createError({ statusCode: 403, statusMessage: 'Некорректный секрет cron' })
     }
   }
   else {

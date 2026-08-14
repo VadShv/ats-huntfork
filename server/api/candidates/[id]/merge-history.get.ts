@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { candidate: ['read'] })
   const orgId = session.session.activeOrganizationId
   const candidateId = getRouterParam(event, 'id')
-  if (!candidateId) throw createError({ statusCode: 400, statusMessage: 'candidate id required' })
+  if (!candidateId) throw createError({ statusCode: 400, statusMessage: 'Не указан ID кандидата' })
 
   const rows = await db
     .select({

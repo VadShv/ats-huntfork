@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
     })
 
   if (!updated) {
-    throw createError({ statusCode: 404, statusMessage: 'Question not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вопрос не найден' })
   }
 
   return updated

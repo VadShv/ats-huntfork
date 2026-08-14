@@ -22,8 +22,8 @@ export default defineEventHandler(async (event) => {
     columns: { firstName: true, lastName: true, hhResumeId: true, hhResumeRaw: true },
   })
 
-  if (!row) throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
-  if (!row.hhResumeRaw) throw createError({ statusCode: 404, statusMessage: 'No hh.ru resume snapshot' })
+  if (!row) throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
+  if (!row.hhResumeRaw) throw createError({ statusCode: 404, statusMessage: 'Нет снимка резюме из hh.ru' })
 
   const safeName = `${row.lastName}-${row.firstName}-hh-${row.hhResumeId ?? 'resume'}`
     .replace(/[^a-zA-Zа-яА-Я0-9_\-]+/gu, '_')

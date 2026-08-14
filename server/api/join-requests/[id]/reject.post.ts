@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
   if (!rejected) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Join request not found or already processed',
+      statusMessage: 'Запрос на вступление не найден или уже обработан',
     })
   }
 

@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!result) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   return {

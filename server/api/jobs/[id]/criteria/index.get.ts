@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     columns: { id: true },
   })
   if (!jobRecord) {
-    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   const criteria = await db.select()

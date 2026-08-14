@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   if (!code || !state) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Missing authorization code or state',
+      statusMessage: 'Не указан код авторизации или состояние',
     })
   }
 
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   if (!storedState || storedState.length !== state.length) {
     throw createError({
       statusCode: 403,
-      statusMessage: 'Invalid OAuth state — possible CSRF attack',
+      statusMessage: 'Некорректное состояние OAuth',
     })
   }
   const match = timingSafeEqual(
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
   if (!match) {
     throw createError({
       statusCode: 403,
-      statusMessage: 'Invalid OAuth state — possible CSRF attack',
+      statusMessage: 'Некорректное состояние OAuth',
     })
   }
 

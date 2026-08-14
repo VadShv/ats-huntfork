@@ -14,7 +14,7 @@ const bodySchema = z.object({
 const limiter = createRateLimiter({
   windowMs: 60_000,
   maxRequests: 10,
-  message: 'Too many AI criteria generation requests. Please wait before retrying.',
+  message: 'Слишком много запросов на генерацию ИИ-критериев. Повторите позже',
 })
 
 /**

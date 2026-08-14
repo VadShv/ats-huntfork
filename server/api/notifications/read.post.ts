@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
   const userId = session.user.id
-  if (!orgId) throw createError({ statusCode: 400, statusMessage: 'No active organization' })
+  if (!orgId) throw createError({ statusCode: 400, statusMessage: 'Нет активной организации' })
 
   const body = await readValidatedBody(event, markReadSchema.parse)
 

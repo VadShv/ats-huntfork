@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     columns: { id: true },
   })
   if (!me) {
-    throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 
   // Берём пары, где кандидат — либо A, либо B, статус pending.

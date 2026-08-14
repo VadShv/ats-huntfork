@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
   if (!env.GITHUB_FEEDBACK_TOKEN || !env.GITHUB_FEEDBACK_REPO) {
     throw createError({
       statusCode: 503,
-      statusMessage: 'Feedback is not configured on this instance',
+      statusMessage: 'Форма обратной связи не настроена',
     })
   }
 
@@ -78,7 +78,7 @@ export default defineEventHandler(async (event) => {
     })
     throw createError({
       statusCode: 429,
-      statusMessage: 'Too many feedback submissions. Please try again later.',
+      statusMessage: 'Слишком много сообщений обратной связи. Повторите позже',
     })
   }
 
@@ -174,7 +174,7 @@ export default defineEventHandler(async (event) => {
   if (issueBody.length > MAX_GITHUB_ISSUE_BODY_CHARS) {
     throw createError({
       statusCode: 413,
-      statusMessage: 'Feedback payload is too large for GitHub issue body. Please reduce screenshot size or context.',
+      statusMessage: 'Данные обратной связи слишком велики для описания задачи GitHub. Уменьшите размер снимка экрана или объём контекста',
     })
   }
 
@@ -206,7 +206,7 @@ export default defineEventHandler(async (event) => {
     })
     throw createError({
       statusCode: 502,
-      statusMessage: 'Failed to submit feedback. Please try again later.',
+      statusMessage: 'Не удалось отправить обратную связь. Повторите позже',
     })
   }
 

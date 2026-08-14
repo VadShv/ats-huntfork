@@ -9,13 +9,13 @@ const SKIP_METHODS = new Set(['OPTIONS'])
 const globalReadLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   maxRequests: 1200,
-  message: 'Too many API requests. Please try again shortly.',
+  message: 'Слишком много запросов к API. Повторите попытку немного позже',
 })
 
 const globalWriteLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   maxRequests: 200,
-  message: 'Too many write requests. Please try again shortly.',
+  message: 'Слишком много запросов на запись. Повторите попытку немного позже',
 })
 
 // Auth endpoints get their own buckets to reduce brute-force risk without
@@ -23,13 +23,13 @@ const globalWriteLimiter = createRateLimiter({
 const authReadLimiter = createRateLimiter({
   windowMs: 5 * 60 * 1000,
   maxRequests: 600,
-  message: 'Too many auth requests. Please try again shortly.',
+  message: 'Слишком много запросов на вход. Повторите попытку немного позже',
 })
 
 const authWriteLimiter = createRateLimiter({
   windowMs: 5 * 60 * 1000,
   maxRequests: 40,
-  message: 'Too many sign-in attempts. Please wait before trying again.',
+  message: 'Слишком много попыток входа. Подождите перед следующей попыткой',
 })
 
 export default defineEventHandler(async (event) => {

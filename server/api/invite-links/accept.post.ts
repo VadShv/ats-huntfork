@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   const session = await auth.api.getSession({ headers: event.headers })
 
   if (!session) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Требуется вход' })
   }
 
   const body = await readValidatedBody(event, acceptInviteLinkSchema.parse)
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
   if (!link) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Invalid, expired, or revoked invite link',
+      statusMessage: 'Ссылка-приглашение недействительна, срок её действия истёк или она отозвана',
     })
   }
 
@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
   if (link.maxUses !== null && link.useCount >= link.maxUses) {
     throw createError({
       statusCode: 410,
-      statusMessage: 'This invite link has reached its maximum number of uses',
+      statusMessage: 'Достигнут лимит использований ссылки-приглашения',
     })
   }
 
@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
   if (existingMember) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'You are already a member of this organization',
+      statusMessage: 'Вы уже состоите в этой организации',
     })
   }
 
@@ -105,7 +105,7 @@ export default defineEventHandler(async (event) => {
     if (!updatedLink) {
       throw createError({
         statusCode: 410,
-        statusMessage: 'This invite link is no longer valid',
+        statusMessage: 'Ссылка-приглашение больше не действует',
       })
     }
 
@@ -127,7 +127,7 @@ export default defineEventHandler(async (event) => {
     if (!newMember) {
       throw createError({
         statusCode: 409,
-        statusMessage: 'You are already a member of this organization',
+        statusMessage: 'Вы уже состоите в этой организации',
       })
     }
 

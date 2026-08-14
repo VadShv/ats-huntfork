@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
   if (!request) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Join request not found or already processed',
+      statusMessage: 'Запрос на вступление не найден или уже обработан',
     })
   }
 
@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
 
     throw createError({
       statusCode: 409,
-      statusMessage: 'User is already a member of this organization',
+      statusMessage: 'Пользователь уже состоит в этой организации',
     })
   }
 
@@ -96,7 +96,7 @@ export default defineEventHandler(async (event) => {
       if (!approved) {
         throw createError({
           statusCode: 409,
-          statusMessage: 'Request was already processed',
+          statusMessage: 'Запрос уже обработан',
         })
       }
 
@@ -119,7 +119,7 @@ export default defineEventHandler(async (event) => {
       if (!newMember) {
         throw createError({
           statusCode: 409,
-          statusMessage: 'User is already a member of this organization',
+          statusMessage: 'Пользователь уже состоит в этой организации',
         })
       }
 
@@ -138,7 +138,7 @@ export default defineEventHandler(async (event) => {
     })
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to approve join request. Please try again.',
+      statusMessage: 'Не удалось подтвердить запрос на вступление. Повторите попытку',
     })
   }
 

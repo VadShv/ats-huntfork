@@ -1,4 +1,10 @@
 import { FUZZY_QUEUE, processFuzzyJob } from '../utils/dedup/workers/fuzzy-job'
+import {
+  HH_WEBHOOK_QUEUE,
+  HH_WEBHOOK_SYNC_QUEUE,
+  processHhWebhookJob,
+  processHhWebhookSyncJob,
+} from '../utils/comms/hhWebhooks'
 import { getBoss, stopBoss } from '../utils/queue/boss'
 
 /**
@@ -44,6 +50,35 @@ export default defineNitroPlugin(async (nitroApp) => {
     )
 
     logInfo('queue.workers_registered', { queue: FUZZY_QUEUE })
+
+    // ── Спринт 18.1 — очереди вебхуков hh.ru ──
+    for (const q of [HH_WEBHOOK_QUEUE, HH_WEBHOOK_SYNC_QUEUE]) {
+      try {
+        await boss.createQueue(q)
+      }
+      catch (err) {
+        logDebug('queue.create_queue_skipped', {
+          queue: q,
+          error_message: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+
+    // Лёгкие события (refresh одного чата) — умеренный параллелизм
+    await boss.work(
+      HH_WEBHOOK_QUEUE,
+      { batchSize: 1, teamSize: 3, teamConcurrency: 3 } as any,
+      processHhWebhookJob as any,
+    )
+
+    // Синк вакансии — тяжёлый, строго последовательно (бережём ресурсы и лимиты hh)
+    await boss.work(
+      HH_WEBHOOK_SYNC_QUEUE,
+      { batchSize: 1, teamSize: 1, teamConcurrency: 1 } as any,
+      processHhWebhookSyncJob as any,
+    )
+
+    logInfo('queue.workers_registered', { queue: `${HH_WEBHOOK_QUEUE},${HH_WEBHOOK_SYNC_QUEUE}` })
 
     // Graceful shutdown
     nitroApp.hooks.hook('close', async () => {

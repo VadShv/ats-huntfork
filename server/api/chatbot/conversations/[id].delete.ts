@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     .returning({ id: chatbotConversation.id })
 
   if (result.length === 0) {
-    throw createError({ statusCode: 404, statusMessage: 'Conversation not found.' })
+    throw createError({ statusCode: 404, statusMessage: 'Диалог не найден' })
   }
 
   return { success: true }

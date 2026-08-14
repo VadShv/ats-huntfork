@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     .returning({ id: candidate.id })
 
   if (!deleted) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 
   recordActivity({

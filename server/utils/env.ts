@@ -103,7 +103,7 @@ export const envSchema = z
     RESEND_FROM_EMAIL: emptyToUndefined
       .pipe(z.string().min(1))
       .optional()
-      .default("Reqcore <noreply@reqcore.com>"),
+      .default("Huntfork <noreply@reqcore.com>"),
     /** SMTP hostname for outbound email (e.g. smtp.gmail.com). When set, SMTP is used instead of Resend. */
     SMTP_HOST: emptyToUndefined.pipe(z.string().min(1)).optional(),
     /** SMTP port. Defaults to 587 (STARTTLS). Use 465 for implicit TLS, 25 for unencrypted. */
@@ -124,7 +124,7 @@ export const envSchema = z
     SMTP_FROM: emptyToUndefined
       .pipe(z.string().min(1))
       .optional()
-      .default('Reqcore <noreply@reqcore.com>'),
+      .default('Huntfork <noreply@reqcore.com>'),
     /** Use implicit TLS on port 465. When false, uses STARTTLS (port 587). Defaults to false. */
     SMTP_SECURE: z.preprocess(
       (val) => typeof val === 'string' && val.trim() === '' ? false : val === 'true',
@@ -205,7 +205,7 @@ export const envSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['SMTP_HOST'],
-        message: 'SMTP_HOST is required when SMTP_USER or SMTP_PASS is set.',
+        message: 'SMTP_HOST требуется, если указаны SMTP_USER или SMTP_PASS',
       })
     }
 
@@ -223,7 +223,7 @@ export const envSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: [name],
-          message: `${name} is required when OIDC SSO is partially configured. Set all three OIDC variables (OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_DISCOVERY_URL) or none.`,
+          message: `${name} требуется при частичной настройке OIDC SSO. Укажите все три переменные OIDC (OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_DISCOVERY_URL) или не указывайте ни одной`,
         });
       }
     }

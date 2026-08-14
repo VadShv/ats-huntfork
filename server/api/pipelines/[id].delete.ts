@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Воронка не найдена' })
   }
 
   if (existing.isSystem) {

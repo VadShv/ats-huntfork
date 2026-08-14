@@ -2,18 +2,36 @@ import { z } from 'zod'
 import { eq, and, ilike, ne, inArray } from 'drizzle-orm'
 import { pipeline, pipelineStage } from '../../database/schema'
 import { colorForStageType } from '../../utils/pipeline-colors'
-import type { PipelineStageType } from '../../utils/pipeline-colors'
-import { validatePipelineStages } from '../../utils/pipeline-validation'
+import {
+  validatePipelineStages,
+  ALL_STAGE_TYPES,
+  bucketForType,
+  isTerminalTypeDefault,
+} from '../../utils/pipeline-validation'
+import type { PipelineStageType } from '../../utils/pipeline-validation'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
+/**
+ * PATCH /api/pipelines/[id]
+ *
+ * Для СИСТЕМНЫХ воронок (isSystem=true) разрешено только:
+ *   - name, description (метаданные)
+ *   - isDefault (сделать дефолтной)
+ * Массовое обновление stages для системных воронок ЗАПРЕЩЕНО.
+ * Управление этапами системной воронки — только через per-stage endpoint'ы
+ * (PATCH/DELETE/POST /api/pipelines/[id]/stages/...).
+ */
 const stageInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1).max(50),
   description: z.string().max(500).optional().nullable(),
-  type: z.enum(['applied', 'screening', 'interview', 'offer', 'hired', 'rejected', 'custom']),
+  type: z.enum(ALL_STAGE_TYPES),
+  bucket: z.enum(['working', 'rejected']).optional(),
   isTerminal: z.boolean(),
   isArchived: z.boolean().optional().default(false),
+  isHidden: z.boolean().optional().default(false),
+  parentStageId: z.string().uuid().nullable().optional(),
 })
 
 const updatePipelineSchema = z.object({
@@ -30,24 +48,24 @@ export default defineEventHandler(async (event) => {
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
   const body = await readValidatedBody(event, updatePipelineSchema.parse)
 
-  // Fetch existing pipeline
   const existing = await db.query.pipeline.findFirst({
     where: and(eq(pipeline.id, id), eq(pipeline.organizationId, orgId)),
     columns: { id: true, isSystem: true, isDefault: true, name: true },
   })
 
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Воронка не найдена' })
   }
 
-  if (existing.isSystem) {
+  // ── Системные воронки: массовое обновление stages запрещено ─────
+  if (existing.isSystem && body.stages) {
     throw createError({
       statusCode: 403,
-      statusMessage: 'Системный пресет нельзя редактировать. Клонируйте его и редактируйте копию',
+      statusMessage: 'Массовое обновление этапов системной воронки запрещено. Используйте эндпоинты для отдельных этапов: POST /stages, PATCH /stages/[id], DELETE /stages/[id]',
     })
   }
 
-  // Name uniqueness check (if renaming)
+  // Name uniqueness
   if (body.name && body.name.toLowerCase() !== existing.name.toLowerCase()) {
     const nameConflict = await db.query.pipeline.findFirst({
       where: and(
@@ -65,13 +83,11 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Validate stages if provided
   if (body.stages) {
-    validatePipelineStages(body.stages)
+    validatePipelineStages(body.stages as never)
   }
 
   const result = await db.transaction(async (tx) => {
-    // If setting this as default, clear other pipelines first
     if (body.isDefault === true) {
       await tx.update(pipeline)
         .set({ isDefault: false, updatedAt: new Date() })
@@ -82,7 +98,6 @@ export default defineEventHandler(async (event) => {
         ))
     }
 
-    // Build pipeline update payload
     const pipelineUpdates: Record<string, unknown> = { updatedAt: new Date() }
     if (body.name !== undefined) pipelineUpdates.name = body.name
     if (body.description !== undefined) pipelineUpdates.description = body.description
@@ -91,55 +106,31 @@ export default defineEventHandler(async (event) => {
     const [updatedPipeline] = await tx.update(pipeline)
       .set(pipelineUpdates)
       .where(and(eq(pipeline.id, id), eq(pipeline.organizationId, orgId)))
-      .returning({
-        id: pipeline.id,
-        name: pipeline.name,
-        description: pipeline.description,
-        isSystem: pipeline.isSystem,
-        isDefault: pipeline.isDefault,
-        isArchived: pipeline.isArchived,
-        createdAt: pipeline.createdAt,
-        updatedAt: pipeline.updatedAt,
-      })
+      .returning()
 
     if (!updatedPipeline) {
-      throw createError({ statusCode: 404, statusMessage: 'Not found' })
+      throw createError({ statusCode: 404, statusMessage: 'Воронка не найдена' })
     }
 
-    // Handle stages update
-    type StageRow = {
-      id: string
-      name: string
-      description: string | null
-      type: string
-      color: string
-      displayOrder: number
-      isTerminal: boolean
-      isArchived: boolean
-      createdAt: Date
-      updatedAt: Date
-    }
-
-    let updatedStages: StageRow[] = []
+    let updatedStages: unknown[] = []
 
     if (body.stages) {
       const stagesPayload = body.stages
-
-      // IDs provided in the request (existing stages being updated)
       const requestedIds = stagesPayload.filter((s) => s.id).map((s) => s.id as string)
 
-      // Archive stages that exist in DB but are NOT in the request
       const existingDbStages = await tx.query.pipelineStage.findMany({
         where: and(
           eq(pipelineStage.pipelineId, id),
           eq(pipelineStage.organizationId, orgId),
           eq(pipelineStage.isArchived, false),
         ),
-        columns: { id: true },
+        columns: { id: true, isSystemStage: true },
       })
 
-      const dbActiveIds = existingDbStages.map((s) => s.id)
-      const toArchive = dbActiveIds.filter((dbId) => !requestedIds.includes(dbId))
+      // Archive stages not in the request (только пользовательские — системные не архивируем)
+      const toArchive = existingDbStages
+        .filter((s) => !requestedIds.includes(s.id) && !s.isSystemStage)
+        .map((s) => s.id)
 
       if (toArchive.length > 0) {
         await tx.update(pipelineStage)
@@ -151,21 +142,24 @@ export default defineEventHandler(async (event) => {
           ))
       }
 
-      // Upsert stages in order
       for (let i = 0; i < stagesPayload.length; i++) {
         const stageInput = stagesPayload[i]!
         const color = colorForStageType(stageInput.type as PipelineStageType)
         const displayOrder = i
+        const typeBucket = bucketForType(stageInput.type as PipelineStageType)
+        const bucket = stageInput.bucket ?? (typeBucket === 'custom' ? 'working' : typeBucket)
 
         if (stageInput.id) {
-          // Update existing
           await tx.update(pipelineStage)
             .set({
               name: stageInput.name,
               description: stageInput.description ?? null,
               type: stageInput.type,
+              bucket,
               isTerminal: stageInput.isTerminal,
               isArchived: stageInput.isArchived ?? false,
+              isHidden: stageInput.isHidden ?? false,
+              parentStageId: stageInput.parentStageId ?? null,
               color,
               displayOrder,
               updatedAt: new Date(),
@@ -176,7 +170,6 @@ export default defineEventHandler(async (event) => {
               eq(pipelineStage.organizationId, orgId),
             ))
         } else {
-          // Insert new
           await tx.insert(pipelineStage).values({
             id: crypto.randomUUID(),
             organizationId: orgId,
@@ -184,8 +177,12 @@ export default defineEventHandler(async (event) => {
             name: stageInput.name,
             description: stageInput.description ?? null,
             type: stageInput.type,
-            isTerminal: stageInput.isTerminal,
+            bucket,
+            isTerminal: stageInput.isTerminal ?? isTerminalTypeDefault(stageInput.type as PipelineStageType),
             isArchived: stageInput.isArchived ?? false,
+            isHidden: stageInput.isHidden ?? false,
+            isSystemStage: false,
+            parentStageId: stageInput.parentStageId ?? null,
             color,
             displayOrder,
           })
@@ -197,18 +194,6 @@ export default defineEventHandler(async (event) => {
           eq(pipelineStage.pipelineId, id),
           eq(pipelineStage.organizationId, orgId),
         ),
-        columns: {
-          id: true,
-          name: true,
-          description: true,
-          type: true,
-          color: true,
-          displayOrder: true,
-          isTerminal: true,
-          isArchived: true,
-          createdAt: true,
-          updatedAt: true,
-        },
         orderBy: (s, { asc }) => [asc(s.displayOrder)],
       })
     } else {
@@ -217,18 +202,6 @@ export default defineEventHandler(async (event) => {
           eq(pipelineStage.pipelineId, id),
           eq(pipelineStage.organizationId, orgId),
         ),
-        columns: {
-          id: true,
-          name: true,
-          description: true,
-          type: true,
-          color: true,
-          displayOrder: true,
-          isTerminal: true,
-          isArchived: true,
-          createdAt: true,
-          updatedAt: true,
-        },
         orderBy: (s, { asc }) => [asc(s.displayOrder)],
       })
     }

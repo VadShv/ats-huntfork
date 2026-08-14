@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
     if (emailConflict && emailConflict.id !== id) {
       throw createError({
         statusCode: 409,
-        statusMessage: 'A candidate with this email already exists',
+        statusMessage: 'Кандидат с таким Email уже существует',
       })
     }
   }
@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
     })
 
   if (!updated) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 
   // ─── Sprint 3.5 (P2.4): пересчёт fuzzy + identity-рефреш при изменении dedup-relevant полей

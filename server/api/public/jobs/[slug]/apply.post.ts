@@ -19,7 +19,7 @@ import {
 const applyRateLimit = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   maxRequests: 5,
-  message: 'Too many applications submitted. Please try again later.',
+  message: 'Слишком много отправленных откликов. Повторите позже',
 })
 
 /**
@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
     // Parse multipart form data
     const formData = await readMultipartFormData(event)
     if (!formData) {
-      throw createError({ statusCode: 400, statusMessage: 'No form data received' })
+      throw createError({ statusCode: 400, statusMessage: 'Данные формы не получены' })
     }
 
     const fields: Record<string, string> = {}
@@ -116,7 +116,7 @@ export default defineEventHandler(async (event) => {
       try {
         rawResponses = JSON.parse(fields.responses)
       } catch {
-        throw createError({ statusCode: 400, statusMessage: 'Invalid responses format' })
+        throw createError({ statusCode: 400, statusMessage: 'Некорректный формат ответов' })
       }
     }
 
@@ -184,17 +184,17 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existingJob) {
-    throw createError({ statusCode: 404, statusMessage: 'Job not found or not accepting applications' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена или не принимает отклики' })
   }
 
   // Validate required resume
   if (existingJob.requireResume && !resumeUpload) {
-    throw createError({ statusCode: 422, statusMessage: 'Resume/CV is required for this position' })
+    throw createError({ statusCode: 422, statusMessage: 'Для этой вакансии требуется резюме' })
   }
 
   // Validate required cover letter
   if (existingJob.requireCoverLetter && !coverLetterText?.trim()) {
-    throw createError({ statusCode: 422, statusMessage: 'Cover letter is required for this position' })
+    throw createError({ statusCode: 422, statusMessage: 'Для этой вакансии требуется сопроводительное письмо' })
   }
 
   const orgId = existingJob.organizationId
@@ -247,7 +247,7 @@ export default defineEventHandler(async (event) => {
 
     throw createError({
       statusCode: 422,
-      statusMessage: `Missing required answers: ${unansweredLabels.join(', ')}`,
+      statusMessage: `Не заполнены обязательные поля: ${unansweredLabels.join(', ')}`,
     })
   }
 
@@ -270,7 +270,7 @@ export default defineEventHandler(async (event) => {
     if (file.data.length > MAX_FILE_SIZE) {
       throw createError({
         statusCode: 413,
-        statusMessage: `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024} MB`,
+        statusMessage: `Файл слишком большой. Максимальный размер: ${MAX_FILE_SIZE / 1024 / 1024} МБ`,
       })
     }
 
@@ -291,7 +291,7 @@ export default defineEventHandler(async (event) => {
     if (!mimeType || !ALLOWED_MIME_TYPES.includes(mimeType as typeof ALLOWED_MIME_TYPES[number])) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Invalid file type. Allowed: PDF, DOC, DOCX',
+        statusMessage: 'Некорректный тип файла. Допустимые форматы: PDF, DOC, DOCX',
       })
     }
 
@@ -308,7 +308,7 @@ export default defineEventHandler(async (event) => {
     if (resumeUpload.data.length > MAX_FILE_SIZE) {
       throw createError({
         statusCode: 413,
-        statusMessage: `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024} MB`,
+        statusMessage: `Файл слишком большой. Максимальный размер: ${MAX_FILE_SIZE / 1024 / 1024} МБ`,
       })
     }
 
@@ -325,7 +325,7 @@ export default defineEventHandler(async (event) => {
     if (!resumeMimeType || !ALLOWED_MIME_TYPES.includes(resumeMimeType as typeof ALLOWED_MIME_TYPES[number])) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Invalid file type for resume. Allowed: PDF, DOC, DOCX',
+        statusMessage: 'Некорректный тип файла резюме. Допустимые форматы: PDF, DOC, DOCX',
       })
     }
   }
@@ -384,7 +384,7 @@ export default defineEventHandler(async (event) => {
   if (existingApplication) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'You have already applied to this position',
+      statusMessage: 'Вы уже откликнулись на эту вакансию',
     })
   }
 
@@ -518,7 +518,7 @@ export default defineEventHandler(async (event) => {
     if (existingDocCount + totalNewFiles > MAX_DOCUMENTS_PER_CANDIDATE) {
       throw createError({
         statusCode: 409,
-        statusMessage: `Document limit reached. Maximum ${MAX_DOCUMENTS_PER_CANDIDATE} documents per candidate`,
+        statusMessage: `Достигнут лимит документов: максимум ${MAX_DOCUMENTS_PER_CANDIDATE} на кандидата`,
       })
     }
   }
@@ -646,7 +646,7 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      throw createError({ statusCode: 502, statusMessage: 'Failed to upload your resume. Please try again.' })
+      throw createError({ statusCode: 502, statusMessage: 'Не удалось загрузить резюме. Повторите попытку' })
     }
   }
 

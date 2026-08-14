@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
       ),
     )
   if (owned.length !== ids.length) {
-    throw createError({ statusCode: 404, statusMessage: 'One or more properties not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Одно или несколько свойств не найдены' })
   }
 
   const firstScope = owned[0]!
@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
   if (!sameScope) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'All ids must belong to the same property scope',
+      statusMessage: 'Все ID должны принадлежать одной области свойств',
     })
   }
 

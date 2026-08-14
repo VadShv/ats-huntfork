@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     columns: { id: true },
   })
   if (!candidateRow) {
-    throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 
   const rows = await db

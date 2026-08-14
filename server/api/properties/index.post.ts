@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   if (body.entityType === 'candidate' && body.jobId) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'Candidate properties cannot be scoped to a job',
+      statusMessage: 'Свойства кандидата нельзя привязать к вакансии',
     })
   }
 
@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
       columns: { id: true },
     })
     if (!j) {
-      throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+      throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
     }
   }
 

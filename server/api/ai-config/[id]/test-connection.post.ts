@@ -7,7 +7,7 @@ import { createRateLimiter } from '../../../utils/rateLimit'
 const limiter = createRateLimiter({
   windowMs: 60_000,
   maxRequests: 5,
-  message: 'Too many test connection requests. Please wait before retrying.',
+  message: 'Слишком много запросов на проверку подключения. Повторите позже',
 })
 
 const paramsSchema = z.object({ id: z.string().min(1) })
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   const config = await db.query.aiConfig.findFirst({
     where: and(eq(aiConfig.id, id), eq(aiConfig.organizationId, orgId)),
   })
-  if (!config) throw createError({ statusCode: 404, statusMessage: 'AI configuration not found.' })
+  if (!config) throw createError({ statusCode: 404, statusMessage: 'Конфигурация ИИ не найдена' })
 
   try {
     await generateStructuredOutput(
@@ -53,12 +53,12 @@ export default defineEventHandler(async (event) => {
     if (typeof message === 'string' && message.includes('decrypt')) {
       throw createError({
         statusCode: 422,
-        statusMessage: 'Failed to decrypt API key. If you recently rotated BETTER_AUTH_SECRET, re-enter the API key for this configuration.',
+        statusMessage: 'Не удалось расшифровать ключ API. Если вы недавно изменили BETTER_AUTH_SECRET, повторно укажите ключ API для этой конфигурации',
       })
     }
     throw createError({
       statusCode: 422,
-      statusMessage: `Connection test failed: ${message}`,
+      statusMessage: `Не удалось проверить подключение: ${message}`,
     })
   }
 })

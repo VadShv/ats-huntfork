@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
 
   if (!isGoogleCalendarConfigured()) {
-    throw createError({ statusCode: 503, statusMessage: 'Google Calendar integration is not configured' })
+    throw createError({ statusCode: 503, statusMessage: 'Интеграция с Google Calendar не настроена' })
   }
 
   await removeCalendarIntegration(session.user.id)

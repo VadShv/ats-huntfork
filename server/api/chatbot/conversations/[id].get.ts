@@ -27,7 +27,7 @@ export default defineEventHandler(async (event): Promise<{ conversation: Chatbot
       eq(chatbotConversation.userId, userId),
     ),
   })
-  if (!conv) throw createError({ statusCode: 404, statusMessage: 'Conversation not found.' })
+  if (!conv) throw createError({ statusCode: 404, statusMessage: 'Диалог не найден' })
 
   const rows = await db.query.chatbotMessage.findMany({
     where: eq(chatbotMessage.conversationId, conv.id),

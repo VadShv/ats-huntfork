@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!doc) {
-    throw createError({ statusCode: 404, statusMessage: 'Document not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
   }
 
   // Delete from S3 first — log but don't block on failure

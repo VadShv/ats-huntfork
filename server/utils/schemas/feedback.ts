@@ -53,7 +53,7 @@ export const createFeedbackSchema = z.object({
   if (value.includeScreenshot && !value.screenshotDataUrl) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Screenshot is required when sharing screenshot is enabled',
+      message: 'При включённой передаче снимка экрана он обязателен',
       path: ['screenshotDataUrl'],
     })
   }

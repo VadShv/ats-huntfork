@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
       actorImage: user.image,
     })
     .from(activityLog)
-    .innerJoin(user, eq(user.id, activityLog.actorId))
+    .leftJoin(user, eq(user.id, activityLog.actorId))
     .where(where)
     .orderBy(desc(activityLog.createdAt))
     .limit(query.limit + 1) // fetch one extra to know if there's more

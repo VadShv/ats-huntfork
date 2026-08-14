@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!created) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create invite link' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось создать ссылку-приглашение' })
   }
 
   recordActivity({

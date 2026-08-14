@@ -20,7 +20,7 @@ import {
 const limiter = createRateLimiter({
   windowMs: 60_000,
   maxRequests: 20,
-  message: 'Too many uploads. Please wait a moment.',
+  message: 'Слишком много загрузок. Подождите немного',
 })
 
 const PARSEABLE_MIME = new Set([
@@ -36,12 +36,12 @@ export default defineEventHandler(async (event) => {
   const form = await readMultipartFormData(event)
   const filePart = form?.find((p) => p.name === 'file')
   if (!filePart?.data || !filePart.filename) {
-    throw createError({ statusCode: 400, statusMessage: 'No file provided' })
+    throw createError({ statusCode: 400, statusMessage: 'Файл не выбран' })
   }
   if (filePart.data.length > CHATBOT_MAX_UPLOAD_BYTES) {
     throw createError({
       statusCode: 413,
-      statusMessage: `File too large. Max ${CHATBOT_MAX_UPLOAD_BYTES / 1024 / 1024} MB.`,
+      statusMessage: `Файл слишком большой. Максимальный размер: ${CHATBOT_MAX_UPLOAD_BYTES / 1024 / 1024} МБ`,
     })
   }
 
@@ -66,14 +66,14 @@ export default defineEventHandler(async (event) => {
   } else {
     throw createError({
       statusCode: 415,
-      statusMessage: 'Unsupported file type. Use PDF, DOC, DOCX, or plain text.',
+      statusMessage: 'Неподдерживаемый тип файла. Используйте PDF, DOC, DOCX или обычный текст',
     })
   }
 
   if (!text.trim()) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'Could not extract any text from this file.',
+      statusMessage: 'Не удалось извлечь текст из файла',
     })
   }
 

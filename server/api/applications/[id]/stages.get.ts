@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!app) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
   // Load job to get pipelineId
@@ -44,6 +44,10 @@ export default defineEventHandler(async (event) => {
       displayOrder: pipelineStage.displayOrder,
       isTerminal: pipelineStage.isTerminal,
       isArchived: pipelineStage.isArchived,
+      // Спринт 12.5: для быстрых действий в стиле hh.ru нужны bucket и иерархия
+      bucket: pipelineStage.bucket,
+      parentStageId: pipelineStage.parentStageId,
+      isHidden: pipelineStage.isHidden,
     })
     .from(pipelineStage)
     .where(

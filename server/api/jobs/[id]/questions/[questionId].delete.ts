@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     .returning({ id: jobQuestion.id })
 
   if (!deleted) {
-    throw createError({ statusCode: 404, statusMessage: 'Question not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вопрос не найден' })
   }
 
   setResponseStatus(event, 204)

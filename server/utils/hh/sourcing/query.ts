@@ -176,7 +176,7 @@ export const sourcingQuerySchema = z
     /** Days the resume was last updated within (числовой период, см. также textPeriod). */
     period: z.number().refine(
       (v) => HH_PERIODS.includes(v as typeof HH_PERIODS[number]),
-      { message: 'period must be one of 1,3,7,14,30,60,365' },
+      { message: 'period должен быть одним из значений: 1, 3, 7, 14, 30, 60, 365' },
     ).optional(),
     /** Languages required (e.g. ["eng.b2", "deu.a1"]). */
     language: z.array(z.string()).max(10).optional(),

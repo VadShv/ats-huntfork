@@ -11,7 +11,7 @@ export const createInterviewSchema = z.object({
   applicationId: z.string().uuid('Invalid application ID'),
   title: z.string().min(1, 'Title is required').max(200),
   type: z.enum(interviewTypes).default('video'),
-  scheduledAt: z.string().datetime({ message: 'Valid ISO 8601 datetime required' }),
+  scheduledAt: z.string().datetime({ message: 'Укажите дату и время в формате ISO 8601' }),
   duration: z.number().int().min(5).max(480).default(60),
   location: z.string().max(500).optional(),
   notes: z.string().max(5000).optional(),
@@ -25,7 +25,7 @@ export const createInterviewSchema = z.object({
   calendarSendUpdates: z.boolean().optional(),
 }).refine(
   data => new Date(data.scheduledAt) > new Date(),
-  { message: 'Scheduled date must be in the future', path: ['scheduledAt'] },
+  { message: 'Дата интервью должна быть в будущем', path: ['scheduledAt'] },
 )
 
 /** Schema for updating an existing interview */
@@ -33,7 +33,7 @@ export const updateInterviewSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   type: z.enum(interviewTypes).optional(),
   status: z.enum(interviewStatuses).optional(),
-  scheduledAt: z.string().datetime({ message: 'Valid ISO 8601 datetime required' }).optional(),
+  scheduledAt: z.string().datetime({ message: 'Укажите дату и время в формате ISO 8601' }).optional(),
   duration: z.number().int().min(5).max(480).optional(),
   location: z.string().max(500).nullish(),
   notes: z.string().max(5000).nullish(),
@@ -41,7 +41,7 @@ export const updateInterviewSchema = z.object({
   timezone: z.string().max(100).optional(),
 }).refine(
   data => !data.scheduledAt || new Date(data.scheduledAt) > new Date(),
-  { message: 'Scheduled date must be in the future', path: ['scheduledAt'] },
+  { message: 'Дата интервью должна быть в будущем', path: ['scheduledAt'] },
 )
 
 /** Schema for interview list query params */

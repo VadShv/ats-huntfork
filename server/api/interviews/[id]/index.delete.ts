@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!current) {
-    throw createError({ statusCode: 404, statusMessage: 'Interview not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Интервью не найдено' })
   }
 
   // Cancel Google Calendar event (non-blocking)

@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!doc) {
-    throw createError({ statusCode: 404, statusMessage: 'Document not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
   }
 
   // Fetch the object from S3
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
   )
 
   if (!s3Response.Body) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to retrieve document' })
+    throw createError({ statusCode: 500, statusMessage: 'Не удалось получить документ' })
   }
 
   // Stream the file directly through the server — no presigned URLs exposed

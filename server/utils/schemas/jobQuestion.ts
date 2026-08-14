@@ -22,7 +22,7 @@ export const createQuestionSchema = z.object({
     }
     return true
   },
-  { message: 'Options are required for select-type questions', path: ['options'] },
+  { message: 'Для вопросов с выбором требуются варианты', path: ['options'] },
 )
 
 /** Schema for updating an existing question (all fields optional) */

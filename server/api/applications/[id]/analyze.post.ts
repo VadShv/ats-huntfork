@@ -18,7 +18,7 @@ const bodySchema = z.object({
   /** Optional override; falls back to the org's analysis default. */
   aiConfigId: z.string().min(1).nullable().optional(),
 }).partial().optional()
-const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 20, message: 'Too many AI analysis requests. Please wait before retrying.' })
+const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 20, message: 'Слишком много запросов на ИИ-анализ. Повторите позже' })
 
 /**
  * POST /api/applications/:id/analyze
@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!app) {
-    throw createError({ statusCode: 404, statusMessage: 'Application not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
   // Fetch AI config (override → analysis default → 422)
@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
   if (criteria.length === 0) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'No scoring criteria defined for this job. Add criteria first.',
+      statusMessage: 'Для этой вакансии не заданы критерии оценки. Сначала добавьте критерии',
     })
   }
 
@@ -100,20 +100,20 @@ export default defineEventHandler(async (event) => {
     if (resumeDoc) {
       throw createError({
         statusCode: 422,
-        statusMessage: 'Resume was uploaded but text extraction failed. Try re-parsing the document.',
+        statusMessage: 'Резюме загружено, но не удалось извлечь текст. Попробуйте повторно обработать документ',
         data: { code: 'PARSE_FAILED', documentId: resumeDoc.id },
       })
     }
     throw createError({
       statusCode: 422,
-      statusMessage: 'No resume found for this candidate. Upload a resume first.',
+      statusMessage: 'У кандидата нет резюме. Сначала загрузите резюме',
     })
   }
 
   if (!app.job.description) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'Job description is required for AI analysis.',
+      statusMessage: 'Для ИИ-анализа требуется описание вакансии',
     })
   }
 
@@ -159,7 +159,7 @@ export default defineEventHandler(async (event) => {
 
     throw createError({
       statusCode: 502,
-      statusMessage: `AI analysis failed: ${err?.message ?? 'Unknown error'}`,
+      statusMessage: `Не удалось выполнить ИИ-анализ: ${err?.message ?? 'Неизвестная ошибка'}`,
     })
   }
 

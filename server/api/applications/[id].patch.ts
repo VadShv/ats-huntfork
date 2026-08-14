@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!current) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
   // Validate status transition if status is being changed
@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     if (!allowed.includes(body.status)) {
       throw createError({
         statusCode: 422,
-        statusMessage: `Cannot transition from "${current.status}" to "${body.status}". Allowed: ${allowed.join(', ') || 'none'}`,
+        statusMessage: `Нельзя изменить статус с «${current.status}» на «${body.status}». Допустимы: ${allowed.join(', ') || 'нет'}`,
       })
     }
   }
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
     })
 
   if (!updated) {
-    throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
   recordActivity({

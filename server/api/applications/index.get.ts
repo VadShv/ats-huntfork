@@ -75,11 +75,11 @@ export default defineEventHandler(async (event) => {
     try {
       raw = JSON.parse(query.propertyFilters)
     } catch {
-      throw createError({ statusCode: 400, statusMessage: 'Invalid propertyFilters' })
+      throw createError({ statusCode: 400, statusMessage: 'Некорректное значение propertyFilters' })
     }
     const result = propertyFiltersArraySchema.safeParse(raw)
     if (!result.success) {
-      throw createError({ statusCode: 400, statusMessage: 'Invalid propertyFilters' })
+      throw createError({ statusCode: 400, statusMessage: 'Некорректное значение propertyFilters' })
     }
     propertyFilters = result.data as PropertyFilter[]
   }

@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   if (!isHhConfigured()) {
     throw createError({
       statusCode: 503,
-      statusMessage: 'hh.ru integration is not configured',
+      statusMessage: 'Интеграция с hh.ru не настроена',
     })
   }
 

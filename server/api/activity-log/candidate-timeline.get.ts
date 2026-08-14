@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
       actorImage: user.image,
     })
     .from(activityLog)
-    .innerJoin(user, eq(user.id, activityLog.actorId))
+    .leftJoin(user, eq(user.id, activityLog.actorId))
     .where(and(
       eq(activityLog.organizationId, orgId),
       or(...resourceConditions),

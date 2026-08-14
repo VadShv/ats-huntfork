@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!result) {
-    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
   // Flatten organization name into the response for SEO consumers

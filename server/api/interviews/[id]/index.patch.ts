@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!current) {
-    throw createError({ statusCode: 404, statusMessage: 'Interview not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Интервью не найдено' })
   }
 
   // Validate status transition
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
     if (!allowed.includes(body.status)) {
       throw createError({
         statusCode: 422,
-        statusMessage: `Cannot transition from "${current.status}" to "${body.status}"`,
+        statusMessage: `Нельзя изменить статус с «${current.status}» на «${body.status}»`,
       })
     }
   }

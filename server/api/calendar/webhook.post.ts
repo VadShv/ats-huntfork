@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
   // Validate required headers
   if (!channelId) {
-    throw createError({ statusCode: 400, statusMessage: 'Missing channel ID' })
+    throw createError({ statusCode: 400, statusMessage: 'Не указан ID канала' })
   }
 
   // 'sync' is the initial verification message — just acknowledge

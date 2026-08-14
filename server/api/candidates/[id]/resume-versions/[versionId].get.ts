@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     columns: { id: true, firstName: true, lastName: true },
   })
   if (!candidateRow) {
-    throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 
   const versionRow = await db.query.candidateResumeVersion.findFirst({
@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
     ),
   })
   if (!versionRow) {
-    throw createError({ statusCode: 404, statusMessage: 'Resume version not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Версия резюме не найдена' })
   }
 
   const parsed = parseHhResume(versionRow.snapshot as Record<string, unknown>)

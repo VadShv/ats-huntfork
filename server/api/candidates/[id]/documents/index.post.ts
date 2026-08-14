@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!existingCandidate) {
-    throw createError({ statusCode: 404, statusMessage: 'Candidate not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 
   // ─────────────────────────────────────────────
@@ -57,14 +57,14 @@ export default defineEventHandler(async (event) => {
 
   const formData = await readMultipartFormData(event)
   if (!formData) {
-    throw createError({ statusCode: 400, statusMessage: 'No form data received' })
+    throw createError({ statusCode: 400, statusMessage: 'Данные формы не получены' })
   }
 
   const filePart = formData.find((part) => part.name === 'file')
   const typePart = formData.find((part) => part.name === 'type')
 
   if (!filePart || !filePart.data || !filePart.filename) {
-    throw createError({ statusCode: 400, statusMessage: 'No file provided' })
+    throw createError({ statusCode: 400, statusMessage: 'Файл не выбран' })
   }
 
   // ─────────────────────────────────────────────
@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
   const typeValue = typePart?.data?.toString() ?? 'resume'
   const typeResult = documentTypeSchema.safeParse(typeValue)
   if (!typeResult.success) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid document type. Must be: resume, cover_letter, or other' })
+    throw createError({ statusCode: 400, statusMessage: 'Некорректный тип документа. Допустимые значения: resume, cover_letter, other' })
   }
   const documentType = typeResult.data
 
@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
   if (fileBuffer.length > MAX_FILE_SIZE) {
     throw createError({
       statusCode: 413,
-      statusMessage: `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024} MB`,
+      statusMessage: `Файл слишком большой. Максимальный размер: ${MAX_FILE_SIZE / 1024 / 1024} МБ`,
     })
   }
 
@@ -108,7 +108,7 @@ export default defineEventHandler(async (event) => {
   if (!mimeType || !ALLOWED_MIME_TYPES.includes(mimeType as typeof ALLOWED_MIME_TYPES[number])) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Invalid file type. Allowed: PDF, DOC, DOCX',
+      statusMessage: 'Некорректный тип файла. Допустимые форматы: PDF, DOC, DOCX',
     })
   }
 
@@ -127,7 +127,7 @@ export default defineEventHandler(async (event) => {
   if (existingDocCount >= MAX_DOCUMENTS_PER_CANDIDATE) {
     throw createError({
       statusCode: 409,
-      statusMessage: `Document limit reached. Maximum ${MAX_DOCUMENTS_PER_CANDIDATE} documents per candidate`,
+      statusMessage: `Достигнут лимит документов: максимум ${MAX_DOCUMENTS_PER_CANDIDATE} на кандидата`,
     })
   }
 
@@ -172,7 +172,7 @@ export default defineEventHandler(async (event) => {
     })
 
     if (!created) {
-      throw createError({ statusCode: 500, statusMessage: 'Failed to create document' })
+      throw createError({ statusCode: 500, statusMessage: 'Не удалось создать документ' })
     }
 
     recordActivity({
