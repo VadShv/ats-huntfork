@@ -113,10 +113,20 @@ export function computeExperienceMonths(
 }
 
 export interface StructureMeta {
-  documentId: string
+  documentId?: string | null
   sourceFilename?: string | null
   provider?: string | null
   model?: string | null
+  /**
+   * Маркер источника структуры в `_hf.source`.
+   * 'document_parse' — разбор загруженного файла (по умолчанию, историческое поведение);
+   * 'extension_capture' — захват со страницы через расширение Sidekick.
+   */
+  source?: 'document_parse' | 'extension_capture'
+  /** URL страницы-источника (для extension_capture). */
+  sourceUrl?: string | null
+  /** Идентификатор площадки: linkedin | habr | github | hunt | podbor | generic. */
+  site?: string | null
 }
 
 /**
@@ -183,11 +193,13 @@ export function buildHhCompatibleRaw(p: StructuredResume, meta: StructureMeta): 
     skills: s(p.about), // hh кладёт длинный текст «о себе» в поле `skills`
     language,
     contact,
-    // Служебный маркер Huntfork: источник структуры — не hh, а разбор файла.
+    // Служебный маркер Huntfork: источник структуры — не hh, а разбор файла/захват.
     _hf: {
-      source: 'document_parse',
-      documentId: meta.documentId,
+      source: meta.source ?? 'document_parse',
+      documentId: meta.documentId ?? undefined,
       sourceFilename: meta.sourceFilename ?? undefined,
+      sourceUrl: meta.sourceUrl ?? undefined,
+      site: meta.site ?? undefined,
       structuredAt: new Date().toISOString(),
       provider: meta.provider ?? undefined,
       model: meta.model ?? undefined,
