@@ -8,7 +8,7 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { generateObject } from 'ai'
+import { generateObject, streamText } from 'ai'
 import type { z } from 'zod'
 import { decrypt } from '../encryption'
 import { createYandexFetch } from './yandexFetch'
@@ -258,4 +258,28 @@ export async function generateStructuredOutput<T>(
       completionTokens: result.usage.outputTokens ?? 0,
     },
   }
+}
+
+/**
+ * Стриминговая генерация свободного текста (Sidekick: саммари, чат).
+ * Тот же provider/config-контур, что generateStructuredOutput;
+ * скрининговый код не затрагивается.
+ */
+export function streamTextOutput(
+  config: ProviderConfig,
+  options: {
+    system: string
+    prompt?: string
+    messages?: Array<{ role: 'user' | 'assistant', content: string }>
+  },
+) {
+  const model = createLanguageModel(config)
+
+  return streamText({
+    model,
+    system: options.system,
+    ...(options.messages ? { messages: options.messages } : { prompt: options.prompt ?? '' }),
+    maxOutputTokens: config.maxTokens,
+    temperature: 0.3,
+  })
 }
