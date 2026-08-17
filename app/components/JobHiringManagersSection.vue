@@ -87,6 +87,13 @@ const availableToAddOptions = computed(() =>
     value: h.userId,
   })),
 )
+ 
+const selectPlaceholder = computed(() => {
+  if (availableToAdd.value.length === 0) {
+    return orgHms.value.length > 0 ? 'Все НМ уже назначены' : 'Нет НМ в организации'
+  }
+  return '— выберите НМ —'
+})
 
 // ─── Добавить существующего НМ ───
 const selectedUserId = ref('')
@@ -203,17 +210,19 @@ onMounted(() => {
         <Loader2 class="size-4 animate-spin" /> Загружаем список…
       </div>
 
-      <!-- Есть кого добавить — селект + кнопка -->
-      <div v-else-if="availableToAdd.length > 0" class="flex items-end gap-2">
+      <!-- Форма добавления видна всегда: при отсутствии свободных НМ селект/кнопка блокируются,
+           а состояние поясняется helper-текстом ниже. Плашка не исчезает после добавления. -->
+      <div v-else class="flex items-end gap-2">
         <div class="flex-1">
           <UiSelect
             v-model="selectedUserId"
-            placeholder="— выберите НМ —"
+            :placeholder="selectPlaceholder"
             :options="availableToAddOptions"
+            :disabled="availableToAdd.length === 0"
           />
         </div>
         <UiButton
-          :disabled="!selectedUserId || isAdding"
+          :disabled="!selectedUserId || isAdding || availableToAdd.length === 0"
           :loading="isAdding"
           @click="addExisting"
         >
@@ -221,28 +230,25 @@ onMounted(() => {
         </UiButton>
       </div>
 
-      <!-- В орге есть НМ, но все уже назначены -->
-      <div
-        v-else-if="orgHms.length > 0"
-        class="rounded-lg border border-dashed border-surface-200 px-3 py-3 text-sm text-surface-500 dark:border-surface-800 dark:text-surface-400"
+      <!-- Helper: пояснение состояния, когда добавить некого -->
+      <p
+        v-if="!isLoadingOrgHms && availableToAdd.length === 0"
+        class="mt-2 text-xs text-surface-500 dark:text-surface-400"
       >
-        Все активные НМ организации уже назначены на эту вакансию.
-      </div>
-
-      <!-- В орге вообще нет НМ — ведём в раздел Настройки → Участники -->
-      <div
-        v-else
-        class="rounded-lg border border-dashed border-surface-200 px-3 py-3 text-sm text-surface-600 dark:border-surface-800 dark:text-surface-400"
-      >
-        В организации пока нет нанимающих менеджеров.
-        <NuxtLink
-          to="/dashboard/settings/members"
-          class="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 underline underline-offset-2"
-        >
-          Создайте ссылку-приглашение
-        </NuxtLink>
-        с ролью «Нанимающий менеджер».
-      </div>
+        <template v-if="orgHms.length > 0">
+          Все активные НМ организации уже назначены на эту вакансию.
+        </template>
+        <template v-else>
+          В организации пока нет нанимающих менеджеров.
+          <NuxtLink
+            to="/dashboard/settings/members"
+            class="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 underline underline-offset-2"
+          >
+            Создайте ссылку-приглашение
+          </NuxtLink>
+          с ролью «Нанимающий менеджер».
+        </template>
+      </p>
     </div>
   </section>
 </template>
