@@ -84,7 +84,12 @@ export function useSearchRun() {
       if (!data.ok) {
         _runState[queryId] = 'error'
         const errCode = data.error?.code || 'provider_error'
-        if (errCode !== 'no_keys') {
+        if (errCode === 'no_keys') {
+          // Честно говорим, что поиск не настроен (один раз, без спама в батче)
+          if (!_batchRunning.value) {
+            toast('Поиск не настроен на сервере: нет ключей поисковых API', 'warn')
+          }
+        } else {
           toast(data.error?.message || 'Ошибка поиска', 'error')
         }
         return

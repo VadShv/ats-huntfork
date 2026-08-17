@@ -11,7 +11,8 @@
  *  - При 'empty' — НЕ фолбэк (пустая выдача валидна)
  *  - При 'rate_limited' — выдержка с джиттером, затем фолбэк
  *  - При 'timeout'/'network' → следующий в цепочке
- *  - Если все провайдеры вернули 'no_keys' → mock (демонстрационный режим)
+ *  - Если все провайдеры вернули 'no_keys' → mock ТОЛЬКО при SEARCH_MOCK=1,
+ *    иначе честная ошибка 'no_keys' («поиск не настроен»)
  *  - Принудительное обновление — сброс кеша перед запросом
  *
  * Принцип деградации: отказ поиска НИКОГДА не ломает карту поиска.
@@ -135,10 +136,18 @@ export async function runSearch(req: SearchRequest): Promise<SearchOutcome> {
   // Все провайдеры в цепочке недоступны (no_keys / timeout / network)
   const allNoKeys = errors.every(e => e.code === 'no_keys')
   if (allNoKeys) {
-    // Демонстрационный режим — возвращаем мок
-    const mockResult = searchMock(req)
-    cacheSet(key, mockResult)
-    return mockResult
+    // Демо-режим ТОЛЬКО при явном SEARCH_MOCK=1: молчаливый мок в проде
+    // выдаёт рекрутёру правдоподобные, но фейковые цифры.
+    const config = useRuntimeConfig()
+    if (config.searchMock) {
+      const mockResult = searchMock(req)
+      cacheSet(key, mockResult)
+      return mockResult
+    }
+    return {
+      code: 'no_keys',
+      message: 'Поиск не настроен: не заданы ключи Yandex Search API / Bright Data',
+    }
   }
 
   // Все провайдеры упали — возвращаем последнюю ошибку

@@ -83,6 +83,7 @@ export default defineEventHandler(async (event) => {
   const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const batchState: BatchState = {
     id: batchId,
+    orgId,
     total: queries.length,
     results: {},
     done: 0,

@@ -20,7 +20,9 @@ export default defineEventHandler(async (event) => {
   const { batchId } = await getValidatedRouterParams(event, paramsSchema.parse)
 
   const state = getBatchState(batchId)
-  if (!state) {
+  // Чужие батчи не отдаём: для другой организации батч «не существует»
+  const orgId = session.session.activeOrganizationId
+  if (!state || state.orgId !== orgId) {
     throw createError({ statusCode: 404, statusMessage: 'Батч не найден или истёк' })
   }
 

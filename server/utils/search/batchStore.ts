@@ -2,10 +2,12 @@
  * Общее in-memory хранилище асинхронных батчей прогона.
  * Разделяется между search-batch.post.ts и search-batch/[batchId].get.ts.
  */
-import type { SearchOutcome } from '../utils/search/types'
+import type { SearchOutcome } from './types'
 
 export interface BatchState {
   id: string
+  /** Организация-владелец — чужие батчи опрашивать нельзя. */
+  orgId: string
   total: number
   results: Record<string, SearchOutcome>
   done: number
