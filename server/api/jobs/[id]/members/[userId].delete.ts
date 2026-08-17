@@ -18,7 +18,7 @@ const querySchema = z.object({
  * Права: `member:update`.
  */
 export default defineEventHandler(async (event) => {
-  const session = await requirePermission(event, { member: ['update'] })
+  const session = await requirePermission(event, { job: ['update'] })
   const orgId = session.session.activeOrganizationId
   const actorId = session.user.id
 

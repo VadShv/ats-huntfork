@@ -8,12 +8,14 @@ import { addJobMemberSchema } from '../../../../utils/schemas/hiringManager'
 /**
  * POST /api/jobs/[id]/members
  * Назначает пользователя на вакансию с указанной ролью (в v1 — только HM).
- * Права: `member:update` (owner/admin/recruiter, кто управляет составом команды).
+ * Права: `job:update` — это часть редактирования вакансии (команда),
+ *   а не org-member (создание НМ как юзера org уже сделано через invite-link).
+ *   Доступно owner/admin и рекрутёрам (role=member).
  *
  * Может быть несколько НМ на одной вакансии (первое решение выигрывает — см. ТЗ §4.10).
  */
 export default defineEventHandler(async (event) => {
-  const session = await requirePermission(event, { member: ['update'] })
+  const session = await requirePermission(event, { job: ['update'] })
   const orgId = session.session.activeOrganizationId
   const actorId = session.user.id
 

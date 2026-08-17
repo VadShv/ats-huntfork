@@ -4,10 +4,12 @@ import { member, user } from '../../database/schema'
 /**
  * GET /api/hiring-managers
  * Список всех НМ в текущей org. Используется в UI «Настройки вакансии → Команда» для селекта.
- * Права: `member:read`.
+ * Права: `job:read` — любой, кто видит вакансии (в т.ч. рекрутёр role=member),
+ *   чтобы мочь назначать в вакансию. PII не выдаём — только
+ *   имя, email и статус. Создание НМ остаётся через owner/admin.
  */
 export default defineEventHandler(async (event) => {
-  const session = await requirePermission(event, { member: ['read'] })
+  const session = await requirePermission(event, { job: ['read'] })
   const orgId = session.session.activeOrganizationId
 
   const rows = await db

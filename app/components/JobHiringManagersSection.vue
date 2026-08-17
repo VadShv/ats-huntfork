@@ -34,7 +34,8 @@ interface JobMember {
   user: { id: string; name: string | null; email: string }
 }
 
-const { allowed: canManage } = usePermission({ member: ['create'] })
+// `job:update` — кто ведёт вакансию (owner/admin и рекрутёры role=member).
+const { allowed: canManage } = usePermission({ job: ['update'] })
 const toast = useToast()
 
 // ─── Список назначенных на вакансию НМ ───
