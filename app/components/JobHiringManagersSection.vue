@@ -190,38 +190,57 @@ onMounted(() => {
       Ни один НМ пока не назначен
     </div>
 
-    <!-- Add existing HM -->
-    <div v-if="canManage && !isLoadingOrgHms && availableToAdd.length > 0" class="mt-4 flex items-end gap-2">
-      <div class="flex-1">
-        <UiSelect
-          v-model="selectedUserId"
-          label="Добавить существующего НМ"
-          placeholder="— выберите —"
-          :options="availableToAddOptions"
-        />
-      </div>
-      <UiButton
-        :disabled="!selectedUserId || isAdding"
-        :loading="isAdding"
-        @click="addExisting"
-      >
-        Добавить
-      </UiButton>
-    </div>
+    <!-- Add existing HM — панель видна всегда (если есть права), меняется
+         только внутреннее состояние (есть опции / нет свободных / нет НМ вообще). -->
+    <div v-if="canManage" class="mt-4">
+      <label class="mb-1.5 block text-sm font-medium text-surface-700 dark:text-surface-300">
+        Добавить существующего НМ
+      </label>
 
-    <!-- No HMs in org yet — direct to members settings -->
-    <div
-      v-else-if="canManage && !isLoadingOrgHms && orgHms.length === 0"
-      class="mt-4 rounded-lg border border-dashed border-surface-200 px-3 py-4 text-sm text-surface-600 dark:border-surface-800 dark:text-surface-400"
-    >
-      В организации пока нет нанимающих менеджеров.
-      <NuxtLink
-        to="/dashboard/settings/members"
-        class="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 underline underline-offset-2"
+      <div v-if="isLoadingOrgHms" class="flex items-center gap-2 text-sm text-surface-500">
+        <Loader2 class="size-4 animate-spin" /> Загружаем список…
+      </div>
+
+      <!-- Есть кого добавить — селект + кнопка -->
+      <div v-else-if="availableToAdd.length > 0" class="flex items-end gap-2">
+        <div class="flex-1">
+          <UiSelect
+            v-model="selectedUserId"
+            placeholder="— выберите НМ —"
+            :options="availableToAddOptions"
+          />
+        </div>
+        <UiButton
+          :disabled="!selectedUserId || isAdding"
+          :loading="isAdding"
+          @click="addExisting"
+        >
+          Добавить
+        </UiButton>
+      </div>
+
+      <!-- В орге есть НМ, но все уже назначены -->
+      <div
+        v-else-if="orgHms.length > 0"
+        class="rounded-lg border border-dashed border-surface-200 px-3 py-3 text-sm text-surface-500 dark:border-surface-800 dark:text-surface-400"
       >
-        Создайте ссылку-приглашение
-      </NuxtLink>
-      с ролью «Нанимающий менеджер» в разделе «Участники».
+        Все активные НМ организации уже назначены на эту вакансию.
+      </div>
+
+      <!-- В орге вообще нет НМ — ведём в раздел Настройки → Участники -->
+      <div
+        v-else
+        class="rounded-lg border border-dashed border-surface-200 px-3 py-3 text-sm text-surface-600 dark:border-surface-800 dark:text-surface-400"
+      >
+        В организации пока нет нанимающих менеджеров.
+        <NuxtLink
+          to="/dashboard/settings/members"
+          class="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 underline underline-offset-2"
+        >
+          Создайте ссылку-приглашение
+        </NuxtLink>
+        с ролью «Нанимающий менеджер».
+      </div>
     </div>
   </section>
 </template>

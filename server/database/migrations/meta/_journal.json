@@ -421,6 +421,13 @@
       "when": 1801000050000,
       "tag": "0060_hm_activity_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1801000060000,
+      "tag": "0061_invite_link_role_hm",
+      "breakpoints": true
     }
   ]
 }
