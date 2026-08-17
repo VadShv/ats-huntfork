@@ -661,6 +661,8 @@ export const activityActionEnum = pgEnum('activity_action', [
   'created', 'updated', 'deleted', 'status_changed',
   'comment_added', 'member_invited', 'member_removed', 'member_role_changed',
   'scored', 'stage_changed',
+  // Спринт 20.3: решения НМ по кандидату
+  'hm_approved', 'hm_rejected', 'hm_cancelled',
 ])
 
 // ─────────────────────────────────────────────

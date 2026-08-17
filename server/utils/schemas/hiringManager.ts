@@ -32,3 +32,22 @@ export const removeJobMemberSchema = z.object({
   userId: z.string().trim().min(1).max(64),
   memberRole: z.enum(['hiring_manager', 'watcher', 'assignee']).default('hiring_manager'),
 })
+
+// ── Решение НМ по кандидату ─────────────────────────
+export const createHmDecisionSchema = z.object({
+  applicationId: z.string().trim().min(1).max(64),
+  decision: z.enum(['approved', 'rejected']),
+  comment: z.string().max(1000).optional(),
+})
+
+export type CreateHmDecisionInput = z.infer<typeof createHmDecisionSchema>
+
+export const cancelHmDecisionSchema = z.object({
+  reason: z.string().max(500).optional(),
+})
+
+// ── Смена временного пароля НМ при первом входе ────────────
+export const hmChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(8, 'Минимум 8 символов').max(128),
+})
