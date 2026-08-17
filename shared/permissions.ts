@@ -104,3 +104,24 @@ export const member = ac.newRole({
   sourceTracking: ['read'],
   pipeline: ['read'],
 })
+
+// hiring_manager — Нанимающий менеджер (Sprint 20.1).
+// Read-only везде в ATS. Все действия (одобрить/отклонить) — через отдельные /api/hm/*
+// эндпоинты, которые внутри себя вызывают единый API перехода этапа
+// в системном контексте. Сам НМ не может update напрямую.
+//
+// Видимость части комментариев (is_internal=true) скрыта на уровне
+// server/utils/comments/visibility.ts (уже было).
+export const hiringManager = ac.newRole({
+  ...memberAc.statements,
+  organization: ['read'],
+  job: ['read'],
+  candidate: ['read'],
+  application: ['read'],
+  document: ['read'],
+  comment: ['read'],
+  interview: ['read'],
+  activityLog: ['read'],
+  scoring: ['read'],
+  pipeline: ['read'],
+})

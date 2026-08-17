@@ -95,6 +95,13 @@ export const member = pgTable('member', {
   approvedBy: text('approved_by').references(() => user.id, { onDelete: 'set null' }),
   approvedAt: timestamp('approved_at'),
   rejectedReason: text('rejected_reason'),
+  // ── Hiring Manager per-org flags (Sprint 20.1) ──────────────
+  // Only meaningful when role = 'hiring_manager'. Ignored for other roles.
+  // Placed on `member` (not `user`) so a person can have different settings
+  // per organization within Astra Group.
+  hmCanViewSalary: boolean('hm_can_view_salary').notNull().default(false),
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
+  passwordUpdatedAt: timestamp('password_updated_at'),
 }, (t) => ([
   index('member_user_id_idx').on(t.userId),
   index('member_organization_id_idx').on(t.organizationId),

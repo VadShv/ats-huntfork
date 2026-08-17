@@ -407,6 +407,13 @@
       "when": 1801000032000,
       "tag": "0058_telegram_business",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1755463800000,
+      "tag": "0059_hm_role_foundation",
+      "breakpoints": true
     }
   ]
 }

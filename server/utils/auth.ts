@@ -3,7 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization, genericOAuth } from "better-auth/plugins";
 import { sso } from "@better-auth/sso";
 import { eq, count } from "drizzle-orm";
-import { ac, owner, admin, member } from "~~/shared/permissions";
+import { ac, owner, admin, member, hiringManager } from "~~/shared/permissions";
 import { sendOrgInvitationEmail, sendPasswordResetEmail } from "./email";
 import * as schema from "../database/schema";
 import { seedSystemPipelineForOrg } from "./pipeline-seed";
@@ -317,6 +317,7 @@ function getAuth(): Auth {
             owner,
             admin,
             member,
+            hiring_manager: hiringManager,
           },
 
           // ── Invitation Email ────────────────────────────────────
