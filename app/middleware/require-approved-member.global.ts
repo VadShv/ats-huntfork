@@ -1,11 +1,14 @@
 /**
- * Global middleware — blocks access to dashboard pages for members whose
- * status is 'pending', 'rejected', or 'suspended'.
+ * Global middleware.
+ *  1. Блокирует доступ членам в статусах pending/rejected/suspended.
+ *  2. Спринт 20.4: если НМ с must_change_password=true — форсит
+ *     на /hm/change-password.
+ *  3. Спринт 20.4: НМ не может ходить по /dashboard/* — всегда на /hm/dashboard.
  *
- * Runs on every navigation but exits early if:
+ * Завершается рано:
  * - No session (auth middleware will redirect to sign-in)
  * - No active org (require-org middleware will redirect to create-org)
- * - The destination is an /auth/* page (prevents redirect loops)
+ * - Маршрут /auth/* (анти-луп)
  */
 export default defineNuxtRouteMiddleware(async (to) => {
   // Avoid infinite redirect loop on auth pages
@@ -24,14 +27,38 @@ export default defineNuxtRouteMiddleware(async (to) => {
     key: `membership-${session.value.user.id}-${session.value.session.activeOrganizationId}`,
   })
 
-  // No membership record yet or status is active — allow through
-  if (!membership.value || membership.value.status === 'active') return
+  if (!membership.value) return
 
+  // Блокируем по статусу до всего остального
   if (membership.value.status === 'pending') {
     return navigateTo(localePath('/auth/pending-approval'))
   }
-
   if (membership.value.status === 'rejected' || membership.value.status === 'suspended') {
     return navigateTo(localePath('/auth/access-denied'))
+  }
+
+  // С активным членством — проверяем НМ-специфичные правила
+  if (membership.value.status !== 'active') return
+
+  const isHm = membership.value.role === 'hiring_manager'
+  const isHmRoute = to.path.startsWith('/hm/') || to.path === '/hm'
+    || to.path.startsWith('/ru/hm/') || to.path === '/ru/hm'
+
+  // (2) Принудительная смена временного пароля
+  if (isHm && membership.value.mustChangePassword) {
+    const changePwPath = localePath('/hm/change-password')
+    if (to.path !== changePwPath && !to.path.endsWith('/hm/change-password')) {
+      return navigateTo(changePwPath)
+    }
+  }
+
+  // (3) НМ не пускаем в админ-UI
+  if (isHm && (to.path.startsWith('/dashboard') || to.path.startsWith('/ru/dashboard'))) {
+    return navigateTo(localePath('/hm/dashboard'))
+  }
+
+  // Не-НМ в /hm/* — на обычный дашборд
+  if (!isHm && isHmRoute) {
+    return navigateTo(localePath('/dashboard'))
   }
 })

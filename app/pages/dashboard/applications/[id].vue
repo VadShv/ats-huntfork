@@ -213,6 +213,12 @@ function formatResponseValue(value: unknown): string {
         @schedule="showInterviewSidebar = true"
       />
 
+      <!-- Спринт 20: панель решения НМ (видна рекрутёру, если есть эффективное решение) -->
+      <ApplicationHmDecisionCard
+        class="mb-6"
+        :application-id="applicationId"
+      />
+
       <div class="grid gap-4 md:grid-cols-2">
         <!-- Candidate info -->
         <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">

@@ -28,6 +28,9 @@ export default defineEventHandler(async (event) => {
       role: schema.member.role,
       status: schema.member.status,
       createdAt: schema.member.createdAt,
+      // Спринт 20: флаги НМ для глобального middleware/UI
+      mustChangePassword: schema.member.mustChangePassword,
+      hmCanViewSalary: schema.member.hmCanViewSalary,
     })
     .from(schema.member)
     .where(
