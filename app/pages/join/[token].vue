@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Building2, UserPlus, Shield, ShieldCheck, Loader2, AlertTriangle, Check } from 'lucide-vue-next'
+import { Building2, UserPlus, Shield, ShieldCheck, UserCheck, Loader2, AlertTriangle, Check } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'auth',
@@ -76,8 +76,11 @@ async function handleAccept() {
       organizationId: result.organizationId,
     })
 
+    // НМ ведём в свой дашборд — там он видит только свои карточки кандидатов,
+    // обычные рекрутёры/админы — в общий /dashboard.
+    const target = result.role === 'hiring_manager' ? '/hm/dashboard' : '/dashboard'
     setTimeout(() => {
-      window.location.href = localePath('/dashboard')
+      window.location.href = localePath(target)
     }, 1500)
   }
   catch (err: any) {
@@ -91,11 +94,14 @@ async function handleAccept() {
 
 function getRoleLabel(role: string) {
   if (role === 'admin') return 'Администратор'
-  return 'Участник'
+  if (role === 'hiring_manager') return 'Нанимающий менеджер'
+  return 'Рекрутёр'
 }
 
 function getRoleIcon(role: string) {
-  return role === 'admin' ? ShieldCheck : Shield
+  if (role === 'admin') return ShieldCheck
+  if (role === 'hiring_manager') return UserCheck
+  return Shield
 }
 </script>
 

@@ -82,7 +82,13 @@ export default defineEventHandler(async (event) => {
 
   // ── Step 5 + 6: Atomically increment use count AND add member in a transaction ──
   // This prevents use count leaks if the member insert fails.
-  const safeRole = link.role === 'admin' ? 'admin' : 'member'
+  //
+  // Список разрешённых ролей дльжен совпадать с `createInviteLinkSchema.role`.
+  const ALLOWED_INVITE_ROLES = ['admin', 'member', 'hiring_manager'] as const
+  const safeRole: (typeof ALLOWED_INVITE_ROLES)[number]
+    = (ALLOWED_INVITE_ROLES as readonly string[]).includes(link.role)
+      ? (link.role as (typeof ALLOWED_INVITE_ROLES)[number])
+      : 'member'
 
   const result = await db.transaction(async (tx) => {
     // Atomically increment use count with race-safe WHERE guard
@@ -110,6 +116,8 @@ export default defineEventHandler(async (event) => {
     }
 
     // Add member with conflict guard (unique index on userId+orgId)
+    // Полагаемся на дефолты схемы: status='active', mustChangePassword=false.
+    // Для hiring_manager это корректно — юзер сам прошёл self-signup.
     const [newMember] = await tx
       .insert(member)
       .values({

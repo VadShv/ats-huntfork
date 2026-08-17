@@ -236,7 +236,7 @@ const inviteLinks = ref<InviteLink[]>([])
 const isLoadingLinks = ref(true)
 const linksError = ref('')
 const showCreateLinkForm = ref(false)
-const newLinkRole = ref<'admin' | 'member'>('member')
+const newLinkRole = ref<'admin' | 'member' | 'hiring_manager'>('member')
 const newLinkMaxUses = ref<string | number>('')
 const newLinkExpiresInHours = ref(168) // 7 days default
 const isCreatingLink = ref(false)
@@ -580,7 +580,8 @@ async function handleRemoveMember() {
 const roleConfig: Record<string, { label: string; color: string; bg: string; icon: Component }> = {
   owner: { label: 'Владелец', color: 'text-warning-700 dark:text-warning-400', bg: 'bg-warning-50 dark:bg-warning-950', icon: Crown },
   admin: { label: 'Администратор', color: 'text-brand-700 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-950', icon: ShieldCheck },
-  member: { label: 'Участник', color: 'text-surface-700 dark:text-surface-300', bg: 'bg-surface-100 dark:bg-surface-800', icon: Shield },
+  member: { label: 'Рекрутёр', color: 'text-surface-700 dark:text-surface-300', bg: 'bg-surface-100 dark:bg-surface-800', icon: Shield },
+  hiring_manager: { label: 'Нанимающий менеджер', color: 'text-info-700 dark:text-info-400', bg: 'bg-info-50 dark:bg-info-950', icon: UserCheck },
 }
 
 function getRoleConfig(role: string) {
@@ -883,8 +884,9 @@ onUnmounted(() => {
                   v-model="newLinkRole"
                   class="appearance-none rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 pl-3 pr-8 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors cursor-pointer"
                 >
-                  <option value="member">Участник</option>
+                  <option value="member">Рекрутёр</option>
                   <option value="admin">Администратор</option>
+                  <option value="hiring_manager">Нанимающий менеджер</option>
                 </select>
                 <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 size-3 text-surface-400 pointer-events-none" />
               </div>
