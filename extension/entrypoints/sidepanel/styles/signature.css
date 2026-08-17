@@ -1,0 +1,109 @@
+/**
+ * signature.css — фирменные детали интерфейса Huntfork Sidekick.
+ * ТЗ «Фирменные детали интерфейса» §1–§7.
+ * Подключается ПОСЛЕ shine.css (последний в каскаде).
+ *
+ * Содержит глобальные стили для деталей, не вошедшие в scoped-стиили
+ * компонентов. Компонентные стили (.wolf, .paw, .compass, .typed,
+ * .board, .inertia-*) — в самих SFC (scoped).
+ *
+ * Здесь: общие правила отключения, вспомогательные классы.
+ */
+
+/* ═══════════════ 1. Аварийный выключатель ═══════════════ */
+
+/**
+ * .hf-no-flourish на корне гасит весь signature-слой целиком.
+ * flourishEnabled() в signature.ts проверяет этот класс.
+ */
+.hf-no-flourish .wolf__pupil,
+.hf-no-flourish .paw__print,
+.hf-no-flourish .paw__trail,
+.hf-no-flourish .compass__needle,
+.hf-no-flourish .typed__caret,
+.hf-no-flourish .heatmap__bar {
+  animation: none !important;
+  transition: none !important;
+}
+
+.hf-no-flourish .wolf__pupil {
+  transform: none !important;
+}
+
+.hf-no-flourish .compass__needle.is-idle {
+  animation: none !important;
+}
+
+/* ═══════════════ 2. Бюджет кадра — только transform/opacity ═══════════════ */
+
+/*
+ * Все анимации в signature-слое используют только transform и opacity.
+ * Ничего в layout — ни width, ни height, ни top/left в keyframes.
+ * will-change только на активно анимируемых элементах.
+ */
+
+.wolf__pupil,
+.compass__needle,
+.paw__print,
+.paw__trail,
+.heatmap__bar {
+  will-change: transform, opacity;
+}
+
+/* ═══════════════ 3. Одна деталь на экран ═══════════════ */
+
+/*
+ * Приоритет отдаётся детали, ближей к фокусу пользователя.
+ * Это управляется логикой в компонентах, не CSS.
+ */
+
+/* ═══════════════ 4. Доступность ═══════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .wolf__pupil,
+  .paw__print,
+  .paw__trail,
+  .compass__needle,
+  .typed__caret,
+  .heatmap__bar,
+  .board__card {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .wolf__pupil {
+    transform: none !important;
+  }
+
+  .compass__needle.is-idle {
+    animation: none !important;
+  }
+
+  /* Магнитное прилипание остаётся — это функциональность, не декор. */
+  /* Убирается только овершут возврата (board__card scale). */
+}
+
+@media (hover: none) {
+  /* Слежение зрачков не имеет смысла без курсора. */
+  .wolf__pupil {
+    transform: none !important;
+  }
+}
+
+/* ═══════════════ 5. Тепловая карта — интеграция в Гант ═══════════════ */
+
+/*
+ * Стили для тепловой карты внутри VfTimeline (не в scoped CareerHeatmap).
+ * VfTimeline может использовать heatColor() напрямую для своих полос.
+ */
+.vf-tl-bar {
+  transition: background var(--hf-dur-fast) var(--hf-ease-out);
+}
+
+/* ═══════════════ 6. Компас — интеграция в заголовок ═══════════════ */
+
+.sm-header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--hf-s-2);
+}

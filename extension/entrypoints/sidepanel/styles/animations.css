@@ -1,0 +1,234 @@
+/* ────────────────────────────────────────────────────────────────
+   animations.css — @keyframes + утилиты движения
+   Анимируем ТОЛЬКО transform и opacity (+ точечные исключения).
+   ──────────────────────────────────────────────────────────────── */
+
+/* ── Открытие панели (содержимое внутри Side Panel) ─────────────── */
+
+@keyframes hf-panel-in {
+  from { opacity: 0; transform: translateX(16px) scale(0.99); }
+  to   { opacity: 1; transform: translateX(0)    scale(1); }
+}
+
+@keyframes hf-zone-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hf-panel-in {
+  animation: hf-panel-in var(--hf-dur-base) var(--hf-ease-out) both;
+}
+
+.hf-zone-in {
+  animation: hf-zone-in var(--hf-dur-base) var(--hf-ease-out) both;
+}
+
+/* ── Смена раздела ─────────────────────────────────────────────── */
+
+@keyframes hf-view-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes hf-view-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-12px); }
+}
+
+.hf-view-enter-active {
+  transition:
+    opacity var(--hf-dur-base) var(--hf-ease-out),
+    transform var(--spring-gentle-dur) var(--spring-gentle);
+}
+.hf-view-leave-active {
+  position: absolute;
+  inset: 0;
+  transition:
+    opacity var(--hf-dur-fast) var(--hf-ease-in),
+    transform var(--hf-dur-fast) var(--hf-ease-in);
+}
+.hf-view-enter-from {
+  opacity: 0;
+  transform: translate3d(calc(var(--dir, 1) * 12px), 0, 0);
+}
+.hf-view-leave-to {
+  opacity: 0;
+  transform: translate3d(calc(var(--dir, 1) * -8px), 0, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hf-view-enter-active, .hf-view-leave-active { transition-duration: 0.01ms !important; }
+  .hf-view-enter-from, .hf-view-leave-to { transform: none; }
+}
+
+/* ── Поповер/меню ──────────────────────────────────────────────── */
+
+@keyframes hf-popover-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.hf-popover-in {
+  animation: hf-popover-in var(--hf-dur-fast) var(--hf-ease-out) both;
+  transform-origin: var(--hf-popover-origin, bottom center);
+}
+
+/* ── Тост ──────────────────────────────────────────────────────── */
+
+@keyframes hf-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hf-toast-in {
+  animation: hf-toast-in var(--hf-dur-base) var(--hf-ease-spring) both;
+}
+
+/* ── Модалка ⌘K ────────────────────────────────────────────────── */
+
+@keyframes hf-modal-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes hf-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.hf-modal-in {
+  animation: hf-modal-in var(--hf-dur-base) var(--hf-ease-out) both;
+}
+
+.hf-backdrop-in {
+  animation: hf-backdrop-in var(--hf-dur-fast) var(--hf-ease-out) both;
+}
+
+/* ── Шиммер скелетона ──────────────────────────────────────────── */
+
+@keyframes hf-shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/* ── Пульс-орб (стриминг) ──────────────────────────────────────── */
+
+@keyframes hf-pulse-orb {
+  0%   { box-shadow: 0 0 0 0 var(--hf-ring); opacity: 1; }
+  70%  { box-shadow: 0 0 0 10px transparent; opacity: 0.6; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+}
+
+.hf-pulse-orb {
+  animation: hf-pulse-orb 1.8s var(--hf-ease-in-out) infinite;
+}
+
+/* ── Мигающая каретка стриминга ────────────────────────────────── */
+
+@keyframes hf-caret-blink {
+  0%, 50%   { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+
+.hf-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  vertical-align: text-bottom;
+  background: var(--hf-primary);
+  margin-left: 1px;
+  animation: hf-caret-blink 1s steps(1) infinite;
+}
+
+/* ── Точки ожидания (typing) ───────────────────────────────────── */
+
+@keyframes hf-dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40%           { transform: translateY(-4px); opacity: 1; }
+}
+
+.hf-typing i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--hf-r-pill);
+  background: var(--hf-fg-subtle);
+  animation: hf-dot-bounce 1.2s var(--hf-ease-in-out) infinite;
+}
+.hf-typing i:nth-child(2) { animation-delay: 0.15s; }
+.hf-typing i:nth-child(3) { animation-delay: 0.3s; }
+
+/* ── Shake (ошибка) ────────────────────────────────────────────── */
+
+@keyframes hf-shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-3px); }
+  75%      { transform: translateX(3px); }
+}
+
+.hf-shake {
+  animation: hf-shake 0.3s var(--hf-ease-in-out);
+}
+
+/* ── Выезжание действий под ответом ────────────────────────────── */
+
+@keyframes hf-actions-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hf-actions-in {
+  animation: hf-actions-in var(--hf-dur-fast) var(--hf-ease-out) both;
+  animation-delay: 80ms;
+}
+
+/* ── Пустое состояние ──────────────────────────────────────────── */
+
+@keyframes hf-empty-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.hf-empty-in {
+  animation: hf-empty-in var(--hf-dur-base) var(--hf-ease-out) both;
+}
+
+/* ── Offline-баннер ────────────────────────────────────────────── */
+
+@keyframes hf-banner-in {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+
+.hf-banner-in {
+  animation: hf-banner-in var(--hf-dur-base) var(--hf-ease-out) both;
+}
+
+/* ── Вращение (spinner) ────────────────────────────────────────── */
+
+@keyframes hf-spin {
+  to { transform: rotate(360deg); }
+}
+
+.hf-spin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hf-spin > svg {
+  animation: hf-spin 0.8s linear infinite;
+}
+
+/* ── Доступность движения ──────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
