@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { job, pipeline } from '../../database/schema'
+import { jobMember } from '../../database/schema/hm'
 import { createJobSchema } from '../../utils/schemas/job'
 import { getDefaultPipelineForOrg } from '../../utils/pipeline-helpers'
 
@@ -90,6 +91,25 @@ export default defineEventHandler(async (event) => {
 
   if (!created) {
     throw createError({ statusCode: 500, statusMessage: 'Не удалось создать вакансию' })
+  }
+
+  // Авто-назначение: создатель вакансии становится её рекрутёром.
+  // Право job:create есть только у owner/admin/member — все они валидные рекрутёры.
+  // Не блокируем создание вакансии при сбое назначения.
+  try {
+    await db
+      .insert(jobMember)
+      .values({
+        organizationId: orgId,
+        jobId: created.id,
+        userId: session.user.id,
+        memberRole: 'recruiter',
+        addedByUserId: session.user.id,
+      })
+      .onConflictDoNothing({ target: [jobMember.jobId, jobMember.userId, jobMember.memberRole] })
+  }
+  catch (err) {
+    console.error('[jobs.post] Не удалось авто-назначить рекрутёра на вакансию:', err)
   }
 
   recordActivity({

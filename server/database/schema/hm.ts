@@ -41,7 +41,7 @@ export const jobMember = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    /** Values: 'hiring_manager' | 'watcher' | 'assignee'. In v1 only 'hiring_manager' is used. */
+    /** Values: 'hiring_manager' | 'recruiter' | 'watcher' | 'assignee'. Used: 'hiring_manager', 'recruiter'. */
     memberRole: text('member_role').notNull(),
     addedByUserId: text('added_by_user_id').references(() => user.id, { onDelete: 'set null' }),
     addedAt: timestamp('added_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

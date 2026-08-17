@@ -702,6 +702,14 @@ function onSalaryMaxChange(e: Event) {
         />
 
         <!-- ═══════════════════════════════════════ -->
+        <!-- SECTION: Recruiters (Sprint 20)         -->
+        <!-- ═══════════════════════════════════════ -->
+        <JobRecruitersSection
+          v-if="jobId"
+          :job-id="jobId"
+        />
+
+        <!-- ═══════════════════════════════════════ -->
         <!-- SECTION: Hiring Managers (Sprint 20)    -->
         <!-- ═══════════════════════════════════════ -->
         <JobHiringManagersSection

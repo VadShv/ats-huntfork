@@ -24,8 +24,8 @@ export const jobIdParamSchema = z.object({
 
 export const addJobMemberSchema = z.object({
   userId: z.string().trim().min(1).max(64),
-  /** В v1 только 'hiring_manager'. Задел на watcher/assignee в v2. */
-  memberRole: z.enum(['hiring_manager', 'watcher', 'assignee']).default('hiring_manager'),
+  /** Поддерживаются 'hiring_manager' и 'recruiter'. Задел на watcher/assignee в v2. */
+  memberRole: z.enum(['hiring_manager', 'recruiter', 'watcher', 'assignee']).default('hiring_manager'),
 })
 
 export const removeJobMemberSchema = z.object({

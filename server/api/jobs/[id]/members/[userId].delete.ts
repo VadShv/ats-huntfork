@@ -9,7 +9,7 @@ const paramsSchema = z.object({
 })
 
 const querySchema = z.object({
-  memberRole: z.enum(['hiring_manager', 'watcher', 'assignee']).default('hiring_manager'),
+  memberRole: z.enum(['hiring_manager', 'recruiter', 'watcher', 'assignee']).default('hiring_manager'),
 })
 
 /**

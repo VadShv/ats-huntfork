@@ -52,18 +52,30 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: 'Учётная запись пользователя неактивна' })
   }
 
-  // v1: назначить НМ можно только пользователя с ролью hiring_manager.
-  // watcher/assignee из body.memberRole в v1 отклоняем — реализация позже.
-  if (body.memberRole !== 'hiring_manager') {
+  // Поддерживаемые роли назначения:
+  //   • hiring_manager — только пользователь с org-ролью hiring_manager;
+  //   • recruiter       — только пользователь с org-ролью owner/admin/member.
+  // watcher/assignee отклоняем — реализация позже.
+  if (body.memberRole === 'hiring_manager') {
+    if (target.role !== 'hiring_manager') {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Пользователь не имеет роли «Нанимающий менеджер»',
+      })
+    }
+  }
+  else if (body.memberRole === 'recruiter') {
+    if (!['owner', 'admin', 'member'].includes(target.role)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Рекрутёром вакансии может быть только участник с ролью владелец, администратор или рекрутёр',
+      })
+    }
+  }
+  else {
     throw createError({
       statusCode: 501,
-      statusMessage: 'В v1 доступна только роль hiring_manager',
-    })
-  }
-  if (target.role !== 'hiring_manager') {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Пользователь не имеет роли «Нанимающий менеджер»',
+      statusMessage: 'Роли watcher/assignee пока не поддерживаются',
     })
   }
 
