@@ -47,6 +47,31 @@ export interface HmApplicationResponse {
     city: string | null
     aiSummary: string | null
     expectedSalary: { amount?: number; currency?: string } | null
+    resume: null | {
+      title?: string
+      about?: string
+      totalExperienceMonths?: number
+      area?: string
+      keySkills?: string[]
+      languages?: Array<{ name?: string; level?: string }>
+      experiences?: Array<{
+        company?: string
+        position?: string
+        description?: string
+        start?: string
+        end?: string
+      }>
+      education?: Array<{
+        name?: string
+        organization?: string
+        result?: string
+        year?: number
+      }>
+      professionalRoles?: string[]
+      employments?: string[]
+      schedules?: string[]
+      updatedAt?: string
+    }
   }
   job: { id: string; title: string; location: string | null }
   effectiveDecision: null | {

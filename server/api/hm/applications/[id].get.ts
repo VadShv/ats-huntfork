@@ -89,15 +89,93 @@ export default defineEventHandler(async (event) => {
     ))
     .limit(1)
 
-  // 4. Извлекаем зарплатные ожидания из hh_resume_raw
+  // 4. Строим безопасный вариант резюме из hh_resume_raw для НМ.
+  //   Не включаем: телефон, email, соцсети, дату рождения, PII
+  //   (их видит только рекрутёр).  Зарплата — только при hm_can_view_salary=true.
   let expectedSalary: { amount?: number; currency?: string } | null = null
-  if (session.hm.canViewSalary && row.hhResumeRaw && typeof row.hhResumeRaw === 'object') {
+  let resumeSnapshot: {
+    title?: string
+    about?: string
+    totalExperienceMonths?: number
+    area?: string
+    skills?: string[]
+    keySkills?: string[]
+    languages?: Array<{ name?: string; level?: string }>
+    experiences?: Array<{
+      company?: string
+      position?: string
+      description?: string
+      start?: string
+      end?: string
+    }>
+    education?: Array<{
+      name?: string
+      organization?: string
+      result?: string
+      year?: number
+    }>
+    professionalRoles?: string[]
+    employments?: string[]
+    schedules?: string[]
+    updatedAt?: string
+  } | null = null
+
+  if (row.hhResumeRaw && typeof row.hhResumeRaw === 'object') {
     const raw = row.hhResumeRaw as any
-    if (raw?.salary && (raw.salary.amount || raw.salary.value)) {
+
+    if (session.hm.canViewSalary && raw?.salary && (raw.salary.amount || raw.salary.value)) {
       expectedSalary = {
         amount: raw.salary.amount ?? raw.salary.value,
         currency: raw.salary.currency,
       }
+    }
+
+    // Строки ограничиваем чтобы не раздувать ответ; HTML/markup чистим.
+    const stripHtml = (s: unknown): string | undefined => {
+      if (typeof s !== 'string') return undefined
+      const clean = s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+      return clean || undefined
+    }
+
+    const experiences: Array<any> = Array.isArray(raw?.experience) ? raw.experience : []
+    const education: Array<any> = Array.isArray(raw?.education?.primary) ? raw.education.primary
+      : (Array.isArray(raw?.education) ? raw.education : [])
+
+    resumeSnapshot = {
+      title: stripHtml(raw?.title),
+      about: stripHtml(raw?.skills), // hh.ru: «skills» — это свободный текст «О себе»
+      totalExperienceMonths: typeof raw?.total_experience?.months === 'number' ? raw.total_experience.months : undefined,
+      area: typeof raw?.area?.name === 'string' ? raw.area.name : undefined,
+      keySkills: Array.isArray(raw?.skill_set) ? raw.skill_set.slice(0, 40).map(String) : undefined,
+      languages: Array.isArray(raw?.language)
+        ? raw.language.slice(0, 20).map((l: any) => ({
+            name: typeof l?.name === 'string' ? l.name : undefined,
+            level: typeof l?.level?.name === 'string' ? l.level.name : undefined,
+          }))
+        : undefined,
+      experiences: experiences.slice(0, 15).map((e: any) => ({
+        company: typeof e?.company === 'string' ? e.company : undefined,
+        position: typeof e?.position === 'string' ? e.position : undefined,
+        description: stripHtml(e?.description),
+        start: typeof e?.start === 'string' ? e.start : undefined,
+        end: typeof e?.end === 'string' ? e.end : undefined,
+      })),
+      education: education.slice(0, 10).map((ed: any) => ({
+        name: typeof ed?.name === 'string' ? ed.name : undefined,
+        organization: typeof ed?.organization === 'string' ? ed.organization : undefined,
+        result: typeof ed?.result === 'string' ? ed.result : undefined,
+        year: typeof ed?.year === 'number' ? ed.year : undefined,
+      })),
+      professionalRoles: Array.isArray(raw?.professional_roles)
+        ? raw.professional_roles.map((r: any) => typeof r?.name === 'string' ? r.name : null).filter(Boolean) as string[]
+        : undefined,
+      employments: Array.isArray(raw?.employments)
+        ? raw.employments.map((e: any) => typeof e?.name === 'string' ? e.name : null).filter(Boolean) as string[]
+        : undefined,
+      schedules: Array.isArray(raw?.schedules)
+        ? raw.schedules.map((s: any) => typeof s?.name === 'string' ? s.name : null).filter(Boolean) as string[]
+        : undefined,
+      updatedAt: typeof raw?.updated_at === 'string' ? raw.updated_at : undefined,
     }
   }
 
@@ -120,6 +198,7 @@ export default defineEventHandler(async (event) => {
       city: row.city,
       aiSummary: row.aiSummary,
       expectedSalary,
+      resume: resumeSnapshot,
     },
     job: {
       id: row.jobId,

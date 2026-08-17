@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   ArrowLeft, MapPin, Briefcase, CheckCircle2, XCircle, Sparkles, Info,
-  BadgeCheck, BadgeX,
+  BadgeCheck, BadgeX, FileText,
 } from 'lucide-vue-next'
 import type { HmApplicationResponse } from '~/composables/useHmApi'
 
@@ -35,6 +35,28 @@ function formatSalary(s: { amount?: number; currency?: string } | null) {
   const cur = (s.currency || 'RUR').toUpperCase()
   const currency = cur === 'RUR' ? '₽' : cur === 'USD' ? '$' : cur === 'EUR' ? '€' : cur
   return `${s.amount.toLocaleString('ru-RU')} ${currency}`
+}
+
+function formatExperience(months?: number) {
+  if (!months || months <= 0) return ''
+  const years = Math.floor(months / 12)
+  const rest = months % 12
+  const parts: string[] = []
+  if (years > 0) parts.push(`${years} год${years === 1 ? '' : years >= 2 && years <= 4 ? 'а' : 'ов'}`)
+  if (rest > 0) parts.push(`${rest} мес.`)
+  return parts.join(' ') || `${months} мес.`
+}
+
+function formatDateRange(start?: string, end?: string) {
+  if (!start) return ''
+  const fmt = (iso: string) => {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return iso
+    return d.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' })
+  }
+  const from = fmt(start)
+  const to = end ? fmt(end) : 'н.в.'
+  return `${from} — ${to}`
 }
 
 async function decide(kind: 'approved' | 'rejected') {
@@ -171,10 +193,96 @@ async function decide(kind: 'approved' | 'rejected') {
             </p>
           </UiCard>
 
-          <UiCard v-else variant="dashed">
+          <!-- Структурированное резюме hh.ru (без PII) -->
+          <UiCard v-if="data.candidate.resume">
+            <div class="mb-3 flex items-center gap-2 text-sm font-medium text-surface-900 dark:text-surface-100">
+              <FileText class="size-4 text-brand-600 dark:text-brand-400" />
+              Резюме кандидата
+            </div>
+
+            <div class="space-y-4 text-sm text-surface-700 dark:text-surface-300">
+              <!-- Header резюме -->
+              <div v-if="data.candidate.resume.title || data.candidate.resume.totalExperienceMonths" class="space-y-1">
+                <div v-if="data.candidate.resume.title" class="text-base font-semibold text-surface-900 dark:text-surface-100">
+                  {{ data.candidate.resume.title }}
+                </div>
+                <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-surface-500 dark:text-surface-400">
+                  <span v-if="data.candidate.resume.area">{{ data.candidate.resume.area }}</span>
+                  <span v-if="data.candidate.resume.totalExperienceMonths">
+                    Опыт: {{ formatExperience(data.candidate.resume.totalExperienceMonths) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- О себе -->
+              <div v-if="data.candidate.resume.about">
+                <div class="mb-1 text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">О себе</div>
+                <p class="whitespace-pre-line leading-relaxed">{{ data.candidate.resume.about }}</p>
+              </div>
+
+              <!-- Ключевые навыки -->
+              <div v-if="data.candidate.resume.keySkills && data.candidate.resume.keySkills.length">
+                <div class="mb-1 text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">Ключевые навыки</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <span
+                    v-for="skill in data.candidate.resume.keySkills"
+                    :key="skill"
+                    class="rounded-md bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-xs"
+                  >{{ skill }}</span>
+                </div>
+              </div>
+
+              <!-- Опыт работы -->
+              <div v-if="data.candidate.resume.experiences && data.candidate.resume.experiences.length">
+                <div class="mb-2 text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">Опыт работы</div>
+                <div class="space-y-3">
+                  <div
+                    v-for="(exp, idx) in data.candidate.resume.experiences"
+                    :key="idx"
+                    class="border-l-2 border-surface-200 dark:border-surface-800 pl-3"
+                  >
+                    <div class="font-medium text-surface-900 dark:text-surface-100">{{ exp.position || '—' }}</div>
+                    <div class="text-xs text-surface-500 dark:text-surface-400">
+                      {{ exp.company || '' }}<span v-if="exp.start">, {{ formatDateRange(exp.start, exp.end) }}</span>
+                    </div>
+                    <p v-if="exp.description" class="mt-1 whitespace-pre-line text-xs leading-relaxed">
+                      {{ exp.description }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Образование -->
+              <div v-if="data.candidate.resume.education && data.candidate.resume.education.length">
+                <div class="mb-2 text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">Образование</div>
+                <ul class="space-y-1 text-xs">
+                  <li v-for="(ed, idx) in data.candidate.resume.education" :key="idx">
+                    <span class="font-medium text-surface-900 dark:text-surface-100">{{ ed.name || ed.organization || '—' }}</span>
+                    <span v-if="ed.organization && ed.name" class="text-surface-500">, {{ ed.organization }}</span>
+                    <span v-if="ed.result" class="text-surface-500">, {{ ed.result }}</span>
+                    <span v-if="ed.year" class="text-surface-500"> — {{ ed.year }}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Языки -->
+              <div v-if="data.candidate.resume.languages && data.candidate.resume.languages.length">
+                <div class="mb-1 text-xs font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">Языки</div>
+                <div class="flex flex-wrap gap-1.5 text-xs">
+                  <span
+                    v-for="(lang, idx) in data.candidate.resume.languages"
+                    :key="idx"
+                    class="rounded-md bg-surface-100 dark:bg-surface-800 px-2 py-0.5"
+                  >{{ lang.name || '—' }}<span v-if="lang.level" class="text-surface-500"> — {{ lang.level }}</span></span>
+                </div>
+              </div>
+            </div>
+          </UiCard>
+
+          <UiCard v-else-if="!data.candidate.aiSummary" variant="dashed">
             <div class="flex items-center gap-2 py-2 text-sm text-surface-500 dark:text-surface-400">
               <Info class="size-4" />
-              Резюме ещё не проанализировано — попросите рекрутёра запустить AI-анализ
+              Резюме кандидата ещё не загружено. Попросите рекрутёра обновить данные с hh.ru.
             </div>
           </UiCard>
         </div>

@@ -106,7 +106,7 @@ export async function resolveRejectedTargetStage(params: {
     .orderBy(asc(pipelineStage.displayOrder))
     .limit(1)
 
-  if (notFit) return notFit
+  if (notFit) return { stageId: notFit.id, stageName: notFit.name }
 
   // Fallback — любой rejected-этап
   const [anyRejected] = await db
@@ -126,7 +126,7 @@ export async function resolveRejectedTargetStage(params: {
     .orderBy(asc(pipelineStage.displayOrder))
     .limit(1)
 
-  if (anyRejected) return anyRejected
+  if (anyRejected) return { stageId: anyRejected.id, stageName: anyRejected.name }
 
   throw createError({
     statusCode: 400,
