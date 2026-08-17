@@ -31,7 +31,8 @@ interface JobMember {
   memberRole: string
   addedAt: string | Date
   addedByUserId: string | null
-  user: { id: string; name: string | null; email: string }
+  userName: string | null
+  userEmail: string
 }
 
 // `job:update` — кто ведёт вакансию (owner/admin и рекрутёры role=member).
@@ -176,10 +177,10 @@ onMounted(() => {
       <li v-for="m in assigned" :key="m.userId" class="flex items-center justify-between py-3">
         <div class="min-w-0 flex-1">
           <div class="truncate text-sm font-medium text-surface-900 dark:text-surface-100">
-            {{ m.user.name || m.user.email }}
+            {{ m.userName || m.userEmail }}
           </div>
           <div class="mt-0.5 truncate text-xs text-surface-500 dark:text-surface-400">
-            {{ m.user.email }}
+            {{ m.userEmail }}
           </div>
         </div>
         <UiButton
