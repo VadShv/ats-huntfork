@@ -201,8 +201,10 @@ Key security measures:
 
 ```
 organization (Better Auth)
-├── job (draft → open → closed → archived)
-│   └── application (new → screening → interview → offer → hired/rejected)
+├── pipeline (воронка; isSystem / isDefault / isArchived)
+│   └── pipeline_stage (type, bucket working|rejected, parentStageId, isSystemStage, isHidden, isTerminal)
+├── job (draft → open → closed → archived) — привязана к pipeline
+│   └── application (currentStageId → pipeline_stage; легаси status — производная проекция)
 │       └── candidate
 │           └── document (resume, cover_letter — stored in S3-compatible bucket)
 └── member (user ↔ organization with role)
@@ -241,7 +243,11 @@ Structured data by page type:
 
 Private pages (dashboard, auth, onboarding) include `robots: 'noindex, nofollow'` via `useSeoMeta()`.
 
-### 11. Blog Content Engine
+### 11. Funnel as the Single Dictionary
+
+Положение кандидата в системе описывается **только этапами воронки** (`application.currentStageId` → `pipeline_stage`). Легаси-статус `application.status` сохранён как производная проекция для back-compat (hh-импорт, Sidekick, SQL-аналитика), но не читается продуктовым UI. Единственный путь перемещения — `moveApplicationStage()`. Полная модель, ADR о сохранении `status`, API-контракты и правила UI: **[docs/funnel-architecture.md](docs/funnel-architecture.md)**.
+
+### 12. Blog Content Engine
 
 Blog articles are Markdown files in `content/blog/` powered by `@nuxt/content` v3:
 - Collection schema defined in `content.config.ts` with typed frontmatter (title, description, date, author, image, tags)
