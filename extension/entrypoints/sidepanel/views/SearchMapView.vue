@@ -277,7 +277,7 @@ function fmtDate(ts: number | null): string {
 </template>
 
 <style scoped>
-.sm-view { height: 100%; overflow-y: auto; mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 18px), transparent 100%); }
+.sm-view { height: 100%; overflow-y: auto; max-width: var(--hf-content-max); margin-inline: auto; mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 18px), transparent 100%); }
 
 .sm-empty { display: flex; flex-direction: column; gap: var(--hf-s-4); }
 .sm-empty-job { padding: 0 var(--hf-s-4); }

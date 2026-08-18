@@ -79,8 +79,7 @@ export default { name: 'PanelShell' }
 }
 .shell-viewport {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   position: relative;
 }
 .resize-handle {

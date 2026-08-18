@@ -256,7 +256,7 @@ export default { name: 'HubView' }
 </script>
 
 <style scoped>
-.hub-view { height: 100%; overflow-y: auto; padding: var(--hf-s-4); }
+.hub-view { height: 100%; overflow-y: auto; padding: var(--hf-s-4); max-width: var(--hf-content-max); margin-inline: auto; }
 
 .hub-greet { margin-bottom: var(--hf-s-4); }
 .hub-greet-title { font-size: var(--hf-t-xl); font-weight: var(--hf-fw-bold); color: var(--hf-fg); text-wrap: balance; }

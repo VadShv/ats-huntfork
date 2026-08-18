@@ -76,6 +76,7 @@
   transition: border-color var(--hf-dur-fast) var(--hf-ease-out), box-shadow var(--hf-dur-fast) var(--hf-ease-out);
 }
 .hf-textarea { resize: vertical; min-height: 64px; }
+.hf-textarea { max-height: 320px; }
 .hf-input:focus, .hf-textarea:focus {
   outline: none;
   border-color: var(--hf-primary);
@@ -165,8 +166,18 @@ select.hf-input {
 .hf-field-marker--fuzzy { background: var(--hf-warn-muted); color: var(--hf-warn); }
 .hf-field-marker--social { background: var(--hf-surface-sunken); color: var(--hf-fg-muted); }
 
+/* ── Ограничение ширины контента при растягивании панели ──────── */
+/* Применяется к корню views без шапки: контент центрируется и не
+   расползается слишком широко при ширине панели > 560px. */
+.hf-prose-block {
+  width: 100%;
+  max-width: var(--hf-content-max);
+  margin-inline: auto;
+}
+
 /* ── Markdown-рендер ──────────────────────────────────────────── */
 .md { font-size: var(--hf-t-md); line-height: var(--hf-lh-relaxed); color: var(--hf-fg); word-wrap: break-word; }
+.md { overflow-wrap: anywhere; }
 .md > *:first-child { margin-top: 0; }
 .md > *:last-child { margin-bottom: 0; }
 .md h1, .md h2, .md h3 { font-weight: var(--hf-fw-semibold); line-height: var(--hf-lh-tight); margin: var(--hf-s-4) 0 var(--hf-s-2); }
@@ -202,7 +213,7 @@ select.hf-input {
   padding: var(--hf-s-1) var(--hf-s-3);
   color: var(--hf-fg-muted);
 }
-.md table { border-collapse: collapse; width: 100%; margin: var(--hf-s-3) 0; font-size: var(--hf-t-sm); }
+.md table { border-collapse: collapse; width: 100%; margin: var(--hf-s-3) 0; font-size: var(--hf-t-sm); display: block; overflow-x: auto; max-width: 100%; }
 .md th, .md td { border: 1px solid var(--hf-border); padding: var(--hf-s-1) var(--hf-s-2); text-align: left; }
 .md th { background: var(--hf-surface-sunken); font-weight: var(--hf-fw-semibold); }
 .md hr { border: none; border-top: 1px solid var(--hf-border); margin: var(--hf-s-4) 0; }

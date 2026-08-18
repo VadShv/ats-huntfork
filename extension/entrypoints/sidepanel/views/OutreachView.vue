@@ -263,7 +263,7 @@ export default { name: 'OutreachView' }
 </script>
 
 <style scoped>
-.outreach-view { height: 100%; overflow-y: auto; padding: var(--hf-s-4); }
+.outreach-view { height: 100%; overflow-y: auto; padding: var(--hf-s-4); max-width: var(--hf-content-max); margin-inline: auto; }
 .ov-header { display: flex; align-items: center; gap: var(--hf-s-3); margin-bottom: var(--hf-s-4); }
 .ov-title { font-size: var(--hf-t-lg); font-weight: var(--hf-fw-semibold); color: var(--hf-fg); }
 

@@ -10,6 +10,7 @@ import { useDedup } from '../composables/useDedup'
 import ProfileDiff from './ProfileDiff.vue'
 import QueuePanel from '../layout/QueuePanel.vue'
 import SearchMapView from './SearchMapView.vue'
+import SourcingFeedView from './SourcingFeedView.vue'
 
 const {
   phase, errorMsg, currentUrl, resumeId, isHhPage, isListPage, canCapture, isPdfPage,
@@ -30,7 +31,7 @@ const { fieldMatches, fieldClass } = useDedup()
 const isBusy = computed(() => importing.value || capturing.value || saving.value)
 
 /** Внутренний подраздел Sourcing: «Захват» (по умолчанию) или «Карта поиска». */
-const sourcingTab = ref<'capture' | 'map'>('capture')
+const sourcingTab = ref<'capture' | 'map' | 'feed'>('capture')
 </script>
 
 <template>
@@ -43,10 +44,14 @@ const sourcingTab = ref<'capture' | 'map'>('capture')
       <button class="src-subtab" :class="{ 'src-subtab--active': sourcingTab === 'map' }" @click="sourcingTab = 'map'">
         <HfIcon name="map" :size="14" /> Карта поиска
       </button>
+      <button class="src-subtab" :class="{ 'src-subtab--active': sourcingTab === 'feed' }" @click="sourcingTab = 'feed'">
+        <HfIcon name="list-checks" :size="14" /> Лента
+      </button>
     </div>
 
+    <SourcingFeedView v-if="sourcingTab === 'feed'" />
     <SearchMapView v-if="sourcingTab === 'map'" />
-    <template v-else>
+    <template v-else-if="sourcingTab === 'capture'">
     <QueuePanel />
 
     <!-- Boot / checking -->
@@ -329,7 +334,7 @@ export default { name: 'SourcingView' }
 .draft-head { display: flex; align-items: center; gap: var(--hf-s-3); margin-bottom: var(--hf-s-4); }
 .avatar { width: 40px; height: 40px; border-radius: var(--hf-r-pill); background: var(--hf-primary-muted); color: var(--hf-primary); display: flex; align-items: center; justify-content: center; font-weight: var(--hf-fw-semibold); flex-shrink: 0; }
 .draft-name { font-weight: var(--hf-fw-semibold); font-size: var(--hf-t-md); }
-.draft-src { font-size: var(--hf-t-xs); color: var(--hf-fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+.draft-src { font-size: var(--hf-t-xs); color: var(--hf-fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; min-width: 0; }
 
 .dup-block { border-radius: var(--hf-r-md); padding: var(--hf-s-3); margin-bottom: var(--hf-s-3); }
 .dup-soft { background: var(--hf-warn-muted); }
@@ -339,7 +344,7 @@ export default { name: 'SourcingView' }
 
 .form-section { margin-bottom: var(--hf-s-4); }
 .form-label { font-size: var(--hf-t-xs); font-weight: var(--hf-fw-semibold); text-transform: uppercase; letter-spacing: 0.04em; color: var(--hf-fg-muted); margin-bottom: var(--hf-s-2); }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--hf-s-2); }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--hf-s-2); }
 .tags { display: flex; flex-wrap: wrap; gap: var(--hf-s-1); margin-bottom: var(--hf-s-2); }
 
 .exp-timeline { display: flex; flex-direction: column; gap: var(--hf-s-3); }

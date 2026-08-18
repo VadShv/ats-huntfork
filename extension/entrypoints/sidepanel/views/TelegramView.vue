@@ -308,7 +308,7 @@ export default { name: 'TelegramView' }
 </script>
 
 <style scoped>
-.tg-view { height: 100%; overflow-y: auto; padding: var(--hf-s-4); }
+.tg-view { height: 100%; overflow-y: auto; padding: var(--hf-s-4); max-width: var(--hf-content-max); margin-inline: auto; }
 
 .tg-connect { display: flex; justify-content: center; padding: var(--hf-s-5) var(--hf-s-4); }
 .tg-connect-card { max-width: 360px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--hf-s-3); }

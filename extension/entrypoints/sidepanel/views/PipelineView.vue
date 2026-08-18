@@ -134,7 +134,7 @@ export default { name: 'PipelineView' }
 </script>
 
 <style scoped>
-.pipeline-view { height: 100%; overflow-y: auto; padding: var(--hf-s-4); }
+.pipeline-view { height: 100%; overflow-y: auto; padding: var(--hf-s-4); max-width: var(--hf-content-max); margin-inline: auto; }
 .pv-header { display: flex; align-items: center; gap: var(--hf-s-3); margin-bottom: var(--hf-s-4); }
 .pv-title { font-size: var(--hf-t-lg); font-weight: var(--hf-fw-semibold); color: var(--hf-fg); }
 
