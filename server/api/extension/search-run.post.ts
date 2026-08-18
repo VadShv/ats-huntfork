@@ -18,12 +18,12 @@
  * Отказ поиска не ломает карту — расширение показывает состояние ошибки.
  */
 import { z } from 'zod'
-import { createRateLimiter } from '../../../utils/rateLimit'
-import { runSearch } from '../../../utils/search/gateway'
-import { cacheKey } from '../../../utils/search/normalize'
-import { cacheGet, cacheInvalidate } from '../../../utils/search/cache'
-import { isSearchError } from '../../../utils/search/types'
-import type { SearchRequest } from '../../../utils/search/types'
+import { createRateLimiter } from '../../utils/rateLimit'
+import { runSearch } from '../../utils/search/gateway'
+import { cacheKey } from '../../utils/search/normalize'
+import { cacheGet, cacheInvalidate } from '../../utils/search/cache'
+import { isSearchError } from '../../utils/search/types'
+import type { SearchRequest } from '../../utils/search/types'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,

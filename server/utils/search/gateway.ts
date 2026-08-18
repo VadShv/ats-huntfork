@@ -82,7 +82,7 @@ export async function runSearch(req: SearchRequest): Promise<SearchOutcome> {
   const errors: SearchError[] = []
 
   for (let i = 0; i < chain.length; i++) {
-    const providerName = chain[i]
+    const providerName = chain[i]!
 
     // При 429 — выдержка перед повтором/фолбэком
     if (errors.some(e => e.code === 'rate_limited')) {

@@ -982,7 +982,7 @@ const stateFilters = [
     </Teleport>
 
     <!-- Дровер деталей / редактирования поиска -->
-    <UiDrawer v-model:open="showDetailsModal" width="md">
+    <UiDrawer v-model="showDetailsModal" width="md">
       <div v-if="detailsSearch" class="space-y-4">
         <div class="flex items-start justify-between">
           <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100">

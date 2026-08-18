@@ -70,7 +70,6 @@ interface Snapshot {
   workFormat?: string[]
   employmentForm?: string[]
   relocation?: { type: string | null } | null
-  gender?: string | null
   citizenship?: string[]
   searchActivity?: string | null
 }

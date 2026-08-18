@@ -39,7 +39,7 @@ export interface SnapshotEducationItem {
  *  - Навыки: skills[]
  *  - Образование: educationLevel, education[]
  *  - Условия: workFormat[], employmentForm[], relocation
- *  - Прочее: gender, citizenship, searchActivity
+ *  - Прочее: citizenship, searchActivity (пол сознательно НЕ храним — дискриминационный риск)
  */
 export interface SourcingSnapshot {
   // ── Базовые ──────────────────────────────────────────────
@@ -81,8 +81,6 @@ export interface SourcingSnapshot {
   relocation: { type: string | null } | null
 
   // ── Прочее (не PII) ──────────────────────────────────────
-  /** Пол (male/female) — не контактные данные. */
-  gender: string | null
   /** Гражданство (страны). */
   citizenship: string[]
   /** Активность поиска / когда обновлял резюме. */

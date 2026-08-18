@@ -17,11 +17,11 @@
  * Rate limit: 60 запросов/мин на пользователя (общий с search-run).
  */
 import { z } from 'zod'
-import { createRateLimiter } from '../../../utils/rateLimit'
-import { runSearch } from '../../../utils/search/gateway'
-import { batchStore, type BatchState } from '../../../utils/search/batchStore'
-import { isSearchError } from '../../../utils/search/types'
-import type { SearchRequest, SearchOutcome } from '../../../utils/search/types'
+import { createRateLimiter } from '../../utils/rateLimit'
+import { runSearch } from '../../utils/search/gateway'
+import { batchStore, type BatchState } from '../../utils/search/batchStore'
+import { isSearchError } from '../../utils/search/types'
+import type { SearchRequest, SearchOutcome } from '../../utils/search/types'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,

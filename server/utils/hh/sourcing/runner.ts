@@ -70,7 +70,6 @@ interface HhResumeListItem {
   employment_form?: string[]
   relocation?: { type?: { id?: string, name?: string } }
   // Прочее (не PII)
-  gender?: { id?: string, name?: string }
   citizenship?: string[]
   // Активность поиска
   search_status?: { id?: string, name?: string }
@@ -172,7 +171,7 @@ function extractEducation(item: HhResumeListItem): SnapshotEducationItem[] {
  * Построить полный анонимизированный snapshot из элемента выдачи hh.
  *
  * Новые поля (skills/education/experience[]/workFormat/employmentForm/
- * relocation/gender/citizenship/searchActivity) — optional, старые записи
+ * relocation/citizenship/searchActivity) — optional, старые записи
  * без них рендерятся UI по v-if без ошибок.
  */
 function buildSnapshot(item: HhResumeListItem): SourcingSnapshot {
@@ -201,7 +200,6 @@ function buildSnapshot(item: HhResumeListItem): SourcingSnapshot {
     relocation: item.relocation?.type
       ? { type: item.relocation.type.name ?? item.relocation.type.id ?? null }
       : null,
-    gender: item.gender?.name ?? item.gender?.id ?? null,
     citizenship: Array.isArray(item.citizenship) ? item.citizenship.slice(0, 5) : [],
     searchActivity: item.search_status?.name ?? item.search_status?.id ?? item.updated_at ?? null,
   }
