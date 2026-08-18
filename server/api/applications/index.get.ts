@@ -57,8 +57,21 @@ export default defineEventHandler(async (event) => {
     )
   }
   if (query.stageId) {
-    // Exact stage match — directly filter on the FK column
-    conditions.push(eq(application.currentStageId, query.stageId))
+    // Спринт 22: фильтр по родительскому этапу (например «Отказ») включает
+    // его подэтапы (причины отказа). Для обычных этапов — точное совпадение.
+    const childStages = await db
+      .select({ id: pipelineStage.id })
+      .from(pipelineStage)
+      .where(and(
+        eq(pipelineStage.organizationId, orgId),
+        eq(pipelineStage.parentStageId, query.stageId),
+      ))
+    if (childStages.length > 0) {
+      conditions.push(inArray(application.currentStageId, [query.stageId, ...childStages.map(s => s.id)]))
+    }
+    else {
+      conditions.push(eq(application.currentStageId, query.stageId))
+    }
   }
   else if (query.stageType) {
     // Type-based match — filter on the joined stage's type column.

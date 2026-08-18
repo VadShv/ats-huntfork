@@ -4,8 +4,9 @@
  * Заменить все mapping'ы для связки (full-replace).
  * Body: { mappings: [{ pipelineStageId, hhCollection, messageTemplate? }, ...] }
  *
- * Спринт 11.5: допустимые значения hh_collection — реальные коллекции работодателя hh.ru:
- * response | consider | phone_interview | assessment | interview | offer | hired | discard_by_employer.
+ * Спринт 11.5: допустимые значения hh_collection — реальные коллекции работодателя hh.ru.
+ * Спринт 22 (фикс A4): добавлены discard_after_interview и discard_visible_by_opponent —
+ * pushAction давно их поддерживает (COLLECTION_PRIORITY), теперь их можно настроить и через UI.
  */
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -22,6 +23,8 @@ const HH_COLLECTIONS = [
   'offer',
   'hired',
   'discard_by_employer',
+  'discard_after_interview',
+  'discard_visible_by_opponent',
 ] as const
 
 const bodySchema = z.object({

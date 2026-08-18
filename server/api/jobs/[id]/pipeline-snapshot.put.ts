@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { eq, and, asc } from 'drizzle-orm'
-import { job, pipelineStage } from '../../../database/schema'
+import { eq, and, asc, isNotNull } from 'drizzle-orm'
+import { application, job, pipelineStage } from '../../../database/schema'
 import { idParamSchema } from '../../../utils/schemas/job'
 import { validatePipelineStages, ALL_STAGE_TYPES } from '../../../utils/pipeline-validation'
 
@@ -105,6 +105,36 @@ export default defineEventHandler(async (event) => {
       throw createError({
         statusCode: 400,
         statusMessage: `Базовый этап «${orig.name}» — раздел менять нельзя`,
+      })
+    }
+  }
+
+  // ── Спринт 22 (F6): этапы, на которых стоят кандидаты этой вакансии,
+  //    нельзя убрать из snapshot или скрыть — иначе они пропадут с канбана.
+  const occupiedRows = await db
+    .selectDistinct({ stageId: application.currentStageId })
+    .from(application)
+    .where(and(
+      eq(application.jobId, id),
+      eq(application.organizationId, orgId),
+      isNotNull(application.currentStageId),
+    ))
+
+  const snapshotById = new Map(body.stages.map((s) => [s.id, s]))
+  for (const row of occupiedRows) {
+    if (!row.stageId) continue
+    const snapStage = snapshotById.get(row.stageId)
+    const stageName = originalById.get(row.stageId)?.name ?? row.stageId
+    if (!snapStage) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: `На этапе «${stageName}» есть кандидаты — его нельзя убрать из воронки вакансии. Сначала переместите кандидатов`,
+      })
+    }
+    if (snapStage.isHidden) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: `На этапе «${stageName}» есть кандидаты — его нельзя скрыть. Сначала переместите кандидатов`,
       })
     }
   }

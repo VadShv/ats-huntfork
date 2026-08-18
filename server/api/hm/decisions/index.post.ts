@@ -118,6 +118,7 @@ export default defineEventHandler(async (event) => {
         actorUserId: null,
         comment: body.comment,
         activityAction: body.decision === 'approved' ? 'hm_approved' : 'hm_rejected',
+        via: 'hm_decision',
         activityMetadataExtras: {
           hmDecisionId: existingEffective.id,
           hmUserId,
@@ -172,6 +173,7 @@ export default defineEventHandler(async (event) => {
         actorUserId: null,
         comment: body.comment,
         activityAction: body.decision === 'approved' ? 'hm_approved' : 'hm_rejected',
+        via: 'hm_decision',
         activityMetadataExtras: {
           hmDecisionId: decisionId,
           hmUserId,

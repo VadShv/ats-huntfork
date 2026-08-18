@@ -26,6 +26,7 @@ import {
   application, applicationStageHistory, candidate, job,
   pipelineStage, criterionScore, scoringCriterion,
 } from '../../database/schema'
+import { moveApplicationStage } from '../pipeline-move'
 import { computeCompositeConfidence } from './scoring'
 import type { CriterionDefinition, CriterionEvaluation } from './scoring'
 
@@ -208,9 +209,11 @@ export async function applyAutoRejectIfNeeded(
       return { outcome: 'skip_no_reject_stage', meta: { score: app.score, threshold, confidence } }
     }
 
-    // Спринт 16: в новой hh-воронке отказной этап — type='not_fit'
-    // («Не подходит»), 'rejected' — legacy-алиас старых воронок.
-    const rejectStage = await db.query.pipelineStage.findFirst({
+    // Спринт 22: ищем этап «Не подходит». После миграции 0062 отказные причины —
+    // подэтапы родителя «Отказ», поэтому предпочитаем подэтап (parentStageId IS NOT NULL);
+    // на старых воронках берём корневой not_fit/rejected БЕЗ подэтапов (guard G3 утиля
+    // не пустит на родителя с активными причинами).
+    const rejectCandidates = await db.query.pipelineStage.findMany({
       where: and(
         eq(pipelineStage.pipelineId, app.job.pipelineId),
         eq(pipelineStage.organizationId, orgId),
@@ -218,57 +221,41 @@ export async function applyAutoRejectIfNeeded(
         eq(pipelineStage.isTerminal, true),
         eq(pipelineStage.isArchived, false),
       ),
-      columns: { id: true, name: true, color: true },
+      columns: { id: true, name: true, color: true, type: true, parentStageId: true },
       orderBy: (stage, { asc }) => [asc(stage.displayOrder)],
     })
+
+    const rejectStage
+      = rejectCandidates.find(s => s.type === 'not_fit' && s.parentStageId !== null)
+        ?? rejectCandidates.find(s => s.type === 'not_fit')
+        ?? rejectCandidates.find(s => s.parentStageId !== null)
+        ?? rejectCandidates[0]
 
     if (!rejectStage) {
       return { outcome: 'skip_no_reject_stage', meta: { score: app.score, threshold, confidence } }
     }
 
-    // ── Применяем отказ: stage update + история (movedByUserId = null = system)
+    // ── Применяем отказ через канонический утиль (Спринт 22):
+    //    история, legacy-статус, activity, hh-push и PostHog — внутри него.
     const reasonComment = buildAutoRejectComment(app.score, threshold, confidence, app.job.autoRejectReasonNote)
-    const now = new Date()
 
-    await db.transaction(async (tx) => {
-      await tx.update(application)
-        .set({
-          currentStageId: rejectStage.id,
-          stageChangedAt: now,
-          status: 'rejected',
-          needsManualReview: false, // сброс — теперь финальное решение
-          updatedAt: now,
-        })
-        .where(and(
-          eq(application.id, applicationId),
-          eq(application.organizationId, orgId),
-        ))
-
-      await tx.insert(applicationStageHistory).values({
-        organizationId: orgId,
-        applicationId,
-        fromStageId: app.currentStageId ?? undefined,
-        toStageId: rejectStage.id,
-        movedByUserId: null, // system actor
-        comment: reasonComment,
-      })
-    })
-
-    // Спринт 16: событие смены этапа в ленте изменений (actorId=null → «Система»).
-    // Формат metadata {from, to} — тот же, что у ручной смены этапа.
-    recordActivity({
+    await moveApplicationStage({
       organizationId: orgId,
-      actorId: null,
-      action: 'stage_changed',
-      resourceType: 'application',
-      resourceId: applicationId,
-      metadata: {
-        from: app.currentStage?.name ?? null,
-        to: rejectStage.name,
-        comment: reasonComment,
-        auto: true,
-      },
+      applicationId,
+      toStageId: rejectStage.id,
+      actorUserId: null, // system actor
+      comment: reasonComment,
+      via: 'auto_reject',
+      activityMetadataExtras: { auto: true },
     })
+
+    // Сброс флага ручной проверки — теперь есть финальное решение
+    await db.update(application)
+      .set({ needsManualReview: false, updatedAt: new Date() })
+      .where(and(
+        eq(application.id, applicationId),
+        eq(application.organizationId, orgId),
+      ))
 
     return {
       outcome: 'rejected',

@@ -1,5 +1,5 @@
-import { eq, and } from 'drizzle-orm'
-import { applicationStageHistory, application } from '../../../database/schema'
+import { eq, and, inArray } from 'drizzle-orm'
+import { applicationStageHistory, application, pipelineStage } from '../../../database/schema'
 import { applicationIdParamSchema } from '../../../utils/schemas/application'
 
 /**
@@ -37,10 +37,10 @@ export default defineEventHandler(async (event) => {
     ),
     with: {
       fromStage: {
-        columns: { id: true, name: true, color: true },
+        columns: { id: true, name: true, color: true, parentStageId: true },
       },
       toStage: {
-        columns: { id: true, name: true, color: true },
+        columns: { id: true, name: true, color: true, parentStageId: true },
       },
       movedByUser: {
         columns: { id: true, name: true },
@@ -49,14 +49,30 @@ export default defineEventHandler(async (event) => {
     orderBy: (h, { desc }) => [desc(h.movedAt)],
   })
 
+  // Спринт 22: для подэтапов (например причин отказа) отдаём имя родителя,
+  // чтобы UI показывал «Отказ / Не подходит», а не голое «Не подходит».
+  const parentIds = [...new Set(
+    rows.flatMap((r) => [r.fromStage?.parentStageId, r.toStage?.parentStageId]).filter((v): v is string => !!v),
+  )]
+  const parentNameById = new Map<string, string>()
+  if (parentIds.length > 0) {
+    const parents = await db
+      .select({ id: pipelineStage.id, name: pipelineStage.name })
+      .from(pipelineStage)
+      .where(and(eq(pipelineStage.organizationId, orgId), inArray(pipelineStage.id, parentIds)))
+    for (const p of parents) parentNameById.set(p.id, p.name)
+  }
+
   return rows.map((row) => ({
     id: row.id,
     fromStageId: row.fromStageId ?? null,
     fromStageName: row.fromStage?.name ?? null,
     fromStageColor: row.fromStage?.color ?? null,
+    fromStageParentName: row.fromStage?.parentStageId ? (parentNameById.get(row.fromStage.parentStageId) ?? null) : null,
     toStageId: row.toStageId,
     toStageName: row.toStage.name,
     toStageColor: row.toStage.color,
+    toStageParentName: row.toStage.parentStageId ? (parentNameById.get(row.toStage.parentStageId) ?? null) : null,
     movedByUserId: row.movedByUserId ?? null,
     movedByUserName: row.movedByUser?.name ?? null,
     comment: row.comment ?? null,

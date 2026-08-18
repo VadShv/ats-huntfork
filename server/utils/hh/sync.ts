@@ -126,9 +126,12 @@ export function extractContacts(r: HhResumeApi): { email?: string, phone?: strin
   return { email, phone }
 }
 
-/** Маппим hh.state → application.status (узкий перенос). */
-function mapApplicationStatus(_hhState?: string | null): 'new' | 'reviewing' | 'rejected' | 'hired' {
-  // Все импортированные отклики стартуют в 'new' — кадровик дальше двигает по pipeline вручную.
+/**
+ * Маппим hh.state → application.status.
+ * Спринт 22 (фикс A5): убран мёртвый тип 'reviewing' (не существует в application_status).
+ * Все импортированные отклики стартуют в 'new' — дальше движение только по локальной воронке (master).
+ */
+function mapApplicationStatus(_hhState?: string | null): 'new' {
   return 'new'
 }
 

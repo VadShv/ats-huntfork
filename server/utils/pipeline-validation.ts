@@ -99,6 +99,19 @@ export interface StageInput {
 export function validatePipelineStages(stages: StageInput[]): void {
   const activeVisible = stages.filter((s) => !s.isArchived && !s.isHidden)
 
+  // ── Спринт 22 (F4): legacy-типы нельзя назначать НОВЫМ этапам ───────
+  // 'applied' — полностью legacy; 'rejected' зарезервирован за системным
+  // родителем «Отказ» (создаётся миграцией/сидом, не через API).
+  // Существующие этапы (с id) проходят без ограничений (round-trip редактора).
+  for (const s of stages) {
+    if (!s.id && (LEGACY_TYPES as readonly string[]).includes(s.type) && !s.isSystemStage) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: `Тип этапа «${s.type}» — устаревший и недоступен для новых этапов. Используйте «custom» или один из актуальных типов`,
+      })
+    }
+  }
+
   // ── Минимум 2 активных working этапа ─────────────────────────────
   const workingActive = activeVisible.filter((s) => {
     const bucket = s.bucket ?? bucketForType(s.type as PipelineStageType)

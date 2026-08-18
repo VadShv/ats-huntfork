@@ -12,7 +12,7 @@ type DB = any
 // Presets: «Простой» (legacy, 6 stages) и «Стандартный hh.ru» (1-в-1 с Talantix, 17 stages)
 // ─────────────────────────────────────────────────────────────
 
-const SIMPLE_PRESET_NAME = 'Простой'
+export const SIMPLE_PRESET_NAME = 'Простой'
 const HH_STANDARD_PRESET_NAME = 'Стандартный hh.ru'
 
 /**
@@ -40,9 +40,10 @@ export const SIMPLE_STAGES: StageSeed[] = [
  * Working (12): Все неразобранные → (Подходящие); Подумать → (Вернуться позже);
  *   Первичный контакт → (Звонок, Мессенджер, Связаться ещё раз); Тестовое задание;
  *   Интервью; Предложение о работе; Выход на работу.
- * Rejected (5): Не подходит, Кандидат отказался, Не выходит на связь,
+ * Rejected (Спринт 22): родитель «Отказ» (type='rejected') → подэтапы-причины:
+ *   Не подходит, Кандидат отказался, Не выходит на связь,
  *   Вакансия закрыта, Перевод на другую вакансию.
- * Итого 17 записей (8 базовых + 4 подстатуса + 5 отказных).
+ * Итого 18 записей (8 базовых + 4 подстатуса + родитель «Отказ» + 5 причин).
  */
 export const HH_STANDARD_STAGES: StageSeed[] = [
   // ── Working bucket ──
@@ -58,12 +59,13 @@ export const HH_STANDARD_STAGES: StageSeed[] = [
   { key: 'interview', name: 'Интервью',          type: 'interview',  color: STAGE_COLORS.interview,  displayOrder: 9,  bucket: 'working',  isTerminal: false, isSystemStage: true },
   { key: 'offer',     name: 'Предложение о работе', type: 'offer',   color: STAGE_COLORS.offer,      displayOrder: 10, bucket: 'working',  isTerminal: false, isSystemStage: true },
   { key: 'hired',     name: 'Выход на работу',   type: 'hired',      color: STAGE_COLORS.hired,      displayOrder: 11, bucket: 'working',  isTerminal: true,  isSystemStage: true },
-  // ── Rejected bucket ──
-  { key: 'notfit',    name: 'Не подходит',           type: 'not_fit',     color: STAGE_COLORS.not_fit,     displayOrder: 12, bucket: 'rejected', isTerminal: true, isSystemStage: true },
-  { key: 'withdrawn', name: 'Кандидат отказался',    type: 'withdrawn',   color: STAGE_COLORS.withdrawn,   displayOrder: 13, bucket: 'rejected', isTerminal: true, isSystemStage: true },
-  { key: 'noshow',    name: 'Не выходит на связь',   type: 'no_show',     color: STAGE_COLORS.no_show,     displayOrder: 14, bucket: 'rejected', isTerminal: true, isSystemStage: true },
-  { key: 'closed',    name: 'Вакансия закрыта',      type: 'job_closed',  color: STAGE_COLORS.job_closed,  displayOrder: 15, bucket: 'rejected', isTerminal: true, isSystemStage: true },
-  { key: 'transfer',  name: 'Перевод на другую вакансию', type: 'transferred', color: STAGE_COLORS.transferred, displayOrder: 16, bucket: 'rejected', isTerminal: true, isSystemStage: true },
+  // ── Rejected bucket (Спринт 22: родитель «Отказ» + подэтапы-причины) ──
+  { key: 'reject',    name: 'Отказ',                 type: 'rejected',    color: STAGE_COLORS.rejected,    displayOrder: 12, bucket: 'rejected', isTerminal: true, isSystemStage: true },
+  { key: 'notfit',    name: 'Не подходит',           type: 'not_fit',     color: STAGE_COLORS.not_fit,     displayOrder: 13, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
+  { key: 'withdrawn', name: 'Кандидат отказался',    type: 'withdrawn',   color: STAGE_COLORS.withdrawn,   displayOrder: 14, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
+  { key: 'noshow',    name: 'Не выходит на связь',   type: 'no_show',     color: STAGE_COLORS.no_show,     displayOrder: 15, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
+  { key: 'closed',    name: 'Вакансия закрыта',      type: 'job_closed',  color: STAGE_COLORS.job_closed,  displayOrder: 16, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
+  { key: 'transfer',  name: 'Перевод на другую вакансию', type: 'transferred', color: STAGE_COLORS.transferred, displayOrder: 17, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
 ]
 
 interface PresetDefinition {
@@ -77,16 +79,12 @@ interface PresetDefinition {
 const PRESETS: PresetDefinition[] = [
   {
     name: HH_STANDARD_PRESET_NAME,
-    description: 'Полная воронка 1-в-1 с hh.ru / Talantix. Включает 8 базовых этапов и 5 отказных статусов.',
+    description: 'Полная воронка 1-в-1 с hh.ru / Talantix. Включает 8 базовых этапов и родительский этап «Отказ» с 5 причинами.',
     stages: HH_STANDARD_STAGES,
     isDefault: true,
   },
-  {
-    name: SIMPLE_PRESET_NAME,
-    description: 'Минимальная воронка на 6 этапов: Новый → Скрининг → Интервью → Оффер → Принят / Отказ.',
-    stages: SIMPLE_STAGES,
-    isDefault: false,
-  },
+  // Спринт 22 (M3): «Простой» пресет больше НЕ сидится новым организациям —
+  // остаётся доступным только через явное создание (POST /api/pipelines, preset='simple').
 ]
 
 /**

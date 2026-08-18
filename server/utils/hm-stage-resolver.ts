@@ -10,7 +10,7 @@
  * Если нужного этапа нет — 400 с понятным сообщением (админ должен настроить воронку).
  */
 
-import { and, asc, eq, gt } from 'drizzle-orm'
+import { and, asc, eq, gt, isNull } from 'drizzle-orm'
 import { application, job, pipelineStage } from '../database/schema/app'
 
 /** Найти этап, куда переносит «Одобрено НМ». */
@@ -59,6 +59,8 @@ export async function resolveApprovedTargetStage(params: {
       eq(pipelineStage.bucket, 'working'),
       eq(pipelineStage.isArchived, false),
       eq(pipelineStage.isHidden, false),
+      // Спринт 22: «следующий этап» — только корневой (не подэтап)
+      isNull(pipelineStage.parentStageId),
       gt(pipelineStage.displayOrder, currentOrder),
     ))
     .orderBy(asc(pipelineStage.displayOrder))
@@ -89,11 +91,13 @@ export async function resolveRejectedTargetStage(params: {
     throw createError({ statusCode: 400, statusMessage: 'У вакансии не задана воронка' })
   }
 
-  // Ищем 'not_fit', иначе fallback на любой rejected-bucket
-  const [notFit] = await db
+  // Спринт 22: после миграции 0062 причины отказа — подэтапы родителя «Отказ».
+  // Ищем 'not_fit' (предпочитая подэтап), иначе fallback на rejected-bucket без родителя с подэтапами.
+  const notFitRows = await db
     .select({
       id: pipelineStage.id,
       name: pipelineStage.name,
+      parentStageId: pipelineStage.parentStageId,
     })
     .from(pipelineStage)
     .where(and(
@@ -104,15 +108,16 @@ export async function resolveRejectedTargetStage(params: {
       eq(pipelineStage.isHidden, false),
     ))
     .orderBy(asc(pipelineStage.displayOrder))
-    .limit(1)
 
+  const notFit = notFitRows.find(s => s.parentStageId !== null) ?? notFitRows[0]
   if (notFit) return { stageId: notFit.id, stageName: notFit.name }
 
-  // Fallback — любой rejected-этап
-  const [anyRejected] = await db
+  // Fallback — любой терминальный rejected-этап (предпочитая подэтап-причину)
+  const rejectedRows = await db
     .select({
       id: pipelineStage.id,
       name: pipelineStage.name,
+      parentStageId: pipelineStage.parentStageId,
     })
     .from(pipelineStage)
     .where(and(
@@ -124,8 +129,8 @@ export async function resolveRejectedTargetStage(params: {
       eq(pipelineStage.isTerminal, true),
     ))
     .orderBy(asc(pipelineStage.displayOrder))
-    .limit(1)
 
+  const anyRejected = rejectedRows.find(s => s.parentStageId !== null) ?? rejectedRows[0]
   if (anyRejected) return { stageId: anyRejected.id, stageName: anyRejected.name }
 
   throw createError({
