@@ -440,13 +440,19 @@ type RejectStageLite = {
 }
 
 function resolveRejectStageId(stages: RejectStageLite[]): string | null {
-  const roots = stages.filter(s => !s.isArchived && !s.isHidden && !s.parentStageId)
-  const byType = (t: string) => roots.find(s => s.type === t)
-  const stage = byType('not_fit')
-    ?? byType('rejected')
-    ?? roots.find(s => s.bucket === 'rejected')
-    ?? roots.find(s => s.isTerminal && s.type !== 'hired')
-  return stage?.id ?? null
+  // Спринт 22: «Не подходит» — подэтап родителя «Отказ»; родитель с подэтапами
+  // напрямую не выбирается (сервер вернёт 422 CHOOSE_SUBSTAGE).
+  const active = stages.filter(s => !s.isArchived && !s.isHidden)
+  const hasChildren = (id: string) => active.some(c => c.parentStageId === id)
+  const notFit = active.filter(s => s.type === 'not_fit')
+  const pick = notFit.find(s => s.parentStageId) ?? notFit.find(s => !s.parentStageId && !hasChildren(s.id))
+  if (pick) return pick.id
+  const rejectedSub = active.find(s => s.bucket === 'rejected' && s.parentStageId)
+  if (rejectedSub) return rejectedSub.id
+  const rejectedRoot = active.find(s => s.bucket === 'rejected' && !s.parentStageId && !hasChildren(s.id))
+  if (rejectedRoot) return rejectedRoot.id
+  const terminal = active.find(s => !s.parentStageId && s.isTerminal && s.type !== 'hired' && !hasChildren(s.id))
+  return terminal?.id ?? null
 }
 
 async function bulkReject() {
@@ -515,7 +521,7 @@ async function handleInterviewScheduled() {
   await refresh()
 }
 
-type BulkStageOption = { id: string; name: string; color: string }
+type BulkStageOption = { id: string; name: string; color: string; bucket?: string | null; parentStageId?: string | null }
 // Аудит синхронизации (Н-5): этапы группируем по воронкам — одноимённые этапы
 // разных воронок больше не смешиваются в одном плоском списке.
 type BulkPipelineGroup = { pipelineId: string; pipelineName: string; stages: BulkStageOption[] }
@@ -535,6 +541,12 @@ async function loadBulkStages() {
   }
 }
 
+// Спринт 22 (G3): родитель блока отказов с подэтапами — только через выбор причины
+function isBulkRejectParent(stage: BulkStageOption, groupStages: BulkStageOption[]): boolean {
+  return stage.bucket === 'rejected' && !stage.parentStageId
+    && groupStages.some(s => s.parentStageId === stage.id)
+}
+
 async function bulkMoveToStage(stageId: string, stageName: string) {
   const ids = [...selectedIds.value]
   if (!ids.length) return
@@ -544,14 +556,19 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
     ids.map(id => $fetch(`/api/applications/${id}/stage`, { method: 'PATCH', body: { stageId }, headers: useRequestHeaders(['cookie']) }))
   )
   const succeeded = results.filter(r => r.status === 'fulfilled').length
-  const failed = results.filter(r => r.status === 'rejected').length
+  const failedResults = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
   if (succeeded > 0) {
     toast.success(`Перенесено в "${stageName}": ${succeeded} из ${ids.length}`)
     selectedIds.value = new Set()
     await refresh()
   }
-  if (failed > 0) {
-    toast.error(`Ошибка: ${failed} из ${ids.length}`, { message: 'Часть откликов не перенесена — вероятно, их вакансии используют другую воронку.' })
+  if (failedResults.length > 0) {
+    // Спринт 22 (G1): возврат из терминального этапа в работу требует комментария
+    const needsComment = failedResults.some(r => (r.reason as any)?.data?.data?.code === 'RETURN_TO_WORK_REQUIRES_COMMENT')
+    const message = needsComment
+      ? 'Среди выбранных есть отклики в отказе или найме — возврат в работу требует комментария. Переведите их по одному из карточки.'
+      : 'Часть откликов не перенесена — вероятно, их вакансии используют другую воронку.'
+    toast.error(`Ошибка: ${failedResults.length} из ${ids.length}`, { message })
   }
   isBulkOperating.value = false
 }
@@ -1067,7 +1084,15 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
                 v-for="stage in group.stages"
                 :key="stage.id"
                 type="button"
-                class="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                class="flex w-full items-center gap-2 py-1.5 pr-3 text-sm transition-colors"
+                :class="[
+                  stage.parentStageId ? 'pl-7' : 'pl-3',
+                  isBulkRejectParent(stage, group.stages)
+                    ? 'text-surface-400 dark:text-surface-500 cursor-default'
+                    : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer',
+                ]"
+                :disabled="isBulkRejectParent(stage, group.stages)"
+                :title="isBulkRejectParent(stage, group.stages) ? 'Выберите причину отказа ниже' : undefined"
                 @click="bulkMoveToStage(stage.id, stage.name)"
               >
                 <span class="inline-flex size-2 rounded-full shrink-0" :style="{ backgroundColor: stage.color }" />

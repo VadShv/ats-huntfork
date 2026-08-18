@@ -32,6 +32,9 @@ type StageItem = {
   isTerminal: boolean
   isArchived: boolean
   isCurrent: boolean
+  bucket?: 'working' | 'rejected'
+  parentStageId?: string | null
+  isHidden?: boolean
 }
 
 const stages = ref<StageItem[]>([])
@@ -122,27 +125,61 @@ const selectedStage = computed(() =>
 
 function selectStage(stageId: string) {
   if (stageId === props.currentStageId) return
+  // Спринт 22 (G3): родитель с подэтапами-причинами в блоке отказов не выбирается напрямую
+  if (rejectParentIds.value.has(stageId)) return
   selectedStageId.value = stageId
 }
 
+// ── Спринт 22: guard-логика на клиенте ─────────────────────────────
+
+/** Корневые отказные этапы, у которых есть активные подэтапы (выбор — только причина) */
+const rejectParentIds = computed(() => {
+  const ids = new Set<string>()
+  for (const s of stages.value) {
+    if (s.parentStageId && !s.isArchived && !s.isHidden) {
+      const parent = stages.value.find((p) => p.id === s.parentStageId)
+      if (parent && parent.bucket === 'rejected') ids.add(parent.id)
+    }
+  }
+  return ids
+})
+
+/** G1: возврат из терминального этапа в работу — обязательный комментарий */
+const returnToWorkRequiresComment = computed(() =>
+  Boolean(currentStage.value?.isTerminal && selectedStage.value && !selectedStage.value.isTerminal),
+)
+
+/** G2: перевод в «Нанят» — явное подтверждение */
+const isHireMove = computed(() => selectedStage.value?.type === 'hired')
+
+const moveBlocked = computed(() =>
+  returnToWorkRequiresComment.value && !comment.value.trim(),
+)
+
 async function confirmMove() {
   if (!selectedStageId.value || !selectedStage.value) return
+  if (moveBlocked.value) return
   isMoving.value = true
   try {
-    await $fetch(`/api/applications/${props.applicationId}/stage`, {
-      method: 'PATCH',
-      body: {
-        stageId: selectedStageId.value,
-        ...(comment.value.trim() ? { comment: comment.value.trim() } : {}),
+    const res = await $fetch<{ currentStageParentName?: string | null }>(
+      `/api/applications/${props.applicationId}/stage`,
+      {
+        method: 'PATCH',
+        body: {
+          stageId: selectedStageId.value,
+          ...(comment.value.trim() ? { comment: comment.value.trim() } : {}),
+        },
       },
-    })
+    )
 
-    const name = selectedStage.value.name
+    const name = res?.currentStageParentName
+      ? `${res.currentStageParentName} / ${selectedStage.value.name}`
+      : selectedStage.value.name
     const color = selectedStage.value.color
     const movedType = selectedStage.value.type
     const newStageId = selectedStageId.value
 
-    emit('stage-changed', { newStageId, newStageName: name, newStageColor: color })
+    emit('stage-changed', { newStageId, newStageName: selectedStage.value.name, newStageColor: color })
     if (movedType === 'interview') {
       emit('interview-selected', { applicationId: props.applicationId })
     }
@@ -162,7 +199,19 @@ async function confirmMove() {
 }
 
 // ── Visible (non-archived) stages for the dropdown ────────────────────────────
-const visibleStages = computed(() => stages.value.filter((s) => !s.isArchived))
+const visibleStages = computed(() => {
+  const active = stages.value.filter((s) => !s.isArchived && !s.isHidden)
+  const roots = active.filter((s) => !s.parentStageId).sort((a, b) => a.displayOrder - b.displayOrder)
+  const result: Array<StageItem & { isSubstage: boolean }> = []
+  for (const root of roots) {
+    result.push({ ...root, isSubstage: false })
+    const children = active
+      .filter((s) => s.parentStageId === root.id)
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+    for (const child of children) result.push({ ...child, isSubstage: true })
+  }
+  return result
+})
 </script>
 
 <template>
@@ -239,19 +288,25 @@ const visibleStages = computed(() => stages.value.filter((s) => !s.isArchived))
             :key="stage.id"
             type="button"
             class="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
-            :class="stage.isCurrent
-              ? 'text-surface-400 dark:text-surface-500 cursor-default'
-              : selectedStageId === stage.id
-                ? 'bg-brand-50 dark:bg-brand-950/30 text-surface-900 dark:text-surface-100 cursor-pointer'
-                : 'text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer'"
-            :disabled="stage.isCurrent"
+            :class="[
+              stage.isSubstage ? 'pl-7' : '',
+              stage.isCurrent
+                ? 'text-surface-400 dark:text-surface-500 cursor-default'
+                : rejectParentIds.has(stage.id)
+                  ? 'text-surface-400 dark:text-surface-500 cursor-default'
+                  : selectedStageId === stage.id
+                    ? 'bg-brand-50 dark:bg-brand-950/30 text-surface-900 dark:text-surface-100 cursor-pointer'
+                    : 'text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer',
+            ]"
+            :disabled="stage.isCurrent || rejectParentIds.has(stage.id)"
+            :title="rejectParentIds.has(stage.id) ? 'Выберите причину отказа ниже' : undefined"
             @click="selectStage(stage.id)"
           >
             <span
               class="size-2 rounded-full shrink-0"
               :style="{ backgroundColor: stage.color }"
             />
-            <span class="flex-1 text-left truncate font-medium">{{ stage.name }}</span>
+            <span class="flex-1 text-left truncate" :class="stage.isSubstage ? '' : 'font-medium'">{{ stage.name }}</span>
             <Check
               v-if="stage.isCurrent"
               class="size-3 text-surface-400 shrink-0"
@@ -268,21 +323,37 @@ const visibleStages = computed(() => stages.value.filter((s) => !s.isArchived))
           v-if="selectedStageId"
           class="border-t border-surface-100 dark:border-surface-800 p-3 space-y-2"
         >
+          <p
+            v-if="returnToWorkRequiresComment"
+            class="text-[11px] leading-snug text-amber-600 dark:text-amber-400"
+          >
+            Возврат из отказа в работу — укажите причину в комментарии
+          </p>
+          <p
+            v-else-if="isHireMove"
+            class="text-[11px] leading-snug text-emerald-600 dark:text-emerald-400"
+          >
+            Кандидат будет отмечен как нанятый — это финальный этап
+          </p>
           <textarea
             v-model="comment"
             rows="2"
-            :placeholder="t('applications.stage.commentPlaceholder')"
-            class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-xs text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-none transition-colors"
+            :placeholder="returnToWorkRequiresComment ? 'Причина возврата в работу (обязательно)' : t('applications.stage.commentPlaceholder')"
+            class="w-full rounded-lg border bg-white dark:bg-surface-800 px-2.5 py-1.5 text-xs text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-none transition-colors"
+            :class="returnToWorkRequiresComment && !comment.trim()
+              ? 'border-amber-400 dark:border-amber-600'
+              : 'border-surface-200 dark:border-surface-700'"
             :disabled="isMoving"
           />
           <button
             type="button"
-            :disabled="isMoving"
-            class="w-full rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            :disabled="isMoving || moveBlocked"
+            class="w-full rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            :class="isHireMove ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-600 hover:bg-brand-700'"
             @click="confirmMove"
           >
             <Loader2 v-if="isMoving" class="size-3 animate-spin mx-auto" />
-            <span v-else>{{ t('applications.stage.move') }}</span>
+            <span v-else>{{ isHireMove ? 'Подтвердить найм' : t('applications.stage.move') }}</span>
           </button>
         </div>
       </div>

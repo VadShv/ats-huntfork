@@ -21,9 +21,11 @@ type HistoryEntry = {
   fromStageId: string | null
   fromStageName: string | null
   fromStageColor: string | null
+  fromStageParentName?: string | null
   toStageId: string
   toStageName: string
   toStageColor: string
+  toStageParentName?: string | null
   movedByUserId: string | null
   movedByUserName: string | null
   comment: string | null
@@ -118,7 +120,7 @@ function timeAgo(dateStr: string): string {
                 class="size-1.5 rounded-full shrink-0"
                 :style="{ backgroundColor: entry.fromStageColor ?? '#94a3b8' }"
               />
-              {{ entry.fromStageName }}
+              <template v-if="entry.fromStageParentName">{{ entry.fromStageParentName }} / </template>{{ entry.fromStageName }}
             </span>
             <span
               v-else
@@ -136,7 +138,7 @@ function timeAgo(dateStr: string): string {
                 class="size-1.5 rounded-full shrink-0"
                 :style="{ backgroundColor: entry.toStageColor }"
               />
-              {{ entry.toStageName }}
+              <template v-if="entry.toStageParentName">{{ entry.toStageParentName }} / </template>{{ entry.toStageName }}
             </span>
           </div>
 

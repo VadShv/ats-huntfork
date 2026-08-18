@@ -104,7 +104,12 @@ function firstRootOfType(type: string): QuickStage | null {
 // Фолбэк на interview — для воронок без этапа первичного контакта.
 const inviteStage = computed(() => firstRootOfType('contact') ?? firstRootOfType('interview'))
 const considerStage = computed(() => firstRootOfType('on_hold'))
-const rejectStage = computed(() => firstRootOfType('not_fit'))
+// Спринт 22: после M1 «Не подходит» — подэтап родителя «Отказ». Ищем где угодно:
+// сначала подэтап not_fit, затем корневой (legacy-воронки без родителя).
+const rejectStage = computed(() => {
+  const active = quickStages.value.filter(s => !s.isArchived && !s.isHidden && s.type === 'not_fit')
+  return active.find(s => s.parentStageId) ?? active.find(s => !s.parentStageId) ?? null
+})
 // Объединённое действие «Интервью»: перевод на этап + открытие календаря планирования
 const interviewStage = computed(() => firstRootOfType('interview'))
 
@@ -147,6 +152,11 @@ const menuRejectItems = computed<MenuItem[]>(() => {
   return items
 })
 
+// Спринт 22 (G3): родитель с подэтапами-причинами не выбирается напрямую
+function isRejectParentWithSubs(stage: QuickStage): boolean {
+  return stage.bucket === 'rejected' && !stage.parentStageId && (subsByParent.value.get(stage.id)?.length ?? 0) > 0
+}
+
 // Плоский список пунктов меню — для горячих клавиш 1–9 при открытом меню
 const flatMenuItems = computed<MenuItem[]>(() => [...menuWorkingItems.value, ...menuRejectItems.value])
 
@@ -157,6 +167,29 @@ function menuItemHotkey(item: MenuItem): number | null {
 
 const showMoreMenu = ref(false)
 const isQuickMoving = ref(false)
+
+// ─── Спринт 22: guard-диалоги (G1 возврат с комментарием, G2 подтверждение найма) ───
+
+const guardDialog = ref<{ mode: 'return-comment' | 'hired-confirm'; stage: QuickStage } | null>(null)
+const guardComment = ref('')
+
+const currentQuickStage = computed(() =>
+  quickStages.value.find(s => s.id === props.currentStageId) ?? null,
+)
+
+function closeGuardDialog() {
+  guardDialog.value = null
+  guardComment.value = ''
+}
+
+async function confirmGuardDialog() {
+  const dialog = guardDialog.value
+  if (!dialog) return
+  if (dialog.mode === 'return-comment' && !guardComment.value.trim()) return
+  const comment = dialog.mode === 'return-comment' ? guardComment.value.trim() : undefined
+  closeGuardDialog()
+  await doMoveToStage(dialog.stage, comment)
+}
 
 // Объединённое действие «Интервью»: сменить этап (календарь откроется через
 // quickMoveToStage) либо, если кандидат уже на этапе интервью, просто открыть календарь.
@@ -172,23 +205,49 @@ async function interviewAction() {
 
 async function quickMoveToStage(stage: QuickStage | null) {
   if (!stage || isQuickMoving.value || stage.id === props.currentStageId) return
+  // G3: родитель с подэтапами — только через выбор причины
+  if (isRejectParentWithSubs(stage)) return
   showMoreMenu.value = false
+  // G1: возврат из терминального этапа в работу — сначала комментарий
+  if (currentQuickStage.value?.isTerminal && !stage.isTerminal) {
+    guardDialog.value = { mode: 'return-comment', stage }
+    return
+  }
+  // G2: перевод в «Нанят» — явное подтверждение
+  if (stage.type === 'hired') {
+    guardDialog.value = { mode: 'hired-confirm', stage }
+    return
+  }
+  await doMoveToStage(stage)
+}
+
+async function doMoveToStage(stage: QuickStage, comment?: string) {
+  if (isQuickMoving.value) return
   isQuickMoving.value = true
   try {
-    await $fetch(`/api/applications/${props.applicationId}/stage`, {
-      method: 'PATCH',
-      body: { stageId: stage.id },
-    })
+    const res = await $fetch<{ currentStageParentName?: string | null }>(
+      `/api/applications/${props.applicationId}/stage`,
+      {
+        method: 'PATCH',
+        body: { stageId: stage.id, ...(comment ? { comment } : {}) },
+      },
+    )
     // Синхронизация действий: перевод на этап интервью открывает календарь
     // планирования. schedule эмитим ДО stage-changed, чтобы родитель захватил
     // текущего кандидата до обновления списка (фокус может уйти на следующего).
     if (stage.type === 'interview') emit('schedule')
     emit('stage-changed', { newStageId: stage.id, newStageName: stage.name, newStageColor: stage.color })
     quickStages.value = quickStages.value.map(s => ({ ...s, isCurrent: s.id === stage.id }))
-    toast.success(`Кандидат перемещён: ${stage.name}`)
+    const label = res?.currentStageParentName ? `${res.currentStageParentName} / ${stage.name}` : stage.name
+    toast.success(`Кандидат перемещён: ${label}`)
   }
   catch (err: any) {
     if (handlePreviewReadOnlyError(err)) return
+    const code = err?.data?.data?.code
+    if (code === 'RETURN_TO_WORK_REQUIRES_COMMENT') {
+      guardDialog.value = { mode: 'return-comment', stage }
+      return
+    }
     toast.error('Не удалось сменить этап', { message: err.data?.statusMessage, statusCode: err.data?.statusCode })
   }
   finally {
@@ -395,14 +454,17 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
               <button
                 v-for="item in menuRejectItems"
                 :key="`more-rej-${item.stage.id}`"
-                :disabled="item.stage.id === currentStageId"
+                :disabled="item.stage.id === currentStageId || isRejectParentWithSubs(item.stage)"
                 class="flex w-full cursor-pointer items-center gap-2 py-1.5 pr-3 text-left text-sm transition-colors disabled:cursor-default"
                 :class="[
                   item.isSub ? 'pl-8' : 'pl-3',
                   item.stage.id === currentStageId
                     ? 'bg-red-50/60 dark:bg-red-950/20 text-surface-400 dark:text-surface-500'
-                    : 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40',
+                    : isRejectParentWithSubs(item.stage)
+                      ? 'text-surface-400 dark:text-surface-500'
+                      : 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40',
                 ]"
+                :title="isRejectParentWithSubs(item.stage) ? 'Выберите причину отказа ниже' : undefined"
                 @click="quickMoveToStage(item.stage)"
               >
                 <CornerDownRight v-if="item.isSub" class="size-3 shrink-0 text-red-200 dark:text-red-900" />
@@ -460,5 +522,53 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
         <kbd v-if="hotkeys && hasPipeline" class="ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">5</kbd>
       </button>
     </div>
+
+    <!-- Спринт 22: guard-диалог (G1 возврат с комментарием / G2 подтверждение найма) -->
+    <Teleport to="body">
+      <div
+        v-if="guardDialog"
+        class="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4"
+        @click.self="closeGuardDialog"
+      >
+        <div class="w-full max-w-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-4 shadow-xl">
+          <template v-if="guardDialog.mode === 'return-comment'">
+            <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Вернуть в работу</h3>
+            <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">
+              Кандидат будет переведён на этап «{{ guardDialog.stage.name }}». Укажите причину возврата — она сохранится в истории.
+            </p>
+            <textarea
+              v-model="guardComment"
+              rows="3"
+              placeholder="Причина возврата в работу (обязательно)"
+              class="mt-3 w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+            />
+          </template>
+          <template v-else>
+            <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Подтвердить найм</h3>
+            <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">
+              Кандидат будет отмечен как нанятый (этап «{{ guardDialog.stage.name }}»). Это финальный этап воронки.
+            </p>
+          </template>
+          <div class="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+              @click="closeGuardDialog"
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              :disabled="guardDialog.mode === 'return-comment' && !guardComment.trim()"
+              class="rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              :class="guardDialog.mode === 'hired-confirm' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-600 hover:bg-brand-700'"
+              @click="confirmGuardDialog"
+            >
+              {{ guardDialog.mode === 'hired-confirm' ? 'Подтвердить найм' : 'Вернуть в работу' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
