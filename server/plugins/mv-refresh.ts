@@ -26,10 +26,10 @@ async function refreshAnalyticsMv(reason: 'startup' | 'interval') {
     logInfo('analytics.mv_refreshed', { reason, duration_ms: durationMs })
   }
   catch (error) {
-    logError('analytics.mv_refresh_failed', {
-      reason,
-      error_message: error instanceof Error ? error.message : String(error),
-    })
+    const message = error instanceof Error ? error.message : String(error)
+    // В консоль тоже — logError пишет только в PostHog и не виден в docker logs
+    console.error(`[Reqcore] analytics mv refresh failed (${reason}): ${message}`)
+    logError('analytics.mv_refresh_failed', { reason, error_message: message })
   }
 }
 
