@@ -38,6 +38,8 @@ export default defineEventHandler(async (event) => {
           isHidden: true,
           parentStageId: true,
           rejectMessageTemplate: true,
+          slaDays: true,
+          slaAlertDays: true,
           createdAt: true,
           updatedAt: true,
         },

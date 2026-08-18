@@ -2,7 +2,7 @@
 import {
   ArrowLeft, Loader2, Lock, EyeOff, Eye, Trash2, Plus,
   Briefcase, Users, GripVertical, ChevronDown, ChevronRight,
-  AlertTriangle, Settings, MessageSquare,
+  AlertTriangle, Settings, MessageSquare, Timer,
 } from 'lucide-vue-next'
 
 definePageMeta({})
@@ -27,6 +27,8 @@ interface StageDto {
   isHidden: boolean
   parentStageId: string | null
   rejectMessageTemplate: string | null
+  slaDays: number | null
+  slaAlertDays: number | null
 }
 
 interface PipelineDetail {
@@ -274,6 +276,51 @@ async function saveTemplate() {
   }
 }
 
+// ── SLA modal (Спринт 23) ────────────────────────────────
+const showSlaEditor = ref(false)
+const slaStage = ref<StageDto | null>(null)
+const slaDaysInput = ref<string>('')
+const slaAlertDaysInput = ref<string>('')
+const slaBusy = ref(false)
+
+function openSlaEditor(stage: StageDto) {
+  slaStage.value = stage
+  slaDaysInput.value = stage.slaDays != null ? String(stage.slaDays) : ''
+  slaAlertDaysInput.value = stage.slaAlertDays != null ? String(stage.slaAlertDays) : ''
+  showSlaEditor.value = true
+}
+
+function parseSlaInput(v: string): number | null {
+  const n = Number.parseInt(v.trim(), 10)
+  return Number.isFinite(n) && n >= 1 && n <= 365 ? n : null
+}
+
+async function saveSla() {
+  if (!slaStage.value) return
+  slaBusy.value = true
+  try {
+    await $fetch(`/api/pipelines/${pipelineId.value}/stages/${slaStage.value.id}`, {
+      method: 'PATCH',
+      body: {
+        slaDays: parseSlaInput(slaDaysInput.value),
+        slaAlertDays: parseSlaInput(slaAlertDaysInput.value),
+      },
+    })
+    toast.add({ title: 'SLA этапа сохранён', color: 'success' })
+    showSlaEditor.value = false
+    await refresh()
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({
+      title: 'Не удалось сохранить SLA',
+      description: err.data?.statusMessage ?? err.message,
+      color: 'error',
+    })
+  } finally {
+    slaBusy.value = false
+  }
+}
+
 // ── Add-stage modal ──────────────────────────────────────
 const showAddStage = ref(false)
 const newStageName = ref('')
@@ -491,6 +538,18 @@ async function submitNewStage() {
               </button>
 
               <button
+                v-if="activeTab === 'working'"
+                type="button"
+                :disabled="busyStageId === stage.id"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-40"
+                :class="stage.slaDays != null ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500'"
+                :title="stage.slaDays != null ? `SLA: ${stage.slaDays} дн — редактировать` : 'Задать SLA этапа (для аналитики «Замедления»)'"
+                @click="openSlaEditor(stage)"
+              >
+                <Timer class="w-4 h-4" />
+              </button>
+
+              <button
                 type="button"
                 class="ml-2 flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-700 dark:text-gray-300"
                 @click="openAddSubstage(stage)"
@@ -691,6 +750,68 @@ async function submitNewStage() {
             @click="saveTemplate"
           >
             {{ templateBusy ? 'Сохраняю…' : 'Сохранить' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLA modal (Спринт 23) -->
+    <div
+      v-if="showSlaEditor"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="showSlaEditor = false"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+          SLA этапа — «{{ slaStage?.name }}»
+        </h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Кандидаты, находящиеся на этапе дольше порога, попадут
+          в блок «Замедления сейчас» аналитики. Пустое поле —
+          порог считается автоматически (p90 за 90 дней).
+        </p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Порог SLA, дней (1–365)</label>
+            <input
+              v-model="slaDaysInput"
+              type="number"
+              min="1"
+              max="365"
+              placeholder="Например: 7"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+            >
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Предупреждение, дней (необязательно)</label>
+            <input
+              v-model="slaAlertDaysInput"
+              type="number"
+              min="1"
+              max="365"
+              placeholder="Например: 5"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+            >
+            <p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Кандидат покажется как предупреждение до наступления просрочки</p>
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            @click="showSlaEditor = false"
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+            :disabled="slaBusy"
+            class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+            style="background-color: rgb(37 99 235); border: 1px solid rgb(37 99 235);"
+            :style="{ opacity: slaBusy ? 0.5 : 1 }"
+            @click="saveSla"
+          >
+            {{ slaBusy ? 'Сохраняю…' : 'Сохранить' }}
           </button>
         </div>
       </div>

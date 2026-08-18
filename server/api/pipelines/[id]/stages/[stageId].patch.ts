@@ -37,6 +37,13 @@ const updateStageSchema = z.object({
    * сообщения, а не структурное изменение воронки.
    */
   rejectMessageTemplate: z.string().max(5000).nullable().optional(),
+  /**
+   * Спринт 23: SLA этапа для аналитики «Замедления сейчас».
+   * Разрешены и для базовых (системных) этапов — это настройка
+   * аналитики, а не структурное изменение воронки (как rejectMessageTemplate).
+   */
+  slaDays: z.number().int().min(1).max(365).nullable().optional(),
+  slaAlertDays: z.number().int().min(1).max(365).nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -178,6 +185,8 @@ export default defineEventHandler(async (event) => {
     if (body.rejectMessageTemplate !== undefined) {
       updatePayload.rejectMessageTemplate = body.rejectMessageTemplate?.trim() || null
     }
+    if (body.slaDays !== undefined) updatePayload.slaDays = body.slaDays
+    if (body.slaAlertDays !== undefined) updatePayload.slaAlertDays = body.slaAlertDays
 
     const [updated] = await tx.update(pipelineStage)
       .set(updatePayload)
