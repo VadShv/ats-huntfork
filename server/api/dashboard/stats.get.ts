@@ -75,6 +75,7 @@ export default defineEventHandler(async (event) => {
       .groupBy(job.status),
 
     // 7. Recent applications (last 10) with candidate + job details
+    // Фаза 1 (словарь = воронка): отдаём текущий этап вместо легаси-статуса для бейджей
     db
       .select({
         id: application.id,
@@ -86,10 +87,15 @@ export default defineEventHandler(async (event) => {
         candidateEmail: candidate.email,
         jobId: application.jobId,
         jobTitle: job.title,
+        currentStageName: pipelineStage.name,
+        currentStageColor: pipelineStage.color,
+        currentStageBucket: pipelineStage.bucket,
+        currentStageType: pipelineStage.type,
       })
       .from(application)
       .innerJoin(candidate, eq(candidate.id, application.candidateId))
       .innerJoin(job, eq(job.id, application.jobId))
+      .leftJoin(pipelineStage, eq(pipelineStage.id, application.currentStageId))
       .where(appCond)
       .orderBy(desc(application.createdAt))
       .limit(10),

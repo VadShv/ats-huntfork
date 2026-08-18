@@ -121,37 +121,6 @@ function toggleRecruiterGroup(key: string) {
   catch { /* игнорируем */ }
 }
 
-const stageConfig = computed(() => [
-  { key: 'new', label: t('dashboard.jobs.pipeline.stages.new'), color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-950/40' },
-  { key: 'screening', label: t('dashboard.jobs.pipeline.stages.screening'), color: 'bg-violet-500', textColor: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-50 dark:bg-violet-950/40' },
-  { key: 'interview', label: t('dashboard.jobs.pipeline.stages.interview'), color: 'bg-amber-500', textColor: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-950/40' },
-  { key: 'offer', label: t('dashboard.jobs.pipeline.stages.offer'), color: 'bg-teal-500', textColor: 'text-teal-600 dark:text-teal-400', bgColor: 'bg-teal-50 dark:bg-teal-950/40' },
-  { key: 'hired', label: t('dashboard.jobs.pipeline.stages.hired'), color: 'bg-green-600', textColor: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-950/40' },
-  { key: 'rejected', label: t('dashboard.jobs.pipeline.stages.rejected'), color: 'bg-surface-400', textColor: 'text-surface-500 dark:text-surface-400', bgColor: 'bg-surface-100 dark:bg-surface-800' },
-] as const)
-
-const stageCountKeys: Record<string, string> = {
-  new: 'newCount',
-  screening: 'screeningCount',
-  interview: 'interviewCount',
-  offer: 'offerCount',
-  hired: 'hiredCount',
-  rejected: 'rejectedCount',
-}
-
-function getJobStageCount(job: (typeof topJobs.value)[number], stageKey: string): number {
-  const key = stageCountKeys[stageKey]
-  if (!key) return 0
-  return (job as any)[key] ?? 0
-}
-
-function getJobActiveTotal(job: (typeof topJobs.value)[number]): number {
-  return getJobStageCount(job, 'new')
-    + getJobStageCount(job, 'screening')
-    + getJobStageCount(job, 'interview')
-    + getJobStageCount(job, 'offer')
-}
-
 // ─── Sprint 10: динамические этапы воронки на карточках topJobs ───
 interface JobStageChip {
   id: string
@@ -163,10 +132,10 @@ interface JobStageChip {
   count: number
 }
 
-const NEW_STAGE_TYPES = new Set(['on_hold', 'contact', 'assessment', 'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred'])
-
-function jobHasNewPipeline(j: any): boolean {
-  return ((j?.stages ?? []) as JobStageChip[]).some(s => NEW_STAGE_TYPES.has(s.type))
+// Фаза 1 (словарь = воронка): показываем этапы для любой вакансии с воронкой,
+// легаси-фолбэк по статусам полностью удалён
+function jobHasStages(j: any): boolean {
+  return ((j?.stages ?? []) as JobStageChip[]).length > 0
 }
 
 function jobWorkingStages(j: any): JobStageChip[] {
@@ -188,14 +157,6 @@ function jobGrandTotal(j: any): number {
   return jobWorkingTotal(j) + jobRejectedTotal(j)
 }
 
-const statusBadgeClasses: Record<string, string> = {
-  new: 'bg-blue-50 text-blue-700 ring-blue-200/60 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800/40',
-  screening: 'bg-violet-50 text-violet-700 ring-violet-200/60 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-800/40',
-  interview: 'bg-amber-50 text-amber-700 ring-amber-200/60 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-800/40',
-  offer: 'bg-teal-50 text-teal-700 ring-teal-200/60 dark:bg-teal-950 dark:text-teal-400 dark:ring-teal-800/40',
-  hired: 'bg-green-50 text-green-700 ring-green-200/60 dark:bg-green-950 dark:text-green-400 dark:ring-green-800/40',
-  rejected: 'bg-surface-100 text-surface-600 ring-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:ring-surface-700',
-}
 
 const interviewTypeLabels = computed<Record<string, string>>(() => ({
   phone: t('dashboard.interviews.type.phone'),
@@ -497,14 +458,14 @@ const isEmpty = computed(() =>
                   <!-- Спринт 11.4: итоговое значение включает все отказы -->
                   <span
                     class="text-xs text-surface-400 dark:text-surface-500 shrink-0 ml-3 tabular-nums font-medium"
-                    :title="jobHasNewPipeline(j) ? `В работе: ${jobWorkingTotal(j)} · Отказы: ${jobRejectedTotal(j)}` : undefined"
+                    :title="jobHasStages(j) ? `В работе: ${jobWorkingTotal(j)} · Отказы: ${jobRejectedTotal(j)}` : undefined"
                   >
-                    {{ jobHasNewPipeline(j) ? jobGrandTotal(j) : j.applicationCount }} {{ $t('dashboard.index.total') }}
+                    {{ jobHasStages(j) ? jobGrandTotal(j) : j.applicationCount }} {{ $t('dashboard.index.total') }}
                   </span>
                 </div>
 
-                <!-- ─── Sprint 10: динамическая воронка ─── -->
-                <template v-if="jobHasNewPipeline(j)">
+                <!-- ─── Sprint 10 / Фаза 1: воронка всегда по реальным этапам пайплайна ─── -->
+                <template v-if="jobHasStages(j)">
                   <!-- Pipeline bar (динамические этапы) -->
                   <div v-if="jobGrandTotal(j) > 0" class="mb-3.5">
                     <div class="flex h-1.5 rounded-full overflow-hidden bg-surface-100 dark:bg-surface-800">
@@ -554,39 +515,6 @@ const isEmpty = computed(() =>
                   </div>
                 </template>
 
-                <!-- ─── Legacy воронка ─── -->
-                <template v-else>
-                  <!-- Pipeline bar for this job -->
-                  <div v-if="j.applicationCount > 0" class="mb-3.5">
-                    <div class="flex h-1.5 rounded-full overflow-hidden bg-surface-100 dark:bg-surface-800">
-                      <div
-                        v-for="stage in stageConfig.filter(s => getJobStageCount(j, s.key) > 0)"
-                        :key="stage.key"
-                        class="transition-all duration-500"
-                        :class="stage.color"
-                        :style="{ width: `${(getJobStageCount(j, stage.key) / j.applicationCount) * 100}%` }"
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Stage counts for this job -->
-                  <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                    <NuxtLink
-                      v-for="stage in stageConfig"
-                      :key="stage.key"
-                      :to="localePath(`/dashboard/jobs/${j.id}?stage=${stage.key}`)"
-                      class="rounded-lg px-2 py-1.5 text-center transition-all duration-150 no-underline hover:ring-1 hover:ring-brand-300/50 dark:hover:ring-brand-700/50 hover:shadow-sm"
-                      :class="[stage.bgColor, getJobStageCount(j, stage.key) > 0 ? 'cursor-pointer' : 'opacity-50']"
-                    >
-                      <div class="text-sm font-bold tabular-nums" :class="stage.textColor">
-                        {{ getJobStageCount(j, stage.key) }}
-                      </div>
-                      <div class="text-[10px] font-medium text-surface-500 dark:text-surface-400 leading-tight">
-                        {{ stage.label }}
-                      </div>
-                    </NuxtLink>
-                  </div>
-                </template>
               </div>
                 </template>
               </template>
@@ -638,7 +566,18 @@ const isEmpty = computed(() =>
                     <span class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                       {{ formatPersonName(app.candidateFirstName, app.candidateLastName) }}
                     </span>
-                    <StatusBadge :status="app.status" size="xs" />
+                    <!-- Фаза 1: бейдж — реальный этап воронки вместо легаси-статуса -->
+                    <span
+                      v-if="(app as any).currentStageName"
+                      class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 whitespace-nowrap shrink-0"
+                    >
+                      <span class="inline-flex size-1.5 rounded-full shrink-0" :style="{ backgroundColor: (app as any).currentStageColor || '#9ca3af' }" />
+                      {{ (app as any).currentStageName }}
+                    </span>
+                    <span
+                      v-else
+                      class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-surface-100 dark:bg-surface-800 text-surface-400 dark:text-surface-500 whitespace-nowrap shrink-0"
+                    >{{ $t('dashboard.index.noStage') }}</span>
                   </div>
                   <div class="text-xs text-surface-400 dark:text-surface-500 truncate">
                     {{ app.jobTitle }}
