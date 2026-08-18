@@ -17,11 +17,22 @@
  *
  * Спринт 15.2: меню «Ещё» показывает полное дерево воронки — root-этапы
  * с подэтапами (с отступом), включая переводы на подэтапы.
- * Спринт 15.3: горячие клавиши (prop hotkeys):
- *   1 — Пригласить, 2 — Подумать, 3 — Отказать, 4 — Ещё ▾, 5 — Запланировать интервью.
+ * Спринт 15.3: горячие клавиши (prop hotkeys) — цифры по видимому порядку кнопок.
  *   При открытом меню «Ещё» цифры 1–9 выбирают пункты меню. Esc — закрыть.
+ *
+ * Спринт 23 (блок A): набор быстрых кнопок КОНТЕКСТНЫЙ — вычисляется от типа
+ * текущего root-этапа отклика (quickActionSet):
+ *   до теста      → Пригласить · Подумать · Отказать · Интервью · Ещё ▾
+ *   assessment    → Подумать · Отказать · Интервью · Ещё ▾
+ *   interview     → Предложение о работе · Подумать · Отказать · Запланировать · Ещё ▾
+ *   offer         → Выход на работу (G2) · Кандидат отказался · Ещё ▾
+ *   hired         → Кандидат отказался · Ещё ▾
+ *   rejected      → только Ещё ▾ (решение O1)
+ * Инварианты: «Ещё ▾» всегда последняя; кнопка текущего этапа не показывается;
+ * кнопки без целевого этапа в воронке скрываются; хоткеи 1…N — динамические.
  */
-import { ThumbsUp, Hourglass, CircleSlash, ChevronDown, Calendar, Check, CornerDownRight } from 'lucide-vue-next'
+import type { Component } from 'vue'
+import { ThumbsUp, Hourglass, CircleSlash, ChevronDown, Calendar, CalendarClock, FileCheck, BadgeCheck, UserX, Check, CornerDownRight } from 'lucide-vue-next'
 import { APPLICATION_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
@@ -112,6 +123,14 @@ const rejectStage = computed(() => {
 })
 // Объединённое действие «Интервью»: перевод на этап + открытие календаря планирования
 const interviewStage = computed(() => firstRootOfType('interview'))
+// Спринт 23: цели для контекстных кнопок «вперёд по воронке»
+const offerStage = computed(() => firstRootOfType('offer'))
+const hiredStage = computed(() => firstRootOfType('hired'))
+// «Кандидат отказался» → подэтап withdrawn родителя «Отказ» (поиск как у rejectStage)
+const withdrawnStage = computed(() => {
+  const active = quickStages.value.filter(s => !s.isArchived && !s.isHidden && s.type === 'withdrawn')
+  return active.find(s => s.parentStageId) ?? active.find(s => !s.parentStageId) ?? null
+})
 
 // ─── Спринт 15.2: полное дерево воронки в меню «Ещё» (root-этапы + подэтапы) ──
 
@@ -177,6 +196,98 @@ const currentQuickStage = computed(() =>
   quickStages.value.find(s => s.id === props.currentStageId) ?? null,
 )
 
+// ─── Спринт 23 (блок A): контекстный набор быстрых действий ───────────────────
+
+const FORWARD_ROOT_TYPES = ['assessment', 'interview', 'offer', 'hired']
+const REJECTED_SUB_TYPES = ['not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred']
+
+// Тип текущего root-этапа: для подэтапа берём тип родителя, отказные ветки → 'rejected'
+const currentRootType = computed<string>(() => {
+  const cur = currentQuickStage.value
+  if (!cur) return 'default'
+  const root = cur.parentStageId
+    ? quickStages.value.find(s => s.id === cur.parentStageId) ?? cur
+    : cur
+  if (cur.bucket === 'rejected' || root.bucket === 'rejected' || root.type === 'rejected' || REJECTED_SUB_TYPES.includes(cur.type)) return 'rejected'
+  if (FORWARD_ROOT_TYPES.includes(root.type)) return root.type
+  return 'default'
+})
+
+type QuickActionTone = 'accent' | 'success' | 'danger' | 'neutral'
+
+interface QuickAction {
+  key: string
+  label: string
+  icon: Component
+  tone: QuickActionTone
+  stage?: QuickStage | null
+  run?: () => void
+  title?: string
+}
+
+const quickActionSet = computed<QuickAction[]>(() => {
+  if (!hasPipeline.value) return []
+  const items: QuickAction[] = []
+  const push = (a: QuickAction | null) => { if (a) items.push(a) }
+  const move = (key: string, stage: QuickStage | null, icon: Component, tone: QuickActionTone, label?: string): QuickAction | null =>
+    stage ? { key, label: label ?? stage.name, icon, tone, stage, title: `Перевести на этап «${stage.name}»` } : null
+
+  const invite = move('invite', inviteStage.value, ThumbsUp, 'accent', 'Пригласить')
+  const consider = move('consider', considerStage.value, Hourglass, 'neutral', 'Подумать')
+  const reject = move('reject', rejectStage.value, CircleSlash, 'danger', 'Отказать')
+  const interviewMove: QuickAction | null = interviewStage.value
+    ? { key: 'interview', label: interviewStage.value.name, icon: CalendarClock, tone: 'accent', stage: interviewStage.value, title: `Перевести на этап «${interviewStage.value.name}» и запланировать интервью` }
+    : null
+  const offer = move('offer', offerStage.value, FileCheck, 'accent')
+  const hired = move('hired', hiredStage.value, BadgeCheck, 'success')
+  const withdrawn = move('withdrawn', withdrawnStage.value, UserX, 'danger')
+  const scheduleOnly: QuickAction = { key: 'schedule', label: t('applications.schedule_interview'), icon: Calendar, tone: 'neutral', run: () => emit('schedule'), title: 'Запланировать интервью' }
+
+  switch (currentRootType.value) {
+    case 'rejected':
+      // Решение O1: на отказных этапах — только «Ещё ▾» (возврат в работу через меню + G1)
+      break
+    case 'assessment':
+      push(consider); push(reject); push(interviewMove)
+      break
+    case 'interview':
+      push(offer); push(consider); push(reject); push(scheduleOnly)
+      break
+    case 'offer':
+      push(hired); push(withdrawn)
+      break
+    case 'hired':
+      push(withdrawn)
+      break
+    default:
+      // Нет этапа / unsorted / on_hold / contact / custom-working — как раньше
+      push(invite); push(consider); push(reject)
+      push(interviewMove ? { ...interviewMove, tone: 'neutral', icon: Calendar } : scheduleOnly)
+  }
+  // Кнопка уже-текущего этапа не показывается (правило A1.5)
+  return items.filter(a => a.run || (a.stage && a.stage.id !== props.currentStageId))
+})
+
+function runQuickAction(action: QuickAction) {
+  if (isQuickMoving.value) return
+  if (action.run) { action.run(); return }
+  if (action.stage) void quickMoveToStage(action.stage)
+}
+
+const toneClasses: Record<QuickActionTone, string> = {
+  accent: 'bg-blue-600 text-white shadow-sm shadow-blue-900/20 hover:bg-blue-700 focus:ring-blue-500/40',
+  success: 'bg-emerald-600 text-white shadow-sm shadow-emerald-900/20 hover:bg-emerald-700 focus:ring-emerald-500/40',
+  danger: 'border border-red-300 dark:border-red-900 bg-white/80 dark:bg-surface-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-400 focus:ring-red-500/40',
+  neutral: 'border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 text-surface-700 dark:text-surface-300 hover:border-surface-400 dark:hover:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800 focus:ring-brand-500/40',
+}
+
+const kbdClasses: Record<QuickActionTone, string> = {
+  accent: 'ml-0.5 inline-flex items-center justify-center rounded bg-white/20 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px]',
+  success: 'ml-0.5 inline-flex items-center justify-center rounded bg-white/20 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px]',
+  danger: 'ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60',
+  neutral: 'ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60',
+}
+
 function closeGuardDialog() {
   guardDialog.value = null
   guardComment.value = ''
@@ -189,18 +300,6 @@ async function confirmGuardDialog() {
   const comment = dialog.mode === 'return-comment' ? guardComment.value.trim() : undefined
   closeGuardDialog()
   await doMoveToStage(dialog.stage, comment)
-}
-
-// Объединённое действие «Интервью»: сменить этап (календарь откроется через
-// quickMoveToStage) либо, если кандидат уже на этапе интервью, просто открыть календарь.
-async function interviewAction() {
-  if (isQuickMoving.value) return
-  if (interviewStage.value && interviewStage.value.id !== props.currentStageId) {
-    await quickMoveToStage(interviewStage.value)
-  }
-  else {
-    emit('schedule')
-  }
 }
 
 async function quickMoveToStage(stage: QuickStage | null) {
@@ -321,29 +420,17 @@ function onHotkey(e: KeyboardEvent) {
       }
       return
     }
-    switch (num) {
-      case 1:
-        e.preventDefault()
-        quickMoveToStage(inviteStage.value)
-        break
-      case 2:
-        e.preventDefault()
-        quickMoveToStage(considerStage.value)
-        break
-      case 3:
-        e.preventDefault()
-        quickMoveToStage(rejectStage.value)
-        break
-      case 4:
-        if (flatMenuItems.value.length) {
-          e.preventDefault()
-          showMoreMenu.value = true
-        }
-        break
-      case 5:
-        e.preventDefault()
-        void interviewAction()
-        break
+    // Спринт 23 (блок A): динамические хоткеи 1…N по видимому порядку кнопок,
+    // «Ещё ▾» — следующая цифра после последней кнопки-действия.
+    const action = quickActionSet.value[num - 1]
+    if (action) {
+      e.preventDefault()
+      runQuickAction(action)
+      return
+    }
+    if (num === quickActionSet.value.length + 1 && flatMenuItems.value.length) {
+      e.preventDefault()
+      showMoreMenu.value = true
     }
     return
   }
@@ -374,43 +461,22 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
         />
       </template>
 
-      <!-- ─── Быстрые действия в стиле hh.ru (новая воронка) ─── -->
+      <!-- ─── Спринт 23 (блок A): контекстные быстрые действия по текущему этапу ─── -->
       <template v-else-if="hasPipeline">
-        <!-- Пригласить → Первичный контакт -->
         <button
-          v-if="inviteStage"
-          :disabled="isQuickMoving || currentStageId === inviteStage.id"
-          class="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-blue-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm shadow-blue-900/20 hover:bg-blue-700 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-          :title="`Перевести на этап «${inviteStage.name}»`"
-          @click="quickMoveToStage(inviteStage)"
+          v-for="(action, idx) in quickActionSet"
+          :key="`qa-${action.key}`"
+          :disabled="isQuickMoving"
+          class="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+          :class="toneClasses[action.tone]"
+          :title="action.title"
+          @click="runQuickAction(action)"
         >
-          <ThumbsUp class="size-3.5" />
-          Пригласить
-          <kbd v-if="hotkeys" class="ml-0.5 inline-flex items-center justify-center rounded bg-white/20 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px]">1</kbd>
+          <component :is="action.icon" class="size-3.5" />
+          {{ action.label }}
+          <kbd v-if="hotkeys" :class="kbdClasses[action.tone]">{{ idx + 1 }}</kbd>
         </button>
-        <!-- Подумать -->
-        <button
-          v-if="considerStage"
-          :disabled="isQuickMoving || currentStageId === considerStage.id"
-          class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-surface-400 dark:hover:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-          @click="quickMoveToStage(considerStage)"
-        >
-          <Hourglass class="size-3.5" />
-          Подумать
-          <kbd v-if="hotkeys" class="ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">2</kbd>
-        </button>
-        <!-- Отказать -->
-        <button
-          v-if="rejectStage"
-          :disabled="isQuickMoving || currentStageId === rejectStage.id"
-          class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-red-300 dark:border-red-900 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-400 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-red-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-          @click="quickMoveToStage(rejectStage)"
-        >
-          <CircleSlash class="size-3.5" />
-          Отказать
-          <kbd v-if="hotkeys" class="ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">3</kbd>
-        </button>
-        <!-- Ещё ▾ -->
+        <!-- Ещё ▾ — всегда последняя (инвариант блока A) -->
         <div v-if="flatMenuItems.length" class="relative">
           <button
             :disabled="isQuickMoving"
@@ -418,7 +484,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
             @click="showMoreMenu = !showMoreMenu"
           >
             Ещё
-            <kbd v-if="hotkeys" class="inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">4</kbd>
+            <kbd v-if="hotkeys" class="inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">{{ quickActionSet.length + 1 }}</kbd>
             <ChevronDown class="size-3.5 transition-transform" :class="{ 'rotate-180': showMoreMenu }" />
           </button>
           <!-- Оверлей для закрытия по клику вне -->
@@ -497,29 +563,15 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
         </button>
       </template>
 
-      <!-- Объединённое действие «Интервью»: перевод на этап + календарь планирования -->
+      <!-- Фолбэк без воронки: только планирование интервью (в воронках планирование
+           встроено в контекстный набор quickActionSet) -->
       <button
-        v-if="stagesReady && hasPipeline && interviewStage"
-        :disabled="isQuickMoving"
-        class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-        :title="currentStageId === interviewStage.id
-          ? 'Запланировать интервью'
-          : `Перевести на этап «${interviewStage.name}» и запланировать интервью`"
-        @click="interviewAction"
-      >
-        <Calendar class="size-3.5" />
-        {{ interviewStage.name }}
-        <kbd v-if="hotkeys" class="ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">5</kbd>
-      </button>
-      <!-- Фолбэк: без воронки (или без этапа интервью) — только планирование -->
-      <button
-        v-else-if="stagesReady"
+        v-if="stagesReady && !hasPipeline"
         class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
         @click="emit('schedule')"
       >
         <Calendar class="size-3.5" />
         {{ $t('applications.schedule_interview') }}
-        <kbd v-if="hotkeys && hasPipeline" class="ml-0.5 inline-flex items-center justify-center rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[10px] font-mono leading-none min-w-[14px] opacity-60">5</kbd>
       </button>
     </div>
 
