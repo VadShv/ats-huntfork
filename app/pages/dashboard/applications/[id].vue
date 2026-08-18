@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch, Keyboard, X, ShieldCheck } from 'lucide-vue-next'
+import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch, Keyboard, X, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
@@ -40,6 +40,63 @@ function handleStageChanged(payload: { newStageId: string; newStageName: string;
   localStageColor.value = payload.newStageColor
   // Full refresh to keep all data in sync
   void refresh()
+  // Спринт 22: hh-пуш при переводе — fire-and-forget, перепроверяем синк чуть позже
+  setTimeout(() => { void loadHhSync() }, 4000)
+}
+
+// ─── Спринт 22 (todo 8): индикатор рассинхрона с hh.ru ───
+type HhSyncStatus = {
+  applicable: boolean
+  reason?: string
+  inSync?: boolean
+  expectedCollection?: string | null
+  actualCollection?: string | null
+  lastError?: string | null
+  lastAttemptAt?: string | null
+}
+const hhSync = ref<HhSyncStatus | null>(null)
+async function loadHhSync() {
+  try {
+    hhSync.value = await $fetch<HhSyncStatus>(`/api/applications/${applicationId}/hh-sync-status`, {
+      headers: useRequestHeaders(['cookie']),
+    })
+  }
+  catch {
+    hhSync.value = null
+  }
+}
+onMounted(() => { void loadHhSync() })
+
+// Спринт 22 (todo 9): после перевода — на карточку нового отклика
+const localePath = useLocalePath()
+function handleTransferred(payload: { newApplicationId: string }) {
+  void navigateTo(localePath(`/dashboard/applications/${payload.newApplicationId}`))
+}
+
+const isResyncing = ref(false)
+async function doHhResync() {
+  if (isResyncing.value) return
+  isResyncing.value = true
+  try {
+    const res = await $fetch<{ pushed: boolean, reason?: string, status: HhSyncStatus }>(
+      `/api/applications/${applicationId}/hh-resync`,
+      { method: 'POST', headers: useRequestHeaders(['cookie']) },
+    )
+    hhSync.value = res.status
+    if (res.status?.inSync) {
+      toast.success('Синхронизировано с hh.ru')
+    }
+    else {
+      toast.error('Не удалось синхронизировать с hh.ru', { message: res.reason ?? res.status?.lastError ?? undefined })
+    }
+  }
+  catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error('Не удалось синхронизировать с hh.ru', { message: err.data?.statusMessage })
+  }
+  finally {
+    isResyncing.value = false
+  }
 }
 
 const { formatCandidateName } = useOrgSettings()
@@ -195,6 +252,46 @@ function formatResponseValue(value: unknown): string {
           </div>
           <!-- Legacy status: показываем только когда нет стадии pipeline -->
           <StatusBadge v-if="!localStageId" :status="application.status as any" size="sm" />
+          <!-- Спринт 22 (todo 8): рассинхрон с hh.ru + кнопка ре-синка -->
+          <div
+            v-if="hhSync?.applicable && hhSync.inSync === false"
+            class="inline-flex items-center gap-1.5"
+          >
+            <span
+              class="inline-flex items-center gap-1 rounded-full border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
+              :title="hhSync.lastError
+                ? `Последняя ошибка: ${hhSync.lastError}`
+                : `На hh.ru: ${hhSync.actualCollection ?? '—'}, ожидается: ${hhSync.expectedCollection ?? '—'}`"
+            >
+              <AlertTriangle class="size-3" />
+              hh: рассинхрон
+            </span>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-0.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50"
+              :disabled="isResyncing"
+              title="Повторно отправить текущий этап на hh.ru"
+              @click="doHhResync"
+            >
+              <RefreshCw class="size-3" :class="isResyncing ? 'animate-spin' : ''" />
+              Синхронизировать
+            </button>
+          </div>
+          <!-- Спринт 22 (todo 9): перевод на другую вакансию -->
+          <NuxtLink
+            v-if="(application as any).transferredToApplicationId"
+            :to="$localePath(`/dashboard/applications/${(application as any).transferredToApplicationId}`)"
+            class="inline-flex items-center gap-1 rounded-full border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400 hover:underline"
+            title="Открыть новый отклик"
+          >
+            Переведён → новый отклик
+          </NuxtLink>
+          <ApplicationTransferDialog
+            v-else
+            :application-id="applicationId"
+            :current-job-id="application.job.id"
+            @transferred="handleTransferred"
+          />
           <TimelineDateLink :date="application.createdAt" class="text-sm text-surface-500 dark:text-surface-400">
             {{ t('applications.applied_label') }} {{ new Date(application.createdAt).toLocaleDateString() }}
           </TimelineDateLink>

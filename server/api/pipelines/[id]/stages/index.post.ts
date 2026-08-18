@@ -27,6 +27,8 @@ const createStageSchema = z.object({
   isTerminal: z.boolean().default(false),
   parentStageId: z.string().uuid().nullable().optional(),
   displayOrder: z.number().int().min(0).optional(),
+  /** Спринт 22: org-дефолтный шаблон отказного сообщения (для этапов раздела «Отказы»). */
+  rejectMessageTemplate: z.string().max(5000).nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -125,6 +127,7 @@ export default defineEventHandler(async (event) => {
       isSystemStage: false, // всегда false для пользовательских
       isHidden: false,
       parentStageId: body.parentStageId ?? null,
+      rejectMessageTemplate: body.rejectMessageTemplate?.trim() || null,
     }).returning()
 
     // Валидируем — воронка должна остаться корректной

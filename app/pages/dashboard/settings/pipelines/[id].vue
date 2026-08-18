@@ -2,7 +2,7 @@
 import {
   ArrowLeft, Loader2, Lock, EyeOff, Eye, Trash2, Plus,
   Briefcase, Users, GripVertical, ChevronDown, ChevronRight,
-  AlertTriangle, Settings,
+  AlertTriangle, Settings, MessageSquare,
 } from 'lucide-vue-next'
 
 definePageMeta({})
@@ -26,6 +26,7 @@ interface StageDto {
   isSystemStage: boolean
   isHidden: boolean
   parentStageId: string | null
+  rejectMessageTemplate: string | null
 }
 
 interface PipelineDetail {
@@ -194,18 +195,23 @@ async function deleteStage(stage: StageDto) {
 // ── Add-substage modal ───────────────────────────────────
 const showAddSubstage = ref(false)
 const substageParentId = ref<string | null>(null)
+const substageParentBucket = ref<'working' | 'rejected'>('working')
 const substageName = ref('')
+const substageTemplate = ref('')
 const substageBusy = ref(false)
 
-function openAddSubstage(parentId: string) {
-  substageParentId.value = parentId
+function openAddSubstage(parent: StageDto) {
+  substageParentId.value = parent.id
+  substageParentBucket.value = parent.bucket
   substageName.value = ''
+  substageTemplate.value = ''
   showAddSubstage.value = true
 }
 
 async function submitSubstage() {
   if (!substageName.value.trim() || !substageParentId.value) return
   substageBusy.value = true
+  const isReject = substageParentBucket.value === 'rejected'
   try {
     await $fetch(`/api/pipelines/${pipelineId.value}/stages`, {
       method: 'POST',
@@ -213,9 +219,12 @@ async function submitSubstage() {
         name: substageName.value.trim(),
         type: 'custom',
         parentStageId: substageParentId.value,
+        // Причина отказа — всегда терминальный подстатус
+        isTerminal: isReject,
+        rejectMessageTemplate: isReject && substageTemplate.value.trim() ? substageTemplate.value.trim() : null,
       },
     })
-    toast.add({ title: 'Подстатус добавлен', color: 'success' })
+    toast.add({ title: isReject ? 'Причина отказа добавлена' : 'Подстатус добавлен', color: 'success' })
     showAddSubstage.value = false
     await refresh()
   } catch (e: unknown) {
@@ -227,6 +236,41 @@ async function submitSubstage() {
     })
   } finally {
     substageBusy.value = false
+  }
+}
+
+// ── Reject message template modal (Спринт 22, todo 10) ────
+const showTemplateEditor = ref(false)
+const templateStage = ref<StageDto | null>(null)
+const templateText = ref('')
+const templateBusy = ref(false)
+
+function openTemplateEditor(stage: StageDto) {
+  templateStage.value = stage
+  templateText.value = stage.rejectMessageTemplate ?? ''
+  showTemplateEditor.value = true
+}
+
+async function saveTemplate() {
+  if (!templateStage.value) return
+  templateBusy.value = true
+  try {
+    await $fetch(`/api/pipelines/${pipelineId.value}/stages/${templateStage.value.id}`, {
+      method: 'PATCH',
+      body: { rejectMessageTemplate: templateText.value.trim() || null },
+    })
+    toast.add({ title: 'Шаблон сообщения сохранён', color: 'success' })
+    showTemplateEditor.value = false
+    await refresh()
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({
+      title: 'Не удалось сохранить шаблон',
+      description: err.data?.statusMessage ?? err.message,
+      color: 'error',
+    })
+  } finally {
+    templateBusy.value = false
   }
 }
 
@@ -435,12 +479,23 @@ async function submitNewStage() {
               </button>
 
               <button
-                v-if="activeTab === 'working'"
+                v-if="activeTab === 'rejected'"
+                type="button"
+                :disabled="busyStageId === stage.id"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-40"
+                :class="stage.rejectMessageTemplate ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500'"
+                :title="stage.rejectMessageTemplate ? 'Шаблон сообщения задан — редактировать' : 'Задать шаблон сообщения кандидату'"
+                @click="openTemplateEditor(stage)"
+              >
+                <MessageSquare class="w-4 h-4" />
+              </button>
+
+              <button
                 type="button"
                 class="ml-2 flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-700 dark:text-gray-300"
-                @click="openAddSubstage(stage.id)"
+                @click="openAddSubstage(stage)"
               >
-                <Plus class="w-3 h-3" /> Подстатус
+                <Plus class="w-3 h-3" /> {{ activeTab === 'rejected' ? 'Причина отказа' : 'Подстатус' }}
               </button>
             </div>
           </div>
@@ -482,6 +537,17 @@ async function submitNewStage() {
               </div>
 
               <div class="flex items-center gap-1">
+                <button
+                  v-if="activeTab === 'rejected'"
+                  type="button"
+                  :disabled="busyStageId === sub.id"
+                  class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-40"
+                  :class="sub.rejectMessageTemplate ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500'"
+                  :title="sub.rejectMessageTemplate ? 'Шаблон сообщения задан — редактировать' : 'Задать шаблон сообщения кандидату'"
+                  @click="openTemplateEditor(sub)"
+                >
+                  <MessageSquare class="w-3.5 h-3.5" />
+                </button>
                 <button
                   type="button"
                   :disabled="busyStageId === sub.id"
@@ -539,15 +605,32 @@ async function submitNewStage() {
       @click.self="showAddSubstage = false"
     >
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Новый подстатус</h3>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          {{ substageParentBucket === 'rejected' ? 'Новая причина отказа' : 'Новый подстатус' }}
+        </h3>
         <input
           v-model="substageName"
           type="text"
-          placeholder="Название подстатуса"
+          :placeholder="substageParentBucket === 'rejected' ? 'Название причины (например: Не прошёл по зарплате)' : 'Название подстатуса'"
           maxlength="50"
           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           @keyup.enter="submitSubstage"
         >
+        <template v-if="substageParentBucket === 'rejected'">
+          <label class="block mt-4 mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+            Шаблон сообщения кандидату (необязательно)
+          </label>
+          <textarea
+            v-model="substageTemplate"
+            rows="4"
+            maxlength="5000"
+            placeholder="Сообщение, которое отправится кандидату на hh.ru при отказе с этой причиной. Если пусто — будет использован стандартный текст."
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm resize-y"
+          />
+          <p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+            Приоритет: шаблон вакансии → этот шаблон → стандартный текст
+          </p>
+        </template>
         <div class="mt-4 flex justify-end gap-2">
           <button
             type="button"
@@ -565,6 +648,49 @@ async function submitNewStage() {
             @click="submitSubstage"
           >
             {{ substageBusy ? 'Сохраняю…' : 'Добавить' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reject message template modal (Спринт 22) -->
+    <div
+      v-if="showTemplateEditor"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="showTemplateEditor = false"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+          Шаблон сообщения — «{{ templateStage?.name }}»
+        </h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Отправляется кандидату на hh.ru при отказе с этой причиной,
+          если у вакансии нет своего шаблона. Пустое поле — стандартный текст.
+        </p>
+        <textarea
+          v-model="templateText"
+          rows="6"
+          maxlength="5000"
+          placeholder="Здравствуйте! Спасибо за отклик…"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm resize-y"
+        />
+        <div class="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            @click="showTemplateEditor = false"
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+            :disabled="templateBusy"
+            class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+            style="background-color: rgb(37 99 235); border: 1px solid rgb(37 99 235);"
+            :style="{ opacity: templateBusy ? 0.5 : 1 }"
+            @click="saveTemplate"
+          >
+            {{ templateBusy ? 'Сохраняю…' : 'Сохранить' }}
           </button>
         </div>
       </div>

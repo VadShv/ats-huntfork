@@ -37,6 +37,7 @@ export default defineEventHandler(async (event) => {
           isSystemStage: true,
           isHidden: true,
           parentStageId: true,
+          rejectMessageTemplate: true,
           createdAt: true,
           updatedAt: true,
         },

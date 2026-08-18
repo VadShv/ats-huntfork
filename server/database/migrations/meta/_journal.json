@@ -428,6 +428,34 @@
       "when": 1801000060000,
       "tag": "0061_invite_link_role_hm",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1801000070000,
+      "tag": "0062_normalize_legacy_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1801000080000,
+      "tag": "0063_reject_parent_stage",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1801000090000,
+      "tag": "0064_application_transfer",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1801000110000,
+      "tag": "0065_stage_reject_message_template",
+      "breakpoints": true
     }
   ]
 }

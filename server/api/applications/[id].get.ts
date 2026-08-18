@@ -58,6 +58,8 @@ export default defineEventHandler(async (event) => {
       coverLetterText: true,
       // Sprint 3: source нужен в UI для бейджей (hh / hh_sourcing / manual / api)
       source: true,
+      // Спринт 22 (M4): ссылка на новый отклик после перевода
+      transferredToApplicationId: true,
       createdAt: true,
       updatedAt: true,
     },

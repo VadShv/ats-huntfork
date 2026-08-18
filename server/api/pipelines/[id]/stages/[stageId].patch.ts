@@ -31,6 +31,12 @@ const updateStageSchema = z.object({
   isArchived: z.boolean().optional(),
   displayOrder: z.number().int().min(0).optional(),
   parentStageId: z.string().uuid().nullable().optional(),
+  /**
+   * Спринт 22: org-дефолтный шаблон отказного сообщения.
+   * Разрешён в т.ч. для базовых (системных) этапов — это настройка
+   * сообщения, а не структурное изменение воронки.
+   */
+  rejectMessageTemplate: z.string().max(5000).nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -169,6 +175,9 @@ export default defineEventHandler(async (event) => {
     if (body.isArchived !== undefined) updatePayload.isArchived = body.isArchived
     if (body.displayOrder !== undefined) updatePayload.displayOrder = body.displayOrder
     if (body.parentStageId !== undefined) updatePayload.parentStageId = body.parentStageId
+    if (body.rejectMessageTemplate !== undefined) {
+      updatePayload.rejectMessageTemplate = body.rejectMessageTemplate?.trim() || null
+    }
 
     const [updated] = await tx.update(pipelineStage)
       .set(updatePayload)

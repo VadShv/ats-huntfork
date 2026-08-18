@@ -208,6 +208,8 @@ export const application = pgTable('application', {
   fraudReason: text('fraud_reason'),
   /** True, когда AI хотел бы отклонить (score < threshold), но confidence низкий — рекрутёр должен глянуть вручную. */
   needsManualReview: boolean('needs_manual_review').notNull().default(false),
+  /** Спринт 22 (M4): ссылка на новый отклик после перевода на другую вакансию (этап transferred). */
+  transferredToApplicationId: text('transferred_to_application_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
@@ -289,6 +291,13 @@ export const pipelineStage = pgTable('pipeline_stage', {
    * Подстатус наследует тип, bucket и терминальность от родителя. Ограничение: нельзя вложить подстатус в другой подстатус (application-level check).
    */
   parentStageId: text('parent_stage_id'),
+  /**
+   * Спринт 22: org-дефолтный шаблон отказного сообщения кандидату при hh-пуше
+   * в discard-коллекцию. Имеет смысл для этапов bucket='rejected'.
+   * Приоритет: hh_stage_mapping.message_template (per-vacancy) →
+   * pipeline_stage.reject_message_template (org-дефолт) → DEFAULT_DISCARD_MESSAGE.
+   */
+  rejectMessageTemplate: text('reject_message_template'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([

@@ -14,7 +14,7 @@
  *   - При любой ошибке логируем в hh_action_log с error-полем и пробрасываем дальше.
  *   - Никогда не блокируем основной flow (вызывающий код ловит ошибку и логирует, но не падает).
  */
-import { and, eq, gte } from 'drizzle-orm'
+import { and, desc, eq, gte } from 'drizzle-orm'
 import {
   application,
   hhActionLog,
@@ -102,8 +102,12 @@ export function stageTypeToHhCollection(type: string): string | null {
     case 'withdrawn':
     case 'no_show':
     case 'job_closed':
-    case 'transferred':
       return 'discard_by_employer'
+    // Спринт 22: перевод на другую вакансию — НЕ отказ для кандидата:
+    // авто-discard отправил бы ему отказное сообщение на hh. Не пушим
+    // (явный hh_stage_mapping при желании переопределяет это поведение).
+    case 'transferred':
+      return null
     // custom разбираем отдельно (по родителю), неизвестное — не пушим
     default:
       return null
@@ -185,18 +189,20 @@ export async function pushStageChangeToHh(args: {
     ),
   })
 
+  // Этап нужен всегда: для fallback-коллекции по типу и для org-дефолтного
+  // шаблона отказного сообщения (Спринт 22, todo 10).
+  const stageRow = await db.query.pipelineStage.findFirst({
+    where: and(
+      eq(pipelineStage.id, pipelineStageId),
+      eq(pipelineStage.organizationId, organizationId),
+    ),
+    columns: { id: true, type: true, parentStageId: true, rejectMessageTemplate: true },
+  })
+  if (!stageRow) return { pushed: false, reason: 'stage not found' }
+
   let targetCollection: string | null = mapping?.hhCollection ?? null
   if (!targetCollection) {
     // Fallback: определяем коллекцию по типу этапа воронки
-    const stageRow = await db.query.pipelineStage.findFirst({
-      where: and(
-        eq(pipelineStage.id, pipelineStageId),
-        eq(pipelineStage.organizationId, organizationId),
-      ),
-      columns: { id: true, type: true, parentStageId: true },
-    })
-    if (!stageRow) return { pushed: false, reason: 'stage not found' }
-
     let effectiveType: string = stageRow.type
     if (effectiveType === 'custom' && stageRow.parentStageId) {
       // Для кастомного подэтапа берём тип родительского этапа
@@ -237,7 +243,11 @@ export async function pushStageChangeToHh(args: {
   // следующую. Сетевые и 5xx ошибки не перебираем, чтобы не плодить действия.
   const candidates = COLLECTION_PRIORITY[targetCollection] ?? [targetCollection]
   const accessToken = await getValidAccessToken(linkRow.hhAccountId)
-  const discardMessage = mapping?.messageTemplate?.trim() || DEFAULT_DISCARD_MESSAGE
+  // Спринт 22 (todo 10): цепочка шаблонов отказного сообщения:
+  // per-vacancy mapping → org-дефолт этапа → общий дефолт
+  const discardMessage = mapping?.messageTemplate?.trim()
+    || stageRow.rejectMessageTemplate?.trim()
+    || DEFAULT_DISCARD_MESSAGE
 
   const attempts: Array<{ collection: string, status: number, error?: string }> = []
   let chosenCollection: string | null = null
@@ -388,4 +398,124 @@ export async function sendNegotiationMessage(args: {
 
   if (errorMsg) throw new Error(errorMsg)
   return { sent: true }
+}
+
+// ─────────────────────────────────────────────
+// Спринт 22 (todo 8): статус синхронизации с hh.ru
+// ─────────────────────────────────────────────
+
+export type HhSyncStatus = {
+  /** false — синк неприменим (не hh-отклик, нет связки, пуш выключен и т.п.) */
+  applicable: boolean
+  reason?: string
+  /** true — состояние на hh соответствует текущему этапу воронки */
+  inSync?: boolean
+  expectedCollection?: string | null
+  actualCollection?: string | null
+  lastError?: string | null
+  lastAttemptAt?: string | null
+}
+
+/**
+ * Вычислить, соответствует ли коллекция negotiation на hh.ru текущему этапу
+ * воронки. Ничего не пушит — только читает БД (mapping, fallback по типу,
+ * hh_negotiation, последняя запись hh_action_log).
+ *
+ * Учитывает матрицу COLLECTION_PRIORITY: если пуш легально «сел» в запасную
+ * коллекцию (например hired → offer из-за тарифа), это НЕ рассинхрон.
+ */
+export async function getHhSyncStatus(args: {
+  organizationId: string
+  applicationId: string
+}): Promise<HhSyncStatus> {
+  const { organizationId, applicationId } = args
+
+  const appRow = await db.query.application.findFirst({
+    where: and(eq(application.id, applicationId), eq(application.organizationId, organizationId)),
+    columns: { id: true, jobId: true, externalId: true, source: true, currentStageId: true },
+  })
+  if (!appRow) return { applicable: false, reason: 'application not found' }
+  if (appRow.source !== 'hh' && appRow.source !== 'hh_sourcing') {
+    return { applicable: false, reason: 'not an hh application' }
+  }
+  if (!appRow.externalId) return { applicable: false, reason: 'no hh negotiation id' }
+  if (!appRow.currentStageId) return { applicable: false, reason: 'no pipeline stage' }
+
+  const linkRow = await db.query.hhVacancyLink.findFirst({
+    where: and(
+      eq(hhVacancyLink.jobId, appRow.jobId),
+      eq(hhVacancyLink.organizationId, organizationId),
+    ),
+    columns: { id: true, pushSyncEnabled: true },
+  })
+  if (!linkRow) return { applicable: false, reason: 'no hh vacancy link' }
+  if (!linkRow.pushSyncEnabled) return { applicable: false, reason: 'push sync disabled for this link' }
+
+  // Ожидаемая коллекция: явный mapping → fallback по типу этапа (как в push)
+  const mapping = await db.query.hhStageMapping.findFirst({
+    where: and(
+      eq(hhStageMapping.hhVacancyLinkId, linkRow.id),
+      eq(hhStageMapping.pipelineStageId, appRow.currentStageId),
+      eq(hhStageMapping.organizationId, organizationId),
+    ),
+    columns: { hhCollection: true },
+  })
+  let expectedCollection: string | null = mapping?.hhCollection ?? null
+  if (!expectedCollection) {
+    const stageRow = await db.query.pipelineStage.findFirst({
+      where: and(
+        eq(pipelineStage.id, appRow.currentStageId),
+        eq(pipelineStage.organizationId, organizationId),
+      ),
+      columns: { type: true, parentStageId: true },
+    })
+    if (!stageRow) return { applicable: false, reason: 'stage not found' }
+    let effectiveType: string = stageRow.type
+    if (effectiveType === 'custom' && stageRow.parentStageId) {
+      const parentRow = await db.query.pipelineStage.findFirst({
+        where: eq(pipelineStage.id, stageRow.parentStageId),
+        columns: { type: true },
+      })
+      if (parentRow) effectiveType = parentRow.type
+    }
+    expectedCollection = stageTypeToHhCollection(effectiveType)
+  }
+
+  // Для этапов без hh-действия (например «Новые») рассинхрона не бывает
+  if (!expectedCollection) {
+    return { applicable: true, inSync: true, expectedCollection: null, actualCollection: null }
+  }
+
+  const neg = await db.query.hhNegotiation.findFirst({
+    where: and(
+      eq(hhNegotiation.hhNegotiationId, appRow.externalId),
+      eq(hhNegotiation.organizationId, organizationId),
+    ),
+    columns: { hhCollection: true },
+  })
+  const actualCollection = neg?.hhCollection ?? null
+
+  // Последняя попытка пуша (для текста ошибки в UI)
+  const [lastLog] = await db
+    .select({ error: hhActionLog.error, createdAt: hhActionLog.createdAt })
+    .from(hhActionLog)
+    .where(and(
+      eq(hhActionLog.organizationId, organizationId),
+      eq(hhActionLog.negotiationId, appRow.externalId),
+      eq(hhActionLog.actionType, 'stage_change'),
+    ))
+    .orderBy(desc(hhActionLog.createdAt))
+    .limit(1)
+
+  const acceptable = new Set(COLLECTION_PRIORITY[expectedCollection] ?? [expectedCollection])
+  const inSync = actualCollection != null && acceptable.has(actualCollection)
+
+  return {
+    applicable: true,
+    inSync,
+    expectedCollection,
+    actualCollection,
+    lastError: lastLog?.error ?? null,
+    lastAttemptAt: lastLog?.createdAt?.toISOString() ?? null,
+  }
 }
