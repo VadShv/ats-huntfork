@@ -1,0 +1,299 @@
+/**
+ * narrative.css — повествовательная анимация и слоистость.
+ * ТЗ «Повествовательная анимация» v1.0.
+ *
+ * Загружается ПОСЛЕ: tokens → base → animations → style → polish → shine → signature
+ *
+ * Пять приёмов:
+ *  §1 — доезжающие числа (классы .hf-numeric)
+ *  §2 — морфинг через View Transitions API
+ *  §3 — слипающиеся заголовки (data-hf-header, data-hf-sentinel)
+ *  §4 — сплошная поверхность (без стекла; гибрид-перекраска)
+ *  §5 — резиновая прокрутка (.hf-rubber)
+ */
+
+/* ═══════════════════════════════════════════════════════════════
+ * §1. Доезжающие числа
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* Табличные цифры — обязательны для всех анимируемых чисел.
+   Без этого число дёргается по ширине: «1» узкая, «8» широкая. */
+.hf-numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Число в режиме доезда — резерв ширины, чтобы соседний контент не смещался */
+.hf-numeric--animate {
+  display: inline-flex;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hf-numeric__unit {
+  font-size: 0.75em;
+  color: var(--hf-fg-muted);
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Скринридер: финальное значение доступно сразу */
+.hf-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * §2. Морфинг через View Transitions API
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* Кастомизация переходов View Transitions API.
+   Морфинг вперёд анимированный, сброс к началу мгновенный. */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--hf-dur-base);
+  animation-timing-function: var(--hf-ease-out);
+}
+
+/* Морфинг конкретного элемента (через view-transition-name) */
+::view-transition-group(*) {
+  animation-duration: var(--hf-dur-slow);
+  animation-timing-function: var(--hf-ease-out);
+}
+
+/* Мгновенный сброс — класс .hf-morph-instant на корне */
+.hf-morph-instant::view-transition-old(root),
+.hf-morph-instant::view-transition-new(root) {
+  animation: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * §3. Слипающиеся заголовки
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* Секция — содержащий блок для своего sticky-заголовка.
+   Заголовок прилипает только в её границах. */
+[data-hf-section] {
+  position: relative;
+}
+
+/* Маркеры прилипания: невидимы, вне потока, без влияния на layout */
+.hf-sentinel,
+[data-hf-sentinel] {
+  position: absolute;
+  height: 1px;
+  width: 100%;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+[data-hf-section] > [data-hf-sentinel="top"] { top: 0; }
+[data-hf-section] > [data-hf-sentinel="bottom"] { bottom: 0; }
+
+/* Заголовок — position: sticky, top: 0 обязателен */
+[data-hf-header] {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--hf-s-2);
+  padding: var(--hf-s-2) var(--hf-s-3);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background var(--hf-dur-fast) var(--hf-ease-out),
+    border-color var(--hf-dur-fast) var(--hf-ease-out),
+    box-shadow var(--hf-dur-fast) var(--hf-ease-out);
+}
+
+/* Оформление появляется ТОЛЬКО в прилипшем состоянии.
+   В покое заголовок полностью прозрачный — это даёт нативное ощущение.
+   БЕЗ стекла: сплошной фон вместо backdrop-filter. */
+[data-hf-header].is-stuck {
+  background: var(--hf-surface);
+  border-bottom-color: var(--hf-border);
+  box-shadow: 0 1px 2px rgba(16,16,16,0.04);
+}
+
+/* Счётчик в прилипшем заголовке — появляется с пружинным scale */
+.hf-stuck-count {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: var(--hf-r-pill);
+  background: var(--hf-surface-sunken);
+  color: var(--hf-fg-muted);
+  font-size: var(--hf-t-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* Переход счётчика: пружинный scale(0.8 → 1) */
+.cnt-enter-active,
+.cnt-leave-active {
+  transition:
+    opacity var(--hf-dur-fast) var(--hf-ease-out),
+    transform var(--hf-dur-fast) var(--spring-bouncy);
+}
+.cnt-enter-from,
+.cnt-leave-to {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+/* Тонкая полоса прогресса чтения секции (§3.7) */
+.hf-section-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--hf-primary);
+  transform-origin: left;
+  transition: transform 60ms linear;
+  opacity: 0.7;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * §4. Сплошная поверхность (без стекла)
+ * Гибрид-перекраска: backdrop-filter убран — на #FAFAFA
+ * размытие выглядит грязно. Глубину даёт фон + граница.
+ * ═══════════════════════════════════════════════════════════════ */
+
+.hf-glass {
+  background: var(--hf-surface);
+  border: 1px solid var(--hf-border);
+}
+
+.hf-glass--dark {
+  background: var(--hf-surface);
+  border: 1px solid var(--hf-border);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * §5. Резиновая прокрутка на границах
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* Трёхслойная структура:
+     Контейнер прокрутки (overflow-y: auto — sticky работает здесь)
+     └── Обёртка резины (transform при перепрокрутке)
+         └── Контент
+*/
+
+.hf-rubber-scroll {
+  position: relative;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.hf-rubber-wrap {
+  will-change: transform;
+  transition: none; /* Управляется через JS */
+}
+
+/* Индикатор «дальше ничего нет» — проявляется при перепрокрутке */
+.hf-rubber-end {
+  position: absolute;
+  bottom: -32px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: var(--hf-t-xs);
+  color: var(--hf-fg-subtle);
+  opacity: 0;
+  transition: opacity var(--hf-dur-fast) var(--hf-ease-out);
+  pointer-events: none;
+}
+
+.hf-rubber-scroll.is-rubbering .hf-rubber-end {
+  opacity: 1;
+}
+
+/* Pull-to-refresh индикатор */
+.hf-rubber-refresh {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--hf-t-xs);
+  color: var(--hf-primary);
+  opacity: 0;
+  transition: opacity var(--hf-dur-fast) var(--hf-ease-out);
+  pointer-events: none;
+}
+
+.hf-rubber-scroll.is-pull-refresh .hf-rubber-refresh {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * Доступность
+ * ═══════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hf-header],
+  .cnt-enter-active,
+  .cnt-leave-active,
+  .hf-section-progress {
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Резиновая прокрутка отключается */
+  .hf-rubber-wrap {
+    transform: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * §5. Резиновая прокрутка — CSS-only усиление
+ * Полный JS rubber scroll не применяется к .shell-viewport,
+ * чтобы не сломать position: sticky в дочерних views.
+ * Вместо этого — overscroll-behavior: contain (уже в .hf-scroll)
+ * + усиление fade mask при подходе к границам.
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* Плавная прокрутка для всех scroll-контейнеров */
+.hf-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Отключение smooth при prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .hf-scroll {
+    scroll-behavior: auto;
+  }
+}
+
+/* Усиление fade mask на границах скролл-контейнера.
+   Маска .hf-fade-y из polish.css работает статически;
+   здесь добавляем динамический класс .is-at-top / .is-at-bottom
+   для усиления визуального сигнала границы. */
+.hf-scroll.is-at-top::before,
+.hf-scroll.is-at-bottom::after {
+  content: '';
+  position: sticky;
+  left: 0;
+  right: 0;
+  height: 1px;
+  display: block;
+  pointer-events: none;
+}
+
+.hf-scroll.is-at-top::before {
+  top: 0;
+  box-shadow: 0 1px 4px rgba(16,16,16,0.04);
+}
+
+.hf-scroll.is-at-bottom::after {
+  bottom: 0;
+  box-shadow: 0 -1px 4px rgba(16,16,16,0.04);
+}

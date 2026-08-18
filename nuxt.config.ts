@@ -234,6 +234,12 @@ export default defineNuxtConfig({
       /** Включить брендинг Astra Group (графит + сокол + PT Astra Fact) */
       astraBrand: process.env.NUXT_PUBLIC_ASTRA_BRAND === '1',
     },
+    /** Server-only: поисковые провайдеры (ключи не утекают в клиент) */
+    yandexFolderId: process.env.YANDEX_FOLDER_ID || '',
+    yandexSearchApiKey: process.env.YANDEX_SEARCH_API_KEY || '',
+    brightdataToken: process.env.BRIGHTDATA_TOKEN || '',
+    brightdataZone: process.env.BRIGHTDATA_ZONE || 'serp',
+    searchMock: process.env.SEARCH_MOCK === '1',
   },
 
   vite: {

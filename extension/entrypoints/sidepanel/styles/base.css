@@ -1,0 +1,66 @@
+/* ────────────────────────────────────────────────────────────────
+   base.css — reset, скроллбары, фокус, типографика тела
+   ──────────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--hf-font);
+  font-size: var(--hf-t-md);
+  line-height: var(--hf-lh-normal);
+  color: var(--hf-fg);
+  background: var(--hf-bg);
+  overflow: hidden;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+a {
+  color: var(--hf-primary);
+  text-decoration: none;
+}
+
+/* Скроллбары и фокус теперь в polish.css (.hf-scroll, единое кольцо :focus-visible).
+   Утилита скрытия — .hf-sr в polish.css. */
+
+/* ── Плавная смена темы ────────────────────────────────────────── */
+
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition:
+    background-color var(--hf-dur-slow) var(--hf-ease-in-out),
+    color var(--hf-dur-slow) var(--hf-ease-in-out),
+    border-color var(--hf-dur-slow) var(--hf-ease-in-out) !important;
+}

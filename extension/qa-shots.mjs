@@ -1,8 +1,12 @@
 import { chromium } from 'playwright'
 import fs from 'node:fs'
 
-const EXT = '/home/user/workspace/huntfork-sidekick/.output/chrome-mv3'
-const OUT = '/home/user/workspace/huntfork-sidekick/qa-shots'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const EXT = join(HERE, '.output/chrome-mv3')
+const OUT = join(HERE, 'qa-shots')
 fs.mkdirSync(OUT, { recursive: true })
 
 const STUB = `
@@ -95,34 +99,37 @@ async function run(scheme) {
   const shot = (n) => page.screenshot({ path: `${OUT}/${scheme}-${n}.png`, fullPage: true })
 
   await page.goto(`chrome-extension://${extId}/sidepanel.html`)
-  await page.waitForTimeout(600)
-  await shot('1-idle')
+  await page.waitForTimeout(700)
+  await shot('01-chat-idle')
 
-  // Сводка по странице: стриминг и финал
-  await page.getByText('✨ Сводка по странице').click()
-  await page.waitForTimeout(500)
-  await shot('2-summary-streaming')
-  await page.waitForTimeout(1200)
-  await shot('3-summary-done')
+  // Обход всех вкладок рельса (aria-label из VIEW_DEFS)
+  const views = [
+    ['Сорсинг', '02-sourcing'],
+    ['Скрининг', '03-screening'],
+    ['Telegram', '04-telegram'],
+    ['Аутрич', '05-outreach'],
+    ['Пайплайн', '06-pipeline'],
+    ['Библиотека', '07-library'],
+    ['Хаб', '08-hub'],
+  ]
+  for (const [label, name] of views) {
+    await page.getByRole('button', { name: label, exact: true }).click()
+    await page.waitForTimeout(450)
+    await shot(name)
+  }
 
-  // Вопросы (чат)
-  await page.getByText('💬 Задать вопрос').click()
+  // Чат: стриминговый ответ (SSE-заглушка)
+  await page.getByRole('button', { name: 'Чат', exact: true }).click()
   await page.waitForTimeout(300)
-  await page.locator('.chat-ta').fill('Сколько лет опыта у кандидата?')
-  await page.locator('.chat-input-row .btn').click()
-  await page.waitForTimeout(350)
-  await shot('4-chat-typing')
-  await page.waitForTimeout(1400)
-  await shot('5-chat-done')
-
-  // Назад → импорт кандидата → проверка данных
-  await page.getByText('← Назад').click()
-  await page.waitForTimeout(400)
-  await page.getByText('Импортировать кандидата', { exact: false }).first().click()
-  await page.waitForTimeout(250)
-  await shot('6-capturing')
-  await page.waitForTimeout(600)
-  await shot('7-draft')
+  const ta = page.locator('textarea').first()
+  if (await ta.count()) {
+    await ta.fill('Сколько лет опыта у кандидата?')
+    await ta.press('Enter')
+    await page.waitForTimeout(400)
+    await shot('09-chat-streaming')
+    await page.waitForTimeout(1400)
+    await shot('10-chat-done')
+  }
 
   await ctx.close()
 }

@@ -1,0 +1,196 @@
+/* ────────────────────────────────────────────────────────────────
+   tokens.css — дизайн-токены Huntfork Sidekick (гибрид, монохром)
+   Палитра HEX из прототипа huntfork-hybrid.html / ТЗ v3.0 §1.
+   Единственный файл с хардкод-цветами.
+   Переключение темы — классом .dark на корне панели.
+   Пружины и тайминги не меняются между ревизиями.
+   ──────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Поверхности — 4 уровня глубины */
+  --hf-bg:             #FFFFFF;
+  --hf-surface:        #FAFAFA;
+  --hf-surface-raised: #FFFFFF;
+  --hf-surface-sunken: #F4F4F3;
+  --hf-hover:          #F1F1F0;
+
+  /* Текст — четыре уровня строго по назначению */
+  --hf-fg:        #0A0A0A;
+  --hf-fg-muted:  #4A4A48;
+  --hf-fg-subtle: #8B8B87;
+  --hf-fg-faint:  #8B8B87;   /* иконки в покое — 3.28:1 на #FAFAFA (WCAG 3:1 для графики) */
+
+  /* Акцент — строгий монохром. #7C5CFF не используется. */
+  --hf-primary:        #111111;
+  --hf-primary-hover:  #000000;
+  --hf-primary-muted:  transparent;
+  --hf-ring:           rgba(17, 17, 17, 0.35);
+  --hf-fg-on-accent:   #FFFFFF;
+  --hf-accent:         #7C5CFF;   /* зарезервирован: иконка кредитов, если появится */
+
+  /* Шкала соответствия (match) — для цветных полосок карточек */
+  --hf-match-high: #12A150;
+  --hf-match-mid:  #D97706;
+  --hf-match-low:  #DC2626;
+  --hf-match-high-muted: rgba(18, 161, 80, 0.12);
+  --hf-match-mid-muted:  rgba(217, 119, 6, 0.12);
+  --hf-match-low-muted:  rgba(220, 38, 38, 0.10);
+  --hf-info:      #2563EB;
+  --hf-info-muted: rgba(37, 99, 235, 0.12);
+
+  /* Состояния */
+  --hf-ok:        #12A150;
+  --hf-ok-muted:  rgba(18, 161, 80, 0.12);
+  --hf-warn:      #D97706;
+  --hf-warn-muted: rgba(217, 119, 6, 0.12);
+  --hf-err:       #DC2626;
+  --hf-err-muted: rgba(220, 38, 38, 0.10);
+
+  /* Границы */
+  --hf-border:        #EAEAE8;
+  --hf-border-strong: #DEDEDB;
+
+  /* Тени — только активный/всплывающий элемент */
+  --hf-shadow-sm: 0 1px 2px rgba(16, 16, 16, 0.04);
+  --hf-shadow-md: 0 1px 2px rgba(16, 16, 16, 0.04), 0 4px 12px rgba(16, 16, 16, 0.06);
+  --hf-shadow-lg: 0 2px 6px rgba(16, 16, 16, 0.06), 0 12px 30px rgba(16, 16, 16, 0.10);
+  --hf-shadow-lift: 0 2px 6px rgba(16, 16, 16, 0.06), 0 12px 30px rgba(16, 16, 16, 0.10);
+  --hf-glow:      0 0 0 2px var(--hf-ring);
+
+  /* Свет и глубина — главный источник «богатого» вида без цвета.
+     --hf-lit: внутренний блик сверху (имитация источника света).
+     --hf-e1..e4: четыре уровня тени как приоритета (миграция §5.1). */
+  --hf-lit: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --hf-e1: 0 1px 2px rgba(16, 16, 16, 0.04);
+  --hf-e2: 0 1px 2px rgba(16, 16, 16, 0.04), 0 4px 12px rgba(16, 16, 16, 0.06);
+  --hf-e3: 0 2px 6px rgba(16, 16, 16, 0.06), 0 12px 30px rgba(16, 16, 16, 0.09);
+  --hf-e4: 0 3px 8px rgba(16, 16, 16, 0.07), 0 18px 44px rgba(16, 16, 16, 0.12);
+
+  /* Радиусы */
+  --hf-r-sm: 10px;
+  --hf-r-md: 14px;
+  --hf-r-lg: 18px;
+  --hf-r-xl: 22px;
+  --hf-r-pill: 999px;
+
+  /* Типографика */
+  --hf-font: 'Inter var', 'Inter', -apple-system, 'SF Pro Text', ui-sans-serif, system-ui, sans-serif;
+  --hf-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --hf-t-xs: 11px;
+  --hf-t-sm: 14px;
+  --hf-t-md: 15px;
+  --hf-t-lg: 16px;
+  --hf-t-xl: 18px;
+  --hf-t-xxl: 24px;
+  --hf-fw-regular: 400;
+  --hf-fw-medium: 500;
+  --hf-fw-semibold: 600;
+  --hf-fw-bold: 700;
+  --hf-lh-tight: 1.25;
+  --hf-lh-normal: 1.5;
+  --hf-lh-relaxed: 1.65;
+
+  /* Сетка отступов */
+  --hf-s-1: 4px;
+  --hf-s-2: 8px;
+  --hf-s-3: 13px;
+  --hf-s-4: 16px;
+  --hf-s-5: 20px;
+  --hf-s-6: 24px;
+  --hf-s-8: 32px;
+  --hf-gap: 16px;
+
+  /* Максимальная ширина читаемого контента при растягивании панели (380→680). */
+  --hf-content-max: 560px;
+
+  /* Тайминги */
+  --hf-dur-instant: 90ms;
+  --hf-dur-fast:    140ms;
+  --hf-dur-base:    220ms;
+  --hf-dur-slow:    380ms;
+  --hf-ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --hf-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --hf-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --hf-ease-in:     cubic-bezier(0.42, 0, 1, 1);
+
+  /* Spring-функции — пружинные тайминги на чистом CSS linear().
+     Сэмплы из уравнения затуханного осциллятора (ζ=0.82, овершут 1.1%).
+     Без рантайм-JS и зависимостей. mass 1. */
+  --spring-snappy: linear(0,.0026 .7%,.0217 2.2%,.0561 3.6%,.1023 5%,.2177 7.9%,.5716 15.8%,.6835 18.7%,.7789 21.6%,.8391 23.7%,.9044 26.6%,.9539 29.5%,.9896 32.4%,1.0087 34.5%,1.0257 37.4%,1.0351 40.3%,1.039 43.9%,1.0357 48.9%,1.013 62.6%,1.003 71.9%,.9988 82.7%,1);
+  --spring-snappy-dur: 385ms;
+  --spring-gentle: linear(
+    0, 0.0073, 0.0272, 0.0947, 0.1855, 0.5148, 0.6256, 0.7027, 0.769,
+    0.8371, 0.8807, 0.9233, 0.9546, 0.9803, 0.9962, 1.0062, 1.0109, 1
+  );
+  --spring-gentle-dur: 445ms;
+
+  /* Пружинная анимация «прыжок» — ζ=0.48, овершут 17.7%, 560мс.
+     linear() сэмплы из уравнения затуханного осциллятора.
+     Для волков, кнопки отправки, чипов, микро-взаимодействий. */
+  --spring-bouncy: linear(0,.0041 .7%,.0346 2.2%,.09 3.6%,.1644 5%,.745 13.7%,.9439 17.3%,1.034 19.4%,1.0811 20.9%,1.1328 23%,1.1636 25.2%,1.174 26.6%,1.1773 28.1%,1.1746 29.5%,1.1669 30.9%,1.1409 33.8%,1.0537 41%,1.0164 44.6%,.9897 48.2%,.9725 52.5%,.9687 55.4%,.9704 59%,.9959 71.9%,1.0041 79.1%,1.0054 86.3%,1);
+  --spring-bouncy-dur: 560ms;
+
+  /* Геометрия панели */
+  --hf-rail-w-collapsed: 52px;
+  --hf-rail-w-expanded: 196px;
+  --hf-topbar-h: 56px;
+  --hf-panel-min: 380px;
+  --hf-panel-max: 680px;
+}
+
+.dark {
+  /* Поверхности — собственные значения, не инверсия */
+  --hf-bg:             #0D0D0F;
+  --hf-surface:        #141416;
+  --hf-surface-raised: #1B1B1E;
+  --hf-surface-sunken: #191919;
+  --hf-hover:          #232326;
+
+  /* Текст */
+  --hf-fg:        #F7F7F7;
+  --hf-fg-muted:  #C4C4C0;
+  --hf-fg-subtle: #888884;
+  --hf-fg-faint:  #888884;   /* 5.17:1 на #141416 — проходит WCAG 3:1 для графики */
+
+  /* Акцент — инверсия полярности */
+  --hf-primary:        #F7F7F7;
+  --hf-primary-hover:  #FFFFFF;
+  --hf-primary-muted:  transparent;
+  --hf-ring:           rgba(247, 247, 247, 0.35);
+  --hf-fg-on-accent:   #0D0D0F;
+
+  /* Шкала соответствия */
+  --hf-match-high: #3BC97A;
+  --hf-match-mid:  #F0C000;
+  --hf-match-low:  #FF6166;
+  --hf-match-high-muted: rgba(59, 201, 122, 0.16);
+  --hf-match-mid-muted:  rgba(240, 192, 0, 0.14);
+  --hf-match-low-muted:  rgba(255, 97, 102, 0.14);
+  --hf-info:      #60A5FA;
+  --hf-info-muted: rgba(96, 165, 250, 0.16);
+
+  /* Состояния */
+  --hf-ok:        #3BC97A;
+  --hf-ok-muted:  rgba(59, 201, 122, 0.16);
+  --hf-warn:      #F0C000;
+  --hf-warn-muted: rgba(240, 192, 0, 0.14);
+  --hf-err:       #FF6166;
+  --hf-err-muted: rgba(255, 97, 102, 0.14);
+
+  /* Границы */
+  --hf-border:        #242428;
+  --hf-border-strong: #2E2E32;
+
+  /* Тени */
+  --hf-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --hf-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 14px rgba(0, 0, 0, 0.35);
+  --hf-shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.40), 0 16px 40px rgba(0, 0, 0, 0.50);
+  --hf-shadow-lift: 0 4px 10px rgba(0, 0, 0, 0.40), 0 16px 40px rgba(0, 0, 0, 0.50);
+
+  /* Свет и глубина — dark-варианты */
+  --hf-lit: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --hf-e1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --hf-e2: 0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 14px rgba(0, 0, 0, 0.34);
+  --hf-e3: 0 3px 8px rgba(0, 0, 0, 0.40), 0 14px 34px rgba(0, 0, 0, 0.44);
+  --hf-e4: 0 4px 12px rgba(0, 0, 0, 0.46), 0 22px 54px rgba(0, 0, 0, 0.55);
+}

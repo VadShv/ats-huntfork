@@ -18,9 +18,12 @@
 ```
 entrypoints/
   background.ts          # SW: fetch к huntfork.ru, роутер сообщений, слежение за URL вкладки
-  sidepanel/             # Vue 3 панель: все экраны (импорт, сводка, чат, черновик)
-    App.vue              # Логика и разметка
-    style.css            # Дизайн-система Huntfork (токены, светлая/тёмная тема)
+  sidepanel/             # Vue 3 панель
+    App.vue              # Каркас: PanelShell + роутер views + хоткеи
+    composables/         # Состояние и логика (useSidekick — протокол с background)
+    layout/              # Каркасные компоненты (RailNav, TopBar, Composer…)
+    views/               # Экраны (Чат, Сорсинг, Скрининг, Аутрич…)
+    styles/              # Дизайн-система (--hf-* токены, светлая/тёмная тема)
   hh-list.content.ts     # Бейджи «В Huntfork» в списках резюме hh.ru
 ```
 
@@ -30,6 +33,10 @@ entrypoints/
 npm ci
 npm run build            # → .output/chrome-mv3
 ```
+
+Канонический lock-файл — `package-lock.json` (npm). Локально можно собирать и bun'ом, но `bun.lock` в репо не коммитим.
+
+Сборка самодостаточна: `prebuild`-скрипт (`scripts/ensure-root-tsconfig.mjs`) создаёт заглушки `.nuxt/tsconfig.*.json` в корне монорепо, если их нет — без этого сборщик падал на чистом клоне (корневой tsconfig ссылается на генерируемые файлы Nuxt).
 
 Установка: chrome://extensions → «Режим разработчика» → «Загрузить распакованное расширение» → каталог `.output/chrome-mv3`.
 

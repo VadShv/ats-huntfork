@@ -1,0 +1,53 @@
+/**
+ * shine.css — световые эффекты и пробеги.
+ * ТЗ «Фирменные детали» §0. Подключается ПОСЛЕ polish.css.
+ *
+ * Гибрид-перекраска: свечения/ореолы убраны (запрещены ТЗ v3.0 §9).
+ * Оставлен только .hf-sweep — световой пробег при завершении процессов
+ * (это движение, не декоративное свечение в покое).
+ */
+
+/* ═══════════════ 1. Световой пробег ═══════════════ */
+
+/**
+ * .hf-sweep — световой пробег поверх элемента.
+ * Используется при завершении процессов (PawProgress 100%, генерация карты).
+ * Запускается добавлением класса; после окончания класс снимается.
+ */
+.hf-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.hf-sweep::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: hf-sweep-run 600ms var(--hf-ease-out);
+  pointer-events: none;
+}
+
+@keyframes hf-sweep-run {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ═══════════════ 2. Доступность ═══════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .hf-sweep::after {
+    animation: none !important;
+    display: none;
+  }
+}
