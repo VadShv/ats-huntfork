@@ -285,12 +285,36 @@ export default defineBackground(() => {
             }
             break
           }
-          case 'openHuntfork':
-            chrome.tabs.create({ url: msg.url || HUNTFORK_BASE })
-            sendResponse({ ok: true })
+         case 'openHuntfork':
+           chrome.tabs.create({ url: msg.url || HUNTFORK_BASE })
+           sendResponse({ ok: true })
+           break
+          // ── Sourcing-feed (лента кандидатов сорсинга из АТС) ──
+          case 'sourcingFeed': {
+            const params = new URLSearchParams()
+            if (msg.state) params.set('state', msg.state)
+            if (msg.savedSearchId) params.set('savedSearchId', msg.savedSearchId)
+            if (msg.limit) params.set('limit', String(msg.limit))
+            if (msg.offset) params.set('offset', String(msg.offset))
+            const qs = params.toString() ? `?${params.toString()}` : ''
+            sendResponse(await apiFetch(`/api/jobs/${msg.jobId}/sourcing-candidates${qs}`))
             break
-          default:
-            sendResponse({ ok: false, message: `Unknown message type: ${msg?.type}` })
+          }
+          case 'sourcingAction': {
+            sendResponse(await apiFetch(`/api/sourcing-candidates/${msg.id}`, {
+              method: 'PATCH',
+              body: { action: msg.action, note: msg.note },
+            }))
+            break
+          }
+          case 'sourcingImport': {
+            sendResponse(await apiFetch(`/api/sourcing-candidates/${msg.id}/import`, {
+              method: 'POST',
+            }))
+            break
+          }
+         default:
+           sendResponse({ ok: false, message: `Unknown message type: ${msg?.type}` })
         }
       }
       catch (err: any) {

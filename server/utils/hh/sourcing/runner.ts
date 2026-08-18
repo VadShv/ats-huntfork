@@ -11,7 +11,8 @@
  * Безопасность приватности:
  *   - В snapshot НЕ кладём имя, email, телефон.
  *   - Только: title (желаемая позиция), area.name, salary, total_experience,
- *     последний опыт работы (компания + должность).
+ *     последний опыт работы (компания + должность), навыки, образование,
+ *     условия работы и пр. (см. SourcingSnapshot в ./types.ts).
  *
  * Rate-limit:
  *   - hh.ru допускает ~1500 запросов/мин для search/resume; делаем паузу 150мс
@@ -22,6 +23,14 @@ import { hhSavedSearch, hhSourcingCandidate } from '../../../database/schema'
 import { apiGet } from '../client'
 import { getValidAccessToken } from '../tokens'
 import { expandQueryForHhApi, type SourcingQuery } from './query'
+import type {
+  SourcingSnapshot,
+  SnapshotExperienceItem,
+  SnapshotEducationItem,
+} from './types'
+
+// Реэкспорт типа для обратной совместимости с импортирующими модулями.
+export type { SourcingSnapshot }
 
 /** Один элемент в hh /resumes response.items. */
 interface HhResumeListItem {
@@ -36,7 +45,35 @@ interface HhResumeListItem {
     position?: string
     start?: string
     end?: string | null
+    description?: string
   }>
+  // Ключевые навыки (skill_set — массив строк, либо skills с объектами).
+  skill_set?: string[]
+  skills?: Array<{ string?: string, name?: string }>
+  // Образование
+  education?: {
+    level?: { id?: string, name?: string }
+    elementary?: Array<{
+      name?: string
+      organization?: string
+      year?: number | string
+    }>
+    higher?: Array<{
+      name?: string
+      organization?: string
+      year?: number | string
+      faculty?: string
+    }>
+  }
+  // Условия работы
+  work_format?: string[]
+  employment_form?: string[]
+  relocation?: { type?: { id?: string, name?: string } }
+  // Прочее (не PII)
+  gender?: { id?: string, name?: string }
+  citizenship?: string[]
+  // Активность поиска
+  search_status?: { id?: string, name?: string }
   // Эти поля могут быть в анонимизированном виде, но мы их игнорируем
   first_name?: string
   last_name?: string
@@ -55,23 +92,93 @@ interface HhResumeListResponse {
   items: HhResumeListItem[]
 }
 
-/** Анонимизированный snapshot, который мы сохраняем у себя. */
-export interface SourcingSnapshot {
-  title: string | null
-  areaId: string | null
-  areaName: string | null
-  salaryAmount: number | null
-  salaryCurrency: string | null
-  experienceYears: number | null
-  lastCompany: string | null
-  lastPosition: string | null
-  age: number | null
-  updatedAt: string | null
+/** Разница в месяцах между двумя датами (ISO). null для unknown end = "по н.в.". */
+function monthsBetween(start?: string | null, end?: string | null): number | null {
+  if (!start) return null
+  const endDate = end ? new Date(end) : new Date()
+  const startDate = new Date(start)
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null
+  const months = (endDate.getFullYear() - startDate.getFullYear()) * 12
+    + (endDate.getMonth() - startDate.getMonth())
+  return months >= 0 ? months : null
 }
 
+/** Вытащить строку навыка из разных форматов hh API. */
+function extractSkills(item: HhResumeListItem): string[] {
+  const out: string[] = []
+  if (Array.isArray(item.skill_set)) {
+    for (const s of item.skill_set) {
+      if (typeof s === 'string' && s.trim()) out.push(s.trim())
+    }
+  }
+  if (Array.isArray(item.skills)) {
+    for (const s of item.skills) {
+      const name = s?.string ?? s?.name
+      if (typeof name === 'string' && name.trim()) out.push(name.trim())
+    }
+  }
+  // Дедуп с сохранением порядка, ограничение 30 (чтобы не раздувать jsonb).
+  return Array.from(new Set(out)).slice(0, 30)
+}
+
+/** Построить детальный список опыта (последние 3 места). */
+function extractExperience(item: HhResumeListItem): SnapshotExperienceItem[] {
+  if (!Array.isArray(item.experience)) return []
+  return item.experience.slice(0, 3).map((e) => {
+    const start = e.start ?? null
+    const end = e.end ?? null
+    return {
+      company: e.company ?? e.company_name ?? null,
+      position: e.position ?? null,
+      start,
+      end,
+      durationMonths: monthsBetween(start, end),
+      description: e.description ?? null,
+    }
+  })
+}
+
+/** Построить список образования (последние 2 заведения). */
+function extractEducation(item: HhResumeListItem): SnapshotEducationItem[] {
+  const out: SnapshotEducationItem[] = []
+  const edu = item.education
+  if (!edu) return out
+  // higher — высшее (приоритет)
+  if (Array.isArray(edu.higher)) {
+    for (const h of edu.higher.slice(0, 2)) {
+      out.push({
+        institution: h.organization ?? h.name ?? null,
+        faculty: h.faculty ?? null,
+        level: 'higher',
+        year: h.year != null ? String(h.year) : null,
+      })
+    }
+  }
+  // elementary — среднее, добиваем до 2
+  if (out.length < 2 && Array.isArray(edu.elementary)) {
+    for (const el of edu.elementary.slice(0, 2 - out.length)) {
+      out.push({
+        institution: el.organization ?? el.name ?? null,
+        faculty: null,
+        level: 'secondary',
+        year: el.year != null ? String(el.year) : null,
+      })
+    }
+  }
+  return out
+}
+
+/**
+ * Построить полный анонимизированный snapshot из элемента выдачи hh.
+ *
+ * Новые поля (skills/education/experience[]/workFormat/employmentForm/
+ * relocation/gender/citizenship/searchActivity) — optional, старые записи
+ * без них рендерятся UI по v-if без ошибок.
+ */
 function buildSnapshot(item: HhResumeListItem): SourcingSnapshot {
   const expMonths = item.total_experience?.months ?? null
-  const lastExp = item.experience?.[0]
+  const experience = extractExperience(item)
+  const lastExp = experience[0] ?? null
   return {
     title: item.title ?? null,
     areaId: item.area?.id ?? null,
@@ -79,10 +186,24 @@ function buildSnapshot(item: HhResumeListItem): SourcingSnapshot {
     salaryAmount: item.salary?.amount ?? null,
     salaryCurrency: item.salary?.currency ?? null,
     experienceYears: expMonths !== null ? Math.round((expMonths / 12) * 10) / 10 : null,
-    lastCompany: lastExp?.company ?? lastExp?.company_name ?? null,
+    totalExperienceMonths: expMonths,
+    lastCompany: lastExp?.company ?? null,
     lastPosition: lastExp?.position ?? null,
     age: item.age ?? null,
     updatedAt: item.updated_at ?? null,
+    // ── Расширенные поля ──
+    experience,
+    skills: extractSkills(item),
+    educationLevel: item.education?.level?.name ?? item.education?.level?.id ?? null,
+    education: extractEducation(item),
+    workFormat: Array.isArray(item.work_format) ? item.work_format.slice(0, 5) : [],
+    employmentForm: Array.isArray(item.employment_form) ? item.employment_form.slice(0, 5) : [],
+    relocation: item.relocation?.type
+      ? { type: item.relocation.type.name ?? item.relocation.type.id ?? null }
+      : null,
+    gender: item.gender?.name ?? item.gender?.id ?? null,
+    citizenship: Array.isArray(item.citizenship) ? item.citizenship.slice(0, 5) : [],
+    searchActivity: item.search_status?.name ?? item.search_status?.id ?? item.updated_at ?? null,
   }
 }
 
@@ -189,9 +310,14 @@ export async function runSourcingSearch(savedSearchId: string): Promise<Sourcing
             break
           }
         } else {
-          // Уже есть — обновим lastSeenAt
+          // Уже есть — обновим lastSeenAt И snapshot (чтобы данные не устаревали).
+          // Это основа для будущего диффа профиля.
           await db.update(hhSourcingCandidate)
-            .set({ lastSeenAt: new Date() })
+            .set({
+              lastSeenAt: new Date(),
+              snapshot: snap as unknown as Record<string, unknown>,
+              updatedAt: new Date(),
+            })
             .where(and(
               eq(hhSourcingCandidate.savedSearchId, search.id),
               eq(hhSourcingCandidate.hhResumeId, item.id),

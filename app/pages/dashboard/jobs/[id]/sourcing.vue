@@ -5,8 +5,21 @@
  * Левая колонка — список сохранённых поисков (с расписанием и статусом).
  * Правая колонка — лента кандидатов выбранного поиска или всех поисков.
  * Сверху — кнопка «Создать поиск» (3 режима: вручную / по URL / AI из JD).
+ *
+ * UI построен на дизайн-системе Huntfork (UiCard/UiButton/UiBadge/UiDrawer/
+ * UiModal) и токенах brand/surface/success/warning/danger/info.
+ * Тёмная тема поддерживается автоматически.
  */
-import { Sparkles, Link as LinkIcon, Wrench, Search, RefreshCw, X, Check, ExternalLink, Loader2, Trash2, Eye, Pencil, Play, Pause, AlertTriangle } from 'lucide-vue-next'
+import {
+  Sparkles, Link as LinkIcon, Wrench, Search, RefreshCw, X, Check,
+  Loader2, Trash2, Pencil, Play, Pause, AlertTriangle, Plus, ChevronDown,
+} from 'lucide-vue-next'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import UiCard from '~/components/ui/UiCard.vue'
+import UiButton from '~/components/ui/UiButton.vue'
+import UiBadge from '~/components/ui/UiBadge.vue'
+import UiDrawer from '~/components/ui/UiDrawer.vue'
+import SourcingCandidateCard from '~/components/sourcing/SourcingCandidateCard.vue'
 
 definePageMeta({
   layout: 'dashboard',
@@ -60,13 +73,30 @@ function phaseOf(s: SavedSearch): SearchPhase {
   return 'idle'
 }
 
-const PHASE_META: Record<SearchPhase, { label: string, dot: string, bg: string, text: string, pulse: boolean }> = {
-  running:       { label: 'Сейчас ищет',  dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-950/40',    text: 'text-blue-800 dark:text-blue-200',    pulse: true  },
-  scheduled:     { label: 'В очереди',    dot: 'bg-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-800 dark:text-emerald-200', pulse: true  },
-  paused:        { label: 'Пауза',         dot: 'bg-slate-400',   bg: 'bg-slate-100 dark:bg-slate-800',      text: 'text-slate-700 dark:text-slate-300',  pulse: false },
-  error:         { label: 'Ошибка',        dot: 'bg-rose-500',    bg: 'bg-rose-50 dark:bg-rose-950/40',     text: 'text-rose-800 dark:text-rose-200',    pulse: false },
-  limit_reached: { label: 'Лимит достигнут', dot: 'bg-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/40',   text: 'text-amber-800 dark:text-amber-200',   pulse: false },
-  idle:          { label: 'Ожидание',     dot: 'bg-slate-300',   bg: 'bg-slate-50 dark:bg-slate-800/50',    text: 'text-slate-600 dark:text-slate-400', pulse: false },
+// Tone-маппинг фаз на дизайн-токены вместо хардкод-цветов.
+const PHASE_TONE: Record<SearchPhase, 'info' | 'success' | 'neutral' | 'danger' | 'warning'> = {
+  running: 'info',
+  scheduled: 'success',
+  paused: 'neutral',
+  error: 'danger',
+  limit_reached: 'warning',
+  idle: 'neutral',
+}
+const PHASE_LABEL: Record<SearchPhase, string> = {
+  running: 'Сейчас ищет',
+  scheduled: 'В очереди',
+  paused: 'Пауза',
+  error: 'Ошибка',
+  limit_reached: 'Лимит достигнут',
+  idle: 'Ожидание',
+}
+const PHASE_PULSE: Record<SearchPhase, boolean> = {
+  running: true,
+  scheduled: true,
+  paused: false,
+  error: false,
+  limit_reached: false,
+  idle: false,
 }
 
 const { data: searchesData, refresh: refreshSearches, pending: searchesPending } = useFetch(
@@ -131,7 +161,7 @@ async function submitCreate() {
       method: 'POST',
       body,
     })
-    toast.success?.('Поиск создан. Сорсинг запустится автоматически.')
+    toast.success('Поиск создан. Сорсинг запустится автоматически.')
     showCreateModal.value = false
     resetCreateForm()
     await refreshSearches()
@@ -171,7 +201,7 @@ async function saveEdit() {
   let parsedQuery: Record<string, unknown>
   try {
     parsedQuery = JSON.parse(editQueryJson.value)
-  } catch (e) {
+  } catch {
     toast.error('Не валидный JSON в запросе')
     return
   }
@@ -188,7 +218,7 @@ async function saveEdit() {
         maxCandidates: limit,
       },
     })
-    toast.success?.('Поиск обновлён')
+    toast.success('Поиск обновлён')
     showDetailsModal.value = false
     await refreshSearches()
   } catch (err: any) {
@@ -202,7 +232,7 @@ async function saveEdit() {
 async function runNow(searchId: string) {
   try {
     await $fetch(`/api/sourcing-searches/${searchId}/run-now`, { method: 'POST' })
-    toast.success?.('Поиск запущен. Результаты появятся через минуту.')
+    toast.success('Поиск запущен. Результаты появятся через минуту.')
     await refreshSearches()
   }
   catch (err: any) {
@@ -215,7 +245,7 @@ async function archiveSearch(searchId: string) {
   try {
     await $fetch(`/api/sourcing-searches/${searchId}`, { method: 'DELETE' })
     if (selectedSearchId.value === searchId) selectedSearchId.value = null
-    toast.success?.('Поиск архивирован')
+    toast.success('Поиск архивирован')
     await refreshSearches()
   }
   catch (err: any) {
@@ -241,7 +271,6 @@ interface ExistingCandidateInfo {
   id: string
   firstName: string
   lastName: string
-  /** Источник последнего application: 'hh' | 'hh_sourcing' | 'manual' | 'api' | null */
   lastApplicationSource: string | null
   applicationCount: number
   hasApplicationOnThisJob: boolean
@@ -252,58 +281,170 @@ interface SourcingCandidate {
   id: string
   savedSearchId: string
   hhResumeId: string
-  snapshot: {
-    title?: string | null
-    areaName?: string | null
-    salaryAmount?: number | null
-    salaryCurrency?: string | null
-    experienceYears?: number | null
-    lastCompany?: string | null
-    lastPosition?: string | null
-    age?: number | null
-    updatedAt?: string | null
-  }
+  snapshot: Record<string, unknown>
   score: number | null
   scoreRationale: string | null
+  scoreStrengths?: string[] | null
+  scoreGaps?: string[] | null
   state: 'new' | 'reviewed' | 'approved' | 'imported' | 'rejected' | 'contacted'
   applicationId: string | null
   reviewNote: string | null
   firstSeenAt: string
   lastSeenAt: string
-  /** Sprint 1: если этот резюме уже есть в БД организации — инфо о кандидате/откликах. */
   existingCandidate: ExistingCandidateInfo | null
 }
 
-// 'Активные' по умолчанию — это рабочий список рекрутера: новые + просмотренные + одобренные.
-// Одобренные не исчезают из списка — они лист ожидания для импорта в воронку с раскрытием контактов.
 const stateFilter = ref<'all' | 'active' | 'new' | 'reviewed' | 'approved' | 'rejected' | 'imported'>('active')
 
 const candidatesUrl = computed(() => {
   const params = new URLSearchParams()
   if (selectedSearchId.value) params.set('savedSearchId', selectedSearchId.value)
   if (stateFilter.value !== 'all') params.set('state', stateFilter.value)
-  params.set('limit', '100')
+  params.set('limit', String(PAGE_SIZE))
+  params.set('offset', String(offset.value))
   return `/api/jobs/${jobId}/sourcing-candidates?${params.toString()}`
 })
 
-const { data: candidatesData, refresh: refreshCandidates, pending: candidatesPending } = useFetch(
-  candidatesUrl,
-  {
-    key: computed(() => `sourcing-cands-${jobId}-${selectedSearchId.value ?? 'all'}-${stateFilter.value}`),
-    headers: useRequestHeaders(['cookie']),
-    watch: [selectedSearchId, stateFilter],
-  },
+// ─── Infinite scroll ──────────────────────────────────────
+const PAGE_SIZE = 50
+const candidates = ref<SourcingCandidate[]>([])
+const offset = ref(0)
+const hasMore = ref(true)
+const loadingMore = ref(false)
+const initialLoaded = ref(false)
+const initialLoading = ref(false)
+
+async function loadCandidates(reset = false) {
+  if (reset) {
+    offset.value = 0
+    candidates.value = []
+    hasMore.value = true
+    initialLoaded.value = false
+    initialLoading.value = true
+    loadingMore.value = false
+  }
+  if (!hasMore.value && !reset) return
+  if (!reset) loadingMore.value = true
+  try {
+    const res = await $fetch<{ candidates: SourcingCandidate[], limit: number, offset: number }>(candidatesUrl.value)
+    if (reset) candidates.value = res.candidates
+    else candidates.value.push(...res.candidates)
+    hasMore.value = res.candidates.length >= PAGE_SIZE
+    offset.value += res.candidates.length
+    initialLoaded.value = true
+  } catch (err: any) {
+    toast.error('Не удалось загрузить кандидатов', { message: err?.data?.statusMessage })
+    hasMore.value = false
+  } finally {
+    loadingMore.value = false
+    initialLoading.value = false
+  }
+}
+
+const candidatesPending = computed(() => initialLoading.value)
+
+// Сброс и перезагрузка при смене фильтров/поиска.
+watch([selectedSearchId, stateFilter], () => {
+  selectedIds.value.clear()
+  loadCandidates(true)
+})
+
+async function refreshCandidates() {
+  await loadCandidates(true)
+}
+
+// IntersectionObserver для подгрузки.
+let observer: IntersectionObserver | null = null
+const sentinelEl = ref<HTMLElement | null>(null)
+
+function setupObserver() {
+  if (!import.meta.client) return
+  if (observer) observer.disconnect()
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0]?.isIntersecting && hasMore.value && !loadingMore.value) {
+      loadCandidates(false)
+    }
+  }, { rootMargin: '200px' })
+  if (sentinelEl.value) observer.observe(sentinelEl.value)
+}
+
+watch(sentinelEl, (el) => {
+  if (el) setupObserver()
+})
+
+onMounted(() => {
+  loadCandidates(true)
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+})
+
+// ─── Bulk-очередь ─────────────────────────────────────────
+const selectedIds = ref<Set<string>>(new Set())
+
+function toggleSelected(id: string, value: boolean) {
+  if (value) selectedIds.value.add(id)
+  else selectedIds.value.delete(id)
+  // Триггер реактивности Set'а.
+  selectedIds.value = new Set(selectedIds.value)
+}
+
+const selectedCount = computed(() => selectedIds.value.size)
+
+const allVisibleSelected = computed(
+  () => candidates.value.length > 0 && candidates.value.every(c => selectedIds.value.has(c.id) || c.state === 'imported'),
 )
 
-const candidates = computed<SourcingCandidate[]>(() => candidatesData.value?.candidates ?? [])
+function toggleSelectAll() {
+  if (allVisibleSelected.value) {
+    candidates.value.forEach(c => selectedIds.value.delete(c.id))
+  } else {
+    candidates.value.forEach(c => {
+      if (c.state !== 'imported') selectedIds.value.add(c.id)
+    })
+  }
+  selectedIds.value = new Set(selectedIds.value)
+}
 
-// ─── Действия с кандидатами ───
+const bulkRunning = ref(false)
+
+async function bulkAction(action: 'approve' | 'reject') {
+  if (selectedCount.value === 0) return
+  bulkRunning.value = true
+  const ids = Array.from(selectedIds.value)
+  let ok = 0
+  let fail = 0
+  try {
+    await Promise.all(ids.map(async (id) => {
+      try {
+        await $fetch(`/api/sourcing-candidates/${id}`, { method: 'PATCH', body: { action } })
+        ok++
+      } catch {
+        fail++
+      }
+    }))
+    if (ok) toast.success(action === 'approve' ? `Одобрено: ${ok}` : `Отклонено: ${ok}`)
+    if (fail) toast.warning(`Не удалось обработать: ${fail}`)
+    selectedIds.value.clear()
+    await refreshCandidates()
+  } finally {
+    bulkRunning.value = false
+  }
+}
+
+function clearSelection() {
+  selectedIds.value.clear()
+}
+
+// ─── Действия с кандидатами (одиночные) ───
 async function rejectCandidate(c: SourcingCandidate) {
   try {
     await $fetch(`/api/sourcing-candidates/${c.id}`, {
       method: 'PATCH',
       body: { action: 'reject' },
     })
+    selectedIds.value.delete(c.id)
     await refreshCandidates()
   }
   catch (err: any) {
@@ -327,12 +468,10 @@ async function approveCandidate(c: SourcingCandidate) {
 const importingId = ref<string | null>(null)
 async function importToPipeline(c: SourcingCandidate) {
   if (importingId.value) return
-  // Sprint 1: если кандидат уже в БД и на этой же вакансии — не импортируем, открываем карточку.
   if (c.existingCandidate?.hasApplicationOnThisJob) {
     navigateTo(`/dashboard/candidates/${c.existingCandidate.id}`)
     return
   }
-  // Если кандидат уже в БД (но не на этой вакансии) — предупреждаем.
   if (c.existingCandidate) {
     const ec = c.existingCandidate
     const fio = `${ec.firstName} ${ec.lastName}`.trim() || 'этот кандидат'
@@ -344,11 +483,9 @@ async function importToPipeline(c: SourcingCandidate) {
   }
   importingId.value = c.id
   try {
-    const res = await $fetch(`/api/sourcing-candidates/${c.id}/import`, { method: 'POST' })
-    toast.success?.('Кандидат добавлен в воронку')
+    const res = await $fetch<{ candidateId?: string, applicationId?: string }>(`/api/sourcing-candidates/${c.id}/import`, { method: 'POST' })
+    toast.success('Кандидат добавлен в воронку')
     await refreshCandidates()
-    // Открываем страницу кандидата — там рендерится полное резюме hh.ru (CandidateHhResumeView),
-    // а не анонимный сниппет application.
     if (res.candidateId) {
       navigateTo(`/dashboard/candidates/${res.candidateId}`)
     } else if (res.applicationId) {
@@ -360,6 +497,12 @@ async function importToPipeline(c: SourcingCandidate) {
   }
   finally {
     importingId.value = null
+  }
+}
+
+function openCard(c: SourcingCandidate) {
+  if (c.existingCandidate) {
+    navigateTo(`/dashboard/candidates/${c.existingCandidate.id}`)
   }
 }
 
@@ -376,12 +519,6 @@ function formatRelative(iso: string | null): string {
   return `${d} дн назад`
 }
 
-function formatSalary(c: SourcingCandidate): string {
-  const s = c.snapshot
-  if (!s.salaryAmount) return ''
-  return `${s.salaryAmount.toLocaleString('ru')} ${s.salaryCurrency ?? 'RUR'}`
-}
-
 function formatSchedule(min: number | null, enabled: boolean): string {
   if (!enabled || !min) return 'Только вручную'
   if (min === 60) return 'Каждый час'
@@ -392,7 +529,6 @@ function formatSchedule(min: number | null, enabled: boolean): string {
   return `Каждые ${min} мин`
 }
 
-/** Компактный preview запроса для карточки. */
 function queryPreview(q: Record<string, unknown>): string {
   const text = typeof q.text === 'string' ? q.text : ''
   if (text) return text.length > 80 ? text.slice(0, 77) + '…' : text
@@ -410,356 +546,409 @@ const stateLabel: Record<string, string> = {
   contacted: 'Контакт открыт',
 }
 
-const stateBadgeClass: Record<string, string> = {
-  new: 'bg-blue-100 text-blue-800',
-  reviewed: 'bg-slate-100 text-slate-700',
-  approved: 'bg-emerald-100 text-emerald-800',
-  rejected: 'bg-rose-100 text-rose-800',
-  imported: 'bg-purple-100 text-purple-800',
-  contacted: 'bg-amber-100 text-amber-900',
-}
+const stateFilters = [
+  { key: 'active', label: 'Активные', title: 'Новые + просмотренные + одобренные (рабочий список)' },
+  { key: 'new', label: 'Новый' },
+  { key: 'reviewed', label: 'Просмотрен' },
+  { key: 'approved', label: 'Одобрен' },
+  { key: 'rejected', label: 'Отклонён' },
+  { key: 'imported', label: 'В воронке' },
+  { key: 'all', label: 'Все' },
+] as const
 </script>
 
 <template>
-  <div class="p-6 max-w-7xl mx-auto">
+  <div class="p-4 sm:p-6 max-w-7xl mx-auto">
     <!-- Заголовок -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-6">
       <div>
-        <div class="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <NuxtLink to="/dashboard" class="hover:underline">Дашборд</NuxtLink>
+        <div class="flex items-center gap-2 text-sm text-surface-500 dark:text-surface-400 mb-1">
+          <NuxtLink :to="$localePath('/dashboard')" class="hover:underline">Дашборд</NuxtLink>
           <span>/</span>
-          <NuxtLink :to="`/dashboard/jobs/${jobId}`" class="hover:underline">
+          <NuxtLink :to="$localePath(`/dashboard/jobs/${jobId}`)" class="hover:underline">
             {{ jobData?.title ?? 'Вакансия' }}
           </NuxtLink>
           <span>/</span>
           <span>Сорсинг hh.ru</span>
         </div>
-        <h1 class="text-2xl font-semibold flex items-center gap-2">
-          <Search class="h-6 w-6 text-emerald-600" />
+        <h1 class="text-2xl font-semibold flex items-center gap-2 text-surface-900 dark:text-surface-100">
+          <Search class="size-6 text-brand-600" />
           Сорсинг hh.ru
         </h1>
-        <p class="text-sm text-slate-600 mt-1">
+        <p class="text-sm text-surface-600 dark:text-surface-400 mt-1">
           Автоматический холодный поиск кандидатов из базы резюме hh.ru. Без хранения контактов — только анонимные сниппеты.
         </p>
       </div>
-      <button
-        class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700"
-        @click="showCreateModal = true"
-      >
-        <Sparkles class="h-4 w-4" />
+      <UiButton :icon-left="Sparkles" @click="showCreateModal = true">
         Создать поиск
-      </button>
+      </UiButton>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
       <!-- Левая колонка: список поисков -->
-      <aside class="space-y-3">
-        <div class="text-xs uppercase font-semibold text-slate-500 tracking-wide px-1">
-          Сохранённые поиски
-        </div>
-        <div v-if="searchesPending" class="text-sm text-slate-500 px-1">Загрузка...</div>
-        <div v-else-if="searches.length === 0" class="text-sm text-slate-500 px-1">
-          Пока нет поисков. Создайте первый.
-        </div>
-        <button
-          v-if="searches.length > 0"
-          class="w-full text-left rounded-lg border px-3 py-2 text-sm hover:bg-slate-50"
-          :class="selectedSearchId === null ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'"
-          @click="selectedSearchId = null"
-        >
-          Все поиски
-        </button>
-        <div v-for="s in searches" :key="s.id" class="rounded-lg border p-3 text-sm"
-          :class="selectedSearchId === s.id ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'">
-          <button class="text-left w-full" @click="selectedSearchId = s.id">
-            <div class="flex items-start gap-2">
-              <div class="font-medium truncate flex-1">{{ s.name }}</div>
-              <!-- Phase badge -->
-              <span
-                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap"
-                :class="[PHASE_META[phaseOf(s)].bg, PHASE_META[phaseOf(s)].text]"
-                :title="PHASE_META[phaseOf(s)].label"
-              >
-                <span
-                  class="h-1.5 w-1.5 rounded-full"
-                  :class="[PHASE_META[phaseOf(s)].dot, PHASE_META[phaseOf(s)].pulse ? 'animate-pulse' : '']"
-                />
-                {{ PHASE_META[phaseOf(s)].label }}
-              </span>
-            </div>
-            <div class="text-xs text-slate-500 mt-0.5">
-              {{ formatSchedule(s.scheduleMinutes, s.autoRunEnabled) }}
-            </div>
-            <div class="text-xs text-slate-500 mt-1 truncate" :title="queryPreview(s.query)">
-              <span class="font-mono">{{ queryPreview(s.query) }}</span>
-            </div>
-            <div class="text-xs text-slate-500 mt-1">
-              <span v-if="s.lastRunAt">
-                Последний запуск: {{ formatRelative(s.lastRunAt) }}
-              </span>
-              <span v-else class="text-slate-400">ещё не запускался</span>
-            </div>
-            <div class="text-xs mt-1 flex gap-3">
-              <span>Найдено: <b>{{ s.lastRunFound }}</b></span>
-              <span>Новых: <b class="text-emerald-700">{{ s.lastRunNew }}</b></span>
-              <span class="text-slate-500">Лимит: <b>{{ s.maxCandidates ?? 200 }}</b></span>
-            </div>
-          </button>
-          <div class="mt-2 flex gap-1 pt-2 border-t border-slate-100">
-            <button
-              class="text-xs px-2 py-1 rounded hover:bg-slate-100 inline-flex items-center gap-1"
-              :disabled="s.lastRunStatus === 'running'"
-              :title="'Запустить сейчас'"
-              @click="runNow(s.id)"
-            >
-              <RefreshCw class="h-3 w-3" />
-              Запустить
-            </button>
-            <button
-              class="text-xs px-2 py-1 rounded hover:bg-slate-100 inline-flex items-center gap-1"
-              :title="s.autoRunEnabled ? 'Поставить на паузу' : 'Включить автозапуск'"
-              @click="toggleAutoRun(s)"
-            >
-              <Pause v-if="s.autoRunEnabled" class="h-3 w-3" />
-              <Play v-else class="h-3 w-3" />
-              {{ s.autoRunEnabled ? 'Пауза' : 'Авто' }}
-            </button>
-            <button
-              class="text-xs px-2 py-1 rounded hover:bg-slate-100 inline-flex items-center gap-1"
-              :title="'Просмотреть и отредактировать запрос'"
-              @click="openDetails(s)"
-            >
-              <Eye class="h-3 w-3" />
-            </button>
-            <button
-              class="text-xs px-2 py-1 rounded hover:bg-rose-50 text-rose-700 ml-auto inline-flex items-center gap-1"
-              :title="'Архивировать поиск'"
-              @click="archiveSearch(s.id)"
-            >
-              <Trash2 class="h-3 w-3" />
-            </button>
+      <aside class="space-y-2">
+        <div class="flex items-center justify-between px-1">
+          <div class="text-xs uppercase font-semibold text-surface-500 dark:text-surface-400 tracking-wide">
+            Сохранённые поиски
           </div>
+          <button
+            v-if="searches.length > 0"
+            class="text-xs text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 inline-flex items-center gap-1"
+            @click="refreshSearches()"
+          >
+            <RefreshCw class="size-3" :class="searchesPending ? 'animate-spin' : ''" />
+          </button>
         </div>
+
+        <div v-if="searchesPending" class="text-sm text-surface-500 px-1">Загрузка...</div>
+
+        <div v-else-if="searches.length === 0">
+          <UiCard variant="dashed" padding="lg" class="text-center">
+            <Search class="size-8 text-surface-300 mx-auto mb-2" />
+            <p class="text-sm text-surface-600 dark:text-surface-400 mb-3">
+              Пока нет поисков. Создайте первый.
+            </p>
+            <UiButton size="sm" :icon-left="Plus" @click="showCreateModal = true">
+              Создать поиск
+            </UiButton>
+          </UiCard>
+        </div>
+
+        <template v-else>
+          <!-- «Все поиски» -->
+          <button
+            class="w-full text-left rounded-xl border px-3 py-2.5 text-sm transition-colors"
+            :class="selectedSearchId === null
+              ? 'border-brand-500 bg-brand-50 dark:bg-brand-950'
+              : 'border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-900'"
+            @click="selectedSearchId = null"
+          >
+            Все поиски
+          </button>
+
+          <!-- Карточки поисков -->
+          <UiCard
+            v-for="s in searches"
+            :key="s.id"
+            variant="outlined"
+            padding="sm"
+            interactive
+            :class="selectedSearchId === s.id ? 'ring-2 ring-brand-500 border-brand-300 dark:border-brand-700' : ''"
+          >
+            <button class="text-left w-full" @click="selectedSearchId = s.id">
+              <div class="flex items-start gap-2">
+                <div class="font-medium truncate flex-1 text-surface-800 dark:text-surface-100">
+                  {{ s.name }}
+                </div>
+                <UiBadge :tone="PHASE_TONE[phaseOf(s)]" size="sm" :title="PHASE_LABEL[phaseOf(s)]">
+                  <span
+                    class="size-1.5 rounded-full inline-block mr-1"
+                    :class="[
+                      PHASE_TONE[phaseOf(s)] === 'info' ? 'bg-info-500'
+                      : PHASE_TONE[phaseOf(s)] === 'success' ? 'bg-success-500'
+                      : PHASE_TONE[phaseOf(s)] === 'danger' ? 'bg-danger-500'
+                      : PHASE_TONE[phaseOf(s)] === 'warning' ? 'bg-warning-500'
+                      : 'bg-surface-400',
+                      PHASE_PULSE[phaseOf(s)] ? 'animate-pulse' : '',
+                    ]"
+                  />
+                  {{ PHASE_LABEL[phaseOf(s)] }}
+                </UiBadge>
+              </div>
+              <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
+                {{ formatSchedule(s.scheduleMinutes, s.autoRunEnabled) }}
+              </div>
+              <div class="text-xs text-surface-400 dark:text-surface-500 mt-0.5 truncate">
+                {{ queryPreview(s.query) }}
+              </div>
+            </button>
+
+            <!-- Мини-статистика + действия -->
+            <div class="flex items-center gap-2 mt-2 pt-2 border-t border-surface-200 dark:border-surface-800">
+              <span class="text-xs text-surface-500 dark:text-surface-400">
+                <span class="font-medium text-surface-700 dark:text-surface-200">{{ s.lastRunNew }}</span> новых
+              </span>
+              <span v-if="s.lastRunAt" class="text-xs text-surface-400 dark:text-surface-500">
+                · {{ formatRelative(s.lastRunAt) }}
+              </span>
+              <div class="ml-auto flex items-center gap-0.5">
+                <button
+                  class="p-1 rounded text-surface-400 hover:text-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800"
+                  title="Запустить сейчас"
+                  @click.stop="runNow(s.id)"
+                >
+                  <Play class="size-3.5" />
+                </button>
+                <button
+                  class="p-1 rounded text-surface-400 hover:text-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800"
+                  :title="s.autoRunEnabled ? 'Поставить на паузу' : 'Включить автозапуск'"
+                  @click.stop="toggleAutoRun(s)"
+                >
+                  <component :is="s.autoRunEnabled ? Pause : Play" class="size-3.5" />
+                </button>
+                <button
+                  class="p-1 rounded text-surface-400 hover:text-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800"
+                  title="Детали / редактировать"
+                  @click.stop="openDetails(s)"
+                >
+                  <Pencil class="size-3.5" />
+                </button>
+                <button
+                  class="p-1 rounded text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950"
+                  title="Архивировать"
+                  @click.stop="archiveSearch(s.id)"
+                >
+                  <Trash2 class="size-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div v-if="s.lastRunError" class="mt-2 text-xs text-danger-700 dark:text-danger-400 flex items-start gap-1">
+              <AlertTriangle class="size-3.5 mt-0.5 shrink-0" />
+              <span class="font-mono truncate">{{ s.lastRunError }}</span>
+            </div>
+          </UiCard>
+        </template>
       </aside>
 
       <!-- Правая колонка: лента кандидатов -->
       <section>
-        <!-- Фильтр по статусу -->
-        <div class="flex items-center gap-2 mb-4">
-          <div class="text-sm text-slate-600">Статус:</div>
+        <!-- Тулбар: фильтр статуса + bulk-счётчик + обновить -->
+        <div class="flex items-center gap-2 mb-4 flex-wrap">
+          <button
+            v-if="candidates.length > 0"
+            class="flex items-center justify-center size-7 rounded-md border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-900"
+            :title="allVisibleSelected ? 'Снять выделение' : 'Выделить все'"
+            @click="toggleSelectAll"
+          >
+            <Check v-if="allVisibleSelected" class="size-4 text-brand-600" />
+          </button>
+          <div class="text-sm text-surface-600 dark:text-surface-400">Статус:</div>
           <div class="flex gap-1 flex-wrap">
-            <button v-for="s in (['active', 'new', 'reviewed', 'approved', 'rejected', 'imported', 'all'] as const)" :key="s"
-              class="px-3 py-1 rounded-full text-xs font-medium"
-              :class="stateFilter === s ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
-              :title="s === 'active' ? 'Новые + просмотренные + одобренные (рабочий список)' : undefined"
-              @click="stateFilter = s">
-              {{ s === 'all' ? 'Все' : s === 'active' ? 'Активные' : stateLabel[s] }}
+            <button
+              v-for="sf in stateFilters"
+              :key="sf.key"
+              class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+              :class="stateFilter === sf.key
+                ? 'bg-surface-800 dark:bg-surface-200 text-white dark:text-surface-900'
+                : 'bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-700'"
+              :title="'title' in sf ? sf.title : undefined"
+              @click="stateFilter = sf.key"
+            >
+              {{ sf.label }}
             </button>
           </div>
-          <button class="ml-auto text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1"
-            @click="refreshCandidates()">
-            <RefreshCw class="h-3 w-3" />
+          <UiButton
+            class="ml-auto"
+            size="sm"
+            variant="ghost"
+            :icon-left="RefreshCw"
+            :disabled="loadingMore"
+            @click="refreshCandidates()"
+          >
             Обновить
-          </button>
+          </UiButton>
         </div>
 
-        <div v-if="candidatesPending" class="text-sm text-slate-500 py-8 text-center">
-          Загрузка...
+        <!-- Состояния -->
+        <div v-if="candidatesPending" class="space-y-3">
+          <UiCard v-for="i in 4" :key="i" padding="md">
+            <div class="animate-pulse space-y-2">
+              <div class="h-4 bg-surface-200 dark:bg-surface-800 rounded w-1/3" />
+              <div class="h-3 bg-surface-100 dark:bg-surface-800 rounded w-1/2" />
+              <div class="h-3 bg-surface-100 dark:bg-surface-800 rounded w-2/3" />
+            </div>
+          </UiCard>
         </div>
-        <div v-else-if="candidates.length === 0" class="text-sm text-slate-500 py-12 text-center bg-slate-50 rounded-lg">
-          Кандидатов нет.
-          <span v-if="searches.length === 0">Создайте поиск, чтобы получить первые результаты.</span>
-          <span v-else>Подождите, пока запустится фоновый сорсинг (~1 мин после создания).</span>
-        </div>
+
+        <UiCard v-else-if="candidates.length === 0" variant="dashed" padding="lg" class="text-center py-12">
+          <Search class="size-10 text-surface-300 mx-auto mb-3" />
+          <p class="text-sm text-surface-600 dark:text-surface-400">
+            Кандидатов нет.
+            <span v-if="searches.length === 0">Создайте поиск, чтобы получить первые результаты.</span>
+            <span v-else>Подождите, пока запустится фоновый сорсинг (~1 мин после создания).</span>
+          </p>
+        </UiCard>
 
         <div v-else class="space-y-3">
-          <div v-for="c in candidates" :key="c.id" class="rounded-lg border border-slate-200 p-4 bg-white">
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-medium">{{ c.snapshot.title || 'Без названия' }}</span>
-                  <span class="px-2 py-0.5 rounded-full text-xs font-medium" :class="stateBadgeClass[c.state]">
-                    {{ stateLabel[c.state] }}
-                  </span>
-                  <span v-if="c.score !== null" class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
-                    Score: {{ c.score }}
-                  </span>
-                  <!-- Sprint 1: бейджи дубля — красный, если уже на этой вакансии; жёлтый, если в базе по другой. -->
-                  <span
-                    v-if="c.existingCandidate?.hasApplicationOnThisJob"
-                    class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800"
-                    :title="`Уже в воронке этой вакансии: ${c.existingCandidate.firstName} ${c.existingCandidate.lastName}`"
-                  >
-                    <AlertTriangle class="h-3 w-3" />
-                    Уже в воронке
-                  </span>
-                  <span
-                    v-else-if="c.existingCandidate"
-                    class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900"
-                    :title="`Уже в базе: ${c.existingCandidate.firstName} ${c.existingCandidate.lastName}, откликов: ${c.existingCandidate.applicationCount}`"
-                  >
-                    <AlertTriangle class="h-3 w-3" />
-                    Уже в базе
-                  </span>
-                </div>
-                <div class="text-sm text-slate-600 mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
-                  <span v-if="c.snapshot.areaName">📍 {{ c.snapshot.areaName }}</span>
-                  <span v-if="c.snapshot.experienceYears">⏱ Опыт: {{ c.snapshot.experienceYears }} лет</span>
-                  <span v-if="c.snapshot.age">👤 {{ c.snapshot.age }} лет</span>
-                  <span v-if="formatSalary(c)">💰 {{ formatSalary(c) }}</span>
-                </div>
-                <div v-if="c.snapshot.lastPosition" class="text-sm text-slate-500 mt-1">
-                  Последнее: {{ c.snapshot.lastPosition }}
-                  <span v-if="c.snapshot.lastCompany">в «{{ c.snapshot.lastCompany }}»</span>
-                </div>
-                <div class="text-xs text-slate-400 mt-2">
-                  Найден: {{ formatRelative(c.firstSeenAt) }}
-                </div>
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <!-- Sprint 1: если уже на этой вакансии — ведём на карточку кандидата (импорт не нужен). -->
-                <NuxtLink
-                  v-if="c.state !== 'imported' && c.existingCandidate?.hasApplicationOnThisJob"
-                  :to="`/dashboard/candidates/${c.existingCandidate.id}`"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium bg-slate-800 text-white hover:bg-slate-900"
-                >
-                  <ExternalLink class="h-3.5 w-3.5" />
-                  Открыть карточку
-                </NuxtLink>
-                <button
-                  v-else-if="c.state !== 'imported'"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                  :disabled="importingId === c.id"
-                  @click="importToPipeline(c)"
-                >
-                  <Loader2 v-if="importingId === c.id" class="h-3.5 w-3.5 animate-spin" />
-                  <ExternalLink v-else class="h-3.5 w-3.5" />
-                  В воронку
-                </button>
-                <NuxtLink
-                  v-else-if="c.applicationId"
-                  :to="`/dashboard/applications/${c.applicationId}`"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm bg-slate-100 hover:bg-slate-200"
-                >
-                  Открыть отклик
-                </NuxtLink>
-                <button
-                  v-if="c.state === 'new' || c.state === 'reviewed'"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                  :title="'Добавить в лист ожидания. Кандидат останется в списке с пометкой «Одобрен» — потом можно будет импортировать в воронку с раскрытием контактов.'"
-                  @click="approveCandidate(c)"
-                >
-                  <Check class="h-3.5 w-3.5" />
-                  Одобрить
-                </button>
-                <button
-                  v-if="c.state !== 'rejected' && c.state !== 'imported'"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm text-rose-700 hover:bg-rose-50"
-                  @click="rejectCandidate(c)"
-                >
-                  <X class="h-3.5 w-3.5" />
-                  Отклонить
-                </button>
-              </div>
-            </div>
+          <SourcingCandidateCard
+            v-for="c in candidates"
+            :key="c.id"
+            :candidate="c"
+            :selected="selectedIds.has(c.id)"
+            :importing="importingId"
+            @update:selected="(v) => toggleSelected(c.id, v)"
+            @import="importToPipeline"
+            @approve="approveCandidate"
+            @reject="rejectCandidate"
+            @open-card="openCard"
+          />
+
+          <!-- Sentinel для infinite scroll -->
+          <div ref="sentinelEl" class="h-1" />
+
+          <!-- Индикатор подгрузки -->
+          <div v-if="loadingMore" class="flex items-center justify-center py-4 text-sm text-surface-500">
+            <Loader2 class="size-4 animate-spin mr-2" />
+            Загрузка...
+          </div>
+          <div v-else-if="!hasMore && candidates.length > 0" class="text-center py-4 text-xs text-surface-400">
+            Все кандидаты загружены ({{ candidates.length }})
           </div>
         </div>
       </section>
     </div>
 
+    <!-- Плавающий bulk-action-bar -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="translate-y-4 opacity-0"
+        leave-active-class="transition duration-150 ease-in"
+        leave-to-class="translate-y-4 opacity-0"
+      >
+        <div
+          v-if="selectedCount > 0"
+          class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40"
+        >
+          <UiCard variant="elevated" padding="sm" class="flex items-center gap-2 shadow-lg">
+            <span class="text-sm font-medium text-surface-700 dark:text-surface-200 px-2">
+              Выбрано: {{ selectedCount }}
+            </span>
+            <div class="h-5 w-px bg-surface-200 dark:bg-surface-700" />
+            <UiButton size="sm" variant="ghost" :icon-left="Check" :disabled="bulkRunning" @click="bulkAction('approve')">
+              Одобрить
+            </UiButton>
+            <UiButton
+              size="sm"
+              variant="ghost"
+              class="text-danger-700 hover:bg-danger-50 dark:text-danger-400"
+              :icon-left="X"
+              :disabled="bulkRunning"
+              @click="bulkAction('reject')"
+            >
+              Отклонить
+            </UiButton>
+            <UiButton size="sm" variant="ghost" :icon-left="Loader2" :class="bulkRunning ? 'animate-pulse' : ''" @click="clearSelection">
+              Сбросить
+            </UiButton>
+          </UiCard>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- Модалка создания поиска -->
     <Teleport to="body">
-      <div v-if="showCreateModal" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-        @click.self="showCreateModal = false">
-        <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl">
+      <div
+        v-if="showCreateModal"
+        class="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4"
+        @click.self="showCreateModal = false"
+      >
+        <UiCard variant="default" padding="lg" class="max-w-lg w-full shadow-2xl">
           <div class="flex items-start justify-between mb-4">
-            <h2 class="text-lg font-semibold">Новый сорсинг-поиск hh.ru</h2>
-            <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-800">
-              <X class="h-5 w-5" />
+            <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100">
+              Новый сорсинг-поиск hh.ru
+            </h2>
+            <button
+              class="text-surface-400 hover:text-surface-700 dark:hover:text-surface-200"
+              @click="showCreateModal = false"
+            >
+              <X class="size-5" />
             </button>
           </div>
 
           <!-- Режим -->
           <div class="mb-4">
-            <div class="text-xs font-medium text-slate-600 mb-2">Режим</div>
+            <div class="text-xs font-medium text-surface-600 dark:text-surface-400 mb-2">Режим</div>
             <div class="grid grid-cols-3 gap-2">
-              <button class="rounded-lg border p-3 text-sm text-left"
-                :class="createMode === 'ai' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'"
-                @click="createMode = 'ai'">
-                <Sparkles class="h-4 w-4 mb-1 text-emerald-600" />
-                <div class="font-medium">AI из JD</div>
-                <div class="text-xs text-slate-500">Сгенерировать из описания вакансии</div>
-              </button>
-              <button class="rounded-lg border p-3 text-sm text-left"
-                :class="createMode === 'url' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'"
-                @click="createMode = 'url'">
-                <LinkIcon class="h-4 w-4 mb-1 text-emerald-600" />
-                <div class="font-medium">По URL</div>
-                <div class="text-xs text-slate-500">Вставить ссылку поиска hh.ru</div>
-              </button>
-              <button class="rounded-lg border p-3 text-sm text-left"
-                :class="createMode === 'manual' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'"
-                @click="createMode = 'manual'">
-                <Wrench class="h-4 w-4 mb-1 text-emerald-600" />
-                <div class="font-medium">Вручную</div>
-                <div class="text-xs text-slate-500">Ввести ключевые слова</div>
+              <button
+                v-for="m in [
+                  { key: 'ai', label: 'AI из JD', desc: 'Сгенерировать из описания вакансии', icon: Sparkles },
+                  { key: 'url', label: 'По URL', desc: 'Вставить ссылку поиска hh.ru', icon: LinkIcon },
+                  { key: 'manual', label: 'Вручную', desc: 'Ввести ключевые слова', icon: Wrench },
+                ]"
+                :key="m.key"
+                class="rounded-lg border p-3 text-sm text-left transition-colors"
+                :class="createMode === m.key
+                  ? 'border-brand-500 bg-brand-50 dark:bg-brand-950'
+                  : 'border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-900'"
+                @click="createMode = m.key as 'manual' | 'url' | 'ai'"
+              >
+                <component :is="m.icon" class="size-4 mb-1 text-brand-600" />
+                <div class="font-medium text-surface-800 dark:text-surface-100">{{ m.label }}</div>
+                <div class="text-xs text-surface-500 dark:text-surface-400">{{ m.desc }}</div>
               </button>
             </div>
           </div>
 
           <!-- Название -->
           <div class="mb-4">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Название поиска</label>
-            <input v-model="createName" type="text" placeholder="Senior Python — Москва"
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
+              Название поиска
+            </label>
+            <input
+              v-model="createName"
+              type="text"
+              placeholder="Senior Python — Москва"
+              class="w-full rounded-lg border border-surface-300 dark:border-surface-700 dark:bg-surface-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-surface-900 dark:text-surface-100"
+            />
           </div>
 
-          <!-- URL поле (для url-режима) -->
+          <!-- URL поле -->
           <div v-if="createMode === 'url'" class="mb-4">
-            <label class="block text-xs font-medium text-slate-600 mb-1">URL поиска hh.ru</label>
-            <input v-model="createUrl" type="url" placeholder="https://hh.ru/search/resume?text=..."
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
+              URL поиска hh.ru
+            </label>
+            <input
+              v-model="createUrl"
+              type="url"
+              placeholder="https://hh.ru/search/resume?text=..."
+              class="w-full rounded-lg border border-surface-300 dark:border-surface-700 dark:bg-surface-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-surface-900 dark:text-surface-100"
+            />
           </div>
 
-          <!-- Manual текст -->
+          <!-- Manual text -->
           <div v-if="createMode === 'manual'" class="mb-4">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Поисковая строка</label>
-            <textarea v-model="createManualText" rows="3" placeholder='(python OR django) AND postgresql NOT интерн'
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
-            <div class="text-xs text-slate-500 mt-1">
-              Поддерживаются AND/OR/NOT, кавычки для фраз.
+            <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
+              Ключевые слова
+            </label>
+            <textarea
+              v-model="createManualText"
+              rows="3"
+              placeholder="Python AND (Django OR FastAPI) NOT junior"
+              class="w-full rounded-lg border border-surface-300 dark:border-surface-700 dark:bg-surface-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-surface-900 dark:text-surface-100"
+            />
+            <div class="text-xs text-surface-400 mt-1">
+              Поддерживаются AND/OR/NOT, кавычки для фраз, * для маски.
             </div>
-          </div>
-
-          <!-- AI-режим: подсказка -->
-          <div v-if="createMode === 'ai'" class="mb-4 text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
-            Запрос будет сгенерирован из описания вакансии. Убедитесь, что в вакансии есть подробное описание.
           </div>
 
           <!-- Расписание -->
-          <div class="mb-4 grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Расписание</label>
-              <select v-model="createScheduleMinutes"
-                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                <option :value="null">Только вручную</option>
-                <option :value="60">Каждый час</option>
-                <option :value="240">Каждые 4 часа</option>
-                <option :value="1440">Раз в день</option>
-                <option :value="10080">Раз в неделю</option>
-              </select>
-            </div>
-            <div class="flex items-end">
-              <label class="inline-flex items-center gap-2 text-sm">
-                <input v-model="createAutoRun" type="checkbox" class="rounded text-emerald-600" />
-                Автоматический запуск
-              </label>
-            </div>
+          <div class="mb-4">
+            <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
+              Расписание
+            </label>
+            <select
+              v-model="createScheduleMinutes"
+              class="w-full rounded-lg border border-surface-300 dark:border-surface-700 dark:bg-surface-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-surface-900 dark:text-surface-100"
+            >
+              <option :value="null">Только вручную</option>
+              <option :value="60">Каждый час</option>
+              <option :value="240">Каждые 4 часа</option>
+              <option :value="1440">Раз в день</option>
+              <option :value="10080">Раз в неделю</option>
+            </select>
           </div>
 
-          <!-- Лимит кандидатов -->
-          <div class="mb-4">
-            <label class="block text-xs font-medium text-slate-600 mb-1">
+          <!-- Автозапуск -->
+          <label class="inline-flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300 mb-4">
+            <input v-model="createAutoRun" type="checkbox" class="rounded text-brand-600 focus:ring-brand-500" />
+            Автоматический запуск
+          </label>
+
+          <!-- Лимит -->
+          <div class="mb-6">
+            <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
               Лимит кандидатов (1–500)
             </label>
             <div class="flex items-center gap-3">
@@ -768,7 +957,7 @@ const stateBadgeClass: Record<string, string> = {
                 type="number"
                 min="1"
                 max="500"
-                class="w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                class="w-28 rounded-lg border border-surface-300 dark:border-surface-700 dark:bg-surface-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-surface-900 dark:text-surface-100"
               />
               <input
                 v-model.number="createMaxCandidates"
@@ -776,170 +965,165 @@ const stateBadgeClass: Record<string, string> = {
                 min="1"
                 max="500"
                 step="1"
-                class="flex-1 accent-emerald-600"
+                class="flex-1 accent-brand-600"
               />
             </div>
-            <div class="text-xs text-slate-500 mt-1">
-              Когда в выдаче накопится это число кандидатов (все кроме «Отклонён»), автозапуск выключится.
-            </div>
           </div>
 
-          <div class="flex gap-2 justify-end pt-4 border-t border-slate-200">
-            <button class="px-4 py-2 rounded-lg text-sm hover:bg-slate-100" @click="showCreateModal = false">
-              Отмена
-            </button>
-            <button
-              class="px-4 py-2 rounded-lg text-sm bg-emerald-600 text-white hover:bg-emerald-700 inline-flex items-center gap-2 disabled:opacity-60"
-              :disabled="creating"
-              @click="submitCreate"
-            >
-              <Loader2 v-if="creating" class="h-4 w-4 animate-spin" />
+          <div class="flex gap-2 justify-end">
+            <UiButton variant="secondary" @click="showCreateModal = false">Отмена</UiButton>
+            <UiButton :icon-left="creating ? Loader2 : Plus" :disabled="creating" @click="submitCreate">
+              <Loader2 v-if="creating" class="size-4 animate-spin mr-1" />
               Создать
-            </button>
+            </UiButton>
           </div>
-        </div>
+        </UiCard>
       </div>
     </Teleport>
 
-    <!-- Модалка просмотра/редактирования поиска -->
-    <Teleport to="body">
-      <div
-        v-if="showDetailsModal && detailsSearch"
-        class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-        @click.self="showDetailsModal = false"
-      >
-        <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-          <div class="flex items-start justify-between mb-4">
-            <div>
-              <h2 class="text-lg font-semibold flex items-center gap-2">
-                <Eye v-if="!editMode" class="h-5 w-5 text-slate-500" />
-                <Pencil v-else class="h-5 w-5 text-emerald-600" />
-                {{ editMode ? 'Редактирование поиска' : 'Параметры поиска' }}
-              </h2>
-              <div class="text-xs text-slate-500 mt-1">
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
-                  :class="[PHASE_META[phaseOf(detailsSearch)].bg, PHASE_META[phaseOf(detailsSearch)].text]">
-                  <span class="h-1.5 w-1.5 rounded-full"
-                    :class="[PHASE_META[phaseOf(detailsSearch)].dot, PHASE_META[phaseOf(detailsSearch)].pulse ? 'animate-pulse' : '']" />
-                  {{ PHASE_META[phaseOf(detailsSearch)].label }}
-                </span>
-              </div>
-            </div>
-            <button @click="showDetailsModal = false" class="text-slate-400 hover:text-slate-800">
-              <X class="h-5 w-5" />
-            </button>
-          </div>
+    <!-- Дровер деталей / редактирования поиска -->
+    <UiDrawer v-model:open="showDetailsModal" width="md">
+      <div v-if="detailsSearch" class="space-y-4">
+        <div class="flex items-start justify-between">
+          <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100">
+            {{ editMode ? 'Редактирование поиска' : detailsSearch.name }}
+          </h2>
+          <button
+            class="text-surface-400 hover:text-surface-700 dark:hover:text-surface-200"
+            @click="showDetailsModal = false"
+          >
+            <X class="size-5" />
+          </button>
+        </div>
 
-          <!-- Название -->
-          <div class="mb-4">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Название</label>
-            <input v-if="editMode" v-model="editName" type="text"
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            <div v-else class="text-sm">{{ detailsSearch.name }}</div>
-          </div>
+        <!-- Название -->
+        <div>
+          <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Название</label>
+          <input
+            v-if="editMode"
+            v-model="editName"
+            class="w-full rounded-lg border border-surface-300 dark:border-surface-700 dark:bg-surface-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-surface-900 dark:text-surface-100"
+          />
+          <div v-else class="text-sm text-surface-800 dark:text-surface-100">{{ detailsSearch.name }}</div>
+        </div>
 
-          <!-- Query JSON -->
-          <div class="mb-4">
-            <label class="block text-xs font-medium text-slate-600 mb-1">
-              Запрос к hh.ru
-              <span class="text-slate-400">(JSON)</span>
-            </label>
-            <textarea
+        <!-- Query JSON -->
+        <div>
+          <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
+            Параметры запроса (JSON)
+          </label>
+          <textarea
+            v-if="editMode"
+            v-model="editQueryJson"
+            rows="8"
+            class="w-full rounded-lg border border-surface-300 dark:border-surface-700 dark:bg-surface-900 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 text-surface-900 dark:text-surface-100"
+          />
+          <pre v-else class="text-xs font-mono bg-surface-50 dark:bg-surface-900 rounded-lg p-3 overflow-auto text-surface-700 dark:text-surface-300">{{ JSON.stringify(detailsSearch.query, null, 2) }}</pre>
+          <div v-if="editMode" class="text-xs text-surface-500 mt-1">
+            Основные поля: <code>text</code> (AND/OR/NOT, кавычки, *), <code>textLogic</code>, <code>textField</code>, <code>area</code>, <code>experience</code>, <code>workFormat</code>, <code>employmentForm</code>, <code>professionalRole</code>, <code>salaryFrom</code>, <code>currency</code>, <code>period</code>, <code>orderBy</code>.
+          </div>
+        </div>
+
+        <!-- Расписание + Авто -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">Расписание</label>
+            <select
               v-if="editMode"
-              v-model="editQueryJson"
-              rows="10"
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              spellcheck="false"
-            />
-            <pre v-else class="text-xs font-mono bg-slate-50 rounded-lg p-3 overflow-auto max-h-64 whitespace-pre-wrap">{{ JSON.stringify(detailsSearch.query, null, 2) }}</pre>
-            <div v-if="editMode" class="text-xs text-slate-500 mt-1">
-              Основные поля: <code>text</code> (поддерживает AND/OR/NOT, кавычки, *), <code>textLogic</code>, <code>textField</code>, <code>area</code>, <code>experience</code>, <code>workFormat</code>, <code>employmentForm</code>, <code>professionalRole</code>, <code>salaryFrom</code>, <code>currency</code>, <code>period</code>, <code>orderBy</code>.
-            </div>
-          </div>
-
-          <!-- Расписание + Авто -->
-          <div class="mb-4 grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Расписание</label>
-              <select v-if="editMode" v-model="editScheduleMinutes"
-                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                <option :value="null">Только вручную</option>
-                <option :value="60">Каждый час</option>
-                <option :value="240">Каждые 4 часа</option>
-                <option :value="1440">Раз в день</option>
-                <option :value="10080">Раз в неделю</option>
-              </select>
-              <div v-else class="text-sm">{{ formatSchedule(detailsSearch.scheduleMinutes, detailsSearch.autoRunEnabled) }}</div>
-            </div>
-            <div class="flex items-end">
-              <label v-if="editMode" class="inline-flex items-center gap-2 text-sm">
-                <input v-model="editAutoRun" type="checkbox" class="rounded text-emerald-600" />
-                Автоматический запуск
-              </label>
-              <div v-else class="text-sm">Автозапуск: <b>{{ detailsSearch.autoRunEnabled ? 'вкл' : 'выкл' }}</b></div>
-            </div>
-          </div>
-
-          <!-- Лимит -->
-          <div class="mb-4">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Лимит кандидатов (1–500)</label>
-            <div v-if="editMode" class="flex items-center gap-3">
-              <input v-model.number="editMaxCandidates" type="number" min="1" max="500"
-                class="w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              <input v-model.number="editMaxCandidates" type="range" min="1" max="500" step="1"
-                class="flex-1 accent-emerald-600" />
-            </div>
-            <div v-else class="text-sm">{{ detailsSearch.maxCandidates }}</div>
-          </div>
-
-          <!-- Статистика последнего запуска -->
-          <div v-if="!editMode" class="mb-4 grid grid-cols-3 gap-3 text-xs">
-            <div class="bg-slate-50 rounded-lg p-2">
-              <div class="text-slate-500">Последний запуск</div>
-              <div class="font-medium">{{ detailsSearch.lastRunAt ? formatRelative(detailsSearch.lastRunAt) : 'нет' }}</div>
-            </div>
-            <div class="bg-slate-50 rounded-lg p-2">
-              <div class="text-slate-500">Найдено</div>
-              <div class="font-medium">{{ detailsSearch.lastRunFound }}</div>
-            </div>
-            <div class="bg-slate-50 rounded-lg p-2">
-              <div class="text-slate-500">Новых</div>
-              <div class="font-medium text-emerald-700">{{ detailsSearch.lastRunNew }}</div>
-            </div>
-          </div>
-
-          <div v-if="detailsSearch.lastRunError" class="mb-4 text-xs bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-3">
-            <div class="font-medium flex items-center gap-1">
-              <AlertTriangle class="h-3.5 w-3.5" />
-              Ошибка последнего запуска
-            </div>
-            <div class="mt-1 font-mono">{{ detailsSearch.lastRunError }}</div>
-          </div>
-
-          <div class="flex gap-2 justify-end pt-4 border-t border-slate-200">
-            <button class="px-4 py-2 rounded-lg text-sm hover:bg-slate-100" @click="showDetailsModal = false">
-              Закрыть
-            </button>
-            <button
-              v-if="!editMode"
-              class="px-4 py-2 rounded-lg text-sm bg-slate-100 hover:bg-slate-200 inline-flex items-center gap-2"
-              @click="editMode = true"
+              v-model="editScheduleMinutes"
+              class="w-full rounded-lg border border-surface-300 dark:border-surface-700 dark:bg-surface-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-surface-900 dark:text-surface-100"
             >
-              <Pencil class="h-4 w-4" />
-              Редактировать
-            </button>
-            <button
-              v-else
-              class="px-4 py-2 rounded-lg text-sm bg-emerald-600 text-white hover:bg-emerald-700 inline-flex items-center gap-2 disabled:opacity-60"
-              :disabled="editSaving"
-              @click="saveEdit"
-            >
-              <Loader2 v-if="editSaving" class="h-4 w-4 animate-spin" />
-              Сохранить
-            </button>
+              <option :value="null">Только вручную</option>
+              <option :value="60">Каждый час</option>
+              <option :value="240">Каждые 4 часа</option>
+              <option :value="1440">Раз в день</option>
+              <option :value="10080">Раз в неделю</option>
+            </select>
+            <div v-else class="text-sm text-surface-800 dark:text-surface-100">
+              {{ formatSchedule(detailsSearch.scheduleMinutes, detailsSearch.autoRunEnabled) }}
+            </div>
+          </div>
+          <div class="flex items-end">
+            <label v-if="editMode" class="inline-flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300">
+              <input v-model="editAutoRun" type="checkbox" class="rounded text-brand-600 focus:ring-brand-500" />
+              Автозапуск
+            </label>
+            <div v-else class="text-sm text-surface-800 dark:text-surface-100">
+              Автозапуск: <b>{{ detailsSearch.autoRunEnabled ? 'вкл' : 'выкл' }}</b>
+            </div>
           </div>
         </div>
+
+        <!-- Лимит -->
+        <div>
+          <label class="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
+            Лимит кандидатов (1–500)
+          </label>
+          <div v-if="editMode" class="flex items-center gap-3">
+            <input
+              v-model.number="editMaxCandidates"
+              type="number"
+              min="1"
+              max="500"
+              class="w-28 rounded-lg border border-surface-300 dark:border-surface-700 dark:bg-surface-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-surface-900 dark:text-surface-100"
+            />
+            <input
+              v-model.number="editMaxCandidates"
+              type="range"
+              min="1"
+              max="500"
+              step="1"
+              class="flex-1 accent-brand-600"
+            />
+          </div>
+          <div v-else class="text-sm text-surface-800 dark:text-surface-100">{{ detailsSearch.maxCandidates }}</div>
+        </div>
+
+        <!-- Статистика -->
+        <div v-if="!editMode" class="grid grid-cols-3 gap-3 text-xs">
+          <div class="bg-surface-50 dark:bg-surface-900 rounded-lg p-2">
+            <div class="text-surface-500">Последний запуск</div>
+            <div class="font-medium text-surface-800 dark:text-surface-100">
+              {{ detailsSearch.lastRunAt ? formatRelative(detailsSearch.lastRunAt) : 'нет' }}
+            </div>
+          </div>
+          <div class="bg-surface-50 dark:bg-surface-900 rounded-lg p-2">
+            <div class="text-surface-500">Найдено</div>
+            <div class="font-medium text-surface-800 dark:text-surface-100">{{ detailsSearch.lastRunFound }}</div>
+          </div>
+          <div class="bg-surface-50 dark:bg-surface-900 rounded-lg p-2">
+            <div class="text-surface-500">Новых</div>
+            <div class="font-medium text-success-700 dark:text-success-400">{{ detailsSearch.lastRunNew }}</div>
+          </div>
+        </div>
+
+        <div
+          v-if="detailsSearch.lastRunError"
+          class="text-xs bg-danger-50 dark:bg-danger-950 border border-danger-200 dark:border-danger-900 text-danger-800 dark:text-danger-300 rounded-lg p-3"
+        >
+          <div class="font-medium flex items-center gap-1">
+            <AlertTriangle class="size-3.5" />
+            Ошибка последнего запуска
+          </div>
+          <div class="mt-1 font-mono">{{ detailsSearch.lastRunError }}</div>
+        </div>
+
+        <div class="flex gap-2 justify-end pt-4 border-t border-surface-200 dark:border-surface-800">
+          <UiButton variant="secondary" @click="showDetailsModal = false">Закрыть</UiButton>
+          <UiButton v-if="!editMode" variant="secondary" :icon-left="Pencil" @click="editMode = true">
+            Редактировать
+          </UiButton>
+          <UiButton
+            v-else
+            :icon-left="editSaving ? Loader2 : Check"
+            :disabled="editSaving"
+            @click="saveEdit"
+          >
+            <Loader2 v-if="editSaving" class="size-4 animate-spin mr-1" />
+            Сохранить
+          </UiButton>
+        </div>
       </div>
-    </Teleport>
+    </UiDrawer>
   </div>
 </template>
