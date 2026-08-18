@@ -10,6 +10,8 @@ export function useApplications(options?: {
   jobId?: Ref<string | undefined> | string
   candidateId?: Ref<string | undefined> | string
   status?: Ref<string | undefined> | string
+  /** Фаза 1: мультиселект этапов (корневые id, подэтапы захватываются сервером). Приоритет над stageId/stageType. */
+  stageIds?: Ref<string[] | undefined> | string[]
   stageId?: Ref<string | undefined> | string
   stageType?: Ref<string | undefined> | string
   propertyFilters?: Ref<PropertyFilter[] | undefined> | PropertyFilter[]
@@ -20,6 +22,7 @@ export function useApplications(options?: {
 
   const query = computed(() => {
     const pf = toValue(options?.propertyFilters)
+    const sids = toValue(options?.stageIds)
     const sid = toValue(options?.stageId)
     const stype = toValue(options?.stageType)
     return {
@@ -27,8 +30,10 @@ export function useApplications(options?: {
       ...(toValue(options?.jobId) && { jobId: toValue(options?.jobId) }),
       ...(toValue(options?.candidateId) && { candidateId: toValue(options?.candidateId) }),
       ...(toValue(options?.status) && { status: toValue(options?.status) }),
-      // stageId takes precedence over stageType
-      ...(sid ? { stageId: sid } : stype ? { stageType: stype } : {}),
+      // stageIds (мультиселект) > stageId > stageType
+      ...(sids && sids.length > 0
+        ? { stageIds: sids.join(',') }
+        : sid ? { stageId: sid } : stype ? { stageType: stype } : {}),
       ...(pf && pf.length > 0 && { propertyFilters: JSON.stringify(pf) }),
     }
   })

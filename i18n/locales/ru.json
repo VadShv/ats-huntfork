@@ -478,7 +478,8 @@
       "today": "Сегодня",
       "tomorrow": "Завтра",
       "inHours": "Через {n}ч",
-      "inDays": "Через {n} дн."
+      "inDays": "Через {n} дн.",
+      "noStage": "Без этапа"
     },
     "jobs": {
       "title": "Мои вакансии",
@@ -1500,7 +1501,8 @@
         "phone": "Телефон",
         "applications": "Отклики",
         "added": "Добавлен",
-        "quickNotes": "Заметки"
+        "quickNotes": "Заметки",
+        "noApplication": "Без отклика"
       },
       "addForm": {
         "title": "Добавить кандидата",
@@ -1545,7 +1547,8 @@
         "job": "Вакансия",
         "status": "Статус",
         "score": "Оценка",
-        "applied": "Дата отклика"
+        "applied": "Дата отклика",
+        "state": "Состояние"
       },
       "sort": {
         "name": "Имя",
@@ -2170,7 +2173,13 @@
     "manualReviewOnlyHint": "Если включено, авто-правила (авто-оценка и авто-отказ) НЕ будут применяться к этому кандидату ни на одной вакансии.",
     "manualOnlyEnabled": "Ручной режим включён",
     "manualOnlyDisabled": "Ручной режим выключен",
-    "failedToUpdateManualOnly": "Не удалось переключить ручной режим"
+    "failedToUpdateManualOnly": "Не удалось переключить ручной режим",
+    "state": {
+      "working": "В работе",
+      "hired": "Нанят",
+      "rejected": "Отказ",
+      "label": "Состояние"
+    }
   },
   "auth": {
     "pendingApproval": {

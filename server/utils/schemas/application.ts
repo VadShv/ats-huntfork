@@ -35,6 +35,12 @@ export const applicationQuerySchema = z.object({
    */
   stageId: z.string().min(1).optional(),
   /**
+   * Фаза 1 (этап-центричные фильтры): мультиселект корневых этапов —
+   * comma-separated список stage id. Каждый id автоматически захватывает
+   * свои подэтапы. Имеет приоритет над stageId и stageType.
+   */
+  stageIds: z.string().min(1).max(4000).optional(),
+  /**
    * Filter by stage type — matches all stages across all pipelines whose
    * `type` column equals this value (e.g. 'interview').
    * Ignored when stageId is present.

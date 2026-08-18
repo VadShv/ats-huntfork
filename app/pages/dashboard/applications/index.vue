@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { FileText, Search, X, Briefcase, Mail, Clock, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Maximize2, Minimize2, Check, ChevronDown, Loader2 } from 'lucide-vue-next'
-import type { ApplicationStatus } from '~/composables/useApplicationStatus'
 
 definePageMeta({
   layout: 'dashboard',
@@ -35,7 +34,7 @@ const applicationColumns = computed(() => [
   { key: 'email', label: 'Email' },
   { key: 'job', label: 'Вакансия' },
   { key: 'stage', label: t('applications.stage.label') },
-  { key: 'status', label: 'Статус' },
+  { key: 'status', label: t('applications.state.label') },
   { key: 'score', label: 'Балл' },
   { key: 'source', label: 'Источник' },
   { key: 'applied', label: 'Откликнулся' },
@@ -70,56 +69,57 @@ watch(searchInput, (val) => {
   }, 250)
 })
 
-// ── Status filter ─────────────────────────────────────────────────────────────
+// ── Stage filter (Фаза 1: единый словарь — этапы воронки, мультиселект) ───────
 
-const STATUS_OPTIONS = ['new', 'screening', 'interview', 'offer', 'hired', 'rejected'] as const
-type Status = typeof STATUS_OPTIONS[number]
-
-const initialAppStatus = STATUS_OPTIONS.includes(route.query.status as any)
-  ? (route.query.status as Status)
-  : undefined
-const activeStatus = useState<Status | undefined>('app-filter-status', () => initialAppStatus)
-// Ensure the state matches the URL on navigation (useState caches across client-side navigations)
-if (initialAppStatus !== undefined) {
-  activeStatus.value = initialAppStatus
-}
-
-// Sync the URL when the status filter changes
-watch(activeStatus, (newStatus) => {
-  const query = { ...route.query }
-  if (newStatus) {
-    query.status = newStatus
-  }
-  else {
-    delete query.status
-  }
-  router.replace({ query })
-})
-
-const statusFilter = computed(() => activeStatus.value)
 const propertyFilters = ref<import('~~/shared/properties').PropertyFilter[]>([])
 
-// ── Stage filter (server-side, via stageId param) ──────────────────────────────
-
-const initialStageId = typeof route.query.stageId === 'string' ? route.query.stageId : undefined
-const activeStageId = useState<string | undefined>('app-filter-stageId', () => initialStageId)
-if (initialStageId !== undefined) {
-  activeStageId.value = initialStageId
+/** Легаси-маппинг старых URL ?status= → типы корневых этапов (back-compat старых ссылок/закладок). */
+const LEGACY_STATUS_TO_TYPES: Record<string, string[]> = {
+  new: ['new', 'applied'],
+  screening: ['on_hold', 'contact', 'assessment', 'screening'],
+  interview: ['interview'],
+  offer: ['offer'],
+  hired: ['hired'],
+  rejected: ['rejected', 'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred'],
 }
 
-watch(activeStageId, (newStageId) => {
+function parseStageParam(raw: unknown): string[] {
+  if (typeof raw !== 'string' || !raw) return []
+  return [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))]
+}
+
+const initialStageIds = parseStageParam(route.query.stage)
+// Back-compat: старый одиночный ?stageId= подхватываем как выбор из одного этапа
+if (initialStageIds.length === 0 && typeof route.query.stageId === 'string' && route.query.stageId) {
+  initialStageIds.push(route.query.stageId)
+}
+const activeStageIds = useState<string[]>('app-filter-stageIds', () => initialStageIds)
+if (initialStageIds.length > 0) {
+  activeStageIds.value = initialStageIds
+}
+
+// Sync URL: ?stage=id1,id2 (легаси-параметры status/stageId вычищаем)
+watch(activeStageIds, (ids) => {
   const query = { ...route.query }
-  if (newStageId) {
-    query.stageId = newStageId
+  delete query.status
+  delete query.stageId
+  if (ids.length > 0) {
+    query.stage = ids.join(',')
   }
   else {
-    delete query.stageId
+    delete query.stage
   }
   router.replace({ query })
-})
+}, { deep: true })
 
-// Fetch stages-summary for the stage filter dropdown
-type StageOption = { id: string; name: string; color: string; type: string; displayOrder: number }
+function toggleStageChip(id: string) {
+  activeStageIds.value = activeStageIds.value.includes(id)
+    ? activeStageIds.value.filter(x => x !== id)
+    : [...activeStageIds.value, id]
+}
+
+// Fetch stages-summary for the stage filter chips
+type StageOption = { id: string; name: string; color: string; type: string; bucket: string; parentStageId: string | null; displayOrder: number }
 type PipelineGroup = { pipelineId: string; pipelineName: string; stages: StageOption[] }
 
 const { data: stagesSummaryData } = useFetch<PipelineGroup[]>('/api/pipelines/stages-summary', {
@@ -137,9 +137,41 @@ const stageById = computed(() => {
   return map
 })
 
+// Фаза 1: чипы фильтра — только корневые этапы (подэтапы захватываются сервером автоматически)
+const rootStageGroups = computed(() =>
+  stageGroups.value
+    .map(g => ({ ...g, stages: g.stages.filter(s => !s.parentStageId) }))
+    .filter(g => g.stages.length > 0),
+)
+
+// Back-compat: старые ссылки ?status=screening и т.п. → выбор соответствующих корневых этапов.
+// Ждём загрузку справочника этапов, затем конвертируем и чистим URL.
+function legacyStatusToStageIds(status: string): string[] {
+  const types = LEGACY_STATUS_TO_TYPES[status]
+  if (!types) return []
+  return rootStageGroups.value.flatMap(g => g.stages.filter(s => types.includes(s.type)).map(s => s.id))
+}
+
+watch(rootStageGroups, (groups) => {
+  if (groups.length === 0) return
+  const legacyStatus = typeof route.query.status === 'string' ? route.query.status : undefined
+  if (legacyStatus && activeStageIds.value.length === 0) {
+    const ids = legacyStatusToStageIds(legacyStatus)
+    if (ids.length > 0) {
+      activeStageIds.value = ids
+      return // watch на activeStageIds сам перепишет URL
+    }
+  }
+  if (legacyStatus) {
+    // Нераспознанный/лишний легаси-параметр — просто убираем из URL
+    const query = { ...route.query }
+    delete query.status
+    router.replace({ query })
+  }
+}, { immediate: true })
+
 const { applications, total, fetchStatus, error, refresh } = useApplications({
-  status: statusFilter,
-  stageId: activeStageId,
+  stageIds: activeStageIds,
   propertyFilters,
 })
 
@@ -208,7 +240,8 @@ const filteredApplications = computed(() => {
       case 'job':
         return dir * a.jobTitle.localeCompare(b.jobTitle)
       case 'status':
-        return dir * a.status.localeCompare(b.status)
+        // Фаза 1: сортируем по состоянию (В работе / Нанят / Отказ), а не по легаси-статусу
+        return dir * appState(a).localeCompare(appState(b))
       case 'score':
         return dir * ((a.score ?? -1) - (b.score ?? -1))
       case 'created':
@@ -222,17 +255,15 @@ const filteredApplications = computed(() => {
 })
 
 const hasActiveFilters = computed(() =>
-  activeStatus.value != null
+  activeStageIds.value.length > 0
   || activeJobId.value != null
-  || activeStageId.value != null
   || debouncedSearch.value.length > 0
   || propertyFilters.value.length > 0,
 )
 
 function clearAllFilters() {
-  activeStatus.value = undefined
+  activeStageIds.value = []
   activeJobId.value = undefined
-  activeStageId.value = undefined
   searchInput.value = ''
   debouncedSearch.value = ''
   propertyFilters.value = []
@@ -272,23 +303,36 @@ function scoreClass(score: number) {
   return 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950 dark:text-danger-400 dark:ring-danger-800'
 }
 
-// Аудит синхронизации (Н-7): локальные стили бейджей заменены на единый <StatusBadge>
+// Фаза 1: колонка «Состояние» — производная от bucket/type текущего этапа, без легаси-статуса
+type AppState = 'working' | 'hired' | 'rejected'
 
-const statusLabels = computed<Record<Status, string>>(() => ({
-  new: t('dashboard.applications.stages.new'),
-  screening: t('dashboard.applications.stages.screening'),
-  interview: t('dashboard.applications.stages.interview'),
-  offer: t('dashboard.applications.stages.offer'),
-  hired: t('dashboard.applications.stages.hired'),
-  rejected: t('dashboard.applications.stages.rejected'),
+function appState(raw: unknown): AppState {
+  const app = raw as { currentStageBucket?: string | null, currentStageType?: string | null }
+  if (app.currentStageBucket === 'rejected') return 'rejected'
+  if (app.currentStageType === 'hired') return 'hired'
+  return 'working'
+}
+
+const stateLabels = computed<Record<AppState, string>>(() => ({
+  working: t('applications.state.working'),
+  hired: t('applications.state.hired'),
+  rejected: t('applications.state.rejected'),
 }))
+
+const stateClasses: Record<AppState, string> = {
+  working: 'bg-surface-100 text-surface-600 ring-surface-200 dark:bg-surface-800 dark:text-surface-300 dark:ring-surface-700',
+  hired: 'bg-success-50 text-success-700 ring-success-200 dark:bg-success-950 dark:text-success-400 dark:ring-success-800',
+  rejected: 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950 dark:text-danger-400 dark:ring-danger-800',
+}
 
 // ── Drawer + Saved Views ──────────────────────────────────────────────────────
 
 type ApplicationsViewSettings = {
-  status?: Status
-  jobId?: string
+  /** Легаси-поля старых сохранённых видов — мигрируются на лету в stageIds в applySettings */
+  status?: string
   stageId?: string
+  stageIds?: string[]
+  jobId?: string
   propertyFilters: import('~~/shared/properties').PropertyFilter[]
   sortKey: SortKey
   sortDir: SortDir
@@ -296,9 +340,8 @@ type ApplicationsViewSettings = {
 }
 
 const defaultSettings: ApplicationsViewSettings = {
-  status: undefined,
+  stageIds: undefined,
   jobId: undefined,
-  stageId: undefined,
   propertyFilters: [],
   sortKey: 'created',
   sortDir: 'desc',
@@ -308,9 +351,8 @@ const defaultSettings: ApplicationsViewSettings = {
 const drawerOpen = ref(false)
 const isFullscreen = ref(false)
 const currentSettings = computed<ApplicationsViewSettings>(() => ({
-  status: activeStatus.value,
+  stageIds: activeStageIds.value.length > 0 ? [...activeStageIds.value] : undefined,
   jobId: activeJobId.value,
-  stageId: activeStageId.value,
   propertyFilters: [...propertyFilters.value],
   sortKey: sortKey.value,
   sortDir: sortDir.value,
@@ -318,9 +360,20 @@ const currentSettings = computed<ApplicationsViewSettings>(() => ({
 }))
 
 function applySettings(s: ApplicationsViewSettings) {
-  activeStatus.value = s.status
+  // Миграция старых сохранённых видов: status → этапы по типу, stageId → [stageId]
+  if (s.stageIds && s.stageIds.length > 0) {
+    activeStageIds.value = [...s.stageIds]
+  }
+  else if (s.stageId) {
+    activeStageIds.value = [s.stageId]
+  }
+  else if (s.status) {
+    activeStageIds.value = legacyStatusToStageIds(s.status)
+  }
+  else {
+    activeStageIds.value = []
+  }
   activeJobId.value = s.jobId
-  activeStageId.value = s.stageId
   propertyFilters.value = [...(s.propertyFilters ?? [])]
   sortKey.value = s.sortKey
   sortDir.value = s.sortDir
@@ -348,10 +401,17 @@ onMounted(() => {
   })
 })
 
+/** Нормализация набора этапов вида с учётом легаси-полей (status/stageId старых видов) */
+function viewStageIds(s: ApplicationsViewSettings): string[] {
+  if (s.stageIds && s.stageIds.length > 0) return s.stageIds
+  if (s.stageId) return [s.stageId]
+  if (s.status) return legacyStatusToStageIds(s.status)
+  return []
+}
+
 function settingsEqual(a: ApplicationsViewSettings, b: ApplicationsViewSettings) {
-  return a.status === b.status
+  return JSON.stringify([...viewStageIds(a)].sort()) === JSON.stringify([...viewStageIds(b)].sort())
     && a.jobId === b.jobId
-    && a.stageId === b.stageId
     && a.sortKey === b.sortKey
     && a.sortDir === b.sortDir
     && JSON.stringify(a.propertyFilters ?? []) === JSON.stringify(b.propertyFilters ?? [])
@@ -391,7 +451,9 @@ function onUpdateView(id: string) {
 }
 
 const drawerActiveCount = computed(() =>
-  [activeStatus.value, activeJobId.value, activeStageId.value].filter(Boolean).length + propertyFilters.value.length,
+  (activeStageIds.value.length > 0 ? 1 : 0)
+  + (activeJobId.value ? 1 : 0)
+  + propertyFilters.value.length,
 )
 
 // ── Property value lookup helper ──────────────────────────────────────────────
@@ -657,28 +719,40 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
       @save-view="onSaveView"
     >
       <div class="space-y-6">
-        <!-- Status -->
-        <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Статус</label>
-          <div class="flex flex-wrap gap-1.5">
+        <!-- Этапы воронки (Фаза 1: мультиселект корневых этапов, единый словарь) -->
+        <div v-if="rootStageGroups.length > 0">
+          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">
+            {{ $t('applications.filter.stage') }}
+          </label>
+          <div class="space-y-3">
+            <div v-for="group in rootStageGroups" :key="group.pipelineId">
+              <div v-if="rootStageGroups.length > 1" class="text-[11px] font-medium text-surface-400 dark:text-surface-500 mb-1.5">
+                {{ group.pipelineName }}
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  v-for="stage in group.stages"
+                  :key="stage.id"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+                  :class="activeStageIds.includes(stage.id)
+                    ? 'bg-surface-900 text-white dark:bg-surface-100 dark:text-surface-900'
+                    : 'bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'"
+                  @click="toggleStageChip(stage.id)"
+                >
+                  <span class="inline-flex size-2 rounded-full shrink-0" :style="{ backgroundColor: stage.color }" />
+                  {{ stage.name }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-if="activeStageIds.length > 0" class="mt-2 flex items-center justify-between">
+            <span class="text-xs text-surface-500 dark:text-surface-400">Выбрано этапов: {{ activeStageIds.length }}</span>
             <button
               type="button"
-              class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
-              :class="!activeStatus
-                ? 'bg-surface-900 text-white dark:bg-surface-100 dark:text-surface-900'
-                : 'bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'"
-              @click="activeStatus = undefined"
-            >Любой</button>
-            <button
-              v-for="s in STATUS_OPTIONS"
-              :key="s"
-              type="button"
-              class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
-              :class="activeStatus === s
-                ? 'bg-surface-900 text-white dark:bg-surface-100 dark:text-surface-900'
-                : 'bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'"
-              @click="activeStatus = activeStatus === s ? undefined : s"
-            >{{ statusLabels[s] }}</button>
+              class="text-xs text-danger-500 hover:text-danger-700 transition-colors cursor-pointer"
+              @click="activeStageIds = []"
+            >Сбросить</button>
           </div>
         </div>
 
@@ -694,49 +768,6 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
           </select>
         </div>
 
-        <!-- Stage filter (grouped by pipeline) -->
-        <div v-if="stageGroups.length > 0">
-          <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">
-            {{ $t('applications.filter.stage') }}
-          </label>
-          <select
-            v-model="activeStageId"
-            class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
-          >
-            <option :value="undefined">{{ $t('applications.filter.allStages') }}</option>
-            <optgroup
-              v-for="group in stageGroups"
-              :key="group.pipelineId"
-              :label="group.pipelineName"
-            >
-              <option
-                v-for="stage in group.stages"
-                :key="stage.id"
-                :value="stage.id"
-              >
-                {{ stage.name }}
-              </option>
-            </optgroup>
-          </select>
-          <!-- Active stage badge -->
-          <div v-if="activeStageId && stageById.get(activeStageId)" class="mt-1.5 flex items-center gap-1.5">
-            <span
-              class="inline-flex size-2 rounded-full shrink-0"
-              :style="{ backgroundColor: stageById.get(activeStageId)!.color }"
-            />
-            <span class="text-xs text-surface-500 dark:text-surface-400">
-              {{ stageById.get(activeStageId)!.name }}
-            </span>
-            <button
-              type="button"
-              class="ml-auto text-xs text-danger-500 hover:text-danger-700 transition-colors cursor-pointer"
-              @click="activeStageId = undefined"
-            >
-              {{ $t('common.cancel') }}
-            </button>
-          </div>
-        </div>
-
         <!-- Sort -->
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Сортировка</label>
@@ -749,7 +780,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
               <option value="name">Кандидат</option>
               <option value="email">Email</option>
               <option value="job">Вакансия</option>
-              <option value="status">Статус</option>
+              <option value="status">{{ t('applications.state.label') }}</option>
               <option value="score">Балл</option>
             </select>
             <select
@@ -800,7 +831,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
             <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden lg:table-cell">{{ $t('dashboard.applications.table.email') }}</th>
             <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">{{ $t('dashboard.applications.table.job') }}</th>
             <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('applications.stage.label') }}</th>
-            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('dashboard.applications.table.status') }}</th>
+            <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ $t('dashboard.applications.table.state') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -909,7 +940,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
               </th>
               <th v-if="visibleColumns.status" class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400">
                 <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('status')">
-                  Статус
+                  {{ t('applications.state.label') }}
                   <ArrowUp v-if="sortKey === 'status' && sortDir === 'asc'" class="size-3.5" />
                   <ArrowDown v-else-if="sortKey === 'status' && sortDir === 'desc'" class="size-3.5" />
                   <ArrowUpDown v-else class="size-3.5 opacity-40" />
@@ -994,8 +1025,11 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
                 />
               </td>
               <td v-if="visibleColumns.status" class="px-4 py-3">
-                <!-- Аудит синхронизации (Н-7): единый компонент бейджа вместо локальных стилей -->
-                <StatusBadge :status="app.status as ApplicationStatus" size="xs" />
+                <!-- Фаза 1: состояние производно от этапа воронки (bucket/type), легаси-статус не используется -->
+                <span
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset whitespace-nowrap"
+                  :class="stateClasses[appState(app)]"
+                >{{ stateLabels[appState(app)] }}</span>
               </td>
               <td v-if="visibleColumns.score" class="px-4 py-3 text-center hidden sm:table-cell">
                 <ScoreBadge :score="app.score" size="xs" />

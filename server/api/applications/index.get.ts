@@ -56,7 +56,22 @@ export default defineEventHandler(async (event) => {
       )!,
     )
   }
-  if (query.stageId) {
+  if (query.stageIds) {
+    // Фаза 1: мультиселект этапов. Каждый выбранный этап захватывает свои подэтапы
+    // (например «Отказ» → все причины отказа). Лимит 50 id — защита от злоупотребления.
+    const ids = [...new Set(query.stageIds.split(',').map(s => s.trim()).filter(Boolean))].slice(0, 50)
+    if (ids.length > 0) {
+      const childStages = await db
+        .select({ id: pipelineStage.id })
+        .from(pipelineStage)
+        .where(and(
+          eq(pipelineStage.organizationId, orgId),
+          inArray(pipelineStage.parentStageId, ids),
+        ))
+      conditions.push(inArray(application.currentStageId, [...new Set([...ids, ...childStages.map(s => s.id)])]))
+    }
+  }
+  else if (query.stageId) {
     // Спринт 22: фильтр по родительскому этапу (например «Отказ») включает
     // его подэтапы (причины отказа). Для обычных этапов — точное совпадение.
     const childStages = await db
@@ -131,6 +146,9 @@ export default defineEventHandler(async (event) => {
     currentStageId: application.currentStageId,
     currentStageName: pipelineStage.name,
     currentStageColor: pipelineStage.color,
+    // Фаза 1: для колонки «Состояние» (В работе / Нанят / Отказ) — без легаси-статуса
+    currentStageBucket: pipelineStage.bucket,
+    currentStageType: pipelineStage.type,
     needsManualReview: application.needsManualReview,
   }
   if (ftsQuery) {
