@@ -5,7 +5,7 @@ import {
   Sun, Moon, MessageSquarePlus, Settings,
   ChevronDown, Menu, X, Users, ChevronLeft,
   LayoutDashboard, Calendar, ArrowUpCircle,
-  Cloud, Server, Sparkles, Radio, History,
+  Cloud, Server, Sparkles, Radio, History, ChartNoAxesCombined,
   MessageCircle, MoreHorizontal, GitMerge, History as HistoryIcon, Upload,
   Inbox, Bot,
 } from 'lucide-vue-next'
@@ -138,6 +138,7 @@ const mainNav = computed<Array<{ label: string; to: string; icon: typeof Briefca
   { label: t('dashboard.nav.inbox'), to: '/dashboard/inbox', icon: Inbox, exact: true },
   { label: t('dashboard.nav.interviews'), to: '/dashboard/interviews', icon: Calendar, exact: false },
   { label: t('dashboard.nav.timeline'), to: '/dashboard/timeline', icon: History, exact: true },
+  { label: t('dashboard.nav.analytics'), to: '/dashboard/analytics', icon: ChartNoAxesCombined, exact: false }, // Спринт 23
   { label: t('dashboard.nav.sourceTracking'), to: '/dashboard/source-tracking', icon: Radio, exact: true },
   { label: t('dashboard.nav.aiAnalysis'), to: '/dashboard/ai-analysis', icon: Sparkles, exact: true },
   { label: t('dashboard.nav.settings'), to: '/dashboard/settings', icon: Settings, exact: false },
