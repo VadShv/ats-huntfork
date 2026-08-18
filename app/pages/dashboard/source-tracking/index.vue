@@ -52,6 +52,7 @@ const {
   channelBreakdown,
   topLinks,
   funnel,
+  funnelStages,
   dailyTrend,
   recentAttributed,
   topReferrerDomains,
@@ -249,13 +250,22 @@ function getChannelLabel(channel: string) {
   return channelLabels[channel] ?? channel
 }
 
-const statusBadgeClasses: Record<string, string> = {
-  new: 'bg-blue-50 text-blue-700 ring-blue-200/60 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800/40',
-  screening: 'bg-violet-50 text-violet-700 ring-violet-200/60 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-800/40',
-  interview: 'bg-amber-50 text-amber-700 ring-amber-200/60 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-800/40',
-  offer: 'bg-teal-50 text-teal-700 ring-teal-200/60 dark:bg-teal-950 dark:text-teal-400 dark:ring-teal-800/40',
-  hired: 'bg-green-50 text-green-700 ring-green-200/60 dark:bg-green-950 dark:text-green-400 dark:ring-green-800/40',
-  rejected: 'bg-surface-100 text-surface-600 ring-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:ring-surface-700',
+// ─── Фаза 1 (словарь = воронка): колонки таблицы конверсии — корневые этапы ───
+const workingFunnelColumns = computed(() => funnelStages.value.filter(s => s.bucket === 'working'))
+const rejectedFunnelColumns = computed(() => funnelStages.value.filter(s => s.bucket === 'rejected'))
+
+function channelStageCount(channel: string, stageId: string): number {
+  return funnel.value[channel]?.[stageId] ?? 0
+}
+
+function channelRejectedCount(channel: string): number {
+  return rejectedFunnelColumns.value.reduce((s, col) => s + channelStageCount(channel, col.id), 0)
+}
+
+function channelHiredCount(channel: string): number {
+  return workingFunnelColumns.value
+    .filter(col => col.type === 'hired')
+    .reduce((s, col) => s + channelStageCount(channel, col.id), 0)
 }
 
 const totalApplications = computed(() =>
@@ -271,8 +281,7 @@ function conversionRate(channel: string): number {
   if (!f) return 0
   const total = Object.values(f).reduce((s, v) => s + v, 0)
   if (total === 0) return 0
-  const hired = f.hired ?? 0
-  return Math.round((hired / total) * 100)
+  return Math.round((channelHiredCount(channel) / total) * 100)
 }
 
 function formatDate(dateStr: string) {
@@ -639,11 +648,19 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   <thead>
                     <tr class="border-b border-surface-100 dark:border-surface-800">
                       <th class="px-6 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Источник</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Новый</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Скрининг</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Интервью</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Оффер</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Принят</th>
+                      <!-- Фаза 1: колонки — реальные корневые этапы воронки -->
+                      <th
+                        v-for="col in workingFunnelColumns"
+                        :key="col.id"
+                        class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider whitespace-nowrap"
+                        :title="col.name"
+                      >
+                        <span class="inline-flex items-center gap-1.5">
+                          <span class="size-1.5 rounded-full shrink-0" :style="{ backgroundColor: col.color || '#9ca3af' }" />
+                          {{ col.name }}
+                        </span>
+                      </th>
+                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Отказ</th>
                       <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Конверсия в найм</th>
                     </tr>
                   </thead>
@@ -660,13 +677,17 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                           <span class="font-medium text-surface-800 dark:text-surface-200">{{ getChannelLabel(channel as string) }}</span>
                         </div>
                       </td>
-                      <td class="px-3 py-3 text-center tabular-nums text-surface-600 dark:text-surface-300">{{ stages.new ?? 0 }}</td>
-                      <td class="px-3 py-3 text-center tabular-nums text-surface-600 dark:text-surface-300">{{ stages.screening ?? 0 }}</td>
-                      <td class="px-3 py-3 text-center tabular-nums text-surface-600 dark:text-surface-300">{{ stages.interview ?? 0 }}</td>
-                      <td class="px-3 py-3 text-center tabular-nums text-surface-600 dark:text-surface-300">{{ stages.offer ?? 0 }}</td>
-                      <td class="px-3 py-3 text-center tabular-nums font-semibold" :class="(stages.hired ?? 0) > 0 ? 'text-green-600 dark:text-green-400' : 'text-surface-600 dark:text-surface-300'">
-                        {{ stages.hired ?? 0 }}
+                      <td
+                        v-for="col in workingFunnelColumns"
+                        :key="col.id"
+                        class="px-3 py-3 text-center tabular-nums"
+                        :class="col.type === 'hired' && channelStageCount(channel as string, col.id) > 0
+                          ? 'font-semibold text-green-600 dark:text-green-400'
+                          : 'text-surface-600 dark:text-surface-300'"
+                      >
+                        {{ channelStageCount(channel as string, col.id) }}
                       </td>
+                      <td class="px-3 py-3 text-center tabular-nums text-surface-500 dark:text-surface-400">{{ channelRejectedCount(channel as string) }}</td>
                       <td class="px-3 py-3 text-center">
                         <span
                           class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1 ring-inset"
@@ -1023,7 +1044,7 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   <!-- Candidate -->
                   <td class="px-5 py-3.5">
                     <NuxtLink
-                      :to="localePath({ path: `/dashboard/jobs/${app.jobId}`, query: { stage: app.status } })"
+                      :to="localePath({ path: `/dashboard/jobs/${app.jobId}`, query: app.currentStageId ? { stage: app.currentStageId } : {} })"
                       class="flex items-center gap-2.5 group/candidate"
                     >
                       <div class="flex items-center justify-center size-8 rounded-full bg-gradient-to-br from-brand-100 to-brand-200 dark:from-brand-900/80 dark:to-brand-800/80 shrink-0 ring-1 ring-brand-200/50 dark:ring-brand-800/50">
@@ -1066,7 +1087,15 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
                   </td>
                   <!-- Status -->
                   <td class="px-4 py-3.5 text-center">
-                    <StatusBadge :status="app.status" size="xs" />
+                    <!-- Фаза 1: реальный этап воронки вместо легаси-статуса -->
+                    <span
+                      v-if="app.currentStageName"
+                      class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 whitespace-nowrap"
+                    >
+                      <span class="inline-flex size-1.5 rounded-full shrink-0" :style="{ backgroundColor: app.currentStageColor || '#9ca3af' }" />
+                      {{ app.currentStageName }}
+                    </span>
+                    <span v-else class="text-[11px] text-surface-400">—</span>
                   </td>
                   <!-- Applied date -->
                   <td class="px-4 py-3.5 text-right text-[11px] text-surface-400 tabular-nums font-medium">

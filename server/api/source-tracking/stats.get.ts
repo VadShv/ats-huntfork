@@ -1,5 +1,6 @@
 import { eq, and, sql, count, gte, lte, desc } from 'drizzle-orm'
-import { applicationSource, application, trackingLink, job, candidate } from '../../database/schema'
+import { applicationSource, application, trackingLink, job, candidate, pipelineStage } from '../../database/schema'
+import { getOrgStageRollup } from '../../utils/funnel-rollup'
 import { sourceStatsQuerySchema } from '../../utils/schemas/trackingLink'
 
 /**
@@ -37,7 +38,7 @@ export default defineEventHandler(async (event) => {
   const [
     channelBreakdown,
     topLinks,
-    statusByChannel,
+    stageByChannel,
     dailyTrend,
     recentAttributed,
     totalTracked,
@@ -74,17 +75,17 @@ export default defineEventHandler(async (event) => {
       .orderBy(desc(trackingLink.applicationCount))
       .limit(10),
 
-    // 3. Conversion funnel — application status breakdown per channel
+    // 3. Conversion funnel — Фаза 1: разбивка по текущему этапу воронки (не по легаси-статусу)
     db
       .select({
         channel: applicationSource.channel,
-        status: application.status,
+        stageId: application.currentStageId,
         count: count().as('count'),
       })
       .from(applicationSource)
       .innerJoin(application, eq(application.id, applicationSource.applicationId))
       .where(whereClause)
-      .groupBy(applicationSource.channel, application.status),
+      .groupBy(applicationSource.channel, application.currentStageId),
 
     // 4. Daily trend for the last 30 days
     db
@@ -117,6 +118,11 @@ export default defineEventHandler(async (event) => {
         candidateEmail: candidate.email,
         jobTitle: job.title,
         status: application.status,
+        currentStageId: application.currentStageId,
+        currentStageName: pipelineStage.name,
+        currentStageColor: pipelineStage.color,
+        currentStageBucket: pipelineStage.bucket,
+        currentStageType: pipelineStage.type,
         appliedAt: applicationSource.createdAt,
       })
       .from(applicationSource)
@@ -124,6 +130,7 @@ export default defineEventHandler(async (event) => {
       .innerJoin(candidate, eq(candidate.id, application.candidateId))
       .innerJoin(job, eq(job.id, application.jobId))
       .leftJoin(trackingLink, eq(trackingLink.id, applicationSource.trackingLinkId))
+      .leftJoin(pipelineStage, eq(pipelineStage.id, application.currentStageId))
       .where(whereClause)
       .orderBy(desc(applicationSource.createdAt))
       .limit(200),
@@ -160,20 +167,24 @@ export default defineEventHandler(async (event) => {
   ])
 
   // ─────────────────────────────────────────────
-  // Build conversion funnel map: channel → status → count
+  // Фаза 1: воронка канал → корневой этап → количество
+  // Подэтапы (например, причины отказа) ролл-апятся к корню
   // ─────────────────────────────────────────────
+  const { stageToRoot, rootColumns } = await getOrgStageRollup(orgId)
   const funnel: Record<string, Record<string, number>> = {}
-  for (const row of statusByChannel) {
-    if (!funnel[row.channel]) {
-      funnel[row.channel] = { new: 0, screening: 0, interview: 0, offer: 0, hired: 0, rejected: 0 }
-    }
-    funnel[row.channel]![row.status] = row.count
+  for (const row of stageByChannel) {
+    const entry = (funnel[row.channel] ??= {})
+    if (!row.stageId) continue // отклик без этапа — не попадает в воронку
+    const rootId = stageToRoot[row.stageId]
+    if (!rootId) continue
+    entry[rootId] = (entry[rootId] ?? 0) + row.count
   }
 
   return {
     channelBreakdown,
     topLinks,
     funnel,
+    funnelStages: rootColumns,
     dailyTrend,
     recentAttributed,
     topReferrerDomains,

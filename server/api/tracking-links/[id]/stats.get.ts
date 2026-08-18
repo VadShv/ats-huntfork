@@ -1,5 +1,6 @@
 import { eq, and, sql, count, gte, lte, desc } from 'drizzle-orm'
-import { applicationSource, application, trackingLink, job, candidate } from '../../../database/schema'
+import { applicationSource, application, trackingLink, job, candidate, pipelineStage } from '../../../database/schema'
+import { getOrgStageRollup } from '../../../utils/funnel-rollup'
 import { trackingLinkIdSchema, sourceStatsQuerySchema } from '../../../utils/schemas/trackingLink'
 
 /**
@@ -50,22 +51,22 @@ export default defineEventHandler(async (event) => {
 
   // ─── Run all analytics queries in parallel ─
   const [
-    statusBreakdown,
+    stageBreakdown,
     dailyTrend,
     attributedApplications,
     referrerDomains,
     totalAttributed,
   ] = await Promise.all([
-    // 1. Application status breakdown
+    // 1. Фаза 1: разбивка по текущему этапу воронки (не по легаси-статусу)
     db
       .select({
-        status: application.status,
+        stageId: application.currentStageId,
         count: count().as('count'),
       })
       .from(applicationSource)
       .innerJoin(application, eq(application.id, applicationSource.applicationId))
       .where(whereClause)
-      .groupBy(application.status),
+      .groupBy(application.currentStageId),
 
     // 2. Daily trend (applications over time)
     db
@@ -96,12 +97,18 @@ export default defineEventHandler(async (event) => {
         jobTitle: job.title,
         jobId: application.jobId,
         status: application.status,
+        currentStageId: application.currentStageId,
+        currentStageName: pipelineStage.name,
+        currentStageColor: pipelineStage.color,
+        currentStageBucket: pipelineStage.bucket,
+        currentStageType: pipelineStage.type,
         appliedAt: applicationSource.createdAt,
       })
       .from(applicationSource)
       .innerJoin(application, eq(application.id, applicationSource.applicationId))
       .innerJoin(candidate, eq(candidate.id, application.candidateId))
       .innerJoin(job, eq(job.id, application.jobId))
+      .leftJoin(pipelineStage, eq(pipelineStage.id, application.currentStageId))
       .where(whereClause)
       .orderBy(desc(applicationSource.createdAt))
       .limit(100),
@@ -126,11 +133,16 @@ export default defineEventHandler(async (event) => {
     db.$count(applicationSource, eq(applicationSource.trackingLinkId, id)),
   ])
 
-  // ─── Build funnel map ─────────────────────
-  const funnel: Record<string, number> = { new: 0, screening: 0, interview: 0, offer: 0, hired: 0, rejected: 0 }
-  for (const row of statusBreakdown) {
-    funnel[row.status] = row.count
+  // ─── Фаза 1: воронка по корневым этапам ────
+  const { stageToRoot, rootColumns } = await getOrgStageRollup(orgId)
+  const countsByRoot: Record<string, number> = {}
+  for (const row of stageBreakdown) {
+    if (!row.stageId) continue
+    const rootId = stageToRoot[row.stageId]
+    if (!rootId) continue
+    countsByRoot[rootId] = (countsByRoot[rootId] ?? 0) + row.count
   }
+  const funnel = rootColumns.map(col => ({ ...col, count: countsByRoot[col.id] ?? 0 }))
 
   // ─── Conversion rate ──────────────────────
   const cvr = link.clickCount > 0

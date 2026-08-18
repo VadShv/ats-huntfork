@@ -35,6 +35,16 @@ interface SourceStats {
     isActive: boolean
   }[]
   funnel: Record<string, Record<string, number>>
+  funnelStages: {
+    id: string
+    pipelineId: string
+    pipelineName: string
+    name: string
+    color: string
+    type: string
+    bucket: 'working' | 'rejected'
+    displayOrder: number
+  }[]
   dailyTrend: { date: string; channel: string; count: number }[]
   recentAttributed: {
     applicationId: string
@@ -49,6 +59,11 @@ interface SourceStats {
     candidateEmail: string
     jobTitle: string
     status: string
+    currentStageId: string | null
+    currentStageName: string | null
+    currentStageColor: string | null
+    currentStageBucket: 'working' | 'rejected' | null
+    currentStageType: string | null
     appliedAt: string
   }[]
   topReferrerDomains: { domain: string | null; count: number }[]
@@ -90,6 +105,7 @@ export function useSourceTracking(options?: {
   const channelBreakdown = computed(() => stats.value?.channelBreakdown ?? [])
   const topLinks = computed(() => stats.value?.topLinks ?? [])
   const funnel = computed(() => stats.value?.funnel ?? {})
+  const funnelStages = computed(() => stats.value?.funnelStages ?? [])
   const dailyTrend = computed(() => stats.value?.dailyTrend ?? [])
   const recentAttributed = computed(() => stats.value?.recentAttributed ?? [])
   const topReferrerDomains = computed(() => stats.value?.topReferrerDomains ?? [])
@@ -99,6 +115,7 @@ export function useSourceTracking(options?: {
     channelBreakdown,
     topLinks,
     funnel,
+    funnelStages,
     dailyTrend,
     recentAttributed,
     topReferrerDomains,

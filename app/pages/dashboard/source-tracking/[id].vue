@@ -61,7 +61,8 @@ const {
 })
 
 const link = computed(() => detail.value?.link)
-const funnel = computed(() => detail.value?.funnel ?? { new: 0, screening: 0, interview: 0, offer: 0, hired: 0, rejected: 0 })
+// Фаза 1 (словарь = воронка): API отдаёт корневые этапы с количествами
+const funnel = computed(() => detail.value?.funnel ?? [])
 const dailyTrend = computed(() => detail.value?.dailyTrend ?? [])
 const applications = computed(() => detail.value?.attributedApplications ?? [])
 const referrerDomains = computed(() => detail.value?.referrerDomains ?? [])
@@ -126,15 +127,6 @@ const channelBadgeClasses: Record<string, string> = {
   email: 'bg-teal-50 text-teal-700 ring-teal-200/60 dark:bg-teal-950 dark:text-teal-400 dark:ring-teal-800/40',
 }
 
-const statusBadgeClasses: Record<string, string> = {
-  new: 'bg-blue-50 text-blue-700 ring-blue-200/60 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800/40',
-  screening: 'bg-violet-50 text-violet-700 ring-violet-200/60 dark:bg-violet-950 dark:text-violet-400 dark:ring-violet-800/40',
-  interview: 'bg-amber-50 text-amber-700 ring-amber-200/60 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-800/40',
-  offer: 'bg-teal-50 text-teal-700 ring-teal-200/60 dark:bg-teal-950 dark:text-teal-400 dark:ring-teal-800/40',
-  hired: 'bg-green-50 text-green-700 ring-green-200/60 dark:bg-green-950 dark:text-green-400 dark:ring-green-800/40',
-  rejected: 'bg-surface-100 text-surface-600 ring-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:ring-surface-700',
-}
-
 function getChannelBadge(channel: string) {
   return channelBadgeClasses[channel] ?? 'bg-surface-100 text-surface-600 ring-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:ring-surface-700'
 }
@@ -173,21 +165,40 @@ function formatFullDate(dateStr: string) {
 // ─────────────────────────────────────────────
 
 const funnelTotal = computed(() =>
-  Object.values(funnel.value).reduce((s, v) => s + v, 0),
+  funnel.value.reduce((s, col) => s + col.count, 0),
 )
 
+// Работа: рабочие корневые этапы; отказы схлопываются в одну строку «Отказ»
 const funnelStages = computed(() => {
-  const stages = ['new', 'screening', 'interview', 'offer', 'hired', 'rejected'] as const
-  return stages.map((stage) => ({
-    stage,
-    count: funnel.value[stage] ?? 0,
-    pct: funnelTotal.value > 0 ? Math.round(((funnel.value[stage] ?? 0) / funnelTotal.value) * 100) : 0,
+  const working = funnel.value.filter(col => col.bucket === 'working')
+  const rejectedTotal = funnel.value
+    .filter(col => col.bucket === 'rejected')
+    .reduce((s, col) => s + col.count, 0)
+  const rows = working.map(col => ({
+    id: col.id,
+    name: col.name,
+    color: col.color || '#9ca3af',
+    type: col.type,
+    count: col.count,
+    pct: funnelTotal.value > 0 ? Math.round((col.count / funnelTotal.value) * 100) : 0,
   }))
+  rows.push({
+    id: '__rejected__',
+    name: 'Отказ',
+    color: '#9ca3af',
+    type: 'rejected',
+    count: rejectedTotal,
+    pct: funnelTotal.value > 0 ? Math.round((rejectedTotal / funnelTotal.value) * 100) : 0,
+  })
+  return rows
 })
 
 const hireRate = computed(() => {
   if (funnelTotal.value === 0) return 0
-  return Math.round(((funnel.value.hired ?? 0) / funnelTotal.value) * 100)
+  const hired = funnel.value
+    .filter(col => col.type === 'hired')
+    .reduce((s, col) => s + col.count, 0)
+  return Math.round((hired / funnelTotal.value) * 100)
 })
 
 // ─────────────────────────────────────────────
@@ -547,9 +558,13 @@ async function handleSidebarUpdated() {
             </div>
 
             <div v-else class="px-6 py-5 space-y-4">
-              <div v-for="s in funnelStages" :key="s.stage">
+              <!-- Фаза 1: строки — реальные корневые этапы воронки -->
+              <div v-for="s in funnelStages" :key="s.id">
                 <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-sm font-medium text-surface-700 dark:text-surface-200 capitalize">{{ s.stage }}</span>
+                  <span class="inline-flex items-center gap-2 text-sm font-medium text-surface-700 dark:text-surface-200">
+                    <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: s.color }" />
+                    {{ s.name }}
+                  </span>
                   <div class="flex items-center gap-3">
                     <span class="text-xs text-surface-400 tabular-nums">{{ s.pct }}%</span>
                     <span class="text-sm font-bold text-surface-900 dark:text-surface-100 tabular-nums w-8 text-right">{{ s.count }}</span>
@@ -558,15 +573,7 @@ async function handleSidebarUpdated() {
                 <div class="h-2 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden">
                   <div
                     class="h-full rounded-full transition-all duration-700 ease-out"
-                    :class="{
-                      'bg-blue-500': s.stage === 'new',
-                      'bg-violet-500': s.stage === 'screening',
-                      'bg-amber-500': s.stage === 'interview',
-                      'bg-teal-500': s.stage === 'offer',
-                      'bg-green-500': s.stage === 'hired',
-                      'bg-surface-400 dark:bg-surface-500': s.stage === 'rejected',
-                    }"
-                    :style="{ width: `${s.pct}%` }"
+                    :style="{ width: `${s.pct}%`, backgroundColor: s.color }"
                   />
                 </div>
               </div>
@@ -775,7 +782,15 @@ async function handleSidebarUpdated() {
                 </td>
                 <!-- Status -->
                 <td class="px-4 py-3.5 text-center">
-                  <StatusBadge :status="app.status" size="xs" />
+                  <!-- Фаза 1: реальный этап воронки вместо легаси-статуса -->
+                  <span
+                    v-if="(app as any).currentStageName"
+                    class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 whitespace-nowrap"
+                  >
+                    <span class="inline-flex size-1.5 rounded-full shrink-0" :style="{ backgroundColor: (app as any).currentStageColor || '#9ca3af' }" />
+                    {{ (app as any).currentStageName }}
+                  </span>
+                  <span v-else class="text-[11px] text-surface-400">—</span>
                 </td>
                 <!-- Applied date -->
                 <td class="px-4 py-3.5 text-right text-[11px] text-surface-400 tabular-nums font-medium">
