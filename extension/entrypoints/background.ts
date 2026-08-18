@@ -307,6 +307,12 @@ export default defineBackground(() => {
             }))
             break
           }
+          case 'sourcingEnrich': {
+            sendResponse(await apiFetch(`/api/sourcing-candidates/${msg.id}/enrich`, {
+              method: 'POST',
+            }))
+            break
+          }
           case 'sourcingImport': {
             sendResponse(await apiFetch(`/api/sourcing-candidates/${msg.id}/import`, {
               method: 'POST',

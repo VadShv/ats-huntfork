@@ -20,6 +20,7 @@ const emit = defineEmits<{
   reject: [id: string]
   import: [id: string]
   saveNote: [id: string, note: string]
+  (e: 'enrich', id: string): void
 }>()
 
 const expanded = ref(false)
@@ -77,7 +78,12 @@ const isApproved = computed(() => props.candidate.state === 'approved')
 const existing = computed(() => props.candidate.existingCandidate)
 const busy = computed(() => props.actionState?.state === 'pending')
 
-function toggleExpand() { expanded.value = !expanded.value }
+function toggleExpand() {
+  expanded.value = !expanded.value
+  // Ленивое дообогащение: в поисковой выдаче hh нет обязанностей — тянем из полного резюме
+  if (expanded.value && !snap.value?.enrichedAt && !experienceList.value.some(e => e.description))
+    emit('enrich', props.candidate.id)
+}
 function toggleNote() {
   noteDraft.value = props.candidate.reviewNote ?? ''
   noteOpen.value = !noteOpen.value
@@ -140,6 +146,7 @@ function saveNote() {
         <div>
           <div class="sf-exp-pos">{{ e.position || '—' }}</div>
           <div class="sf-exp-co">{{ e.company }}<span v-if="e.durationMonths"> · {{ e.durationMonths }} мес</span></div>
+          <div v-if="e.description" class="sf-exp-desc">{{ e.description }}</div>
         </div>
       </div>
     </div>
@@ -220,6 +227,7 @@ export default { name: 'SourcingFeedCard' }
 
 .sf-exp { display: flex; flex-direction: column; gap: var(--hf-s-2); padding-left: 4px; }
 .sf-exp-item { display: flex; gap: var(--hf-s-2); }
+.sf-exp-desc { margin-top: 2px; font-size: 11px; line-height: 1.45; color: var(--hf-text-3, var(--hf-text-2)); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
 .sf-exp-dot { width: 6px; height: 6px; border-radius: var(--hf-r-pill); background: var(--hf-primary); margin-top: 6px; flex-shrink: 0; }
 .sf-exp-pos { font-size: var(--hf-t-xs); font-weight: var(--hf-fw-medium); }
 .sf-exp-co { font-size: var(--hf-t-xs); color: var(--hf-fg-subtle); }

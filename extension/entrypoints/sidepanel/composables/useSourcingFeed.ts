@@ -24,10 +24,12 @@ export interface SourcingSnapshot {
   educationLevel: string | null
   workFormat: string[]
   employmentForm: string[]
+  enrichedAt?: string | null
   relocation: { type: string | null } | null
   experience: Array<{
     company: string | null
     position: string | null
+    description?: string | null
     start: string | null
     end: string | null
     durationMonths: number | null
@@ -155,6 +157,19 @@ function setActionState(id: string, action: string, state: ActionState, msg = ''
   actionStates.value = { ...actionStates.value, [id]: { action, state, msg } }
 }
 
+async function enrichCandidate(id: string) {
+  try {
+    const resp = await send({ type: 'sourcingEnrich', id })
+    if (!resp.ok || !resp.data?.snapshot) return
+    const idx = items.value.findIndex(i => i.id === id)
+    if (idx >= 0) {
+      const updated = { ...items.value[idx]!, snapshot: resp.data.snapshot }
+      items.value = [...items.value.slice(0, idx), updated, ...items.value.slice(idx + 1)]
+    }
+  }
+  catch { /* обязанности — прогрессивное улучшение, молча пропускаем */ }
+}
+
 async function applyAction(id: string, action: 'approve' | 'reject' | 'markReviewed', note?: string) {
   setActionState(id, action, 'pending')
   try {
@@ -216,6 +231,7 @@ const counts = computed(() => {
 
 export function useSourcingFeed() {
   return {
+    enrichCandidate,
     items, stateFilter, loading, loadingMore, error, hasMore, currentJobId,
     actionStates, counts,
     loadFeed, loadMore, refresh, setStateFilter,

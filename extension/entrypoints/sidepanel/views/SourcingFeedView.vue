@@ -28,7 +28,7 @@ const {
   items, stateFilter, loading, loadingMore, error, hasMore, currentJobId,
   actionStates,
   loadFeed, loadMore, setStateFilter,
-  applyAction, importToPipeline,
+  applyAction, importToPipeline, enrichCandidate,
 } = useSourcingFeed()
 
 const jobMenuOpen = ref(false)
@@ -178,6 +178,7 @@ onUnmounted(() => {
           @approve="onApprove"
           @reject="onReject"
           @import="onImport"
+          @enrich="enrichCandidate"
           @save-note="onSaveNote"
         />
 

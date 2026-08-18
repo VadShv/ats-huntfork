@@ -316,10 +316,10 @@ const initialLoading = ref(false)
 
 async function loadCandidates(reset = false) {
   if (reset) {
+    // Список НЕ очищаем — старые карточки остаются приглушёнными до прихода новых
+    // (иначе лента схлопывается до скелетонов и всё дёргается)
     offset.value = 0
-    candidates.value = []
     hasMore.value = true
-    initialLoaded.value = false
     initialLoading.value = true
     loadingMore.value = false
   }
@@ -342,6 +342,25 @@ async function loadCandidates(reset = false) {
 }
 
 const candidatesPending = computed(() => initialLoading.value)
+
+// ─── Ленивое дообогащение снапшота (обязанности из полного резюме hh) ───
+const enrichingIds = new Set<string>()
+async function enrichCandidate(c: SourcingCandidate) {
+  if (enrichingIds.has(c.id)) return
+  enrichingIds.add(c.id)
+  try {
+    const res = await $fetch<{ snapshot: SourcingCandidate['snapshot'] }>(
+      `/api/sourcing-candidates/${c.id}/enrich`,
+      { method: 'POST' },
+    )
+    const idx = candidates.value.findIndex(x => x.id === c.id)
+    if (idx >= 0) candidates.value[idx] = { ...candidates.value[idx]!, snapshot: res.snapshot }
+  } catch {
+    // Тихо: обязанности — прогрессивное улучшение, карточка остаётся рабочей без них
+  } finally {
+    enrichingIds.delete(c.id)
+  }
+}
 
 // Сброс и перезагрузка при смене фильтров/поиска.
 watch([selectedSearchId, stateFilter], () => {
@@ -751,7 +770,7 @@ const stateFilters = [
         </div>
 
         <!-- Состояния -->
-        <div v-if="candidatesPending" class="space-y-3">
+        <div v-if="candidatesPending && candidates.length === 0" class="space-y-3">
           <UiCard v-for="i in 4" :key="i" padding="md">
             <div class="animate-pulse space-y-2">
               <div class="h-4 bg-surface-200 dark:bg-surface-800 rounded w-1/3" />
@@ -761,7 +780,7 @@ const stateFilters = [
           </UiCard>
         </div>
 
-        <UiCard v-else-if="candidates.length === 0" variant="dashed" padding="lg" class="text-center py-12">
+        <UiCard v-else-if="!candidatesPending && candidates.length === 0" variant="dashed" padding="lg" class="text-center py-12">
           <Search class="size-10 text-surface-300 mx-auto mb-3" />
           <p class="text-sm text-surface-600 dark:text-surface-400">
             Кандидатов нет.
@@ -770,7 +789,7 @@ const stateFilters = [
           </p>
         </UiCard>
 
-        <div v-else class="space-y-3">
+        <div v-else class="space-y-3 transition-opacity duration-200" :class="candidatesPending ? 'opacity-40 pointer-events-none' : ''">
           <SourcingCandidateCard
             v-for="c in candidates"
             :key="c.id"
@@ -782,6 +801,7 @@ const stateFilters = [
             @approve="approveCandidate"
             @reject="rejectCandidate"
             @open-card="openCard"
+            @enrich="enrichCandidate"
           />
 
           <!-- Sentinel для infinite scroll -->

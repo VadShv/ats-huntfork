@@ -69,6 +69,7 @@ interface Snapshot {
   }>
   workFormat?: string[]
   employmentForm?: string[]
+  enrichedAt?: string | null
   relocation?: { type: string | null } | null
   citizenship?: string[]
   searchActivity?: string | null
@@ -113,6 +114,7 @@ const emit = defineEmits<{
   approve: [c: Candidate]
   reject: [c: Candidate]
   'open-card': [c: Candidate]
+  enrich: [c: Candidate]
 }>()
 
 // ── Маппинг состояний → UiBadge tone ──────────────────────
@@ -175,6 +177,13 @@ const skillsPreview = computed(() => skills.value.slice(0, 6))
 const skillsHidden = computed(() => Math.max(0, skills.value.length - 6))
 
 const experience = computed(() => props.candidate.snapshot.experience ?? [])
+
+/** При раскрытии опыта без обязанностей — просим страницу дообогатить снапшот из полного резюме hh. */
+function onExperienceToggle(collapsed: boolean) {
+  if (collapsed) return
+  const hasDescriptions = experience.value.some(e => e.description)
+  if (!hasDescriptions && !props.candidate.snapshot.enrichedAt) emit('enrich', props.candidate)
+}
 const education = computed(() => props.candidate.snapshot.education ?? [])
 const workFormat = computed(() => props.candidate.snapshot.workFormat ?? [])
 const employmentForm = computed(() => props.candidate.snapshot.employmentForm ?? [])
@@ -322,6 +331,7 @@ const EMPLOYMENT_LABELS: Record<string, string> = {
           title="Опыт работы"
           :hidden-count="Math.max(0, experience.length - 2)"
           class="mt-3"
+          @toggle="onExperienceToggle"
         >
           <template #summary>
             <span>{{ experience[0]?.position ?? '—' }} · {{ experience[0]?.company ?? '—' }}</span>
@@ -342,6 +352,9 @@ const EMPLOYMENT_LABELS: Record<string, string> = {
                 <Calendar class="size-3 inline" />
                 {{ formatDate(exp.start) }} — {{ exp.end ? formatDate(exp.end) : 'по н.в.' }}
               </div>
+              <p v-if="exp.description" class="mt-1 text-xs leading-relaxed text-surface-600 dark:text-surface-400 line-clamp-3 whitespace-pre-line">
+                {{ exp.description }}
+              </p>
             </div>
           </div>
         </ExpandableSection>

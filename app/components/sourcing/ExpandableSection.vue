@@ -42,6 +42,8 @@ const props = withDefaults(defineProps<Props>(), {
   collapseLabel: 'Свернуть',
 })
 
+const emit = defineEmits<{ (e: 'toggle', collapsed: boolean): void }>()
+
 const collapsed = ref(props.defaultCollapsed)
 
 const toggleLabel = computed(() =>
@@ -52,6 +54,7 @@ const toggleLabel = computed(() =>
 
 function toggle() {
   collapsed.value = !collapsed.value
+  emit('toggle', collapsed.value)
 }
 </script>
 
