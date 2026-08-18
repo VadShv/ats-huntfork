@@ -456,6 +456,20 @@
       "when": 1801000110000,
       "tag": "0065_stage_reject_message_template",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1801000120000,
+      "tag": "0066_stage_sla_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1801000130000,
+      "tag": "0067_mv_application_stage_durations",
+      "breakpoints": true
     }
   ]
 }

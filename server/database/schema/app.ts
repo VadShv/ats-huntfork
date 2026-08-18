@@ -298,6 +298,13 @@ export const pipelineStage = pgTable('pipeline_stage', {
    * pipeline_stage.reject_message_template (org-дефолт) → DEFAULT_DISCARD_MESSAGE.
    */
   rejectMessageTemplate: text('reject_message_template'),
+  /**
+   * Спринт 23 (O3): опциональный SLA этапа — целевой срок нахождения кандидата (дней).
+   * NULL = SLA не задан, «замедления» считаются по p90 длительности за 90 дней.
+   */
+  slaDays: integer('sla_days'),
+  /** Порог предупреждения (жёлтая зона) до нарушения SLA, дней. NULL = не задан. */
+  slaAlertDays: integer('sla_alert_days'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
