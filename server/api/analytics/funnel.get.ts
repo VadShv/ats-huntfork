@@ -189,7 +189,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     pipelineId,
-    period: { from: from.toISOString(), to: to.toISOString() },
+    period: { from, to },
     refreshedAt: analyticsRefreshState.lastRefreshAt?.toISOString() ?? null,
     stages,
     rejectedRoots: roots.filter(r => r.bucket === 'rejected').map(r => ({ id: r.id, name: r.name, color: r.color })),

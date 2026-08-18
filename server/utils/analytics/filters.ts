@@ -23,11 +23,16 @@ export const analyticsQuerySchema = z.object({
 export type AnalyticsQuery = z.infer<typeof analyticsQuerySchema>
 
 export interface AnalyticsPeriod {
-  from: Date
-  to: Date
+  /**
+   * Границы периода — ISO-строки, НЕ Date: raw-запросы идут через
+   * db.execute → postgres.js unsafe(), который не сериализует Date-параметры
+   * (TypeError: The "string" argument must be of type string … Received Date).
+   */
+  from: string
+  to: string
   /** Предыдущий период той же длительности (для compare=prev) */
-  prevFrom: Date
-  prevTo: Date
+  prevFrom: string
+  prevTo: string
 }
 
 const DEFAULT_PERIOD_DAYS = 30
@@ -40,10 +45,10 @@ export function resolvePeriod(q: AnalyticsQuery): AnalyticsPeriod {
     : new Date(to.getTime() - DEFAULT_PERIOD_DAYS * 24 * 3600 * 1000)
   const spanMs = Math.max(to.getTime() - from.getTime(), 1)
   return {
-    from,
-    to,
-    prevFrom: new Date(from.getTime() - spanMs),
-    prevTo: new Date(from.getTime()),
+    from: from.toISOString(),
+    to: to.toISOString(),
+    prevFrom: new Date(from.getTime() - spanMs).toISOString(),
+    prevTo: from.toISOString(),
   }
 }
 

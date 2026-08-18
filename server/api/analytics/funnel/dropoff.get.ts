@@ -63,7 +63,7 @@ export default defineEventHandler(async (event) => {
   ])
 
   return {
-    period: { from: from.toISOString(), to: to.toISOString() },
+    period: { from, to },
     total: countRows[0]?.cnt ?? 0,
     page: q.page,
     limit: q.limit,

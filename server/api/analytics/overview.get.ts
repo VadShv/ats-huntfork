@@ -29,9 +29,9 @@ export default defineEventHandler(async (event) => {
   ])
 
   return {
-    period: { from: period.from.toISOString(), to: period.to.toISOString() },
+    period: { from: period.from, to: period.to },
     prevPeriod: q.compare === 'prev'
-      ? { from: period.prevFrom.toISOString(), to: period.prevTo.toISOString() }
+      ? { from: period.prevFrom, to: period.prevTo }
       : null,
     refreshedAt: analyticsRefreshState.lastRefreshAt?.toISOString() ?? null,
     kpis: { activeNow, ...current },
@@ -69,7 +69,7 @@ interface PeriodKpis {
   offerAcceptance: number | null
 }
 
-async function periodKpis(orgId: string, q: AnalyticsQuery, from: Date, to: Date): Promise<PeriodKpis> {
+async function periodKpis(orgId: string, q: AnalyticsQuery, from: string, to: string): Promise<PeriodKpis> {
   const mvConds = mvFilterConditions('v', orgId, q)
 
   // Новые отклики за период — по application.created_at (прямой запрос по индексу org)
