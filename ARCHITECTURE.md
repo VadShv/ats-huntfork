@@ -247,6 +247,8 @@ Private pages (dashboard, auth, onboarding) include `robots: 'noindex, nofollow'
 
 Положение кандидата в системе описывается **только этапами воронки** (`application.currentStageId` → `pipeline_stage`). Легаси-статус `application.status` сохранён как производная проекция для back-compat (hh-импорт, Sidekick, SQL-аналитика), но не читается продуктовым UI. Единственный путь перемещения — `moveApplicationStage()`. Полная модель, ADR о сохранении `status`, API-контракты и правила UI: **[docs/funnel-architecture.md](docs/funnel-architecture.md)**.
 
+Общий паттерн системы: **каноническое поле — источник истины, всё остальное — производные проекции** (воронка → легаси-`status`; карточка вакансии → hh-пейлоад, [docs/tz-hh-vacancy-publishing.md](docs/tz-hh-vacancy-publishing.md); секции описания → `description`, [docs/adr-job-description-sections.md](docs/adr-job-description-sections.md)).
+
 ### 12. Blog Content Engine
 
 Blog articles are Markdown files in `content/blog/` powered by `@nuxt/content` v3:
