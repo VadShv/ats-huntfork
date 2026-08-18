@@ -92,10 +92,10 @@ export const admin = ac.newRole({
 export const member = ac.newRole({
   ...memberAc.statements,
   organization: ['read'],
-  // Рекрутёр ведёт вакансии: может менять настройки (воронка,
-  // назначение НМ на вакансию). Создание и удаление самих вакансий —
-  // только owner/admin.
-  job: ['read', 'update'],
+  // Рекрутёр ведёт вакансии: создаёт их (с авто-назначением себя
+  // рекрутёром), меняет настройки (воронка, назначение НМ).
+  // Удаление вакансий — только owner/admin.
+  job: ['create', 'read', 'update'],
   candidate: ['create', 'read', 'update'],
   application: ['create', 'read', 'update'],
   document: ['create', 'read'],

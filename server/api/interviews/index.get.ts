@@ -1,6 +1,7 @@
-import { and, count, desc, eq, gte, lte } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, lte } from 'drizzle-orm'
 import { interview, application, candidate, job } from '../../database/schema'
 import { interviewQuerySchema } from '../../utils/schemas/interview'
+import { resolveRecruiterScope } from '../../utils/recruiterScope'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { interview: ['read'] })
@@ -8,7 +9,14 @@ export default defineEventHandler(async (event) => {
 
   const query = await getValidatedQuery(event, interviewQuerySchema.parse)
 
+  // ─── Sprint 20.2: рекрутёр (member) видит интервью только по своим вакансиям.
+  // Сентинел '__none__' даёт пустую выдачу без ветвления формы ответа (важно для типов useFetch).
+  const scope = await resolveRecruiterScope(orgId, session.user.id)
+
   const conditions = [eq(interview.organizationId, orgId)]
+  if (scope.scoped) {
+    conditions.push(inArray(application.jobId, scope.jobIds.length > 0 ? scope.jobIds : ['__none__']))
+  }
 
   if (query.applicationId) {
     conditions.push(eq(interview.applicationId, query.applicationId))

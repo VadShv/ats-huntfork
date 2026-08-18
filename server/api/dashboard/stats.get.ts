@@ -1,5 +1,6 @@
-import { eq, and, desc, sql, count, inArray, asc } from 'drizzle-orm'
+import { eq, and, desc, sql, count, countDistinct, inArray, asc } from 'drizzle-orm'
 import { application, candidate, job, pipelineStage } from '../../database/schema'
+import { resolveRecruiterScope, getJobRecruitersMap } from '../../utils/recruiterScope'
 
 /**
  * GET /api/dashboard/stats
@@ -13,6 +14,18 @@ import { application, candidate, job, pipelineStage } from '../../database/schem
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['read'], candidate: ['read'], application: ['read'] })
   const orgId = session.session.activeOrganizationId
+
+  // ─── Sprint 20.2: скоуп «мои вакансии» для рекрутёра (member) ───
+  // Сентинел '__none__' даёт нулевые агрегаты без ветвления формы ответа (важно для типов useFetch)
+  const scope = await resolveRecruiterScope(orgId, session.user.id)
+  const scopedIds = scope.scoped ? (scope.jobIds.length > 0 ? scope.jobIds : ['__none__']) : null
+
+  const jobCond = scopedIds
+    ? and(eq(job.organizationId, orgId), inArray(job.id, scopedIds))!
+    : eq(job.organizationId, orgId)
+  const appCond = scopedIds
+    ? and(eq(application.organizationId, orgId), inArray(application.jobId, scopedIds))!
+    : eq(application.organizationId, orgId)
 
   // ─────────────────────────────────────────────
   // Run all queries in parallel for performance
@@ -28,16 +41,18 @@ export default defineEventHandler(async (event) => {
     topJobs,
   ] = await Promise.all([
     // 1. Open jobs count
-    db.$count(job, and(eq(job.organizationId, orgId), eq(job.status, 'open'))),
+    db.$count(job, and(jobCond, eq(job.status, 'open'))),
 
-    // 2. Total candidates
-    db.$count(candidate, eq(candidate.organizationId, orgId)),
+    // 2. Total candidates (для скоупа — уникальные кандидаты по откликам на назначенные вакансии)
+    scopedIds
+      ? db.select({ c: countDistinct(application.candidateId) }).from(application).where(appCond).then(rows => Number(rows[0]?.c ?? 0))
+      : db.$count(candidate, eq(candidate.organizationId, orgId)),
 
     // 3. Total applications
-    db.$count(application, eq(application.organizationId, orgId)),
+    db.$count(application, appCond),
 
     // 4. New (unreviewed) applications
-    db.$count(application, and(eq(application.organizationId, orgId), eq(application.status, 'new'))),
+    db.$count(application, and(appCond, eq(application.status, 'new'))),
 
     // 5. Pipeline breakdown — application count per status
     db
@@ -46,7 +61,7 @@ export default defineEventHandler(async (event) => {
         count: count().as('count'),
       })
       .from(application)
-      .where(eq(application.organizationId, orgId))
+      .where(appCond)
       .groupBy(application.status),
 
     // 6. Jobs by status
@@ -56,7 +71,7 @@ export default defineEventHandler(async (event) => {
         count: count().as('count'),
       })
       .from(job)
-      .where(eq(job.organizationId, orgId))
+      .where(jobCond)
       .groupBy(job.status),
 
     // 7. Recent applications (last 10) with candidate + job details
@@ -75,7 +90,7 @@ export default defineEventHandler(async (event) => {
       .from(application)
       .innerJoin(candidate, eq(candidate.id, application.candidateId))
       .innerJoin(job, eq(job.id, application.jobId))
-      .where(eq(application.organizationId, orgId))
+      .where(appCond)
       .orderBy(desc(application.createdAt))
       .limit(10),
 
@@ -98,10 +113,11 @@ export default defineEventHandler(async (event) => {
       })
       .from(job)
       .leftJoin(application, eq(application.jobId, job.id))
-      .where(and(eq(job.organizationId, orgId), eq(job.status, 'open')))
+      .where(and(jobCond, eq(job.status, 'open')))
       .groupBy(job.id)
       .orderBy(sql`count(${application.id}) desc`)
-      .limit(5),
+      // Sprint 20.2: 50 вместо 5 — owner/admin видят все открытые вакансии в разбивке по рекрутёрам
+      .limit(50),
   ])
 
   // ─────────────────────────────────────────────
@@ -210,9 +226,13 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // ─── Sprint 20.2: рекрутёры вакансий (для группировки на клиенте) ───
+  const recruitersMap = await getJobRecruitersMap(orgId, topJobIds)
+
   const topJobsEnriched = topJobs.map(j => ({
     ...j,
     stages: buildJobStages(j.pipelineId, j.id),
+    recruiters: recruitersMap[j.id] ?? [],
   }))
 
   return {
@@ -226,5 +246,6 @@ export default defineEventHandler(async (event) => {
     jobsByStatus,
     recentApplications,
     topJobs: topJobsEnriched,
+    scope: scopedIds ? 'mine' : 'all',
   }
 })

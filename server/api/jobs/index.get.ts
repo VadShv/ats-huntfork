@@ -1,6 +1,7 @@
 import { eq, and, desc, count, inArray, asc } from 'drizzle-orm'
 import { job, application, hhVacancyLink, pipelineStage } from '../../database/schema'
 import { jobQuerySchema } from '../../utils/schemas/job'
+import { resolveRecruiterScope, getJobRecruitersMap } from '../../utils/recruiterScope'
 
 interface PipelineCounts {
   new: number
@@ -17,9 +18,14 @@ export default defineEventHandler(async (event) => {
 
   const query = await getValidatedQuery(event, jobQuerySchema.parse)
 
+  // ─── Sprint 20.2: скоуп «мои вакансии» — рекрутёр (member) по умолчанию видит только назначенные ───
+  // Сентинел '__none__' даёт пустую выдачу без ветвления формы ответа (важно для типов useFetch)
+  const scope = await resolveRecruiterScope(orgId, session.user.id, query.scope)
+
   const offset = (query.page - 1) * query.limit
   const conditions = [eq(job.organizationId, orgId)]
   if (query.status) conditions.push(eq(job.status, query.status))
+  if (scope.scoped) conditions.push(inArray(job.id, scope.jobIds.length > 0 ? scope.jobIds : ['__none__']))
 
   const [data, total] = await Promise.all([
     db.query.job.findMany({
@@ -175,6 +181,9 @@ export default defineEventHandler(async (event) => {
     hhLinkedMap = Object.fromEntries(hhRows.map(r => [r.jobId, { hhVacancyId: r.hhVacancyId, importedCount: r.importedCount }]))
   }
 
+  // ─── Sprint 20.2: рекрутёры каждой вакансии (для группировки на клиенте) ───
+  const recruitersMap = await getJobRecruitersMap(orgId, jobIds)
+
   const enrichedData = data.map((j) => ({
     ...j,
     pipelineName: j.pipeline?.name ?? null,
@@ -183,7 +192,8 @@ export default defineEventHandler(async (event) => {
     hhLinked: !!hhLinkedMap[j.id],
     hhVacancyId: hhLinkedMap[j.id]?.hhVacancyId ?? null,
     hhImportedCount: hhLinkedMap[j.id]?.importedCount ?? 0,
+    recruiters: recruitersMap[j.id] ?? [],
   }))
 
-  return { data: enrichedData, total, page: query.page, limit: query.limit }
+  return { data: enrichedData, total, page: query.page, limit: query.limit, scope: scope.scoped ? 'mine' : 'all' }
 })

@@ -65,10 +65,28 @@ const memberSearch = ref('')
 const membersPerPage = 20
 const visibleCount = ref(membersPerPage)
 
+// ─── Sprint 20.2: два списка — команда (owner/admin/member) и нанимающие менеджеры ───
+const ROLE_ORDER: Record<string, number> = { owner: 0, admin: 1, member: 2 }
+
+const teamMembers = computed(() =>
+  members.value
+    .filter(m => m.role !== 'hiring_manager')
+    .toSorted((a, b) =>
+      (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9)
+      || (a.user.name ?? '').localeCompare(b.user.name ?? ''),
+    ),
+)
+
+const hmMembers = computed(() =>
+  members.value
+    .filter(m => m.role === 'hiring_manager')
+    .toSorted((a, b) => (a.user.name ?? '').localeCompare(b.user.name ?? '')),
+)
+
 const filteredMembers = computed(() => {
   const q = memberSearch.value.trim().toLowerCase()
-  if (!q) return members.value
-  return members.value.filter(m =>
+  if (!q) return teamMembers.value
+  return teamMembers.value.filter(m =>
     m.user.name?.toLowerCase().includes(q)
     || m.user.email?.toLowerCase().includes(q)
     || m.role.toLowerCase().includes(q),
@@ -85,6 +103,30 @@ function showMoreMembers() {
 // Reset visible count when search changes
 watch(memberSearch, () => {
   visibleCount.value = membersPerPage
+})
+
+// ─── Поиск и пагинация по нанимающим менеджерам ───
+const hmSearch = ref('')
+const hmVisibleCount = ref(membersPerPage)
+
+const filteredHms = computed(() => {
+  const q = hmSearch.value.trim().toLowerCase()
+  if (!q) return hmMembers.value
+  return hmMembers.value.filter(m =>
+    m.user.name?.toLowerCase().includes(q)
+    || m.user.email?.toLowerCase().includes(q),
+  )
+})
+
+const visibleHms = computed(() => filteredHms.value.slice(0, hmVisibleCount.value))
+const hasMoreHms = computed(() => hmVisibleCount.value < filteredHms.value.length)
+
+function showMoreHms() {
+  hmVisibleCount.value += membersPerPage
+}
+
+watch(hmSearch, () => {
+  hmVisibleCount.value = membersPerPage
 })
 
 // ─────────────────────────────────────────────
@@ -1245,13 +1287,13 @@ onUnmounted(() => {
               <Users class="size-5" />
             </div>
             <div>
-              <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Участники команды</h2>
+              <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Команда рекрутинга</h2>
               <p class="text-sm text-surface-500 dark:text-surface-400">
-                {{ isLoadingMembers ? 'Загрузка…' : `Участников: ${members.length}` }}
+                {{ isLoadingMembers ? 'Загрузка…' : `Владельцы, администраторы и рекрутёры: ${teamMembers.length}` }}
               </p>
             </div>
           </div>
-          <div v-if="!isLoadingMembers && members.length > 5" class="flex-shrink-0">
+          <div v-if="!isLoadingMembers && teamMembers.length > 5" class="flex-shrink-0">
             <div class="relative">
               <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-surface-400 pointer-events-none" />
               <input
@@ -1282,116 +1324,19 @@ onUnmounted(() => {
 
       <!-- Members list -->
       <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
-        <div
+        <MemberRow
           v-for="m in visibleMembers"
           :key="m.id"
-          class="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
-        >
-          <!-- Avatar + Info row -->
-          <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-            <div class="flex-shrink-0">
-              <img
-                v-if="m.user.image"
-                :src="m.user.image"
-                :alt="m.user.name"
-                class="size-10 rounded-full object-cover ring-2 ring-surface-100 dark:ring-surface-800"
-              />
-              <div v-else class="size-10 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center text-sm font-semibold text-brand-700 dark:text-brand-300 ring-2 ring-surface-100 dark:ring-surface-800">
-                {{ getInitials(m.user.name) }}
-              </div>
-            </div>
+          :member="m"
+          :is-self="isCurrentUser(m.userId)"
+          :can-manage="canManageMembers"
+          :dropdown-open="activeDropdown === m.id"
+          :updating-role="isUpdatingRole === m.id"
+          @toggle-dropdown="toggleDropdown(m.id)"
+          @update-role="(r: 'admin' | 'member') => handleUpdateRole(m.id, r)"
+          @remove="memberToRemove = { id: m.id, name: m.user.name }; closeDropdown()"
+        />
 
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">
-                  {{ m.user.name }}
-                </span>
-                <span v-if="isCurrentUser(m.userId)" class="text-xs text-surface-400 dark:text-surface-500">(вы)</span>
-              </div>
-              <div class="text-sm text-surface-500 dark:text-surface-400 truncate">
-                <a
-                  :href="`mailto:${m.user.email}`"
-                  target="_blank"
-                  class="hover:text-brand-600 dark:hover:text-brand-400 hover:underline cursor-pointer transition-colors"
-                >{{ m.user.email }}</a>
-              </div>
-            </div>
-          </div>
-
-          <!-- Role badge + Actions -->
-          <div class="flex items-center gap-2 pl-[3.25rem] sm:pl-0 flex-shrink-0">
-            <span
-              :class="[getRoleConfig(m.role).bg, getRoleConfig(m.role).color]"
-              class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-            >
-              <component :is="getRoleConfig(m.role).icon" class="size-3" />
-              {{ getRoleConfig(m.role).label }}
-            </span>
-
-          <!-- Actions dropdown -->
-          <div v-if="canManageMembers && !isCurrentUser(m.userId) && m.role !== 'owner'" class="relative" data-member-actions>
-            <button
-              class="p-1.5 rounded-md text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-              @click.stop="toggleDropdown(m.id)"
-            >
-              <MoreHorizontal class="size-4" />
-            </button>
-
-            <Transition
-              enter-active-class="transition-all duration-150"
-              leave-active-class="transition-all duration-100"
-              enter-from-class="opacity-0 scale-95"
-              leave-to-class="opacity-0 scale-95"
-            >
-              <div
-                v-if="activeDropdown === m.id"
-                class="absolute right-0 top-full mt-1 w-48 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 shadow-lg z-50 overflow-hidden"
-              >
-                <!-- Role options -->
-                <div class="py-1 border-b border-surface-100 dark:border-surface-800">
-                  <div class="px-3 py-1.5 text-xs font-medium text-surface-400 dark:text-surface-500 uppercase tracking-wider">
-                    Изменить роль
-                  </div>
-                  <button
-                    v-if="m.role !== 'admin'"
-                    :disabled="isUpdatingRole === m.id"
-                    class="w-full px-3 py-2 text-left text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors flex items-center gap-2 disabled:opacity-50 bg-transparent border-0 cursor-pointer"
-                    @click="handleUpdateRole(m.id, 'admin')"
-                  >
-                    <ShieldCheck class="size-3.5 text-brand-500" />
-                    Сделать администратором
-                  </button>
-                  <button
-                    v-if="m.role !== 'member'"
-                    :disabled="isUpdatingRole === m.id"
-                    class="w-full px-3 py-2 text-left text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors flex items-center gap-2 disabled:opacity-50 bg-transparent border-0 cursor-pointer"
-                    @click="handleUpdateRole(m.id, 'member')"
-                  >
-                    <Shield class="size-3.5 text-surface-400" />
-                    Сделать участником
-                  </button>
-                </div>
-
-                <!-- Remove -->
-                <div class="py-1">
-                  <button
-                    class="w-full px-3 py-2 text-left text-sm text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors flex items-center gap-2 bg-transparent border-0 cursor-pointer"
-                    @click="memberToRemove = { id: m.id, name: m.user.name }; closeDropdown()"
-                  >
-                    <Trash2 class="size-3.5" />
-                    Удалить участника
-                  </button>
-                </div>
-              </div>
-            </Transition>
-          </div>
-
-          <!-- Loading indicator for role update -->
-          <div v-if="isUpdatingRole === m.id" class="flex-shrink-0">
-            <Loader2 class="size-4 animate-spin text-brand-500" />
-          </div>
-          </div>
-        </div>
 
         <!-- Show more button -->
         <div v-if="hasMoreMembers" class="px-4 sm:px-6 py-3 text-center border-t border-surface-100 dark:border-surface-800">
@@ -1405,6 +1350,77 @@ onUnmounted(() => {
         </div>
       </div>
     </section>
+
+    <!-- ─── Нанимающие менеджеры (Sprint 20.2) ─── -->
+    <section class="mt-6 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900">
+      <div class="px-4 sm:px-6 py-5 border-b border-surface-200 dark:border-surface-800">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center justify-center size-10 shrink-0 rounded-lg bg-info-50 dark:bg-info-950 text-info-600 dark:text-info-400">
+              <UserCheck class="size-5" />
+            </div>
+            <div>
+              <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Нанимающие менеджеры</h2>
+              <p class="text-sm text-surface-500 dark:text-surface-400">
+                {{ isLoadingMembers ? 'Загрузка…' : `Нанимающих менеджеров: ${hmMembers.length}` }}
+              </p>
+            </div>
+          </div>
+          <div v-if="!isLoadingMembers && hmMembers.length > 0" class="flex-shrink-0">
+            <div class="relative">
+              <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-surface-400 pointer-events-none" />
+              <input
+                v-model="hmSearch"
+                type="text"
+                placeholder="Поиск нанимающего…"
+                class="w-full sm:w-48 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 pl-8.5 pr-3 py-1.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="isLoadingMembers" class="px-4 sm:px-6 py-8 text-center text-surface-400 text-sm">
+        <Loader2 class="size-5 animate-spin mx-auto mb-2" />
+        Загрузка…
+      </div>
+
+      <div v-else-if="hmMembers.length === 0" class="px-4 sm:px-6 py-8 text-center text-sm text-surface-400 dark:text-surface-500">
+        Нанимающих менеджеров пока нет. Создайте ссылку-приглашение с ролью «Нанимающий менеджер» выше.
+      </div>
+
+      <div v-else-if="filteredHms.length === 0" class="px-4 sm:px-6 py-8 text-center text-sm text-surface-400 dark:text-surface-500">
+        По запросу «{{ hmSearch }}» никого не найдено.
+      </div>
+
+      <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
+        <MemberRow
+          v-for="m in visibleHms"
+          :key="m.id"
+          :member="m"
+          :is-self="isCurrentUser(m.userId)"
+          :can-manage="canManageMembers"
+          :dropdown-open="activeDropdown === m.id"
+          :updating-role="isUpdatingRole === m.id"
+          @toggle-dropdown="toggleDropdown(m.id)"
+          @update-role="(r: 'admin' | 'member') => handleUpdateRole(m.id, r)"
+          @remove="memberToRemove = { id: m.id, name: m.user.name }; closeDropdown()"
+        />
+
+        <div v-if="hasMoreHms" class="px-4 sm:px-6 py-3 text-center border-t border-surface-100 dark:border-surface-800">
+          <button
+            class="text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
+            @click="showMoreHms"
+          >
+            Показать ещё {{ Math.min(membersPerPage, filteredHms.length - hmVisibleCount) }}
+            (осталось {{ filteredHms.length - hmVisibleCount }})
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Роли и права (Sprint 20.2) ─── -->
+    <RolePermissionsMatrix class="mt-6" />
 
     <!-- Remove member confirmation modal -->
     <Teleport to="body">

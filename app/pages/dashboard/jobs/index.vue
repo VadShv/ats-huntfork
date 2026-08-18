@@ -3,6 +3,7 @@ import {
   Briefcase, Bell, Plus, Kanban,
   MapPin, Search, SlidersHorizontal, X, Users,
   LayoutGrid, List, Table2, ArrowUp, ArrowDown, ArrowUpDown,
+  ChevronDown, CircleUser,
 } from 'lucide-vue-next'
 
 definePageMeta({
@@ -261,6 +262,69 @@ const sortedJobs = computed(() => {
 // ─────────────────────────────────────────────
 // Group jobs: needs attention + others (gallery only)
 // ─────────────────────────────────────────────
+
+// ─── Sprint 20.2: группировка по рекрутёрам для owner/admin (gallery) ───
+const { role: orgRole } = usePermission({ job: ['read'] })
+const groupByRecruiter = computed(() => orgRole.value === 'owner' || orgRole.value === 'admin')
+
+interface RecruiterGroup {
+  key: string
+  name: string | null
+  jobs: typeof sortedJobs.value
+}
+
+const recruiterGroups = computed<RecruiterGroup[]>(() => {
+  // Рекрутёр видит плоский список своих вакансий — псевдогруппа без заголовка
+  if (!groupByRecruiter.value) {
+    return [{ key: 'all', name: null, jobs: sortedJobs.value }]
+  }
+  const map = new Map<string, RecruiterGroup>()
+  const withoutRecruiter: typeof sortedJobs.value = []
+  for (const j of sortedJobs.value) {
+    const recs = (j as { recruiters?: Array<{ userId: string, name: string }> }).recruiters ?? []
+    if (recs.length === 0) {
+      withoutRecruiter.push(j)
+      continue
+    }
+    // Вакансия с несколькими рекрутёрами показывается в каждой группе
+    for (const r of recs) {
+      let g = map.get(r.userId)
+      if (!g) {
+        g = { key: r.userId, name: r.name || 'Без имени', jobs: [] }
+        map.set(r.userId, g)
+      }
+      g.jobs.push(j)
+    }
+  }
+  const groups = [...map.values()].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+  if (withoutRecruiter.length > 0) {
+    groups.push({ key: '__none__', name: 'Без рекрутёра', jobs: withoutRecruiter })
+  }
+  return groups
+})
+
+// Свёрнутые группы — сохраняются между визитами
+const COLLAPSE_LS_KEY = 'jobs-recruiter-collapsed'
+const collapsedRecruiters = ref<Set<string>>(new Set())
+
+onMounted(() => {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_LS_KEY)
+    if (raw) collapsedRecruiters.value = new Set(JSON.parse(raw) as string[])
+  }
+  catch { /* localStorage недоступен — не критично */ }
+})
+
+function toggleRecruiterGroup(key: string) {
+  const next = new Set(collapsedRecruiters.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsedRecruiters.value = next
+  try {
+    localStorage.setItem(COLLAPSE_LS_KEY, JSON.stringify([...next]))
+  }
+  catch { /* игнорируем */ }
+}
 
 const jobsNeedingAttention = computed(() =>
   sortedJobs.value.filter(j => j.status === 'open' && (j.pipeline?.new ?? 0) > 0),
@@ -794,9 +858,34 @@ const sortDirOptions = computed(() => [
            GALLERY VIEW (grid)
       ════════════════════════════════════ -->
       <template v-else-if="viewMode === 'gallery'">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- ─── Sprint 20.2: группы по рекрутёрам (owner/admin) или одна плоская группа ─── -->
+        <div
+          v-for="grp in recruiterGroups"
+          :key="grp.key"
+          :class="grp.name !== null ? 'mb-5' : ''"
+        >
+          <button
+            v-if="grp.name !== null"
+            class="w-full flex items-center gap-2 px-1 py-1.5 mb-2 text-left rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors bg-transparent border-0 cursor-pointer"
+            @click="toggleRecruiterGroup(grp.key)"
+          >
+            <ChevronDown
+              class="size-4 text-surface-400 transition-transform duration-200"
+              :class="collapsedRecruiters.has(grp.key) ? '-rotate-90' : ''"
+            />
+            <CircleUser class="size-4 text-surface-400" />
+            <span class="text-sm font-semibold text-surface-700 dark:text-surface-300">{{ grp.name }}</span>
+            <span class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-surface-100 dark:bg-surface-800 text-xs font-medium text-surface-500 dark:text-surface-400 tabular-nums">
+              {{ grp.jobs.length }}
+            </span>
+          </button>
+
+          <div
+            v-if="grp.name === null || !collapsedRecruiters.has(grp.key)"
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
           <NuxtLink
-            v-for="j in sortedJobs"
+            v-for="j in grp.jobs"
             :key="j.id"
             :to="localePath(`/dashboard/jobs/${j.id}`)"
             class="group rounded-xl border bg-white dark:bg-surface-900 p-4 flex flex-col gap-3 hover:shadow-md transition-all no-underline"
@@ -903,6 +992,7 @@ const sortDirOptions = computed(() => [
               </span>
             </div>
           </NuxtLink>
+          </div>
         </div>
       </template>
 

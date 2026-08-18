@@ -3,7 +3,7 @@ import {
   Briefcase, Users, FileText, Calendar, Plus,
   ArrowRight, TrendingUp, Clock, AlertCircle,
   Eye, UserPlus, ExternalLink,
-  LayoutDashboard, Zap,
+  LayoutDashboard, Zap, ChevronDown, CircleUser,
 } from 'lucide-vue-next'
 
 definePageMeta({
@@ -59,6 +59,67 @@ const { interviews: upcomingInterviews } = useInterviews({
 // ─────────────────────────────────────────────
 
 const { t } = useI18n()
+
+// ─── Sprint 20.2: группировка вакансий по рекрутёрам для owner/admin ───
+const { role: orgRole } = usePermission({ job: ['read'] })
+const groupTopJobs = computed(() => orgRole.value === 'owner' || orgRole.value === 'admin')
+
+interface TopJobGroup {
+  key: string
+  name: string | null
+  jobs: typeof topJobs.value
+}
+
+const topJobGroups = computed<TopJobGroup[]>(() => {
+  // Рекрутёр видит плоский список своих вакансий — псевдогруппа без заголовка
+  if (!groupTopJobs.value) {
+    return [{ key: 'all', name: null, jobs: topJobs.value }]
+  }
+  const map = new Map<string, TopJobGroup>()
+  const withoutRecruiter: typeof topJobs.value = []
+  for (const j of topJobs.value) {
+    const recs = (j as { recruiters?: Array<{ userId: string, name: string }> }).recruiters ?? []
+    if (recs.length === 0) {
+      withoutRecruiter.push(j)
+      continue
+    }
+    for (const r of recs) {
+      let g = map.get(r.userId)
+      if (!g) {
+        g = { key: r.userId, name: r.name || 'Без имени', jobs: [] }
+        map.set(r.userId, g)
+      }
+      g.jobs.push(j)
+    }
+  }
+  const groups = [...map.values()].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+  if (withoutRecruiter.length > 0) {
+    groups.push({ key: '__none__', name: 'Без рекрутёра', jobs: withoutRecruiter })
+  }
+  return groups
+})
+
+const DASH_COLLAPSE_LS_KEY = 'dashboard-recruiter-collapsed'
+const collapsedRecruiters = ref<Set<string>>(new Set())
+
+onMounted(() => {
+  try {
+    const raw = localStorage.getItem(DASH_COLLAPSE_LS_KEY)
+    if (raw) collapsedRecruiters.value = new Set(JSON.parse(raw) as string[])
+  }
+  catch { /* localStorage недоступен — не критично */ }
+})
+
+function toggleRecruiterGroup(key: string) {
+  const next = new Set(collapsedRecruiters.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsedRecruiters.value = next
+  try {
+    localStorage.setItem(DASH_COLLAPSE_LS_KEY, JSON.stringify([...next]))
+  }
+  catch { /* игнорируем */ }
+}
 
 const stageConfig = computed(() => [
   { key: 'new', label: t('dashboard.jobs.pipeline.stages.new'), color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-950/40' },
@@ -406,7 +467,25 @@ const isEmpty = computed(() =>
             </div>
 
             <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
-              <div v-for="j in topJobs" :key="j.id" class="px-6 py-5 group/job">
+              <!-- ─── Sprint 20.2: группы по рекрутёрам (owner/admin) или плоский список ─── -->
+              <template v-for="grp in topJobGroups" :key="grp.key">
+                <button
+                  v-if="grp.name !== null"
+                  class="w-full px-6 py-2.5 flex items-center gap-2 text-left bg-surface-50/70 dark:bg-surface-800/40 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors border-0 cursor-pointer"
+                  @click="toggleRecruiterGroup(grp.key)"
+                >
+                  <ChevronDown
+                    class="size-3.5 text-surface-400 transition-transform duration-200"
+                    :class="collapsedRecruiters.has(grp.key) ? '-rotate-90' : ''"
+                  />
+                  <CircleUser class="size-3.5 text-surface-400" />
+                  <span class="text-xs font-semibold text-surface-600 dark:text-surface-300">{{ grp.name }}</span>
+                  <span class="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full bg-surface-200/70 dark:bg-surface-700 text-[10px] font-medium text-surface-500 dark:text-surface-400 tabular-nums">
+                    {{ grp.jobs.length }}
+                  </span>
+                </button>
+                <template v-if="grp.name === null || !collapsedRecruiters.has(grp.key)">
+              <div v-for="j in grp.jobs" :key="j.id" class="px-6 py-5 group/job">
                 <!-- Job title row -->
                 <div class="flex items-center justify-between mb-3">
                   <NuxtLink
@@ -509,6 +588,8 @@ const isEmpty = computed(() =>
                   </div>
                 </template>
               </div>
+                </template>
+              </template>
             </div>
           </div>
 
