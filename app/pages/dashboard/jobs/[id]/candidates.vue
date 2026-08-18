@@ -37,14 +37,11 @@ useSeoMeta({
 // Fetch applications for this job
 // ─────────────────────────────────────────────
 
-const STATUS_OPTIONS = ['new', 'screening', 'interview', 'offer', 'hired', 'rejected'] as const
-type Status = typeof STATUS_OPTIONS[number]
-
+// Фаза 1 (словарь = воронка): фильтр только по реальным этапам воронки (мультиселект)
 // useState scoped to this job so state persists across sub-navigation
-const selectedStatuses = useState<Status[]>(`cand-filter-statuses-${jobId}`, () => [])
 const scoreMin = useState<number | undefined>(`cand-filter-score-min-${jobId}`, () => undefined)
 const scoreMax = useState<number | undefined>(`cand-filter-score-max-${jobId}`, () => undefined)
-const selectedStageId = useState<string | undefined>(`cand-filter-stageId-${jobId}`, () => undefined)
+const selectedStageIds = useState<string[]>(`cand-filter-stageIds-${jobId}`, () => [])
 const visibleCols = useState(`cand-visible-cols-${jobId}`, () => ({
   email: true,
   score: true,
@@ -92,11 +89,6 @@ const pipelineStages = computed<StageItem[]>(() => {
 
 const hasPipeline = computed(() => !!pipelineId.value)
 
-// Only send a single status to the API when exactly one is selected; otherwise fetch all and filter client-side
-const apiStatusFilter = computed(() =>
-  selectedStatuses.value.length === 1 ? selectedStatuses.value[0] : undefined,
-)
-
 // Автодогрузка всех откликов по вакансии батчами по 1000.
 // Даже если откликов 5000+, UI получит все без кнопок/пагинации.
 const PAGE_SIZE = 1000
@@ -111,6 +103,10 @@ interface AppRow {
   score?: number | null
   source?: ApplicationSource | string | null
   currentStageId?: string | null
+  currentStageName?: string | null
+  currentStageColor?: string | null
+  currentStageBucket?: 'working' | 'rejected' | null
+  currentStageType?: string | null
   createdAt: string
   [k: string]: unknown
 }
@@ -155,8 +151,8 @@ async function loadApplications() {
   appError.value = null
   try {
     const baseQuery: Record<string, unknown> = { jobId, limit: PAGE_SIZE, page: 1 }
-    if (apiStatusFilter.value) baseQuery.status = apiStatusFilter.value
-    if (selectedStageId.value) baseQuery.stageId = selectedStageId.value
+    // Фаза 1: фильтрация по этапам воронки (подэтапы разворачиваются на сервере)
+    if (selectedStageIds.value.length > 0) baseQuery.stageIds = selectedStageIds.value.join(',')
     const first = await fetchAppsPage(baseQuery)
     if (myId !== appsRequestId) return // пользователь уже запустил новый запрос
     applications.value = first.data
@@ -190,7 +186,7 @@ async function refreshApps() {
 }
 
 // Перезагрузка при смене фильтров
-watch([apiStatusFilter, selectedStageId], () => { loadApplications() })
+watch(selectedStageIds, () => { loadApplications() }, { deep: true })
 onMounted(() => { loadApplications() })
 
 // hh.ru связка вакансии — панель «Связано с hh.ru» и кнопка ручного синка
@@ -470,13 +466,28 @@ async function runHhSync() {
 // Status & badge helpers
 // ─────────────────────────────────────────────
 
-const statusBadgeClasses: Record<string, string> = {
-  new: 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:ring-blue-800',
-  screening: 'bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-950/50 dark:text-violet-400 dark:ring-violet-800',
-  interview: 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:ring-amber-800',
-  offer: 'bg-teal-50 text-teal-700 ring-teal-200 dark:bg-teal-950/50 dark:text-teal-400 dark:ring-teal-800',
-  hired: 'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950/50 dark:text-green-400 dark:ring-green-800',
-  rejected: 'bg-surface-100 text-surface-500 ring-surface-200 dark:bg-surface-800/50 dark:text-surface-400 dark:ring-surface-700',
+// Фаза 1: производное «Состояние» отклика из bucket/type текущего этапа
+type AppState = 'working' | 'hired' | 'rejected'
+
+function appState(raw: unknown): AppState {
+  const app = raw as { currentStageBucket?: string | null, currentStageType?: string | null }
+  if (app.currentStageBucket === 'rejected') return 'rejected'
+  if (app.currentStageType === 'hired') return 'hired'
+  return 'working'
+}
+
+const APP_STATE_RANK: Record<AppState, number> = { working: 0, hired: 1, rejected: 2 }
+
+const stateLabels = computed<Record<AppState, string>>(() => ({
+  working: t('applications.state.working'),
+  hired: t('applications.state.hired'),
+  rejected: t('applications.state.rejected'),
+}))
+
+const stateClasses: Record<AppState, string> = {
+  working: 'bg-surface-100 text-surface-600 ring-surface-200 dark:bg-surface-800 dark:text-surface-300 dark:ring-surface-700',
+  hired: 'bg-success-50 text-success-700 ring-success-200 dark:bg-success-950 dark:text-success-400 dark:ring-success-800',
+  rejected: 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-950 dark:text-danger-400 dark:ring-danger-800',
 }
 
 function getCandidateInitials(firstName?: string, lastName?: string) {
@@ -485,22 +496,17 @@ function getCandidateInitials(firstName?: string, lastName?: string) {
   return `${first}${last}`.toUpperCase() || 'C'
 }
 
-const statusLabels = computed<Record<Status, string>>(() => ({
-  new: t('dashboard.jobs.candidates.statusNew'),
-  screening: t('dashboard.jobs.candidates.statusScreening'),
-  interview: t('dashboard.jobs.candidates.statusInterview'),
-  offer: t('dashboard.jobs.candidates.statusOffer'),
-  hired: t('dashboard.jobs.candidates.statusHired'),
-  rejected: t('dashboard.jobs.candidates.statusRejected'),
-}))
-
-function toggleStatus(s: Status) {
-  if (selectedStatuses.value.includes(s)) {
-    selectedStatuses.value = selectedStatuses.value.filter(x => x !== s)
+function toggleStage(id: string) {
+  if (selectedStageIds.value.includes(id)) {
+    selectedStageIds.value = selectedStageIds.value.filter(x => x !== id)
   }
   else {
-    selectedStatuses.value = [...selectedStatuses.value, s]
+    selectedStageIds.value = [...selectedStageIds.value, id]
   }
+}
+
+function stageById(id: string) {
+  return pipelineStages.value.find(s => s.id === id)
 }
 
 // ─────────────────────────────────────────────
@@ -519,20 +525,18 @@ onMounted(() => document.addEventListener('mousedown', handleOutsideClick))
 onUnmounted(() => document.removeEventListener('mousedown', handleOutsideClick))
 
 const activeFilterCount = computed(() => {
-  let n = selectedStatuses.value.length
+  let n = selectedStageIds.value.length
   if (scoreMin.value != null) n++
   if (scoreMax.value != null) n++
-  if (selectedStageId.value != null) n++
   if (hideColdInTable.value) n++
   if (needsReviewOnly.value) n++
   return n
 })
 
 function clearFilters() {
-  selectedStatuses.value = []
+  selectedStageIds.value = []
   scoreMin.value = undefined
   scoreMax.value = undefined
-  selectedStageId.value = undefined
   hideColdInTable.value = false
   needsReviewOnly.value = false
 }
@@ -578,7 +582,6 @@ const sourceCounts = computed(() => {
 const sorted = computed(() => {
   return [...applications.value]
     .filter((app) => {
-      if (selectedStatuses.value.length > 1 && !selectedStatuses.value.includes(app.status as Status)) return false
       if (needsReviewOnly.value && !(app as any).needsManualReview) return false
       if (scoreMin.value != null && (app.score ?? 0) < scoreMin.value) return false
       if (scoreMax.value != null && (app.score ?? 0) > scoreMax.value) return false
@@ -598,7 +601,9 @@ const sorted = computed(() => {
           cmp = (a.score ?? -1) - (b.score ?? -1)
           break
         case 'status':
-          cmp = a.status.localeCompare(b.status)
+          // Фаза 1: сортировка по состоянию (в работе → принят → отказ), затем по имени этапа
+          cmp = APP_STATE_RANK[appState(a)] - APP_STATE_RANK[appState(b)]
+          if (cmp === 0) cmp = (a.currentStageName ?? '').localeCompare(b.currentStageName ?? '')
           break
         case 'createdAt':
           cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -813,7 +818,7 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                     { key: 'score', label: $t('dashboard.jobs.candidates.colScore') },
                     { key: 'source', label: 'Источник' },
                     { key: 'stage', label: $t('applications.stage.label') },
-                    { key: 'status', label: $t('dashboard.jobs.candidates.colStatus') },
+                    { key: 'status', label: $t('applications.state.label') },
                     { key: 'createdAt', label: $t('dashboard.jobs.candidates.colApplied') },
                   ] as const)"
                   :key="col.key"
@@ -837,63 +842,32 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
 
             <div class="border-t border-surface-100 dark:border-surface-800" />
 
-            <!-- Filter by status -->
-            <div>
-              <p class="text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wide mb-2">{{ $t('dashboard.jobs.candidates.filterByStatus') }}</p>
-              <div class="space-y-1.5">
-                <label
-                  v-for="s in STATUS_OPTIONS"
-                  :key="s"
-                  class="flex items-center gap-2.5 cursor-pointer select-none group"
-                >
-                  <input type="checkbox" class="sr-only" :checked="selectedStatuses.includes(s)" @change="toggleStatus(s)" />
-                  <span
-                    class="size-4 shrink-0 rounded border flex items-center justify-center transition-colors"
-                    :class="selectedStatuses.includes(s)
-                      ? 'bg-brand-500 border-brand-500'
-                      : 'bg-white dark:bg-surface-800 border-surface-300 dark:border-surface-600'"
-                  >
-                    <Check v-if="selectedStatuses.includes(s)" class="size-3 text-white" :stroke-width="3" />
-                  </span>
-                  <span
-                  class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold capitalize ring-1 ring-inset"
-                    :class="statusBadgeClasses[s]"
-                  >
-                    {{ statusLabels[s] }}
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <div class="border-t border-surface-100 dark:border-surface-800" />
-
             <!-- Stage filter (only shown when the job has a pipeline) -->
             <div v-if="hasPipeline && pipelineStages.length > 0">
               <p class="text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wide mb-2">
                 {{ $t('applications.filter.stage') }}
               </p>
               <div class="space-y-1.5">
+                <!-- Фаза 1: мультиселект по этапам воронки -->
                 <label
                   v-for="stage in pipelineStages"
                   :key="stage.id"
                   class="flex items-center gap-2.5 cursor-pointer select-none group"
                 >
                   <input
-                    type="radio"
+                    type="checkbox"
                     class="sr-only"
-                    name="stageFilter"
-                    :value="stage.id"
-                    :checked="selectedStageId === stage.id"
-                    @change="selectedStageId = selectedStageId === stage.id ? undefined : stage.id"
+                    :checked="selectedStageIds.includes(stage.id)"
+                    @change="toggleStage(stage.id)"
                   />
                   <span
-                    class="size-4 shrink-0 rounded-full border flex items-center justify-center transition-colors"
-                    :class="selectedStageId === stage.id
-                      ? 'border-brand-500'
+                    class="size-4 shrink-0 rounded border flex items-center justify-center transition-colors"
+                    :class="selectedStageIds.includes(stage.id)
+                      ? 'border-transparent'
                       : 'bg-white dark:bg-surface-800 border-surface-300 dark:border-surface-600'"
-                    :style="selectedStageId === stage.id ? { backgroundColor: stage.color } : {}"
+                    :style="selectedStageIds.includes(stage.id) ? { backgroundColor: stage.color } : {}"
                   >
-                    <Check v-if="selectedStageId === stage.id" class="size-2.5 text-white" :stroke-width="3" />
+                    <Check v-if="selectedStageIds.includes(stage.id)" class="size-3 text-white" :stroke-width="3" />
                   </span>
                   <span class="flex items-center gap-1.5 text-sm text-surface-700 dark:text-surface-300">
                     <span
@@ -905,10 +879,10 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                 </label>
                 <!-- Clear stage selection -->
                 <button
-                  v-if="selectedStageId"
+                  v-if="selectedStageIds.length > 0"
                   type="button"
                   class="text-xs text-surface-400 hover:text-danger-600 transition-colors mt-1 cursor-pointer"
-                  @click="selectedStageId = undefined"
+                  @click="selectedStageIds = []"
                 >
                   {{ $t('applications.filter.allStages') }}
                 </button>
@@ -1043,15 +1017,15 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
         </div>
 
         <!-- Active filter pills -->
-        <template v-if="selectedStatuses.length > 0">
+        <template v-if="selectedStageIds.length > 0">
           <span
-            v-for="s in selectedStatuses"
-            :key="s"
-            class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize cursor-pointer"
-            :class="statusBadgeClasses[s]"
-            @click="toggleStatus(s as Status)"
+            v-for="sid in selectedStageIds"
+            :key="sid"
+            class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 cursor-pointer"
+            @click="toggleStage(sid)"
           >
-            {{ statusLabels[s] }}
+            <span class="inline-flex size-1.5 rounded-full shrink-0" :style="{ backgroundColor: stageById(sid)?.color || '#9ca3af' }" />
+            {{ stageById(sid)?.name ?? '—' }}
             <X class="size-2.5" />
           </span>
         </template>
@@ -1145,7 +1119,7 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                 </th>
                 <th v-if="visibleCols.status" class="px-4 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wide select-none">
                   <button class="inline-flex items-center gap-1 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="toggleSort('status')">
-                    {{ $t('dashboard.jobs.candidates.colStatus') }}
+                    {{ $t('applications.state.label') }}
                     <ChevronUp v-if="sortKey === 'status' && sortDir === 'asc'" class="size-3" />
                     <ChevronDown v-else-if="sortKey === 'status' && sortDir === 'desc'" class="size-3" />
                     <ChevronsUpDown v-else class="size-3 opacity-40" />
@@ -1244,7 +1218,11 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                   />
                 </td>
                 <td v-if="visibleCols.status" class="px-4 py-3">
-                  <StatusBadge v-if="!app.currentStageId" :status="app.status" size="xs" />
+                  <!-- Фаза 1: производное «Состояние» вместо легаси-статуса -->
+                  <span
+                    class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ring-inset whitespace-nowrap"
+                    :class="stateClasses[appState(app)]"
+                  >{{ stateLabels[appState(app)] }}</span>
                 </td>
                 <td v-if="visibleCols.createdAt" class="hidden md:table-cell px-4 py-3 text-surface-500 dark:text-surface-400 whitespace-nowrap text-xs font-medium">
                   <TimelineDateLink :date="app.createdAt">{{ timeAgo(app.createdAt) }}</TimelineDateLink>

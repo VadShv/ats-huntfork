@@ -737,7 +737,13 @@ const selectedCandidateId = ref<string | null>(null)
                 >
                   {{ c.applicationCount }}
                 </span>
-                <span v-else class="text-surface-300 dark:text-surface-600">0</span>
+                <!-- Фаза 1: явная пометка кандидата без единого отклика -->
+                <span
+                  v-else
+                  class="inline-flex items-center rounded-full bg-surface-100 dark:bg-surface-800 px-2.5 py-0.5 text-xs font-medium text-surface-500 dark:text-surface-400 whitespace-nowrap"
+                >
+                  {{ $t('dashboard.candidates.table.noApplication') }}
+                </span>
               </td>
               <td v-if="visibleColumns.added" class="px-4 py-3 text-surface-500 dark:text-surface-400 whitespace-nowrap">
                 <TimelineDateLink :date="c.createdAt">{{ formatDateTime(c.createdAt) }}</TimelineDateLink>
