@@ -9,6 +9,8 @@
  *    resumeId извлекается из URL вкладки, DOM hh.ru для этого не нужен.
  */
 
+import type { SidekickMessage } from '../types/messages'
+
 const HUNTFORK_BASE = 'https://huntfork.ru'
 
 interface ApiResult {
@@ -158,6 +160,29 @@ function pageExtractor() {
   }
 }
 
+/** Ждёт полной загрузки вкладки (для пакетной обработки очереди, П5). */
+async function waitForTabComplete(tabId: number, timeoutMs = 25_000): Promise<void> {
+  const tab = await chrome.tabs.get(tabId)
+  if (tab.status === 'complete') return
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error('Страница не загрузилась за 25 секунд'))
+    }, timeoutMs)
+    function onUpdated(id: number, info: { status?: string }) {
+      if (id === tabId && info.status === 'complete') {
+        cleanup()
+        resolve()
+      }
+    }
+    function cleanup() {
+      clearTimeout(timer)
+      chrome.tabs.onUpdated.removeListener(onUpdated)
+    }
+    chrome.tabs.onUpdated.addListener(onUpdated)
+  })
+}
+
 export default defineBackground(() => {
   // Клик по иконке открывает боковую панель
   chrome.sidePanel
@@ -165,7 +190,8 @@ export default defineBackground(() => {
     .catch(err => console.warn('[Sidekick] setPanelBehavior:', err))
 
   // ── Роутер сообщений ──────────────────────────────────────────────
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((rawMsg, _sender, sendResponse) => {
+    const msg = rawMsg as SidekickMessage
     ;(async () => {
       try {
         switch (msg?.type) {
@@ -248,7 +274,26 @@ export default defineBackground(() => {
             }))
             break
           case 'pdfText': {
-            // S7: скачиваем PDF из вкладки и извлекаем текст на бэкенде
+            // S7: скачиваем PDF из вкладки и извлекаем текст на бэкенде.
+            // П1: только https и только hh.ru/hhcdn.ru — SW не должен уметь
+            // таскать произвольные URL с куками пользователя (SSRF-профиль).
+            let pdfUrl: URL
+            try {
+              pdfUrl = new URL(msg.url)
+            }
+            catch {
+              sendResponse({ ok: false, code: 'PDF_DOMAIN', message: 'Некорректный адрес PDF' })
+              break
+            }
+            const pdfHostOk = /(^|\.)hh\.ru$|(^|\.)hhcdn\.ru$/.test(pdfUrl.hostname)
+            if (pdfUrl.protocol !== 'https:' || !pdfHostOk) {
+              sendResponse({
+                ok: false,
+                code: 'PDF_DOMAIN',
+                message: 'Загрузка PDF разрешена только со страниц hh.ru',
+              })
+              break
+            }
             try {
               const resp = await fetch(msg.url, { credentials: 'include' })
               if (!resp.ok) {
@@ -319,8 +364,93 @@ export default defineBackground(() => {
             }))
             break
           }
-         default:
-           sendResponse({ ok: false, message: `Unknown message type: ${msg?.type}` })
+          // ── П2: read-only канбан воронки вакансии ──────────────
+          case 'pipeline':
+            sendResponse(await apiFetch(`/api/extension/pipeline?jobId=${encodeURIComponent(msg.jobId)}`))
+            break
+          // ── П5: шаблоны аутрича и серверная статистика ─────────
+          case 'outreachTemplates':
+            sendResponse(await apiFetch('/api/extension/outreach-templates'))
+            break
+          case 'stats':
+            sendResponse(await apiFetch('/api/extension/stats'))
+            break
+          // ── П5: пакетная обработка очереди (фоновая вкладка → capture → confirm)
+          case 'queueProcessItem': {
+            let queueTabId: number | undefined
+            try {
+              const tab = await chrome.tabs.create({ url: msg.url, active: false })
+              queueTabId = tab.id ?? undefined
+              if (!queueTabId) throw new Error('Не удалось открыть фоновую вкладку')
+              await waitForTabComplete(queueTabId)
+              // SPA-страницам нужно время дорисоваться после status=complete
+              await new Promise(r => setTimeout(r, 1500))
+              const results = await chrome.scripting.executeScript({
+                target: { tabId: queueTabId },
+                func: pageExtractor,
+              })
+              const page = results?.[0]?.result as ReturnType<typeof pageExtractor> | null
+              if (!page || (page.text?.length ?? 0) < 80) {
+                sendResponse({ ok: false, code: 'EMPTY', message: 'Слишком мало текста на странице' })
+                break
+              }
+              const parsed = await apiFetch('/api/extension/capture', {
+                method: 'POST',
+                body: {
+                  sourceUrl: page.canonical || page.url,
+                  site: page.site,
+                  title: page.title,
+                  text: page.text,
+                  contacts: page.contacts,
+                },
+              })
+              if (!parsed.ok) {
+                sendResponse(parsed)
+                break
+              }
+              const d = parsed.data
+              sendResponse(await apiFetch('/api/extension/capture-confirm', {
+                method: 'POST',
+                body: {
+                  parsed: d.parsed,
+                  contacts: d.contacts,
+                  sourceUrl: page.canonical || page.url,
+                  site: page.site,
+                  provider: d.meta?.provider ?? null,
+                  model: d.meta?.model ?? null,
+                  jobId: msg.jobId || undefined,
+                },
+              }))
+            }
+            catch (err: any) {
+              sendResponse({ ok: false, code: 'QUEUE_ITEM', message: err?.message || 'Ошибка обработки страницы' })
+            }
+            finally {
+              if (queueTabId) chrome.tabs.remove(queueTabId).catch(() => {})
+            }
+            break
+          }
+          // ── П4/П6: серверный ИИ (analysis-контур организации) ──
+          case 'verificationRun':
+            sendResponse(await apiFetch('/api/extension/verification/run', {
+              method: 'POST',
+              body: { text: msg.text, title: msg.title, sourceUrl: msg.sourceUrl, jobId: msg.jobId },
+            }))
+            break
+          case 'interviewCard':
+            sendResponse(await apiFetch('/api/extension/interview-card', {
+              method: 'POST',
+              body: { text: msg.text, title: msg.title, sourceUrl: msg.sourceUrl, jobId: msg.jobId, focus: msg.focus },
+            }))
+            break
+          case 'searchMap':
+            sendResponse(await apiFetch('/api/extension/search-map', {
+              method: 'POST',
+              body: { jobId: msg.jobId, title: msg.title, description: msg.description },
+            }))
+            break
+          default:
+            sendResponse({ ok: false, message: `Unknown message type: ${(msg as { type?: string })?.type}` })
         }
       }
       catch (err: any) {
