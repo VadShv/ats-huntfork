@@ -4,6 +4,8 @@
  *  Поддержка заметок, тегов и CSV-экспорта. */
 import { ref, computed } from 'vue'
 import { useQueue } from '../composables/useQueue'
+import { useSidekick, useSidekickActions } from '../composables/useSidekick'
+import { useToast } from '../composables/useToast'
 import HfButton from '../ui/HfButton.vue'
 import HfIcon from '../ui/HfIcon.vue'
 
@@ -15,15 +17,69 @@ const {
   pendingCount,
   totalCount,
   setNote,
+  setStatus,
   addTag,
   removeTag,
   allTags,
   exportCsv,
 } = useQueue()
 
+const { selectedJobId } = useSidekick()
+const { send } = useSidekickActions()
+const { toast } = useToast()
+
 const expanded = ref(true)
 const pending = computed(() => pendingCount())
 const total = computed(() => totalCount())
+
+// ── П5: пакетная обработка (фоновая вкладка → capture → сохранение) ──
+const batchRunning = ref(false)
+const batchDone = ref(0)
+const batchTotal = ref(0)
+
+async function processBatch() {
+  if (batchRunning.value) return
+  const items = queue.value.filter(q => q.status === 'pending')
+  if (!items.length) return
+
+  // Запрашиваем доступ к сайтам очереди (жест пользователя — этот клик).
+  const origins = Array.from(new Set(items.map((q) => {
+    try { return new URL(q.url).origin + '/*' } catch { return '' }
+  }).filter(Boolean)))
+  try {
+    const granted = await chrome.permissions.request({ origins })
+    if (!granted) {
+      toast('Нет доступа к сайтам из очереди', 'error')
+      return
+    }
+  }
+  catch {
+    toast('Не удалось запросить доступ к сайтам', 'error')
+    return
+  }
+
+  batchRunning.value = true
+  batchTotal.value = items.length
+  batchDone.value = 0
+
+  for (const item of items) {
+    setStatus(item.id, 'processing')
+    const resp = await send({ type: 'queueProcessItem', url: item.url, jobId: selectedJobId.value || undefined })
+    if (resp?.ok) {
+      setStatus(item.id, 'done')
+      const name = resp.data?.candidateName
+      if (name) setNote(item.id, `Сохранён: ${name}`)
+    }
+    else {
+      setStatus(item.id, 'error')
+      setNote(item.id, resp?.message || 'Ошибка обработки')
+    }
+    batchDone.value += 1
+  }
+
+  batchRunning.value = false
+  toast(`Обработано ${batchDone.value} из ${batchTotal.value}`, 'success')
+}
 
 const expandedItem = ref<string | null>(null)
 const newTagInput = ref<Record<string, string>>({})
@@ -91,6 +147,13 @@ function statusLabel(s: string): string {
     <Transition name="queue-expand">
       <div v-if="expanded" class="queue-body">
         <div v-if="queue.length > 0" class="queue-toolbar">
+          <HfButton
+            v-if="pending > 0" size="sm" variant="primary"
+            :disabled="batchRunning" @click="processBatch"
+          >
+            <HfIcon name="sparkle" :size="14" />
+            {{ batchRunning ? `Обработка ${batchDone + 1}/${batchTotal}…` : `Обработать пачкой (${pending})` }}
+          </HfButton>
           <HfButton size="sm" variant="ghost" @click="clearDone">
             <HfIcon name="check" :size="14" /> Очистить готовые
           </HfButton>

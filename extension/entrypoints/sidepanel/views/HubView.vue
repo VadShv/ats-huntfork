@@ -13,12 +13,17 @@ import HfSkeleton from '../ui/HfSkeleton.vue'
 import { useQueue } from '../composables/useQueue'
 import { useHistory, type ActionType } from '../composables/useHistory'
 import { useOutreach } from '../composables/useOutreach'
-import { useSidekick } from '../composables/useSidekick'
+import { useSidekick, useSidekickActions } from '../composables/useSidekick'
 
 const { pendingCount, queue } = useQueue()
 const { recent, getStats, getByDay, getActiveDays } = useHistory()
 const { activeDrafts } = useOutreach()
 const { sessionUser } = useSidekick()
+const { send } = useSidekickActions()
+
+// П5: серверная статистика из ATS (не локальные агрегаты).
+const serverStats = ref<{ myImports24h: number, myImports7d: number, myNotes7d: number, activeApplications: number } | null>(null)
+const serverStatsError = ref(false)
 
 const loading = ref(true)
 const selectedDay = ref<number | null>(null)
@@ -26,6 +31,21 @@ const calendarMonth = ref(new Date())
 
 onMounted(() => {
   setTimeout(() => { loading.value = false }, 300)
+  send({ type: 'stats' }).then((resp: any) => {
+    if (resp?.ok && resp.data?.stats) serverStats.value = resp.data.stats
+    else serverStatsError.value = true
+  })
+})
+
+const serverStatItems = computed(() => {
+  const s = serverStats.value
+  if (!s) return []
+  return [
+    { label: 'Импорт за 24 ч', value: s.myImports24h, icon: 'import' },
+    { label: 'Импорт за 7 дн', value: s.myImports7d, icon: 'sourcing' },
+    { label: 'Заметки за 7 дн', value: s.myNotes7d, icon: 'note' },
+    { label: 'Активные отклики', value: s.activeApplications, icon: 'pipeline' },
+  ]
 })
 
 const today = new Date()
@@ -132,12 +152,24 @@ function fmtTime(ts: number): string {
       <p class="hub-greet-sub">{{ new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }) }}</p>
     </div>
 
-    <!-- Статистика дня -->
+    <!-- Статистика из ATS (сервер) -->
+    <section v-if="serverStats" class="hub-section hub-server-stats">
+      <h3 class="hub-section-title"><HfIcon name="hub" :size="14" /> Моя работа в ATS</h3>
+      <div class="hub-stats">
+        <div v-for="s in serverStatItems" :key="s.label" class="hub-stat">
+          <span class="hub-stat-ico"><HfIcon :name="s.icon" :size="16" /></span>
+          <span class="hub-stat-val">{{ s.value }}</span>
+          <span class="hub-stat-label">{{ s.label }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Статистика дня (локальная, это устройство) -->
     <div v-if="!loading" class="hub-stats">
       <div v-for="s in statItems" :key="s.label" class="hub-stat">
         <span class="hub-stat-ico"><HfIcon :name="s.icon" :size="16" /></span>
         <span class="hub-stat-val">{{ s.value }}</span>
-        <span class="hub-stat-label">{{ s.label }}</span>
+        <span class="hub-stat-label">{{ s.label }} · локально</span>
       </div>
     </div>
 

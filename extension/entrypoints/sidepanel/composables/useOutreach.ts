@@ -9,6 +9,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useToast } from './useToast'
 import { useHistory } from './useHistory'
+import { useSidekickActions } from './useSidekick'
 
 export type OutreachChannel = 'telegram' | 'email' | 'linkedin'
 export type DraftStatus = 'draft' | 'sent' | 'archived'
@@ -71,46 +72,6 @@ const BUILTIN_TEMPLATES: OutreachTemplate[] = [
   },
 ]
 
-/** Псевдо-данные для демонстрации UI. */
-const SEED_DRAFTS: DraftItem[] = [
-  {
-    id: 'd_seed_1',
-    candidateName: 'Анна Соколова',
-    candidateHandle: 'anna_sokolova',
-    role: 'Senior Frontend',
-    channel: 'telegram',
-    match: 88,
-    preview: 'Здравствуйте, Анна! Ваш опыт с Vue 3 и архитектурой дизайн-систем…',
-    body: 'Здравствуйте, Анна!\n\nОбратил внимание на ваш опыт с Vue 3 и проектированием дизайн-систем. У нас сейчас открыт похожий вызов — строим компонентную библиотеку с нуля. Подскажите, было бы вам интересно обсудить?',
-    updatedAt: Date.now() - 5 * 60 * 1000,
-    status: 'draft',
-  },
-  {
-    id: 'd_seed_2',
-    candidateName: 'Дмитрий Орлов',
-    candidateHandle: 'dmitry.orlov',
-    role: 'Tech Lead',
-    channel: 'email',
-    match: 72,
-    preview: 'Добрый день, Дмитрий! Видел ваш переход из команды в команду…',
-    body: 'Добрый день, Дмитрий!\n\nВидел, что вы вели команду из 8 человек и выстраивали процессы delivery. Хочу предложить роль техлида в продуктовой команде — расскажу подробнее?',
-    updatedAt: Date.now() - 60 * 60 * 1000,
-    status: 'draft',
-  },
-  {
-    id: 'd_seed_3',
-    candidateName: 'Мария Кузнецова',
-    candidateHandle: 'maria_kuz',
-    role: 'Product Designer',
-    channel: 'linkedin',
-    match: 64,
-    preview: 'Привет, Мария! Ваши кейсы по B2B-дашбордам…',
-    body: 'Привет, Мария!\n\nВаши кейсы по B2B-дашбордам очень близки к тому, что мы делаем. Открыта ли к разговору о новой роли?',
-    updatedAt: Date.now() - 24 * 60 * 60 * 1000,
-    status: 'draft',
-  },
-]
-
 const drafts = ref<DraftItem[]>([])
 const templates = ref<OutreachTemplate[]>([])
 const loaded = ref(false)
@@ -122,19 +83,33 @@ export function useOutreach() {
   async function load() {
     if (loaded.value) return
     loaded.value = true
+    // П0/П5: никаких демонстрационных черновиков — только то, что создал рекрутёр.
+    let custom: OutreachTemplate[] = []
     try {
-      const [dResult, tResult] = await chrome.storage.local.get([DRAFTS_KEY, TEMPLATES_KEY])
-      drafts.value = Array.isArray(dResult[DRAFTS_KEY])
-        ? dResult[DRAFTS_KEY]
-        : SEED_DRAFTS
-      templates.value = Array.isArray(tResult[TEMPLATES_KEY])
-        ? [...BUILTIN_TEMPLATES, ...tResult[TEMPLATES_KEY]]
-        : BUILTIN_TEMPLATES
-      if (!Array.isArray(dResult[DRAFTS_KEY])) persistDrafts()
-      if (!Array.isArray(tResult[TEMPLATES_KEY])) persistTemplates()
+      const stored = await chrome.storage.local.get([DRAFTS_KEY, TEMPLATES_KEY])
+      drafts.value = Array.isArray(stored[DRAFTS_KEY]) ? stored[DRAFTS_KEY] : []
+      if (Array.isArray(stored[TEMPLATES_KEY])) custom = stored[TEMPLATES_KEY]
     } catch {
-      drafts.value = SEED_DRAFTS
-      templates.value = BUILTIN_TEMPLATES
+      drafts.value = []
+    }
+    // П5: базовые шаблоны приходят с сервера (единые для команды).
+    templates.value = [...BUILTIN_TEMPLATES, ...custom]
+    try {
+      const { send } = useSidekickActions()
+      const resp = await send({ type: 'outreachTemplates' })
+      const serverTemplates = resp?.ok ? resp.data?.templates : null
+      if (Array.isArray(serverTemplates) && serverTemplates.length) {
+        const mapped: OutreachTemplate[] = serverTemplates.map((t: any) => ({
+          id: t.id,
+          name: t.label,
+          channel: (t.channel === 'email' ? 'email' : t.channel === 'linkedin' ? 'linkedin' : 'telegram') as OutreachChannel,
+          body: t.text,
+          isBuiltIn: true,
+        }))
+        templates.value = [...mapped, ...custom]
+      }
+    } catch {
+      // офлайн/нет сессии — остаёмся на встроенных шаблонах
     }
   }
 
@@ -161,6 +136,10 @@ export function useOutreach() {
     body = body.replaceAll('{{role}}', candidate.role || 'позицию')
     body = body.replaceAll('{{company}}', candidate.company || 'нашу компанию')
     body = body.replaceAll('{{skill}}', candidate.skill || 'вашим стеком')
+    // Серверные шаблоны используют русские плейсхолдеры в одинарных скобках.
+    body = body.replaceAll('{имя}', candidate.name || 'кандидат')
+    body = body.replaceAll('{роль}', candidate.role || 'позицию')
+    body = body.replaceAll('{компания}', candidate.company || 'нашу компанию')
     return body
   }
 
