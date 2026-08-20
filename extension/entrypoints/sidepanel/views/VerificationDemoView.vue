@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PrototypeBadge from '../ui/PrototypeBadge.vue'
 /** VerificationView — контейнер модуля верификации и «Волкодава» (Stage 6).
  *  Подраздел Скрининга. Полоса-саммари всегда видна, разворачивается в отчёт.
  *  6 состояний (§5.4). WolfScale — оценка в волках. */
@@ -18,7 +19,7 @@ import VfVerifiability from './vf/VfVerifiability.vue'
 import VfRedFlags from './vf/VfRedFlags.vue'
 import VfQuestions from './vf/VfQuestions.vue'
 import VfGitHub from './vf/VfGitHub.vue'
-import { useCountUp, useViewMorph } from '../composables/narrative'
+import { useCountUp, useViewMorph } from '../fx/narrative'
 
 const {
   state, wolfState, activeSection, progressBlocks, lastRunAt, scenario,
@@ -83,6 +84,7 @@ function fmtDate(ts: number | null): string {
 
 <template>
   <div ref="bindVfScroll" class="vf-view hf-scroll">
+    <div style="padding: var(--hf-s-3) var(--hf-s-4) 0;"><PrototypeBadge /></div>
     <!-- Idle: кнопка «Проверить» -->
     <div v-if="isIdle" class="vf-idle">
       <HfEmpty icon="radar" title="Верификация данных"

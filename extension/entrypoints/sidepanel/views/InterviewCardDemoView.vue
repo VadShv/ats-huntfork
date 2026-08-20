@@ -9,6 +9,7 @@
   CARE = Content – Action – Role – Effect. R = Role (НЕ Result).
 -->
 <script setup lang="ts">
+import PrototypeBadge from '../ui/PrototypeBadge.vue'
 import { computed, ref, onMounted, onScopeDispose } from 'vue'
 import HfIcon from '../ui/HfIcon.vue'
 import HfButton from '../ui/HfButton.vue'
@@ -18,7 +19,7 @@ import IcCareBadge from './ic/IcCareBadge.vue'
 import IcCoverageMatrix from './ic/IcCoverageMatrix.vue'
 import IcRatingScale from './ic/IcRatingScale.vue'
 import IcBudgetBar from './ic/IcBudgetBar.vue'
-import { useViewMorph } from '../composables/narrative'
+import { useViewMorph } from '../fx/narrative'
 import {
   useInterviewCard,
   COMPETENCY_CATALOG,
@@ -123,6 +124,7 @@ const elapsedMin = computed(() => {
 
 <template>
   <div class="ic-view hf-scroll" aria-live="polite">
+    <div style="padding: var(--hf-s-3) var(--hf-s-4) 0;"><PrototypeBadge /></div>
     <!-- Шапка -->
     <div class="ic-header hf-sticky hf-glass">
       <div class="ic-header-main">

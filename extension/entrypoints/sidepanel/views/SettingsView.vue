@@ -16,6 +16,7 @@ import { useFab } from '../composables/useFab'
 import { useTelegram } from '../composables/useTelegram'
 import { useQueue } from '../composables/useQueue'
 import { useToast } from '../composables/useToast'
+import { useDevPrototypes } from '../composables/useDevPrototypes'
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -27,6 +28,7 @@ const { fabEnabled, setEnabled: setFabEnabled } = useFab()
 const { connected, botInfo, disconnectBot } = useTelegram()
 const { clear: clearQueue } = useQueue()
 const { toast } = useToast()
+const { devPrototypes, setDevPrototypes } = useDevPrototypes()
 
 type Tab = 'general' | 'telegram' | 'data' | 'log'
 const tab = ref<Tab>('general')
@@ -159,6 +161,21 @@ const historyCount = computed(() => history.value.length)
                   :class="{ 'settings-toggle--on': fabEnabled }"
                   @click="setFabEnabled(!fabEnabled)"
                   :aria-pressed="fabEnabled"
+                >
+                  <span class="settings-toggle-knob" />
+                </button>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <label class="settings-label">Экспериментальное</label>
+              <div class="settings-toggle-row">
+                <span class="settings-toggle-desc">Показывать демо-прототипы (помечены бейджем «Прототип», данные не настоящие)</span>
+                <button
+                  class="settings-toggle"
+                  :class="{ 'settings-toggle--on': devPrototypes }"
+                  @click="setDevPrototypes(!devPrototypes)"
+                  :aria-pressed="devPrototypes"
                 >
                   <span class="settings-toggle-knob" />
                 </button>

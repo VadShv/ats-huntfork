@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PrototypeBadge from '../ui/PrototypeBadge.vue'
 /** SearchMapView — контейнер «Карты поиска» (Stage 5).
  *  Аккордеон из 6 секций, липкая шапка с действиями, 5 состояний.
  *  Не отдельный ViewId — внутренний подраздел SourcingView. */
@@ -17,9 +18,9 @@ import SmQueries from './sm/SmQueries.vue'
 import SmAntiMap from './sm/SmAntiMap.vue'
 import SmPlan from './sm/SmPlan.vue'
 import SearchCompass from './sm/SearchCompass.vue'
-import type { CompassSection } from '../composables/signature'
-import { useCountUp } from '../composables/narrative'
-import { useViewMorph } from '../composables/narrative'
+import type { CompassSection } from '../fx/signature'
+import { useCountUp } from '../fx/narrative'
+import { useViewMorph } from '../fx/narrative'
 
 const { jobs, selectedJobId } = useSidekick()
 const { } = useSidekickActions()
@@ -42,7 +43,7 @@ const totalFoundCount = useCountUp(() => totalDonorsFound.value, { id: 'sm-found
 const { morph: smMorph } = useViewMorph()
 
 /* ── Слипающиеся заголовки (ТЗ «Повествовательная анимация» §3) ── */
-import { useStickyHeaders } from '../composables/narrative'
+import { useStickyHeaders } from '../fx/narrative'
 import { ref as _ref, h, defineComponent } from 'vue'
 
 const accordionRef = _ref<HTMLElement | null>(null)
@@ -130,6 +131,7 @@ function fmtDate(ts: number | null): string {
 
 <template>
   <div ref="bindSmScroll" class="sm-view hf-scroll" aria-live="polite">
+    <div style="padding: var(--hf-s-3) var(--hf-s-4) 0;"><PrototypeBadge /></div>
     <!-- Empty: вакансия не выбрана -->
     <div v-if="state === 'empty'" class="sm-empty">
       <HfEmpty icon="map" title="Карта поиска"

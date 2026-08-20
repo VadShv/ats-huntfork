@@ -139,6 +139,7 @@ const filterTabs = [
           Создайте бота через <span class="tg-mono">@BotFather</span>, получите токен
           и вставьте его ниже. Бот будет читать каналы и искать контакты.
         </p>
+        <p class="tg-honest-note">Приём сообщений работает только при открытой боковой панели: расширение опрашивает Telegram из неё, фонового приёма нет.</p>
         <div class="tg-token-input">
           <input
             v-model="tokenInput"
@@ -402,4 +403,12 @@ export default { name: 'TelegramView' }
 .tg-out-list { display: flex; flex-wrap: wrap; gap: var(--hf-s-1); }
 .tg-out-contact { display: flex; align-items: center; gap: 3px; padding: var(--hf-s-1) var(--hf-s-2); border: 1px solid var(--hf-border); background: var(--hf-surface); border-radius: var(--hf-r-pill); font-size: var(--hf-t-xs); color: var(--hf-fg-muted); cursor: pointer; font-family: var(--hf-mono); transition: all var(--hf-dur-fast) var(--hf-ease-out); }
 .tg-out-contact:hover { border-color: var(--hf-primary); color: var(--hf-primary); }
+.tg-honest-note {
+  font-size: var(--hf-t-xs);
+  color: var(--hf-warn);
+  background: var(--hf-warn-muted);
+  border-radius: var(--hf-r-md);
+  padding: var(--hf-s-2) var(--hf-s-3);
+  line-height: 1.5;
+}
 </style>
