@@ -8,7 +8,7 @@ import HfIcon from '../../ui/HfIcon.vue'
 import { useToast } from '../../composables/useToast'
 import { useSearchMap } from '../../composables/useSearchMap'
 import { useSearchRun } from '../../composables/useSearchRun'
-import { useCountUp } from '../../composables/narrative'
+import { useCountUp } from '../../fx/narrative'
 import { useSidekick } from '../../composables/useSidekick'
 
 const {

@@ -8,7 +8,7 @@
 -->
 <script setup lang="ts">
 import { computed, useTemplateRef } from 'vue'
-import { useTypewriter } from '../../composables/signature'
+import { useTypewriter } from '../../fx/signature'
 
 const props = defineProps<{
   /** Уникальный id вопроса (для дедупликации печатной машинки). */

@@ -20,7 +20,7 @@ const emit = defineEmits<{
   reject: [id: string]
   import: [id: string]
   saveNote: [id: string, note: string]
-  (e: 'enrich', id: string): void
+  enrich: [id: string]
 }>()
 
 const expanded = ref(false)

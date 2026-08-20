@@ -17,7 +17,7 @@ import {
   heatColor,
   heatHatch,
   heatLabel,
-} from '../../composables/signature'
+} from '../../fx/signature'
 import type { JobPeriod, TimelineFinding } from '../../composables/useVerification'
 
 const props = defineProps<{

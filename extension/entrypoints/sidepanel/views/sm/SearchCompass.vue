@@ -7,7 +7,7 @@
 -->
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useSearchCompass, type CompassSection } from '../../composables/signature'
+import { useSearchCompass, type CompassSection } from '../../fx/signature'
 
 const props = defineProps<{
   sections: CompassSection[]

@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useInterviewCard } from '../../composables/useInterviewCard'
-import { useCountUp } from '../../composables/narrative'
+import { useCountUp } from '../../fx/narrative'
 
 const { card } = useInterviewCard()
 

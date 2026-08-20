@@ -8,7 +8,7 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useWolfEyes } from '../../composables/signature'
+import { useWolfEyes } from '../../fx/signature'
 
 const props = withDefaults(defineProps<{
   /** Зажжён ли волк. */

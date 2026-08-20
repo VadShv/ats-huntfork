@@ -7,7 +7,7 @@
   Фокус возвращается на элемент-инициатор СРАЗУ, до анимации.
 -->
 <script setup lang="ts">
-import { useInertialClose, type InertiaKind } from '../../composables/signature'
+import { useInertialClose, type InertiaKind } from './signature'
 
 const props = withDefaults(defineProps<{
   /** Тип элемента для профиля инерции. */

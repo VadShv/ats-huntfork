@@ -1,19 +1,21 @@
 <script setup lang="ts">
 /** App.vue — каркас: PanelShell + роутер views + CommandPalette + Settings + хоткеи. */
-import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
+import { defineAsyncComponent, onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import PanelShell from './layout/PanelShell.vue'
 import TopBar from './layout/TopBar.vue'
 import CommandPalette from './layout/CommandPalette.vue'
 import Toaster from './layout/Toaster.vue'
 import HubView from './views/HubView.vue'
 import ChatView from './views/ChatView.vue'
-import SourcingView from './views/SourcingView.vue'
-import ScreeningView from './views/ScreeningView.vue'
-import TelegramView from './views/TelegramView.vue'
-import OutreachView from './views/OutreachView.vue'
-import PipelineView from './views/PipelineView.vue'
-import LibraryView from './views/LibraryView.vue'
-import SettingsView from './views/SettingsView.vue'
+
+// П7: тяжёлые разделы грузим лениво — стартовый бандл содержит только чат и хаб.
+const SourcingView = defineAsyncComponent(() => import('./views/SourcingView.vue'))
+const ScreeningView = defineAsyncComponent(() => import('./views/ScreeningView.vue'))
+const TelegramView = defineAsyncComponent(() => import('./views/TelegramView.vue'))
+const OutreachView = defineAsyncComponent(() => import('./views/OutreachView.vue'))
+const PipelineView = defineAsyncComponent(() => import('./views/PipelineView.vue'))
+const LibraryView = defineAsyncComponent(() => import('./views/LibraryView.vue'))
+const SettingsView = defineAsyncComponent(() => import('./views/SettingsView.vue'))
 import ShortcutsOverlay from './layout/ShortcutsOverlay.vue'
 import { useSidekick, useSidekickActions } from './composables/useSidekick'
 import { useQueue } from './composables/useQueue'

@@ -8,7 +8,7 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import { usePawTrail } from '../../composables/signature'
+import { usePawTrail } from '../../fx/signature'
 
 const props = withDefaults(defineProps<{
   /** Доля выполнения 0..100. null — неопределённый режим. */

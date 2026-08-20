@@ -9,7 +9,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onScopeDispose, useTemplateRef } from 'vue'
 import WolfHead from './WolfHead.vue'
-import { useWolfEyes } from '../../composables/signature'
+import { useWolfEyes } from '../../fx/signature'
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low'
 export type Confidence = 'document' | 'date_math' | 'cross_source' | 'linguistic' | 'ai_detection'

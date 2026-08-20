@@ -11,7 +11,7 @@ import { ref, useTemplateRef } from 'vue'
 import {
   useMagneticDrag,
   type DropTarget,
-} from '../../composables/signature'
+} from '../../fx/signature'
 
 const { activeTarget, applyMagnet, onTargetChange, reset } = useMagneticDrag()
 

@@ -3,7 +3,7 @@
  * Карточка-обёртка с цветной match-полоской слева и каскадной анимацией.
  * match: 0–100 → низкая/средняя/высокая шкала соответствия.
  */
-import { useSpecular } from '../composables/useSpecular'
+import { useSpecular } from '../fx/useSpecular'
 
 withDefaults(defineProps<{
   match?: number | null

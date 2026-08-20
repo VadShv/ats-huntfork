@@ -9,7 +9,7 @@ import './styles/shine.css'
 import './styles/signature.css'
 import './styles/narrative.css'
 
-import { vRipple } from './composables/vRipple'
+import { vRipple } from './fx/vRipple'
 
 const app = createApp(App)
 app.directive('ripple', vRipple)
