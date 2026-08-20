@@ -6,11 +6,16 @@
  * (который работает только с hh.ru) — сам check не трогаем.
  *
  * Body: { url: string }
- * Ответ: { ok, supported, exists, candidate?: { id, name, addedAt } }
+ * Ответ: { ok, supported, exists, candidate?: { id, name, addedAt },
+ *          matchedBy?: { kind }, history?: [...], applications?: [...] }
+ *
+ * П3 Sidekick: при найденном кандидате дополнительно возвращаем последние
+ * события журнала активности и активные отклики (для амбиент-контекста
+ * панели — вместо прежних моков).
  */
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { candidate, candidateIdentity } from '../../database/schema'
+import { activityLog, application, candidate, candidateIdentity, job, pipelineStage } from '../../database/schema'
 import { normalizeGithub, normalizeLinkedinUrl, normalizeTelegram } from '../../utils/dedup/normalize'
 import { getOrgGroupId } from '../../utils/dedup/resolve'
 import { createRateLimiter } from '../../utils/rateLimit'
@@ -98,6 +103,41 @@ export default defineEventHandler(async (event) => {
     return { ok: true, supported: true, exists: false }
   }
 
+  // ─── П3: история активности + текущие отклики кандидата ───
+  const [historyRows, appRows] = await Promise.all([
+    db
+      .select({
+        action: activityLog.action,
+        actorId: activityLog.actorId,
+        createdAt: activityLog.createdAt,
+      })
+      .from(activityLog)
+      .where(and(
+        eq(activityLog.organizationId, orgId),
+        eq(activityLog.resourceType, 'candidate'),
+        eq(activityLog.resourceId, cand.id),
+      ))
+      .orderBy(desc(activityLog.createdAt))
+      .limit(6),
+    db
+      .select({
+        id: application.id,
+        status: application.status,
+        stageChangedAt: application.stageChangedAt,
+        jobTitle: job.title,
+        stageName: pipelineStage.name,
+      })
+      .from(application)
+      .innerJoin(job, eq(application.jobId, job.id))
+      .leftJoin(pipelineStage, eq(application.currentStageId, pipelineStage.id))
+      .where(and(
+        eq(application.candidateId, cand.id),
+        eq(application.organizationId, orgId),
+      ))
+      .orderBy(desc(application.updatedAt))
+      .limit(4),
+  ])
+
   logApiRequest(event, session, 'extension.lookup', { kind: identity.kind, exists: true })
 
   return {
@@ -109,5 +149,18 @@ export default defineEventHandler(async (event) => {
       name: [cand.lastName, cand.firstName].filter(Boolean).join(' ') || 'Без имени',
       addedAt: cand.createdAt,
     },
+    matchedBy: { kind: identity.kind },
+    history: historyRows.map(h => ({
+      action: h.action,
+      system: !h.actorId,
+      at: h.createdAt,
+    })),
+    applications: appRows.map(a => ({
+      id: a.id,
+      status: a.status,
+      jobTitle: a.jobTitle,
+      stageName: a.stageName,
+      stageChangedAt: a.stageChangedAt,
+    })),
   }
 })
