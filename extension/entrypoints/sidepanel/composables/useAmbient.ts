@@ -1,18 +1,18 @@
 /**
- * useAmbient — амбиентный статус кандидата.
+ * useAmbient — амбиентный статус кандидата (П3, реальные данные).
  *
- * До любого нажатия панель показывает, знаком ли уже этот кандидат:
- * уже в базе, общались 8 месяцев назад, отказ на оффере по деньгам и т.д.
- * Снимает самый дорогой класс ошибок — повторный холодный заход к кандидату,
- * который вас уже знает.
+ * До любого нажатия панель показывает, знаком ли уже этот кандидат.
+ * Источник: расширенный ответ /api/extension/lookup —
+ * matchedBy { kind }, history [{ action, system, at }],
+ * applications [{ status, jobTitle, stageName, stageChangedAt }].
  *
  * Тон:
- *   high — отказ на оффере / конфликт по деньгам  (жёлтый)
- *   mid  — был контакт, но не дошло до оффера      (синий)
- *   low  — просто в базе, без истории             (серый)
+ *   high — есть отклик со статусом rejected/offer (история серьёзная)
+ *   mid  — есть активные отклики или события общения
+ *   low  — просто в базе, без истории
  *
- * Источник: lookupInfo.candidate.history + candidate.matchSignals
- * (расширение ответа lookup; пока бэкенд не готов — моки).
+ * Никаких моков: если данных нет — полоса честно не показывается
+ * или показывает «в базе, без истории».
  */
 import { computed } from 'vue'
 import { useSidekick } from './useSidekick'
@@ -20,125 +20,129 @@ import { useSidekick } from './useSidekick'
 export type AmbientTone = 'high' | 'mid' | 'low'
 
 export interface AmbientEvent {
-  /** ISO-date или относительная строка («8 месяцев назад»). */
   when: string
-  /** Что произошло. */
   what: string
-  /** Этап воронки, на котором остановились. */
   stage?: string
-  /** Причина, если был отказ. */
   reason?: string
 }
 
 export interface AmbientState {
-  /** Показывать ли полосу вообще. */
   visible: boolean
   tone: AmbientTone
-  /** Короткая сводка для тултипа. */
   summary: string
-  /** Детальная история для раскрытия. */
   events: AmbientEvent[]
-  /** Чем совпал кандидат при дедупликации. */
   matchedOn: string[]
-  /** Последний контакт (для «общались N назад»). */
-  lastContact?: string
-}
-
-/** Мок-данные для демонстрации, пока бэкенд не отдаёт history/matchSignals. */
-const MOCK_HIGH: AmbientState = {
-  visible: true,
-  tone: 'high',
-  summary: 'В базе · отказ на оффере по деньгам · 8 мес назад',
-  lastContact: '8 месяцев назад',
-  matchedOn: ['email', 'телефон'],
-  events: [
-    { when: '8 месяцев назад', what: 'Оффер', stage: 'Offer', reason: 'деньги (просил +30%)' },
-    { when: '9 месяцев назад', what: 'Интервью с нанимающим', stage: 'Interview' },
-    { when: '9 месяцев назад', what: 'Скрининг', stage: 'Screening' },
-    { when: '10 месяцев назад', what: 'Добавлен в базу', stage: 'New' },
-  ],
-}
-
-const MOCK_MID: AmbientState = {
-  visible: true,
-  tone: 'mid',
-  summary: 'В базе · был контакт · 3 мес назад',
-  lastContact: '3 месяца назад',
-  matchedOn: ['LinkedIn'],
-  events: [
-    { when: '3 месяца назад', what: 'Скрининг', stage: 'Screening', reason: 'не подошёл по стеку' },
-    { when: '4 месяца назад', what: 'Добавлен в базу', stage: 'New' },
-  ],
-}
-
-const MOCK_LOW: AmbientState = {
-  visible: true,
-  tone: 'low',
-  summary: 'Уже в базе · без истории общения',
-  matchedOn: ['имя + компания'],
-  events: [
-    { when: '1 месяц назад', what: 'Добавлен в базу', stage: 'New' },
-  ],
 }
 
 const EMPTY: AmbientState = { visible: false, tone: 'low', summary: '', events: [], matchedOn: [] }
+
+const ACTION_LABELS: Record<string, string> = {
+  created: 'Добавлен в базу',
+  updated: 'Профиль обновлён',
+  status_changed: 'Смена статуса',
+  stage_changed: 'Смена этапа',
+  comment_added: 'Заметка рекрутёра',
+  scored: 'Оценён ИИ',
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  new: 'Новый',
+  screening: 'Скрининг',
+  interview: 'Интервью',
+  offer: 'Оффер',
+  hired: 'Нанят',
+  rejected: 'Отказ',
+}
+
+const MATCH_LABELS: Record<string, string> = {
+  linkedin: 'LinkedIn',
+  github: 'GitHub',
+  telegram: 'Telegram',
+  email: 'email',
+  phone: 'телефон',
+}
+
+function relTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const days = Math.floor((Date.now() - then) / 86_400_000)
+  if (days <= 0) return 'сегодня'
+  if (days === 1) return 'вчера'
+  if (days < 30) return `${days} дн назад`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months} мес назад`
+  const years = Math.floor(months / 12)
+  return `${years} г назад`
+}
 
 export function useAmbient() {
   const { lookupInfo, phase } = useSidekick()
 
   const ambient = computed<AmbientState>(() => {
-    // Полоса показывается только когда кандидат найден в базе (exists).
     const info = lookupInfo.value
-    if (!info || phase.value !== 'exists') {
-      // Если lookupInfo есть, но phase ещё checking — не показываем.
-      return EMPTY
+    if (!info || phase.value !== 'exists' || !info.exists) return EMPTY
+
+    const history: Array<{ action: string, system: boolean, at: string }> = info.history ?? []
+    const applications: Array<{ status: string, jobTitle: string, stageName: string | null, stageChangedAt: string | null }>
+      = info.applications ?? []
+    const matchedOn = info.matchedBy?.kind
+      ? [MATCH_LABELS[info.matchedBy.kind] ?? info.matchedBy.kind]
+      : []
+
+    // События: отклики (вакансия + этап) важнее журнала.
+    const events: AmbientEvent[] = []
+    for (const a of applications) {
+      events.push({
+        when: relTime(a.stageChangedAt),
+        what: `${a.jobTitle} — ${STATUS_LABELS[a.status] ?? a.status}`,
+        stage: a.stageName ?? undefined,
+      })
+    }
+    for (const h of history) {
+      events.push({
+        when: relTime(h.at),
+        what: (ACTION_LABELS[h.action] ?? h.action) + (h.system ? ' (система)' : ''),
+      })
     }
 
-    const candidate = info.candidate ?? info
-    const history: AmbientEvent[] = candidate.history ?? null
-    const matchSignals: string[] = candidate.matchSignals ?? null
+    const hasSerious = applications.some(a => a.status === 'rejected' || a.status === 'offer')
+    const hasContact = applications.length > 0
+      || history.some(h => h.action === 'comment_added' || h.action === 'stage_changed' || h.action === 'status_changed')
 
-    // Реальные данные, если бэкенд их отдаёт.
-    if (history && history.length) {
-      const hasOfferRefusal = history.some(
-        (e) => e.stage === 'Offer' && (e.reason || '').length > 0,
-      )
-      const tone: AmbientTone = hasOfferRefusal ? 'high' : 'mid'
-      const last = history[0]
-      return {
-        visible: true,
-        tone,
-        summary: buildSummary(history, tone),
-        events: history,
-        matchedOn: matchSignals ?? [],
-        lastContact: last?.when,
+    const tone: AmbientTone = hasSerious ? 'high' : hasContact ? 'mid' : 'low'
+
+    const parts = ['В базе']
+    if (hasSerious) {
+      const s = applications.find(a => a.status === 'rejected' || a.status === 'offer')!
+      parts.push(`${STATUS_LABELS[s.status] ?? s.status} по «${s.jobTitle}»`)
+      const when = relTime(s.stageChangedAt)
+      if (when) parts.push(when)
+    }
+    else if (hasContact) {
+      const a = applications[0]
+      if (a) {
+        parts.push(`в работе по «${a.jobTitle}»`)
+        if (a.stageName) parts.push(a.stageName)
+      }
+      else {
+        parts.push('был контакт')
       }
     }
-
-    // Кандидат в базе, но истории нет → low (просто в базе).
-    // Пока бэкенд не отдаёт history — используем мок для демонстрации.
-    // В проде этот блок убирается и остаётся только MOCK_LOW-логика через matchSignals.
-    if (matchSignals && matchSignals.length) {
-      return { ...MOCK_LOW, matchedOn: matchSignals }
+    else {
+      parts.push('без истории общения')
+      const added = relTime(info.candidate?.addedAt)
+      if (added) parts.push(`добавлен ${added}`)
     }
 
-    // Демонстрационный режим: кандидат существует, но данных по истории нет.
-    // Чередуем моки, чтобы UX был виден. В проде — return MOCK_LOW или EMPTY.
-    return MOCK_HIGH
+    return {
+      visible: true,
+      tone,
+      summary: parts.join(' · '),
+      events,
+      matchedOn,
+    }
   })
 
   return { ambient }
-}
-
-function buildSummary(events: AmbientEvent[], tone: AmbientTone): string {
-  const last = events[0]
-  const parts = ['В базе']
-  if (tone === 'high') {
-    const refusal = events.find((e) => e.stage === 'Offer' && e.reason)
-    if (refusal) parts.push(`отказ на оффере (${refusal.reason})`)
-  } else if (tone === 'mid') {
-    parts.push('был контакт')
-  }
-  if (last?.when) parts.push(last.when)
-  return parts.join(' · ')
 }
