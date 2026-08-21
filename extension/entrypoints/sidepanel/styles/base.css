@@ -29,6 +29,8 @@ body {
   color: var(--hf-fg);
   background: var(--hf-bg);
   overflow: hidden;
+  /* Длинные слова и URL переносятся, а не уезжают за край панели. */
+  overflow-wrap: break-word;
 }
 
 button,

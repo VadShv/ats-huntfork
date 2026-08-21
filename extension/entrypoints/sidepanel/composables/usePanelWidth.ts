@@ -1,44 +1,39 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
 /**
- * Ширина панели: min 380, default 420, max 680.
- * Сохраняется в chrome.storage. При ширине > 560 рельс разворачивается.
+ * Ширина панели задаётся браузером (пользователь тянет край side panel).
+ * Мы её не переопределяем — только следим за фактической шириной окна,
+ * чтобы разворачивать рельс на широкой панели.
  */
-const STORAGE_KEY = 'panelWidth'
-const MIN = 380
-const MAX = 680
-const DEFAULT = 420
+const RAIL_EXPAND_AT = 560
 
-const panelWidth = ref(DEFAULT)
+const panelWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 400)
 const railExpanded = ref(false)
+/** Ручное закрепление рельса пользователем (перекрывает авто-режим). */
+const railPinned = ref<boolean | null>(null)
+
+let listenerAttached = false
+
+function sync() {
+  panelWidth.value = window.innerWidth
+  railExpanded.value = railPinned.value ?? (panelWidth.value > RAIL_EXPAND_AT)
+}
 
 export function usePanelWidth() {
-  async function load() {
-    try {
-      const stored = await chrome.storage?.local?.get(STORAGE_KEY)
-      const w = stored?.[STORAGE_KEY]
-      if (typeof w === 'number') {
-        panelWidth.value = Math.min(MAX, Math.max(MIN, w))
-      }
-    } catch { /* default */ }
-    updateRail()
-  }
-
-  function setWidth(w: number) {
-    panelWidth.value = Math.min(MAX, Math.max(MIN, Math.round(w)))
-    chrome.storage?.local?.set({ [STORAGE_KEY]: panelWidth.value }).catch(() => {})
-    updateRail()
+  function load() {
+    if (!listenerAttached) {
+      listenerAttached = true
+      window.addEventListener('resize', sync, { passive: true })
+    }
+    sync()
   }
 
   function toggleRail() {
-    railExpanded.value = !railExpanded.value
+    railPinned.value = !railExpanded.value
+    sync()
   }
 
-  function updateRail() {
-    railExpanded.value = panelWidth.value > 560
-  }
-
-  return { panelWidth, railExpanded, MIN, MAX, load, setWidth, toggleRail }
+  return { panelWidth, railExpanded, load, toggleRail }
 }
 
 /** Прокрутка: запоминается и восстанавливается при возврате к разделу. */

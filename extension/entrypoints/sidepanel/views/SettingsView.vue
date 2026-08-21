@@ -10,7 +10,6 @@ import HfIcon from '../ui/HfIcon.vue'
 import HfButton from '../ui/HfButton.vue'
 import HfChip from '../ui/HfChip.vue'
 import { useTheme, useReducedMotion } from '../composables/useTheme'
-import { usePanelWidth } from '../composables/usePanelWidth'
 import { useHistory } from '../composables/useHistory'
 import { useFab } from '../composables/useFab'
 import { useTelegram } from '../composables/useTelegram'
@@ -22,7 +21,6 @@ const emit = defineEmits<{ close: [] }>()
 
 const { theme, toggle: toggleTheme } = useTheme()
 const { reducedMotionOverride, setOverride: setReducedMotion } = useReducedMotion()
-const { panelWidth, MIN, MAX, setWidth } = usePanelWidth()
 const { clearHistory, history } = useHistory()
 const { fabEnabled, setEnabled: setFabEnabled } = useFab()
 const { connected, botInfo, disconnectBot } = useTelegram()
@@ -32,13 +30,6 @@ const { devPrototypes, setDevPrototypes } = useDevPrototypes()
 
 type Tab = 'general' | 'telegram' | 'data' | 'log'
 const tab = ref<Tab>('general')
-
-const widthPresets = [
-  { label: 'Компактная', value: 380 },
-  { label: 'Стандарт', value: 420 },
-  { label: 'Широкая', value: 560 },
-  { label: 'Максимум', value: 680 },
-]
 
 const motionOptions = [
   { label: 'Системная', value: null },
@@ -52,10 +43,6 @@ function setTheme(t: 'light' | 'dark') {
 
 function setMotion(v: boolean | null) {
   setReducedMotion(v)
-}
-
-function setWidthPreset(w: number) {
-  setWidth(w)
 }
 
 function onClearHistory() {
@@ -136,19 +123,6 @@ const historyCount = computed(() => history.value.length)
                   :class="{ 'settings-opt--active': reducedMotionOverride === m.value }"
                   @click="setMotion(m.value)"
                 >{{ m.label }}</button>
-              </div>
-            </div>
-
-            <div class="settings-group">
-              <label class="settings-label">Ширина панели</label>
-              <div class="settings-options">
-                <button
-                  v-for="w in widthPresets"
-                  :key="w.value"
-                  class="settings-opt"
-                  :class="{ 'settings-opt--active': panelWidth === w.value }"
-                  @click="setWidthPreset(w.value)"
-                >{{ w.label }} · {{ w.value }}px</button>
               </div>
             </div>
 

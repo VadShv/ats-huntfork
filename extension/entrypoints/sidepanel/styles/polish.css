@@ -224,7 +224,8 @@ p,
 
 .hf-scroll {
   scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  /* Ползунок виден всегда (приглушённо): видно, что ниже есть контент. */
+  scrollbar-color: var(--hf-border) transparent;
   transition: scrollbar-color var(--hf-dur-base) ease-out;
 }
 .hf-scroll:hover,

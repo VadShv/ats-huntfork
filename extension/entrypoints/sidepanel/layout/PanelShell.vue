@@ -1,55 +1,53 @@
 <script setup lang="ts">
-/** Обёртка панели: рельс + (топбар + viewport + композер). */
+/** Обёртка панели: рельс + (автоскрываемый топбар + viewport + композер).
+    Ширина — всегда 100% окна side panel: реальную ширину задаёт браузер,
+    пользователь тянет край самой боковой панели Chrome. */
 import { ref } from 'vue'
 import RailNav from './RailNav.vue'
 import { usePanelWidth } from '../composables/usePanelWidth'
 
-const { railExpanded, panelWidth, MIN, MAX, load, setWidth } = usePanelWidth()
+const { railExpanded, load, toggleRail } = usePanelWidth()
 load()
 
 const viewportEl = ref<HTMLElement | null>(null)
-const dragging = ref(false)
 
-/** Ресайз перетаскиванием левого края панели. */
-function onDragStart(e: PointerEvent) {
-  dragging.value = true
-  ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-  e.preventDefault()
+/** Топбар скрыт; появляется при наведении на верхнюю кромку или фокусе с клавиатуры. */
+const topbarOpen = ref(false)
+let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+function openTopbar() {
+  if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
+  topbarOpen.value = true
 }
-function onDragMove(e: PointerEvent) {
-  if (!dragging.value) return
-  setWidth(window.innerWidth - e.clientX)
-}
-function onDragEnd(e: PointerEvent) {
-  if (!dragging.value) return
-  dragging.value = false
-  ;(e.target as HTMLElement).releasePointerCapture?.(e.pointerId)
+function closeTopbar() {
+  if (closeTimer) clearTimeout(closeTimer)
+  closeTimer = setTimeout(() => { topbarOpen.value = false }, 240)
 }
 
 defineExpose({ viewportEl })
 </script>
 
 <template>
- <div class="shell" :style="{ width: panelWidth + 'px' }">
-   <div
-     class="resize-handle"
-      :class="{ 'resize-handle--drag': dragging }"
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Изменить ширину панели"
-      tabindex="0"
-      @pointerdown="onDragStart"
-      @pointermove="onDragMove"
-      @pointerup="onDragEnd"
-      @pointercancel="onDragEnd"
-    />
-    <RailNav v-model:expanded="railExpanded" @select="$emit('nav', $event)" />
+  <div class="shell">
+    <RailNav :expanded="railExpanded" @update:expanded="toggleRail()" @select="$emit('nav', $event)" />
     <div class="shell-main">
-      <slot name="topbar" />
-      <div class="offline-banner" v-if="$slots.banner">
-        <slot name="banner" />
+      <div
+        class="topbar-reveal"
+        :class="{ 'topbar-reveal--open': topbarOpen }"
+        @mouseenter="openTopbar"
+        @mouseleave="closeTopbar"
+        @focusin="openTopbar"
+        @focusout="closeTopbar"
+      >
+        <div class="topbar-slot">
+          <slot name="topbar" />
+        </div>
+        <div class="topbar-peek" aria-hidden="true">
+          <span class="topbar-peek-line" />
+        </div>
       </div>
-      <div ref="viewportEl" class="shell-viewport hf-scroll">
+      <slot name="banner" />
+      <div ref="viewportEl" class="shell-viewport">
         <slot />
       </div>
       <slot name="composer" />
@@ -65,6 +63,7 @@ export default { name: 'PanelShell' }
 .shell {
   display: grid;
   grid-template-columns: auto 1fr;
+  width: 100%;
   height: 100%;
   overflow: hidden;
   position: relative;
@@ -73,24 +72,61 @@ export default { name: 'PanelShell' }
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* grid-элемент: без этого контент распирает колонку выше окна и скролл ломается. */
+  min-height: 0;
   height: 100%;
   position: relative;
   z-index: 1;
 }
+/* Viewport — flex-колонка: вью получают ограниченную высоту
+   и честный внутренний скролл (min-height: 0 в цепочке обязателен). */
 .shell-viewport {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   position: relative;
 }
-.resize-handle {
+
+/* ── Автоскрываемый топбар ────────────────────────────────────── */
+.topbar-reveal {
   position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 5px;
-  cursor: col-resize;
-  z-index: 50;
-  background: transparent;
-  transition: background var(--hf-dur-fast) var(--hf-ease-out);
+  top: 0; left: 0; right: 0;
+  z-index: 40;
+  pointer-events: none;
 }
-.resize-handle:hover, .resize-handle--drag { background: var(--hf-primary-muted); }
-.resize-handle:focus-visible { outline: none; background: var(--hf-primary-muted); box-shadow: var(--hf-glow); }
+.topbar-slot {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  transform: translateY(-100%);
+  transition: transform var(--hf-dur-base) var(--hf-ease-out),
+              box-shadow var(--hf-dur-base) var(--hf-ease-out);
+  pointer-events: auto;
+  will-change: transform;
+}
+.topbar-reveal--open .topbar-slot {
+  transform: translateY(0);
+  box-shadow: var(--hf-shadow-md);
+}
+/* Кромка-приманка: тонкая полоска сверху, ловит наведение. */
+.topbar-peek {
+  height: 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: auto;
+}
+.topbar-peek-line {
+  width: 44px;
+  height: 4px;
+  margin-top: 3px;
+  border-radius: var(--hf-r-pill);
+  background: var(--hf-border-strong);
+  opacity: 0.55;
+  transition: opacity var(--hf-dur-fast) var(--hf-ease-out),
+              background var(--hf-dur-fast) var(--hf-ease-out);
+}
+.topbar-reveal:hover .topbar-peek-line { opacity: 1; background: var(--hf-primary); }
+.topbar-reveal--open .topbar-peek { height: 0; overflow: hidden; }
 </style>
