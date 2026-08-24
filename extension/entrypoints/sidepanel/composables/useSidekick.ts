@@ -532,16 +532,21 @@ function mdToHtml(md: string): string {
   return html
 }
 
-async function sseFetch(
+/**
+ * П4: общий SSE-запрос к API панели. Каждое `data:`-событие отдаётся
+ * в onEvent; объект с done становится результатом, error — исключением.
+ * Экспортируется для композаблов верификации и карточки интервью.
+ */
+export async function sseRequest(
   path: string,
   body: any,
-  onDelta: (s: string) => void,
-  onThinking?: (s: string) => void,
+  onEvent: (obj: any) => void,
+  signal?: AbortSignal,
 ): Promise<any> {
   const resp = await fetch(`${HUNTFORK_BASE}${path}`, {
     method: 'POST', credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body), signal: aiAbort?.signal,
+    body: JSON.stringify(body), signal,
   })
   if (resp.status === 401) throw new Error('Требуется вход на huntfork.ru')
   const ctype = resp.headers.get('content-type') || ''
@@ -566,15 +571,26 @@ async function sseFetch(
         if (!line.startsWith('data: ')) continue
         let obj: any = null
         try { obj = JSON.parse(line.slice(6)) } catch { continue }
-        if (obj.delta) onDelta(obj.delta)
-        else if (obj.thinking) onThinking?.(obj.thinking)
-        else if (obj.done) final = obj
-        else if (obj.error) throw new Error(obj.error)
+        if (obj.error) throw new Error(obj.error)
+        if (obj.done) final = obj
+        onEvent(obj)
       }
       idx = buf.indexOf('\n\n')
     }
   }
   return final
+}
+
+async function sseFetch(
+  path: string,
+  body: any,
+  onDelta: (s: string) => void,
+  onThinking?: (s: string) => void,
+): Promise<any> {
+  return sseRequest(path, body, (obj) => {
+    if (obj.delta) onDelta(obj.delta)
+    else if (obj.thinking) onThinking?.(obj.thinking)
+  }, aiAbort?.signal)
 }
 
 async function loadJobsOnce() {

@@ -8,6 +8,7 @@ import { ref, watch, nextTick, computed } from 'vue'
 import HfIcon from '../ui/HfIcon.vue'
 import HfSkeleton from '../ui/HfSkeleton.vue'
 import HfThinking from '../ui/HfThinking.vue'
+import HfStages from '../ui/HfStages.vue'
 import Composer from '../layout/Composer.vue'
 import ConversationDrawer from '../layout/ConversationDrawer.vue'
 import { useSidekick, useSidekickActions } from '../composables/useSidekick'
@@ -15,7 +16,7 @@ import { useConversations } from '../composables/useConversations'
 import { useScrollMemory } from '../composables/usePanelWidth'
 
 const {
-  phase, chatMessages, chatStreaming, chatListEl, copiedMsg,
+  phase, chatMessages, chatStreaming, chatListEl, copiedMsg, capturing,
   aiMode, aiText, aiRunning, aiError, aiHtml, copied,
   aiThinking, aiTiming, chatThinking, chatTiming,
   promptChips, currentSiteLabel, isPdfPage,
@@ -200,6 +201,11 @@ const contextLabel = computed(() => isPdfPage.value ? 'PDF' : currentSiteLabel.v
 
     <!-- Summary-фаза (сводка/карточка/вопросы/перевод/fragment) -->
     <div v-else-if="isSummary" class="chat-summary hf-scroll" aria-live="polite">
+      <!-- П6: этапы генерации с секундомером -->
+      <HfStages
+        v-if="capturing || aiRunning"
+        :stage="capturing ? 'read' : (aiText ? 'write' : 'think')"
+      />
       <HfThinking v-if="aiThinking" :text="aiThinking" :live="aiRunning && !aiText" :ms="summaryThinkMs" />
       <div v-if="aiText" class="md" :class="{ 'md--streaming': aiRunning }" v-html="aiHtml" />
       <span v-if="aiRunning && aiText" class="hf-caret" />

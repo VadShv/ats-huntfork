@@ -180,7 +180,11 @@ export default { name: 'ScreeningView' }
 </script>
 
 <style scoped>
-.screening-view { height: 100%; overflow-y: auto; padding: var(--hf-s-4); display: flex; flex-direction: column; gap: var(--hf-s-4); }
+.screening-view { height: 100%; overflow-y: auto; overflow-x: hidden; padding: var(--hf-s-4); display: flex; flex-direction: column; gap: var(--hf-s-4); }
+/* На узкой панели прокручивается только полоса сабтабов, а не весь контент */
+.screening-view > .hf-subtabs { flex: none; overflow-x: auto; scrollbar-width: none; }
+.screening-view > .hf-subtabs::-webkit-scrollbar { display: none; }
+.screening-view .hf-subtab { flex: none; white-space: nowrap; }
 
 .scr-head { display: flex; align-items: center; gap: var(--hf-s-2); }
 .scr-orb {

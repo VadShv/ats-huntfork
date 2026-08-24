@@ -6,7 +6,7 @@
  * заметкой в карточку кандидата, если он найден в базе.
  */
 import { ref, computed } from 'vue'
-import { useSidekick, useSidekickActions } from './useSidekick'
+import { useSidekick, useSidekickActions, sseRequest } from './useSidekick'
 import { useToast } from './useToast'
 
 export type VfRunState = 'idle' | 'running' | 'done' | 'error'
@@ -31,6 +31,42 @@ const meta = ref<{ provider: string | null, model: string | null, totalMs?: numb
 const errorMsg = ref('')
 const savingNote = ref(false)
 const noteSaved = ref(false)
+// П6: секундомер генерации + возможность остановить
+const elapsedMs = ref(0)
+let abortCtl: AbortController | null = null
+let timerId: ReturnType<typeof setInterval> | null = null
+
+function startTimer() {
+  const t0 = Date.now()
+  elapsedMs.value = 0
+  stopTimer()
+  timerId = setInterval(() => { elapsedMs.value = Date.now() - t0 }, 100)
+}
+function stopTimer() {
+  if (timerId) { clearInterval(timerId); timerId = null }
+}
+
+/** Безопасная нормализация частичного объекта из стрима (поля могут отсутствовать). */
+function normalizeReport(p: any): VfReport {
+  const arr = (v: any) => (Array.isArray(v) ? v.filter(Boolean) : [])
+  return {
+    summary: typeof p?.summary === 'string' ? p.summary : '',
+    timeline: arr(p?.timeline).map((t: any) => ({
+      period: t?.period ?? '', place: t?.place ?? '', role: t?.role ?? '',
+      note: t?.note ?? undefined, gap: t?.gap ?? undefined,
+    })),
+    contradictions: arr(p?.contradictions).map((c: any) => ({
+      claim: c?.claim ?? '', issue: c?.issue ?? '', severity: c?.severity ?? 'low',
+    })),
+    verifiability: arr(p?.verifiability).map((v: any) => ({
+      claim: v?.claim ?? '', status: v?.status ?? 'partially', how: v?.how ?? undefined,
+    })),
+    redFlags: arr(p?.redFlags).map((f: any) => ({
+      flag: f?.flag ?? '', severity: f?.severity ?? 'low', basis: f?.basis ?? '',
+    })),
+    questions: arr(p?.questions).filter((q: any) => typeof q === 'string'),
+  }
+}
 
 export function useVerificationRun() {
   const { pageCtx, lookupInfo, selectedJobId, currentUrl } = useSidekick()
@@ -50,25 +86,65 @@ export function useVerificationRun() {
     state.value = 'running'
     errorMsg.value = ''
     noteSaved.value = false
-    const resp = await send({
-      type: 'verificationRun',
+    report.value = null
+    meta.value = null
+    startTimer()
+    const payload = {
       text: pageText.value.slice(0, 80_000),
       title: pageCtx.value?.title || undefined,
       sourceUrl: pageCtx.value?.canonical || pageCtx.value?.url || currentUrl.value || undefined,
       jobId: selectedJobId.value || undefined,
-    })
-    if (resp?.ok && resp.data?.report) {
-      report.value = resp.data.report
-      meta.value = resp.data.meta ?? null
-      state.value = 'done'
     }
-    else {
-      errorMsg.value = resp?.message || 'Не удалось выполнить проверку'
-      state.value = 'error'
+    abortCtl = new AbortController()
+    try {
+      // П4: SSE-стрим — секции отчёта появляются по мере генерации
+      const final = await sseRequest(
+        '/api/extension/verification/run',
+        { ...payload, stream: true },
+        (obj) => { if (obj.partial) report.value = normalizeReport(obj.partial) },
+        abortCtl.signal,
+      )
+      if (final?.report) {
+        report.value = normalizeReport(final.report)
+        meta.value = final.meta ?? null
+        state.value = 'done'
+      }
+      else {
+        errorMsg.value = 'Не удалось выполнить проверку'
+        state.value = 'error'
+      }
+    } catch (e: any) {
+      if (e?.name === 'AbortError' || abortCtl?.signal.aborted) {
+        // Остановлено пользователем: оставляем частичный отчёт, если он есть
+        state.value = report.value?.summary ? 'done' : 'idle'
+      }
+      else {
+        // Фолбэк: блокирующий запрос через background (без стрима)
+        const resp = await send({ type: 'verificationRun', ...payload })
+        if (resp?.ok && resp.data?.report) {
+          report.value = normalizeReport(resp.data.report)
+          meta.value = resp.data.meta ?? null
+          state.value = 'done'
+        }
+        else {
+          errorMsg.value = resp?.message || e?.message || 'Не удалось выполнить проверку'
+          state.value = 'error'
+        }
+      }
+    } finally {
+      stopTimer()
+      abortCtl = null
     }
   }
 
+  /** П6: остановить генерацию. */
+  function stop() {
+    abortCtl?.abort()
+  }
+
   function reset() {
+    abortCtl?.abort()
+    stopTimer()
     state.value = 'idle'
     report.value = null
     errorMsg.value = ''
@@ -130,8 +206,8 @@ export function useVerificationRun() {
   const canSaveToAts = computed(() => Boolean(lookupInfo.value?.candidate?.id))
 
   return {
-    state, report, meta, errorMsg, savingNote, noteSaved,
+    state, report, meta, errorMsg, savingNote, noteSaved, elapsedMs,
     pageText, hasText, canSaveToAts,
-    run, reset, exportMarkdown, saveToAts, copyReport,
+    run, stop, reset, exportMarkdown, saveToAts, copyReport,
   }
 }

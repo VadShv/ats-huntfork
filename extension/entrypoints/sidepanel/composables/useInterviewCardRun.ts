@@ -6,7 +6,7 @@
  * вопросы, блоки по компетенциям (STAR) и финальные проверки.
  */
 import { ref, computed } from 'vue'
-import { useSidekick, useSidekickActions } from './useSidekick'
+import { useSidekick, useSidekickActions, sseRequest } from './useSidekick'
 import { useToast } from './useToast'
 
 export type IcRunState = 'idle' | 'running' | 'done' | 'error'
@@ -27,6 +27,39 @@ const meta = ref<{ provider: string | null, model: string | null, totalMs?: numb
 const errorMsg = ref('')
 const savingNote = ref(false)
 const noteSaved = ref(false)
+// П6: секундомер генерации + возможность остановить
+const elapsedMs = ref(0)
+let abortCtl: AbortController | null = null
+let timerId: ReturnType<typeof setInterval> | null = null
+
+function startTimer() {
+  const t0 = Date.now()
+  elapsedMs.value = 0
+  stopTimer()
+  timerId = setInterval(() => { elapsedMs.value = Date.now() - t0 }, 100)
+}
+function stopTimer() {
+  if (timerId) { clearInterval(timerId); timerId = null }
+}
+
+/** Безопасная нормализация частичного объекта из стрима (поля могут отсутствовать). */
+function normalizeCard(p: any): IcCard {
+  const arr = (v: any) => (Array.isArray(v) ? v.filter(Boolean) : [])
+  return {
+    role: typeof p?.role === 'string' ? p.role : '',
+    intro: arr(p?.intro).filter((q: any) => typeof q === 'string'),
+    blocks: arr(p?.blocks).map((b: any) => ({
+      competency: b?.competency ?? '',
+      rationale: b?.rationale ?? '',
+      questions: arr(b?.questions).map((q: any) => ({
+        question: q?.question ?? '',
+        listenFor: q?.listenFor ?? '',
+        redFlag: q?.redFlag ?? undefined,
+      })),
+    })),
+    finalChecks: arr(p?.finalChecks).filter((q: any) => typeof q === 'string'),
+  }
+}
 
 export function useInterviewCardRun() {
   const { pageCtx, lookupInfo, selectedJobId, currentUrl } = useSidekick()
@@ -46,25 +79,65 @@ export function useInterviewCardRun() {
     state.value = 'running'
     errorMsg.value = ''
     noteSaved.value = false
-    const resp = await send({
-      type: 'interviewCard',
+    card.value = null
+    meta.value = null
+    startTimer()
+    const payload = {
       text: pageText.value.slice(0, 80_000),
       title: pageCtx.value?.title || undefined,
       sourceUrl: pageCtx.value?.canonical || pageCtx.value?.url || currentUrl.value || undefined,
       jobId: selectedJobId.value || undefined,
-    })
-    if (resp?.ok && resp.data?.card) {
-      card.value = resp.data.card
-      meta.value = resp.data.meta ?? null
-      state.value = 'done'
     }
-    else {
-      errorMsg.value = resp?.message || 'Не удалось составить карточку интервью'
-      state.value = 'error'
+    abortCtl = new AbortController()
+    try {
+      // П4: SSE-стрим — блоки карточки появляются по мере генерации
+      const final = await sseRequest(
+        '/api/extension/interview-card',
+        { ...payload, stream: true },
+        (obj) => { if (obj.partial) card.value = normalizeCard(obj.partial) },
+        abortCtl.signal,
+      )
+      if (final?.card) {
+        card.value = normalizeCard(final.card)
+        meta.value = final.meta ?? null
+        state.value = 'done'
+      }
+      else {
+        errorMsg.value = 'Не удалось составить карточку интервью'
+        state.value = 'error'
+      }
+    } catch (e: any) {
+      if (e?.name === 'AbortError' || abortCtl?.signal.aborted) {
+        // Остановлено пользователем: оставляем частичную карточку, если она есть
+        state.value = card.value?.role ? 'done' : 'idle'
+      }
+      else {
+        // Фолбэк: блокирующий запрос через background (без стрима)
+        const resp = await send({ type: 'interviewCard', ...payload })
+        if (resp?.ok && resp.data?.card) {
+          card.value = normalizeCard(resp.data.card)
+          meta.value = resp.data.meta ?? null
+          state.value = 'done'
+        }
+        else {
+          errorMsg.value = resp?.message || e?.message || 'Не удалось составить карточку интервью'
+          state.value = 'error'
+        }
+      }
+    } finally {
+      stopTimer()
+      abortCtl = null
     }
   }
 
+  /** П6: остановить генерацию. */
+  function stop() {
+    abortCtl?.abort()
+  }
+
   function reset() {
+    abortCtl?.abort()
+    stopTimer()
     state.value = 'idle'
     card.value = null
     errorMsg.value = ''
@@ -123,8 +196,8 @@ export function useInterviewCardRun() {
   const canSaveToAts = computed(() => Boolean(lookupInfo.value?.candidate?.id))
 
   return {
-    state, card, meta, errorMsg, savingNote, noteSaved,
+    state, card, meta, errorMsg, savingNote, noteSaved, elapsedMs,
     pageText, hasText, canSaveToAts,
-    run, reset, exportMarkdown, saveToAts, copyCard,
+    run, stop, reset, exportMarkdown, saveToAts, copyCard,
   }
 }

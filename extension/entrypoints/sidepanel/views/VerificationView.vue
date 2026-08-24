@@ -4,12 +4,13 @@
  * Честные состояния: idle → running → done/error. Без моков.
  * Демо-прототип «Волкодав» доступен за флагом «Экспериментальное».
  */
-import { ref, computed, defineAsyncComponent } from 'vue'
+import { ref, computed, watch, nextTick, defineAsyncComponent } from 'vue'
 import HfIcon from '../ui/HfIcon.vue'
 import HfChip from '../ui/HfChip.vue'
 import HfEmpty from '../ui/HfEmpty.vue'
 import HfButton from '../ui/HfButton.vue'
 import HfSkeleton from '../ui/HfSkeleton.vue'
+import HfStages from '../ui/HfStages.vue'
 import PrototypeBadge from '../ui/PrototypeBadge.vue'
 
 import { useVerificationRun } from '../composables/useVerificationRun'
@@ -21,7 +22,7 @@ const VerificationDemoView = defineAsyncComponent(() => import('./VerificationDe
 
 const {
   state, report, meta, errorMsg, savingNote, noteSaved,
-  hasText, canSaveToAts, run, reset, saveToAts, copyReport,
+  hasText, canSaveToAts, run, stop, reset, saveToAts, copyReport,
 } = useVerificationRun()
 const { devPrototypes } = useDevPrototypes()
 const { capturing, phase } = useSidekick()
@@ -47,10 +48,33 @@ async function readPageAndRun() {
   await grabPage()
   if (hasText.value) await run()
 }
+
+// П6: этап генерации для индикатора «Читаю → Думаю → Пишу»
+const runStage = computed<'read' | 'think' | 'write'>(() => {
+  if (capturing.value) return 'read'
+  return report.value?.summary ? 'write' : 'think'
+})
+
+// П6: автоскролл — липнем к низу, пока пользователь не прокрутил вверх
+const SCROLL_STICK = 60
+const scrollEl = ref<HTMLElement | null>(null)
+let stickToBottom = true
+function onScroll() {
+  const el = scrollEl.value
+  if (!el) return
+  stickToBottom = el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_STICK
+}
+watch(state, (s) => { if (s === 'running') stickToBottom = true })
+watch(report, async () => {
+  if (state.value !== 'running' || !stickToBottom) return
+  await nextTick()
+  const el = scrollEl.value
+  if (el) el.scrollTop = el.scrollHeight
+}, { deep: true })
 </script>
 
 <template>
-  <div class="vfr hf-scroll">
+  <div ref="scrollEl" class="vfr hf-scroll" @scroll="onScroll">
     <!-- Демо-прототип за флагом -->
     <template v-if="devPrototypes && showDemo">
       <div class="vfr-demo-bar">
@@ -104,17 +128,26 @@ async function readPageAndRun() {
         </p>
       </div>
 
-      <!-- Running -->
-      <div v-else-if="state === 'running'" class="vfr-running">
-        <p class="vfr-running-label">Анализирую резюме…</p>
+      <!-- Running: этапы + стоп, пока нет первых секций -->
+      <div v-else-if="state === 'running' && !report?.summary" class="vfr-running">
+        <HfStages :stage="runStage" />
         <div v-for="i in 4" :key="i" class="vfr-skel"><HfSkeleton :lines="2" /></div>
+        <div class="vfr-actions">
+          <HfButton variant="ghost" size="sm" @click="stop">
+            <HfIcon name="stop" :size="14" /> Стоп
+          </HfButton>
+        </div>
       </div>
 
-      <!-- Done -->
-      <div v-else-if="state === 'done' && report" class="vfr-report">
+      <!-- Отчёт: стримится или готов -->
+      <div v-else-if="report && (state === 'running' || state === 'done')" class="vfr-report">
+        <template v-if="state === 'running'">
+          <HfStages :stage="runStage" />
+        </template>
+
         <section class="vfr-block">
           <h4 class="vfr-block-title"><HfIcon name="sparkle" :size="14" /> Сводка</h4>
-          <p class="vfr-summary">{{ report.summary }}</p>
+          <p class="vfr-summary">{{ report.summary }}<span v-if="state === 'running' && !report.timeline.length" class="hf-caret" /></p>
         </section>
 
         <section v-if="report.timeline.length" class="vfr-block">
@@ -170,7 +203,17 @@ async function readPageAndRun() {
           </ol>
         </section>
 
-        <div class="vfr-actions">
+        <!-- Хвостовой скелетон и Стоп — пока стрим идёт -->
+        <template v-if="state === 'running'">
+          <div class="vfr-skel"><HfSkeleton :lines="2" width="70%" /></div>
+          <div class="vfr-actions">
+            <HfButton variant="ghost" size="sm" @click="stop">
+              <HfIcon name="stop" :size="14" /> Стоп
+            </HfButton>
+          </div>
+        </template>
+
+        <div v-if="state === 'done'" class="vfr-actions">
           <HfButton
             v-if="canSaveToAts" variant="primary" size="sm"
             :disabled="savingNote || noteSaved" @click="saveToAts"
@@ -186,11 +229,11 @@ async function readPageAndRun() {
           </HfButton>
         </div>
 
-        <p v-if="meta" class="vfr-meta">
+        <p v-if="state === 'done' && meta" class="vfr-meta">
           {{ meta.provider || 'ИИ' }}{{ meta.model ? ` · ${meta.model}` : '' }}{{ meta.totalMs ? ` · ${(meta.totalMs / 1000).toFixed(1).replace('.', ',')} с` : '' }}
           · отчёт не сохраняется на сервере
         </p>
-        <p class="vfr-ethics">
+        <p v-if="state === 'done'" class="vfr-ethics">
           Это не вывод о добросовестности кандидата и не основание для отказа.
         </p>
       </div>
@@ -203,7 +246,7 @@ export default { name: 'VerificationView' }
 </script>
 
 <style scoped>
-.vfr { padding: var(--hf-s-4); max-width: var(--hf-content-max); margin-inline: auto; }
+.vfr { padding: var(--hf-s-4); max-width: var(--hf-content-max); margin-inline: auto; width: 100%; min-width: 0; }
 .vfr-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--hf-s-3); }
 .vfr-title { font-size: var(--hf-t-md); font-weight: var(--hf-fw-semibold); color: var(--hf-fg); }
 .vfr-demo-bar { padding: var(--hf-s-2) var(--hf-s-4) 0; }
@@ -239,7 +282,9 @@ export default { name: 'VerificationView' }
 
 .vfr-tl-row { display: flex; gap: var(--hf-s-3); font-size: var(--hf-t-sm); line-height: 1.5; }
 .vfr-tl-period { flex: none; min-width: 110px; color: var(--hf-fg-muted); font-variant-numeric: tabular-nums; }
-.vfr-tl-body { display: inline-flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; color: var(--hf-fg); }
+.vfr-tl-body { display: inline-flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; color: var(--hf-fg); min-width: 0; }
+/* Длинный чип «пробел: …» должен переноситься, а не резаться на узкой панели */
+.vfr-tl-body :deep(.hf-chip) { white-space: normal; height: auto; min-width: 0; max-width: 100%; }
 
 .vfr-questions { display: flex; flex-direction: column; gap: var(--hf-s-2); padding-left: 1.2em; margin: 0; font-size: var(--hf-t-sm); color: var(--hf-fg); line-height: 1.5; }
 .vfr-meta { font-size: var(--hf-t-xs); color: var(--hf-fg-subtle); text-align: center; }

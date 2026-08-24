@@ -4,11 +4,12 @@
  * по резюме со страницы. Честные состояния, без моков.
  * Старый демо-прототип — за флагом «Экспериментальное».
  */
-import { computed, defineAsyncComponent, ref } from 'vue'
+import { computed, defineAsyncComponent, ref, watch, nextTick } from 'vue'
 import HfIcon from '../ui/HfIcon.vue'
 import HfEmpty from '../ui/HfEmpty.vue'
 import HfButton from '../ui/HfButton.vue'
 import HfSkeleton from '../ui/HfSkeleton.vue'
+import HfStages from '../ui/HfStages.vue'
 import PrototypeBadge from '../ui/PrototypeBadge.vue'
 import { useInterviewCardRun } from '../composables/useInterviewCardRun'
 import { useDevPrototypes } from '../composables/useDevPrototypes'
@@ -19,7 +20,7 @@ const InterviewCardDemoView = defineAsyncComponent(() => import('./InterviewCard
 
 const {
   state, card, meta, errorMsg, savingNote, noteSaved,
-  hasText, canSaveToAts, run, reset, saveToAts, copyCard,
+  hasText, canSaveToAts, run, stop, reset, saveToAts, copyCard,
 } = useInterviewCardRun()
 const { devPrototypes } = useDevPrototypes()
 const { capturing, phase } = useSidekick()
@@ -32,10 +33,33 @@ async function readPageAndRun() {
   await grabPage()
   if (hasText.value) await run()
 }
+
+// П6: этап генерации для индикатора «Читаю → Думаю → Пишу»
+const runStage = computed<'read' | 'think' | 'write'>(() => {
+  if (capturing.value) return 'read'
+  return card.value?.role ? 'write' : 'think'
+})
+
+// П6: автоскролл — липнем к низу, пока пользователь не прокрутил вверх
+const SCROLL_STICK = 60
+const scrollEl = ref<HTMLElement | null>(null)
+let stickToBottom = true
+function onScroll() {
+  const el = scrollEl.value
+  if (!el) return
+  stickToBottom = el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_STICK
+}
+watch(state, (s) => { if (s === 'running') stickToBottom = true })
+watch(card, async () => {
+  if (state.value !== 'running' || !stickToBottom) return
+  await nextTick()
+  const el = scrollEl.value
+  if (el) el.scrollTop = el.scrollHeight
+}, { deep: true })
 </script>
 
 <template>
-  <div class="icr hf-scroll">
+  <div ref="scrollEl" class="icr hf-scroll" @scroll="onScroll">
     <template v-if="devPrototypes && showDemo">
       <div class="icr-demo-bar">
         <HfButton variant="ghost" size="sm" @click="showDemo = false">
@@ -82,15 +106,24 @@ async function readPageAndRun() {
         </div>
       </div>
 
-      <!-- Running -->
-      <div v-else-if="state === 'running'" class="icr-running">
-        <p class="icr-running-label">Составляю карточку…</p>
+      <!-- Running: этапы + стоп, пока нет первых блоков -->
+      <div v-else-if="state === 'running' && !card?.role" class="icr-running">
+        <HfStages :stage="runStage" />
         <div v-for="i in 4" :key="i" class="icr-skel"><HfSkeleton :lines="2" /></div>
+        <div class="icr-actions icr-actions--center">
+          <HfButton variant="ghost" size="sm" @click="stop">
+            <HfIcon name="stop" :size="14" /> Стоп
+          </HfButton>
+        </div>
       </div>
 
-      <!-- Done -->
-      <div v-else-if="state === 'done' && card" class="icr-card">
-        <p class="icr-role"><HfIcon name="target" :size="14" /> {{ card.role }}</p>
+      <!-- Карточка: стримится или готова -->
+      <div v-else-if="card && (state === 'running' || state === 'done')" class="icr-card">
+        <template v-if="state === 'running'">
+          <HfStages :stage="runStage" />
+        </template>
+
+        <p class="icr-role"><HfIcon name="target" :size="14" /> {{ card.role }}<span v-if="state === 'running' && !card.blocks.length" class="hf-caret" /></p>
 
         <section v-if="card.intro.length" class="icr-block">
           <h4 class="icr-block-title"><HfIcon name="chat" :size="14" /> Вводные вопросы</h4>
@@ -116,7 +149,17 @@ async function readPageAndRun() {
           </ul>
         </section>
 
-        <div class="icr-actions">
+        <!-- Хвостовой скелетон и Стоп — пока стрим идёт -->
+        <template v-if="state === 'running'">
+          <div class="icr-skel"><HfSkeleton :lines="2" width="70%" /></div>
+          <div class="icr-actions icr-actions--center">
+            <HfButton variant="ghost" size="sm" @click="stop">
+              <HfIcon name="stop" :size="14" /> Стоп
+            </HfButton>
+          </div>
+        </template>
+
+        <div v-if="state === 'done'" class="icr-actions">
           <HfButton
             v-if="canSaveToAts" variant="primary" size="sm"
             :disabled="savingNote || noteSaved" @click="saveToAts"
@@ -132,7 +175,7 @@ async function readPageAndRun() {
           </HfButton>
         </div>
 
-        <p v-if="meta" class="icr-meta">
+        <p v-if="state === 'done' && meta" class="icr-meta">
           {{ meta.provider || 'ИИ' }}{{ meta.model ? ` · ${meta.model}` : '' }}{{ meta.totalMs ? ` · ${(meta.totalMs / 1000).toFixed(1).replace('.', ',')} с` : '' }}
           · карточка не сохраняется на сервере
         </p>
@@ -146,7 +189,7 @@ export default { name: 'InterviewCardView' }
 </script>
 
 <style scoped>
-.icr { padding: var(--hf-s-4); max-width: var(--hf-content-max); margin-inline: auto; }
+.icr { padding: var(--hf-s-4); max-width: var(--hf-content-max); margin-inline: auto; width: 100%; min-width: 0; }
 .icr-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--hf-s-3); }
 .icr-title { font-size: var(--hf-t-md); font-weight: var(--hf-fw-semibold); color: var(--hf-fg); }
 .icr-demo-bar { padding: var(--hf-s-2) var(--hf-s-4) 0; }
