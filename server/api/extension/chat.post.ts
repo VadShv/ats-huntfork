@@ -97,11 +97,14 @@ export default defineEventHandler(async (event) => {
 
   const t0 = Date.now()
   try {
-    const config = await loadAiConfig(orgId, { purpose: 'analysis', preferId: null })
+    // П2: интерактивный конфиг панели (фолбэк на analysis)
+    const config = await loadAiConfig(orgId, { purpose: 'interactive', preferId: null })
     const result = streamTextOutput(config, {
       system,
       messages: body.messages,
       reasoning: body.reasoning === true,
+      // П5: потолок генерации для чата — быстрее финал, дешевле запрос
+      maxOutputTokens: Math.min(2048, config.maxTokens),
     })
 
     // П1: телеметрия — первая любая дельта (TTFT) и первый видимый текст

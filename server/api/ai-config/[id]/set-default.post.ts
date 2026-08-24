@@ -8,7 +8,7 @@ const paramsSchema = z.object({ id: z.string().min(1) })
 /**
  * POST /api/ai-config/:id/set-default
  *
- * Atomically claims one or more "default" slots (chatbot, analysis) for this
+ * Atomically claims one or more "default" slots (chatbot, analysis, interactive) for this
  * configuration. Uses a single UPDATE per purpose that sets the flag to true
  * for the chosen row and false for every other row in the same organization,
  * so the "exactly one default per purpose" invariant is preserved even under
@@ -40,6 +40,15 @@ export default defineEventHandler(async (event) => {
       await tx.update(aiConfig)
         .set({
           isDefaultAnalysis: sql`${aiConfig.id} = ${id}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiConfig.organizationId, orgId))
+    }
+    // П2: слот «Панель» — конфиг для быстрых задач панели Sidekick.
+    if (body.purposes.includes('interactive')) {
+      await tx.update(aiConfig)
+        .set({
+          isDefaultInteractive: sql`${aiConfig.id} = ${id}`,
           updatedAt: new Date(),
         })
         .where(eq(aiConfig.organizationId, orgId))

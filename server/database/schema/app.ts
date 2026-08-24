@@ -828,6 +828,8 @@ export const aiConfig = pgTable('ai_config', {
   isDefaultChatbot: boolean('is_default_chatbot').notNull().default(false),
   /** When true, this configuration is used for applicant analysis (manual + auto). At most one row per org. */
   isDefaultAnalysis: boolean('is_default_analysis').notNull().default(false),
+  /** П2: when true, this configuration serves Sidekick panel quick tasks (summary/chat/verification). At most one row per org. */
+  isDefaultInteractive: boolean('is_default_interactive').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
@@ -835,6 +837,7 @@ export const aiConfig = pgTable('ai_config', {
   // Partial unique indexes enforce at most one default per purpose per org.
   uniqueIndex('ai_config_default_chatbot_idx').on(t.organizationId).where(sql`${t.isDefaultChatbot} = true`),
   uniqueIndex('ai_config_default_analysis_idx').on(t.organizationId).where(sql`${t.isDefaultAnalysis} = true`),
+  uniqueIndex('ai_config_default_interactive_idx').on(t.organizationId).where(sql`${t.isDefaultInteractive} = true`),
 ]))
 
 /**

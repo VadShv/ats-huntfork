@@ -6,7 +6,7 @@
  * dedicated pages (`./new` and `./[id]`) for a calmer, less dense experience.
  */
 import {
-  Brain, Plus, Loader2, AlertTriangle, Sparkles, BarChart3, Star,
+  Brain, Plus, Loader2, AlertTriangle, Sparkles, BarChart3, Star, PanelRight,
   Pencil, Trash2, Zap, Check, KeyRound, Server,
 } from 'lucide-vue-next'
 
@@ -28,6 +28,7 @@ interface AiConfigRow {
   outputPricePer1m: number | null
   isDefaultChatbot: boolean
   isDefaultAnalysis: boolean
+  isDefaultInteractive: boolean
   hasApiKey: boolean
   createdAt?: string | Date
   updatedAt?: string | Date
@@ -64,8 +65,13 @@ const isLoading = computed(() => configsStatus.value === 'pending' && configs.va
 
 // ── Per-row actions ──
 const togglingDefaultId = ref<string | null>(null)
-const togglingPurpose = ref<'chatbot' | 'analysis' | null>(null)
-async function setDefault(c: AiConfigRow, purpose: 'chatbot' | 'analysis') {
+const togglingPurpose = ref<'chatbot' | 'analysis' | 'interactive' | null>(null)
+const PURPOSE_TOAST: Record<string, string> = {
+  chatbot: 'чата',
+  analysis: 'анализа',
+  interactive: 'панели Sidekick',
+}
+async function setDefault(c: AiConfigRow, purpose: 'chatbot' | 'analysis' | 'interactive') {
   togglingDefaultId.value = c.id
   togglingPurpose.value = purpose
   try {
@@ -74,7 +80,7 @@ async function setDefault(c: AiConfigRow, purpose: 'chatbot' | 'analysis') {
       body: { purposes: [purpose] },
       headers: useRequestHeaders(['cookie']),
     })
-    toast.success(`Назначено по умолчанию для ${purpose === 'chatbot' ? 'чата' : 'анализа'}`, `Теперь используется «${c.name}».`)
+    toast.success(`Назначено по умолчанию для ${PURPOSE_TOAST[purpose]}`, `Теперь используется «${c.name}».`)
     await refreshConfigs()
   } catch (err: any) {
     const message = err?.data?.statusMessage ?? 'Не удалось назначить конфигурацию по умолчанию.'
@@ -233,6 +239,13 @@ function formatPrice(p: number | null): string {
                 <Star class="size-3" /> По умолчанию для анализа
               </span>
               <span
+                v-if="c.isDefaultInteractive"
+                class="inline-flex items-center gap-1 rounded-full border border-success-200 dark:border-success-800 bg-success-50 dark:bg-success-950/50 px-2 py-0.5 text-[11px] font-medium text-success-700 dark:text-success-300"
+                title="По умолчанию для быстрых задач панели Sidekick (саммари, чат, верификация). Если не назначено — используется конфиг анализа"
+              >
+                <PanelRight class="size-3" /> По умолчанию для панели
+              </span>
+              <span
                 v-if="!c.hasApiKey"
                 class="inline-flex items-center gap-1 rounded-full border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950/50 px-2 py-0.5 text-[11px] font-medium text-danger-700 dark:text-danger-300"
               >
@@ -291,6 +304,18 @@ function formatPrice(p: number | null): string {
               <Loader2 v-if="togglingDefaultId === c.id && togglingPurpose === 'analysis'" class="size-3.5 animate-spin" />
               <Star v-else class="size-3.5" />
               Использовать для анализа
+            </button>
+
+            <button
+              v-if="!c.isDefaultInteractive"
+              :disabled="!c.hasApiKey || (togglingDefaultId === c.id && togglingPurpose === 'interactive')"
+              class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:border-success-300 dark:hover:border-success-700 hover:text-success-700 dark:hover:text-success-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              :title="c.hasApiKey ? 'Использовать эту модель для быстрых задач панели Sidekick (саммари, чат, верификация)' : 'Сначала добавьте ключ API'"
+              @click="setDefault(c, 'interactive')"
+            >
+              <Loader2 v-if="togglingDefaultId === c.id && togglingPurpose === 'interactive'" class="size-3.5 animate-spin" />
+              <PanelRight v-else class="size-3.5" />
+              Использовать для панели
             </button>
 
             <button

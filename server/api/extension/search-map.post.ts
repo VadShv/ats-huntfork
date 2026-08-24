@@ -74,7 +74,8 @@ export default defineEventHandler(async (event) => {
     description = stripHtml(j.description ?? '')
   }
 
-  const config = await loadAiConfig(orgId, { purpose: 'analysis', preferId: null })
+  // П2: интерактивный конфиг панели (фолбэк на analysis)
+  const config = await loadAiConfig(orgId, { purpose: 'interactive', preferId: null })
   const providerConfig = {
     provider: config.provider as SupportedProvider,
     model: config.model,

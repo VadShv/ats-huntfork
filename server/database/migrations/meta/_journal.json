@@ -470,6 +470,13 @@
       "when": 1801000130000,
       "tag": "0067_mv_application_stage_durations",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1801000140000,
+      "tag": "0068_ai_config_default_interactive",
+      "breakpoints": true
     }
   ]
 }

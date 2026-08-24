@@ -40,7 +40,7 @@ export const updateAiConfigSchema = z.object({
 
 export const setAiConfigDefaultSchema = z.object({
   /** Which "purpose" slots to claim for this configuration. */
-  purposes: z.array(z.enum(['chatbot', 'analysis'])).min(1),
+  purposes: z.array(z.enum(['chatbot', 'analysis', 'interactive'])).min(1),
 })
 
 // ─── Scoring Criterion Schemas ────────────────────────────────────

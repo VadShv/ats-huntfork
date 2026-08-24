@@ -28,6 +28,7 @@ import { z } from 'zod'
 import { job } from '../../database/schema'
 import { loadAiConfig } from '../../utils/ai/loadConfig'
 import { streamTextOutput } from '../../utils/ai/provider'
+import { prepareInteractiveText } from '../../utils/ai/textDiet'
 import { createRateLimiter } from '../../utils/rateLimit'
 
 const limiter = createRateLimiter({
@@ -54,12 +55,17 @@ const bodySchema = z.object({
 // ── Кэш готовых ответов (in-memory, на контейнер) ──────────────────
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000
 const CACHE_MAX = 200
-const CACHEABLE = new Set(['summary', 'fit', 'card'])
+// П5: + questions — детерминированный режим без пользовательского ввода,
+// повторный запрос по той же странице отдаём мгновенно из кэша
+const CACHEABLE = new Set(['summary', 'fit', 'card', 'questions'])
 const cache = new Map<string, { text: string, at: number }>()
 
-function cacheKey(orgId: string, b: { mode: string, jobId?: string, sourceUrl: string, text: string }) {
+// П5: ключ включает sha1 ПОДГОТОВЛЕННОГО текста, а не его длину:
+// две разные страницы одинаковой длины больше не считаются «одинаковыми»
+function cacheKey(orgId: string, b: { mode: string, jobId?: string, sourceUrl: string }, preparedText: string) {
+  const textHash = createHash('sha1').update(preparedText).digest('hex')
   return createHash('sha1')
-    .update(`${orgId}|${b.mode}|${b.jobId ?? ''}|${b.sourceUrl}|${b.text.length}`)
+    .update(`${orgId}|${b.mode}|${b.jobId ?? ''}|${b.sourceUrl}|${textHash}`)
     .digest('hex')
 }
 
@@ -124,6 +130,25 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()
 }
 
+// П5: пер-режимные лимиты входного текста: коротким задачам — меньше токенов,
+// переводу — больше (он работает со всем содержимым)
+const MODE_TEXT_LIMIT: Record<string, number> = {
+  summary: 10_000,
+  questions: 10_000,
+  fragment: 10_000,
+  fit: 12_000,
+  card: 12_000,
+  translate: 15_000,
+  custom: 15_000,
+}
+
+// П5: потолок генерации под режим — саммари не нужны десятки тысяч токенов
+const MODE_OUTPUT_TOKENS: Record<string, number> = {
+  translate: 4000,
+  custom: 2000,
+}
+const DEFAULT_OUTPUT_TOKENS = 1600
+
 export default defineEventHandler(async (event) => {
   await limiter(event)
   const session = await requirePermission(event, { candidate: ['read'] })
@@ -145,7 +170,8 @@ export default defineEventHandler(async (event) => {
     jobContext = `\n\n<вакансия>\nНазвание: ${j.title}\n${stripHtml(j.description ?? '').slice(0, 4000)}\n</вакансия>`
   }
 
-  const text = body.text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').slice(0, 15_000)
+  // П5: диета текста — фильтр боилерплейта hh.ru + пер-режимный лимит
+  const text = prepareInteractiveText(body.text, MODE_TEXT_LIMIT[body.mode] ?? 12_000)
 
   // ── SSE-заголовки ──
   setResponseHeaders(event, {
@@ -161,7 +187,7 @@ export default defineEventHandler(async (event) => {
 
   // ── Кэш ──
   const t0 = Date.now()
-  const key = cacheKey(orgId, body)
+  const key = cacheKey(orgId, body, text)
   if (CACHEABLE.has(body.mode)) {
     const cached = cacheGet(key)
     if (cached) {
@@ -175,7 +201,8 @@ export default defineEventHandler(async (event) => {
 
   // ── Генерация ──
   try {
-    const config = await loadAiConfig(orgId, { purpose: 'analysis', preferId: null })
+    // П2: интерактивный конфиг панели (фолбэк на analysis — поведение не меняется, пока дефолт не назначен)
+    const config = await loadAiConfig(orgId, { purpose: 'interactive', preferId: null })
     const label = body.mode === 'fragment' ? 'фрагмент страницы' : 'страница кандидата'
     const prompt = `Источник: ${body.title ?? ''} (${body.sourceUrl})${jobContext}\n\n<${'текст'}>\n${text}\n</${'текст'}>\n\nЭто ${label}. Выполни задачу из системной инструкции.`
 
@@ -183,6 +210,8 @@ export default defineEventHandler(async (event) => {
       system: systemFor(body.mode, body.instruction),
       prompt,
       reasoning: body.reasoning === true,
+      // П5: потолок генерации под режим — быстрее финал, дешевле запрос
+      maxOutputTokens: Math.min(MODE_OUTPUT_TOKENS[body.mode] ?? DEFAULT_OUTPUT_TOKENS, config.maxTokens),
     })
 
     // П1: телеметрия — первая любая дельта (TTFT) и первый видимый текст

@@ -25,11 +25,12 @@ export default defineEventHandler(async (event) => {
       outputPricePer1m: true,
       isDefaultChatbot: true,
       isDefaultAnalysis: true,
+      isDefaultInteractive: true,
       apiKeyEncrypted: true,
       createdAt: true,
       updatedAt: true,
     },
-    orderBy: (t, { desc }) => [desc(t.isDefaultChatbot), desc(t.isDefaultAnalysis), desc(t.createdAt)],
+    orderBy: (t, { desc }) => [desc(t.isDefaultChatbot), desc(t.isDefaultAnalysis), desc(t.isDefaultInteractive), desc(t.createdAt)],
   })
 
   return rows.map(({ apiKeyEncrypted, ...rest }) => ({

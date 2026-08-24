@@ -9,7 +9,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { generateObject, streamText } from 'ai'
+import { generateObject, streamObject, streamText } from 'ai'
 import type { z } from 'zod'
 import { decrypt } from '../encryption'
 import { createYandexFetch } from './yandexFetch'
@@ -308,6 +308,8 @@ export function streamTextOutput(
      * true — модель думает, а «мысли» стримятся как reasoning-дельты.
      */
     reasoning?: boolean
+    /** П5: потолок генерации под задачу — короче ответ, быстрее финал. По умолчанию — лимит конфига. */
+    maxOutputTokens?: number
   },
 ) {
   const model = config.provider === 'cloud_ru'
@@ -318,7 +320,44 @@ export function streamTextOutput(
     model,
     system: options.system,
     ...(options.messages ? { messages: options.messages } : { prompt: options.prompt ?? '' }),
-    maxOutputTokens: config.maxTokens,
+    maxOutputTokens: options.maxOutputTokens ?? config.maxTokens,
     temperature: 0.3,
+  })
+}
+
+/**
+ * П4: стриминговая генерация структурированного JSON (верификация,
+ * карточка интервью в Sidekick). Возвращает результат `streamObject` целиком:
+ * `partialObjectStream` для прогрессивной отрисовки и `object` для финальной
+ * валидации по схеме. Идёт через тот же клиент, что generateStructuredOutput
+ * (для cloud_ru — createOpenAI().chat), поэтому структурный вывод идентичен
+ * блокирующему пути. Скрининговый контур (generateStructuredOutput) не тронут.
+ */
+export function streamStructuredOutput<T>(
+  config: ProviderConfig,
+  options: {
+    system: string
+    prompt: string
+    schema: z.ZodType<T>
+    schemaName: string
+    schemaDescription?: string
+    /** П5: потолок генерации под задачу. По умолчанию — лимит конфига. */
+    maxOutputTokens?: number
+    /** Обрыв генерации при уходе клиента (экономия токенов). */
+    abortSignal?: AbortSignal
+  },
+) {
+  const model = createLanguageModel(config)
+
+  return streamObject({
+    model,
+    system: options.system,
+    prompt: options.prompt,
+    schema: options.schema,
+    schemaName: options.schemaName,
+    schemaDescription: options.schemaDescription,
+    maxOutputTokens: options.maxOutputTokens ?? config.maxTokens,
+    temperature: 0.1,
+    abortSignal: options.abortSignal,
   })
 }
