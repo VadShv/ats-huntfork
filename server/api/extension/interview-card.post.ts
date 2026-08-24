@@ -92,24 +92,31 @@ export default defineEventHandler(async (event) => {
 
   const prompt = `Источник: ${body.title ?? ''} ${body.sourceUrl ? `(${body.sourceUrl})` : ''}${jobContext}\n\n<профиль>\n${text}\n</профиль>\n\nСобери карточку интервью.`
 
-  const { object: card, usage } = await generateStructuredOutput(providerConfig, {
+  const t0 = Date.now()
+  const { object: card, usage, responseModel } = await generateStructuredOutput(providerConfig, {
     system,
     prompt,
     schema: cardSchema,
     schemaName: 'interview_card',
     schemaDescription: 'Карточка структурированного интервью по компетенциям',
   })
+  const totalMs = Date.now() - t0
 
   logApiRequest(event, session, 'extension.interviewCard', {
     textLength: text.length,
     jobId: body.jobId ?? null,
     promptTokens: usage.promptTokens,
     completionTokens: usage.completionTokens,
+    // П1: длительность и фактическая модель
+    total_ms: totalMs,
+    ai_provider: config.provider,
+    ai_model: config.model,
+    response_model: responseModel,
   })
 
   return {
     ok: true,
     card,
-    meta: { provider: config.provider, model: config.model, generatedAt: new Date().toISOString() },
+    meta: { provider: config.provider, model: config.model, totalMs, generatedAt: new Date().toISOString() },
   }
 })

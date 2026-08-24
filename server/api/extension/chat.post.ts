@@ -11,10 +11,11 @@
  *   pageText?: string,   // извлечённый текст страницы (контекст)
  *   sourceUrl?: string,
  *   title?: string,
- *   jobId?: string       // опциональный контекст вакансии
+ *   jobId?: string,      // опциональный контекст вакансии
+ *   reasoning?: boolean  // тумблер «Глубокий анализ»
  * }
  *
- * Ответ: text/event-stream — {"delta"} ... {"done", "usage"} | {"error","code"}
+ * Ответ: text/event-stream — {"thinking"} | {"delta"} ... {"done", "usage", "timing", "model"} | {"error","code"}
  */
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -38,6 +39,8 @@ const bodySchema = z.object({
   sourceUrl: z.string().url().max(2000).optional(),
   title: z.string().max(300).optional(),
   jobId: z.string().max(64).optional(),
+  /** Тумблер «Глубокий анализ»: true — thinking включён и стримится, иначе отключается */
+  reasoning: z.boolean().optional(),
 }).refine(v => v.messages[v.messages.length - 1]!.role === 'user', {
   message: 'Последнее сообщение должно быть от пользователя',
 })
@@ -92,19 +95,45 @@ export default defineEventHandler(async (event) => {
     res.write(`data: ${JSON.stringify(obj)}\n\n`)
   }
 
+  const t0 = Date.now()
   try {
     const config = await loadAiConfig(orgId, { purpose: 'analysis', preferId: null })
-    const result = streamTextOutput(config, { system, messages: body.messages })
+    const result = streamTextOutput(config, {
+      system,
+      messages: body.messages,
+      reasoning: body.reasoning === true,
+    })
 
-    for await (const delta of result.textStream) {
-      send({ delta })
+    // П1: телеметрия — первая любая дельта (TTFT) и первый видимый текст
+    let ttftMs: number | null = null
+    let firstTextMs: number | null = null
+    let thinkingChars = 0
+    for await (const part of result.fullStream) {
+      if (part.type === 'reasoning-delta') {
+        if (ttftMs === null) ttftMs = Date.now() - t0
+        thinkingChars += part.text.length
+        send({ thinking: part.text })
+      }
+      else if (part.type === 'text-delta') {
+        if (ttftMs === null) ttftMs = Date.now() - t0
+        if (firstTextMs === null) firstTextMs = Date.now() - t0
+        send({ delta: part.text })
+      }
+      else if (part.type === 'error') {
+        throw part.error
+      }
     }
+    const totalMs = Date.now() - t0
+
     const usage = await result.usage.catch(() => null)
+    const response = await Promise.resolve(result.response).catch(() => null)
     send({
       done: true,
       usage: usage
         ? { promptTokens: usage.inputTokens ?? 0, completionTokens: usage.outputTokens ?? 0 }
         : undefined,
+      timing: { ttftMs, firstTextMs, totalMs },
+      model: config.model,
     })
     res.end()
 
@@ -114,6 +143,15 @@ export default defineEventHandler(async (event) => {
       pageChars: pageText.length,
       promptTokens: usage?.inputTokens ?? null,
       completionTokens: usage?.outputTokens ?? null,
+      // П1: длительности и фактическая модель
+      ttft_ms: ttftMs,
+      first_text_ms: firstTextMs,
+      total_ms: totalMs,
+      thinking_chars: thinkingChars,
+      reasoning: body.reasoning === true,
+      ai_provider: config.provider,
+      ai_model: config.model,
+      response_model: response?.modelId ?? null,
     })
   }
   catch (err: any) {

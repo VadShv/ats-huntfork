@@ -23,7 +23,7 @@ export interface IcCard {
 
 const state = ref<IcRunState>('idle')
 const card = ref<IcCard | null>(null)
-const meta = ref<{ provider: string | null, model: string | null, generatedAt: string } | null>(null)
+const meta = ref<{ provider: string | null, model: string | null, totalMs?: number | null, generatedAt: string } | null>(null)
 const errorMsg = ref('')
 const savingNote = ref(false)
 const noteSaved = ref(false)

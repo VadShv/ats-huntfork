@@ -106,24 +106,31 @@ export default defineEventHandler(async (event) => {
 
   const prompt = `Источник: ${body.title ?? ''} ${body.sourceUrl ? `(${body.sourceUrl})` : ''}${jobContext}\n\n<профиль>\n${text}\n</профиль>\n\nПроведи верификационный анализ профиля.`
 
-  const { object: report, usage } = await generateStructuredOutput(providerConfig, {
+  const t0 = Date.now()
+  const { object: report, usage, responseModel } = await generateStructuredOutput(providerConfig, {
     system,
     prompt,
     schema: reportSchema,
     schemaName: 'verification_report',
     schemaDescription: 'Верификационный отчёт по профилю кандидата',
   })
+  const totalMs = Date.now() - t0
 
   logApiRequest(event, session, 'extension.verificationRun', {
     textLength: text.length,
     jobId: body.jobId ?? null,
     promptTokens: usage.promptTokens,
     completionTokens: usage.completionTokens,
+    // П1: длительность и фактическая модель
+    total_ms: totalMs,
+    ai_provider: config.provider,
+    ai_model: config.model,
+    response_model: responseModel,
   })
 
   return {
     ok: true,
     report,
-    meta: { provider: config.provider, model: config.model, generatedAt: new Date().toISOString() },
+    meta: { provider: config.provider, model: config.model, totalMs, generatedAt: new Date().toISOString() },
   }
 })

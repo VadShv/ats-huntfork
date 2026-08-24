@@ -187,7 +187,7 @@ async function readPageAndRun() {
         </div>
 
         <p v-if="meta" class="vfr-meta">
-          {{ meta.provider || 'ИИ' }}{{ meta.model ? ` · ${meta.model}` : '' }}
+          {{ meta.provider || 'ИИ' }}{{ meta.model ? ` · ${meta.model}` : '' }}{{ meta.totalMs ? ` · ${(meta.totalMs / 1000).toFixed(1).replace('.', ',')} с` : '' }}
           · отчёт не сохраняется на сервере
         </p>
         <p class="vfr-ethics">

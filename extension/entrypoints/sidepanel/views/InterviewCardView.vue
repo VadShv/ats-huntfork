@@ -133,7 +133,7 @@ async function readPageAndRun() {
         </div>
 
         <p v-if="meta" class="icr-meta">
-          {{ meta.provider || 'ИИ' }}{{ meta.model ? ` · ${meta.model}` : '' }}
+          {{ meta.provider || 'ИИ' }}{{ meta.model ? ` · ${meta.model}` : '' }}{{ meta.totalMs ? ` · ${(meta.totalMs / 1000).toFixed(1).replace('.', ',')} с` : '' }}
           · карточка не сохраняется на сервере
         </p>
       </div>

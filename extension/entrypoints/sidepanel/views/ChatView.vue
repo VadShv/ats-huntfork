@@ -7,6 +7,7 @@
 import { ref, watch, nextTick, computed } from 'vue'
 import HfIcon from '../ui/HfIcon.vue'
 import HfSkeleton from '../ui/HfSkeleton.vue'
+import HfThinking from '../ui/HfThinking.vue'
 import Composer from '../layout/Composer.vue'
 import ConversationDrawer from '../layout/ConversationDrawer.vue'
 import { useSidekick, useSidekickActions } from '../composables/useSidekick'
@@ -16,6 +17,7 @@ import { useScrollMemory } from '../composables/usePanelWidth'
 const {
   phase, chatMessages, chatStreaming, chatListEl, copiedMsg,
   aiMode, aiText, aiRunning, aiError, aiHtml, copied,
+  aiThinking, aiTiming, chatThinking, chatTiming,
   promptChips, currentSiteLabel, isPdfPage,
   reasoningEnabled, CHAT_PRESETS,
   jobs, selectedJobId,
@@ -38,6 +40,20 @@ const isChat = computed(() => phase.value === 'chat')
 const isEmpty = computed(() => isChat.value && chatMessages.value.length === 0)
 
 const selectedJob = computed(() => jobs.value.find(j => j.id === selectedJobId.value))
+
+// П3: длительность thinking-фазы и строка телеметрии «X,X с · модель»
+function thinkPhaseMs(t: { ttftMs?: number | null, firstTextMs?: number | null } | null): number | null {
+  if (!t || t.firstTextMs == null || t.ttftMs == null) return null
+  return Math.max(0, t.firstTextMs - t.ttftMs)
+}
+const summaryThinkMs = computed(() => thinkPhaseMs(aiTiming.value))
+const chatThinkMs = computed(() => thinkPhaseMs(chatTiming.value))
+function timingLabel(t: { totalMs?: number | null, model?: string | null } | null): string {
+  if (!t?.totalMs) return ''
+  const secs = (t.totalMs / 1000).toFixed(1).replace('.', ',')
+  const model = (t.model ?? '').split('/').pop()
+  return model ? `${secs} с · ${model}` : `${secs} с`
+}
 
 /** Пресеты: рекрутерские сначала на страницах профилей, универсальные всегда. */
 const visiblePresets = computed(() => {
@@ -184,12 +200,14 @@ const contextLabel = computed(() => isPdfPage.value ? 'PDF' : currentSiteLabel.v
 
     <!-- Summary-фаза (сводка/карточка/вопросы/перевод/fragment) -->
     <div v-else-if="isSummary" class="chat-summary hf-scroll" aria-live="polite">
+      <HfThinking v-if="aiThinking" :text="aiThinking" :live="aiRunning && !aiText" :ms="summaryThinkMs" />
       <div v-if="aiText" class="md" :class="{ 'md--streaming': aiRunning }" v-html="aiHtml" />
       <span v-if="aiRunning && aiText" class="hf-caret" />
-      <div v-if="aiRunning && !aiText" class="chat-loading">
+      <div v-if="aiRunning && !aiText && !aiThinking" class="chat-loading">
         <HfSkeleton :lines="3" width="50%" />
       </div>
       <div v-if="aiError" class="chat-flash-err hf-shake">{{ aiError }}</div>
+      <div v-if="!aiRunning && aiText && timingLabel(aiTiming)" class="chat-timing">{{ timingLabel(aiTiming) }}</div>
       <div v-if="!aiRunning && aiText" class="chat-summary-actions">
         <button class="msg-act" @click="copyAi()">
           <HfIcon :name="copied ? 'check' : 'copy'" :size="14" />
@@ -219,9 +237,22 @@ const contextLabel = computed(() => isPdfPage.value ? 'PDF' : currentSiteLabel.v
           </div>
           <div class="msg-body">
             <div v-if="m.role === 'user'" class="msg-bubble msg-bubble--user">{{ m.content }}</div>
-            <div v-else class="msg-bubble msg-bubble--ai">
+            <HfThinking
+              v-if="m.role === 'assistant' && i === chatMessages.length - 1 && chatThinking"
+              :text="chatThinking" :live="chatStreaming && !m.content" :ms="chatThinkMs"
+            />
+            <div v-if="m.role === 'assistant' && chatStreaming && i === chatMessages.length - 1 && !m.content && !chatThinking" class="msg-bubble msg-bubble--ai chat-wait">
+              <span class="hf-pulse-orb" /> Готовлю ответ…
+            </div>
+            <div v-else-if="m.role === 'assistant' && (m.content || !chatStreaming)" class="msg-bubble msg-bubble--ai">
               <span v-if="m.content.startsWith('⚠️')" class="chat-err-text">{{ m.content }}</span>
               <div v-else class="md" v-html="mdToHtml(m.content)"></div>
+            </div>
+            <div
+              v-if="m.role === 'assistant' && i === chatMessages.length - 1 && !chatStreaming && m.content && !m.content.startsWith('⚠️') && timingLabel(chatTiming)"
+              class="chat-timing"
+            >
+              {{ timingLabel(chatTiming) }}
             </div>
             <div v-if="m.role === 'assistant' && m.content && !m.content.startsWith('⚠️')" class="msg-actions">
               <button
@@ -258,6 +289,8 @@ export default { name: 'ChatView' }
 
 <style scoped>
 .chat-view { display: flex; flex-direction: column; height: 100%; position: relative; }
+.chat-timing { margin-top: var(--hf-s-2); color: var(--hf-fg-subtle); font-size: var(--hf-t-xs, 11px); font-variant-numeric: tabular-nums; }
+.chat-wait { display: inline-flex; align-items: center; gap: var(--hf-s-2); color: var(--hf-fg-muted); }
 
 /* Шапка чата */
 .chat-head {

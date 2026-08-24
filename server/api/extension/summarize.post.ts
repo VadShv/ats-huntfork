@@ -14,11 +14,12 @@
  *   card      — карточка знаний: навыки / достижения / риски / вопросы
  *   custom    — пользовательская инструкция из библиотеки промптов (S8)
  *
- * Body: { sourceUrl, site?, title?, text (80..80000), mode, jobId?, instruction? }
+ * Body: { sourceUrl, site?, title?, text (80..80000), mode, jobId?, instruction?, reasoning? }
  *
  * Ответ: text/event-stream
+ *   data: {"thinking":"..."}     — фрагмент «размышлений» модели (при reasoning=true)
  *   data: {"delta":"..."}        — очередной фрагмент текста
- *   data: {"done":true, "usage":{...}, "cached":boolean}
+ *   data: {"done":true, "usage":{...}, "cached":boolean, "timing":{ttftMs,firstTextMs,totalMs}, "model":"..."}
  *   data: {"error":"...", "code":"..."}  — ошибка после старта стрима
  */
 import { createHash } from 'node:crypto'
@@ -45,6 +46,8 @@ const bodySchema = z.object({
   mode: z.enum(MODES),
   jobId: z.string().max(64).optional(),
   instruction: z.string().max(2000).optional(),
+  /** Тумблер «Глубокий анализ»: true — thinking включён и стримится, иначе отключается */
+  reasoning: z.boolean().optional(),
 }).refine(v => v.mode !== 'fit' || !!v.jobId, { message: 'Для режима fit нужен jobId' })
   .refine(v => v.mode !== 'custom' || !!v.instruction, { message: 'Для режима custom нужна instruction' })
 
@@ -157,14 +160,15 @@ export default defineEventHandler(async (event) => {
   }
 
   // ── Кэш ──
+  const t0 = Date.now()
   const key = cacheKey(orgId, body)
   if (CACHEABLE.has(body.mode)) {
     const cached = cacheGet(key)
     if (cached) {
       send({ delta: cached })
-      send({ done: true, cached: true })
+      send({ done: true, cached: true, timing: { totalMs: Date.now() - t0 } })
       res.end()
-      logApiRequest(event, session, 'extension.summarize', { mode: body.mode, cached: true })
+      logApiRequest(event, session, 'extension.summarize', { mode: body.mode, cached: true, total_ms: Date.now() - t0 })
       return
     }
   }
@@ -175,15 +179,37 @@ export default defineEventHandler(async (event) => {
     const label = body.mode === 'fragment' ? 'фрагмент страницы' : 'страница кандидата'
     const prompt = `Источник: ${body.title ?? ''} (${body.sourceUrl})${jobContext}\n\n<${'текст'}>\n${text}\n</${'текст'}>\n\nЭто ${label}. Выполни задачу из системной инструкции.`
 
-    const result = streamTextOutput(config, { system: systemFor(body.mode, body.instruction), prompt })
+    const result = streamTextOutput(config, {
+      system: systemFor(body.mode, body.instruction),
+      prompt,
+      reasoning: body.reasoning === true,
+    })
 
+    // П1: телеметрия — первая любая дельта (TTFT) и первый видимый текст
+    let ttftMs: number | null = null
+    let firstTextMs: number | null = null
+    let thinkingChars = 0
     let full = ''
-    for await (const delta of result.textStream) {
-      full += delta
-      send({ delta })
+    for await (const part of result.fullStream) {
+      if (part.type === 'reasoning-delta') {
+        if (ttftMs === null) ttftMs = Date.now() - t0
+        thinkingChars += part.text.length
+        send({ thinking: part.text })
+      }
+      else if (part.type === 'text-delta') {
+        if (ttftMs === null) ttftMs = Date.now() - t0
+        if (firstTextMs === null) firstTextMs = Date.now() - t0
+        full += part.text
+        send({ delta: part.text })
+      }
+      else if (part.type === 'error') {
+        throw part.error
+      }
     }
+    const totalMs = Date.now() - t0
 
     const usage = await result.usage.catch(() => null)
+    const response = await Promise.resolve(result.response).catch(() => null)
     if (CACHEABLE.has(body.mode) && full.length > 50) {
       cacheSet(key, full)
     }
@@ -193,6 +219,8 @@ export default defineEventHandler(async (event) => {
       usage: usage
         ? { promptTokens: usage.inputTokens ?? 0, completionTokens: usage.outputTokens ?? 0 }
         : undefined,
+      timing: { ttftMs, firstTextMs, totalMs },
+      model: config.model,
     })
     res.end()
 
@@ -203,6 +231,15 @@ export default defineEventHandler(async (event) => {
       chars: text.length,
       promptTokens: usage?.inputTokens ?? null,
       completionTokens: usage?.outputTokens ?? null,
+      // П1: длительности и фактическая модель
+      ttft_ms: ttftMs,
+      first_text_ms: firstTextMs,
+      total_ms: totalMs,
+      thinking_chars: thinkingChars,
+      reasoning: body.reasoning === true,
+      ai_provider: config.provider,
+      ai_model: config.model,
+      response_model: response?.modelId ?? null,
     })
   }
   catch (err: any) {

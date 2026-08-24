@@ -58,6 +58,12 @@ const aiRunning = ref(false)
 const aiError = ref('')
 const aiUsage = ref<{ promptTokens: number, completionTokens: number } | null>(null)
 const aiCached = ref(false)
+// П3: стрим «размышлений» модели и телеметрия ответа
+interface AiTiming { ttftMs?: number | null, firstTextMs?: number | null, totalMs?: number | null, model?: string | null }
+const aiThinking = ref('')
+const aiTiming = ref<AiTiming | null>(null)
+const chatThinking = ref('')
+const chatTiming = ref<AiTiming | null>(null)
 const aiJobId = ref('')
 const copied = ref(false)
 const noteSaving = ref(false)
@@ -183,6 +189,7 @@ export function useSidekick() {
     dFirstName, dLastName, dTitle, dCity, dEmail, dPhone, dTelegram,
     dLinkedin, dGithub, dAbout, dSkills,
     aiMode, aiModeLabel, aiText, aiRunning, aiError, aiUsage, aiCached,
+    aiThinking, aiTiming, chatThinking, chatTiming,
     aiJobId, copied, noteSaving, noteSaved,
     pageCtx, prompts, lookupInfo,
     chatMessages, chatInput, chatStreaming, chatListEl, copiedMsg,
@@ -525,7 +532,12 @@ function mdToHtml(md: string): string {
   return html
 }
 
-async function sseFetch(path: string, body: any, onDelta: (s: string) => void): Promise<any> {
+async function sseFetch(
+  path: string,
+  body: any,
+  onDelta: (s: string) => void,
+  onThinking?: (s: string) => void,
+): Promise<any> {
   const resp = await fetch(`${HUNTFORK_BASE}${path}`, {
     method: 'POST', credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -555,6 +567,7 @@ async function sseFetch(path: string, body: any, onDelta: (s: string) => void): 
         let obj: any = null
         try { obj = JSON.parse(line.slice(6)) } catch { continue }
         if (obj.delta) onDelta(obj.delta)
+        else if (obj.thinking) onThinking?.(obj.thinking)
         else if (obj.done) final = obj
         else if (obj.error) throw new Error(obj.error)
       }
@@ -585,6 +598,8 @@ async function runSummary(mode: string, opts: { instruction?: string, label?: st
   phase.value = 'summary'
   activeView.value = mode === 'fit' ? 'screening' : 'chat'
   aiText.value = ''
+  aiThinking.value = ''
+  aiTiming.value = null
   aiUsage.value = null
   aiCached.value = false
   noteSaved.value = false
@@ -613,9 +628,10 @@ async function runSummary(mode: string, opts: { instruction?: string, label?: st
       sourceUrl: ctx.canonical || ctx.url, site: ctx.site, title: ctx.title,
       text, mode, jobId: mode === 'fit' ? aiJobId.value : undefined, instruction: opts.instruction,
       reasoning: reasoningEnabled.value,
-    }, (d) => { aiText.value += d })
+    }, (d) => { aiText.value += d }, (t) => { aiThinking.value += t })
     aiUsage.value = final.usage ?? null
     aiCached.value = !!final.cached
+    aiTiming.value = final.timing ? { ...final.timing, model: final.model ?? null } : null
   }
   catch (err: any) {
     if (err?.name !== 'AbortError') aiError.value = err?.message || 'Ошибка генерации'
@@ -793,10 +809,12 @@ async function sendChat() {
   const history = chatMessages.value.slice(-20).map(m => ({ role: m.role, content: m.content }))
   chatMessages.value.push({ role: 'assistant', content: '' })
   chatStreaming.value = true
+  chatThinking.value = ''
+  chatTiming.value = null
   aiAbort = new AbortController()
   try {
     const ctx = pageCtx.value && pageCtx.value.url === currentUrl.value ? pageCtx.value : null
-    await sseFetch('/api/extension/chat', {
+    const final = await sseFetch('/api/extension/chat', {
       messages: history,
       pageText: ctx?.text ? String(ctx.text).slice(0, 15_000) : undefined,
       sourceUrl: ctx?.canonical || ctx?.url || undefined,
@@ -805,7 +823,8 @@ async function sendChat() {
     }, (d) => {
       const last = chatMessages.value[chatMessages.value.length - 1]
       if (last) last.content += d
-    })
+    }, (t) => { chatThinking.value += t })
+    chatTiming.value = final.timing ? { ...final.timing, model: final.model ?? null } : null
   }
   catch (err: any) {
     const last = chatMessages.value[chatMessages.value.length - 1]

@@ -27,7 +27,7 @@ export interface VfReport {
 
 const state = ref<VfRunState>('idle')
 const report = ref<VfReport | null>(null)
-const meta = ref<{ provider: string | null, model: string | null, generatedAt: string } | null>(null)
+const meta = ref<{ provider: string | null, model: string | null, totalMs?: number | null, generatedAt: string } | null>(null)
 const errorMsg = ref('')
 const savingNote = ref(false)
 const noteSaved = ref(false)

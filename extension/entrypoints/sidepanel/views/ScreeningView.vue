@@ -9,14 +9,24 @@ import HfButton from '../ui/HfButton.vue'
 import HfIcon from '../ui/HfIcon.vue'
 import HfEmpty from '../ui/HfEmpty.vue'
 import HfSkeleton from '../ui/HfSkeleton.vue'
+import HfThinking from '../ui/HfThinking.vue'
 import { useSidekick, useSidekickActions } from '../composables/useSidekick'
 import VerificationView from './VerificationView.vue'
 import InterviewCardView from './InterviewCardView.vue'
 
 const {
   phase, aiMode, aiModeLabel, aiText, aiRunning, aiError, aiUsage, aiCached,
+  aiThinking, aiTiming,
   aiJobId, jobs, copied, noteSaving, noteSaved, noteCandidateId, aiHtml,
 } = useSidekick()
+
+// П3: длительность thinking-фазы и короткое имя модели для строки телеметрии
+const thinkMs = computed(() => {
+  const t = aiTiming.value
+  if (!t || t.firstTextMs == null || t.ttftMs == null) return null
+  return Math.max(0, t.firstTextMs - t.ttftMs)
+})
+const modelShort = computed(() => (aiTiming.value?.model ?? '').split('/').pop() || '')
 const {
   runSummary, rerunFit, abortAi, copyAi, saveAsNote, addToBase, openChat, loadJobsOnce,
 } = useSidekickActions()
@@ -93,13 +103,14 @@ const screeningTab = ref<'fit' | 'verify' | 'interview'>('fit')
         subtitle="Выберите вакансию выше — панель оценит, насколько кандидат подходит, и даст рекомендации."
       />
 
-      <!-- Loading: скелетон (только после 180 мс) -->
+      <!-- Loading: стрим размышлений или скелетон (только после 180 мс) -->
       <div v-else-if="aiRunning && !aiText" class="scr-loading">
-        <div v-if="showSkeleton" class="scr-skel">
+        <HfThinking v-if="aiThinking" :text="aiThinking" :live="true" />
+        <div v-else-if="showSkeleton" class="scr-skel">
           <HfSkeleton :lines="4" width="55%" />
           <HfSkeleton :lines="3" width="40%" />
         </div>
-        <div v-else class="scr-thinking">
+        <div v-else-if="!aiThinking" class="scr-thinking">
           <span class="hf-pulse-orb scr-pulse" />
           <span>Читаем страницу и готовим ответ…</span>
         </div>
@@ -107,12 +118,18 @@ const screeningTab = ref<'fit' | 'verify' | 'interview'>('fit')
 
       <!-- Streaming / Done -->
       <div v-else-if="aiText" class="scr-result">
+        <HfThinking v-if="aiThinking" :text="aiThinking" :live="false" :ms="thinkMs" />
         <div class="md" :class="{ 'md--streaming': aiRunning }" v-html="aiHtml" />
         <span v-if="aiRunning" class="hf-caret" />
 
         <!-- Метрики -->
-        <div v-if="aiUsage && !aiRunning" class="scr-usage">
-          {{ aiCached ? 'результат из кэша' : `токены: ${aiUsage.promptTokens ?? '?'} + ${aiUsage.completionTokens ?? '?'}` }}
+        <div v-if="(aiUsage || aiTiming) && !aiRunning" class="scr-usage">
+          <template v-if="aiCached">результат из кэша</template>
+          <template v-else>
+            <template v-if="aiTiming?.totalMs">{{ (aiTiming.totalMs / 1000).toFixed(1).replace('.', ',') }} с</template>
+            <template v-if="modelShort"> · {{ modelShort }}</template>
+            <template v-if="aiUsage"> · токены: {{ aiUsage.promptTokens ?? '?' }} + {{ aiUsage.completionTokens ?? '?' }}</template>
+          </template>
         </div>
 
         <!-- Действия -->

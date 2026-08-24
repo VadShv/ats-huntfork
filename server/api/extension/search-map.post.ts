@@ -92,23 +92,30 @@ export default defineEventHandler(async (event) => {
 
   const prompt = `<вакансия>\nНазвание: ${title}\n${description.slice(0, 8000)}\n</вакансия>\n\nПострой карту поиска.`
 
-  const { object: map, usage } = await generateStructuredOutput(providerConfig, {
+  const t0 = Date.now()
+  const { object: map, usage, responseModel } = await generateStructuredOutput(providerConfig, {
     system,
     prompt,
     schema: mapSchema,
     schemaName: 'search_map',
     schemaDescription: 'Карта поиска кандидатов по вакансии',
   })
+  const totalMs = Date.now() - t0
 
   logApiRequest(event, session, 'extension.searchMap', {
     jobId: body.jobId ?? null,
     promptTokens: usage.promptTokens,
     completionTokens: usage.completionTokens,
+    // П1: длительность и фактическая модель
+    total_ms: totalMs,
+    ai_provider: config.provider,
+    ai_model: config.model,
+    response_model: responseModel,
   })
 
   return {
     ok: true,
     map,
-    meta: { provider: config.provider, model: config.model, generatedAt: new Date().toISOString() },
+    meta: { provider: config.provider, model: config.model, totalMs, generatedAt: new Date().toISOString() },
   }
 })

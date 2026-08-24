@@ -8,10 +8,12 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { generateObject, streamText } from 'ai'
 import type { z } from 'zod'
 import { decrypt } from '../encryption'
 import { createYandexFetch } from './yandexFetch'
+import { createCloudRuFetch, thinkingFamilyFor } from './cloudRuFetch'
 
 export type SupportedProvider = 'openai' | 'anthropic' | 'google' | 'openai_compatible' | 'yandex' | 'cloud_ru'
 
@@ -237,7 +239,7 @@ export async function generateStructuredOutput<T>(
     schemaName: string
     schemaDescription?: string
   },
-): Promise<{ object: T; usage: { promptTokens: number; completionTokens: number } }> {
+): Promise<{ object: T; usage: { promptTokens: number; completionTokens: number }; responseModel: string | null }> {
   const model = createLanguageModel(config)
 
   const result = await generateObject({
@@ -257,6 +259,8 @@ export async function generateStructuredOutput<T>(
       promptTokens: result.usage.inputTokens ?? 0,
       completionTokens: result.usage.outputTokens ?? 0,
     },
+    // Фактическая модель из ответа API — телеметрия «кто реально отвечает»
+    responseModel: result.response?.modelId ?? null,
   }
 }
 
@@ -265,15 +269,50 @@ export async function generateStructuredOutput<T>(
  * Тот же provider/config-контур, что generateStructuredOutput;
  * скрининговый код не затрагивается.
  */
+/**
+ * Стрим-модель для Cloud.ru через @ai-sdk/openai-compatible:
+ * в отличие от @ai-sdk/openai, он парсит `reasoning_content` из Chat Completions
+ * в reasoning-дельты («мысли» модели становятся видимы в fullStream),
+ * а при reasoning=false обёртка fetch отключает thinking-фазу целиком.
+ * Используется ТОЛЬКО в streamTextOutput — скрининг (generateStructuredOutput)
+ * продолжает ходить через прежний клиент.
+ */
+function createCloudRuStreamModel(config: ProviderConfig, reasoningOn: boolean) {
+  const secret = env.BETTER_AUTH_SECRET
+  const apiKey = decrypt(config.apiKeyEncrypted, secret)
+  if (!apiKey) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Не удалось расшифровать ключ API ИИ. Возможно, ключ повреждён',
+    })
+  }
+  const provider = createOpenAICompatible({
+    name: 'cloud-ru',
+    apiKey,
+    baseURL: config.baseUrl || 'https://foundation-models.api.cloud.ru/v1',
+    includeUsage: true,
+    fetch: createCloudRuFetch(reasoningOn ? null : thinkingFamilyFor(config.model)),
+  })
+  return provider.chatModel(config.model)
+}
+
 export function streamTextOutput(
   config: ProviderConfig,
   options: {
     system: string
     prompt?: string
     messages?: Array<{ role: 'user' | 'assistant', content: string }>
+    /**
+     * Тумблер «Глубокий анализ» из панели: false/undefined — thinking-фаза
+     * reasoning-моделей Cloud.ru отключается (быстрый первый токен),
+     * true — модель думает, а «мысли» стримятся как reasoning-дельты.
+     */
+    reasoning?: boolean
   },
 ) {
-  const model = createLanguageModel(config)
+  const model = config.provider === 'cloud_ru'
+    ? createCloudRuStreamModel(config, options.reasoning === true)
+    : createLanguageModel(config)
 
   return streamText({
     model,
