@@ -48,24 +48,26 @@ export const SIMPLE_STAGES: StageSeed[] = [
 export const HH_STANDARD_STAGES: StageSeed[] = [
   // ── Working bucket ──
   { key: 'unsorted',  name: 'Все неразобранные', type: 'new',        color: STAGE_COLORS.new,        displayOrder: 0,  bucket: 'working',  isTerminal: false, isSystemStage: true },
-  { key: 'suitable',  name: 'Подходящие',        type: 'new',        color: STAGE_COLORS.new,        displayOrder: 1,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'unsorted' },
-  { key: 'onhold',    name: 'Подумать',          type: 'on_hold',    color: STAGE_COLORS.on_hold,    displayOrder: 2,  bucket: 'working',  isTerminal: false, isSystemStage: true },
-  { key: 'later',     name: 'Вернуться позже',   type: 'on_hold',    color: STAGE_COLORS.on_hold,    displayOrder: 3,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'onhold' },
-  { key: 'contact',   name: 'Первичный контакт', type: 'contact',    color: STAGE_COLORS.contact,    displayOrder: 4,  bucket: 'working',  isTerminal: false, isSystemStage: true },
-  { key: 'call',      name: 'Звонок',            type: 'contact',    color: STAGE_COLORS.contact,    displayOrder: 5,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'contact' },
-  { key: 'messenger', name: 'Мессенджер',        type: 'contact',    color: STAGE_COLORS.contact,    displayOrder: 6,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'contact' },
-  { key: 'retry',     name: 'Связаться ещё раз', type: 'contact',    color: STAGE_COLORS.contact,    displayOrder: 7,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'contact' },
-  { key: 'test',      name: 'Тестовое задание',  type: 'assessment', color: STAGE_COLORS.assessment, displayOrder: 8,  bucket: 'working',  isTerminal: false, isSystemStage: true },
-  { key: 'interview', name: 'Интервью',          type: 'interview',  color: STAGE_COLORS.interview,  displayOrder: 9,  bucket: 'working',  isTerminal: false, isSystemStage: true },
-  { key: 'offer',     name: 'Предложение о работе', type: 'offer',   color: STAGE_COLORS.offer,      displayOrder: 10, bucket: 'working',  isTerminal: false, isSystemStage: true },
-  { key: 'hired',     name: 'Выход на работу',   type: 'hired',      color: STAGE_COLORS.hired,      displayOrder: 11, bucket: 'working',  isTerminal: true,  isSystemStage: true },
+  // ТЗ hm-review-substage: очередь нанимающего менеджера — подэтап между корнем и «Подходящими»
+  { key: 'hm_review', name: 'На рассмотрении',   type: 'new',        color: STAGE_COLORS.new,        displayOrder: 1,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'unsorted' },
+  { key: 'suitable',  name: 'Подходящие',        type: 'new',        color: STAGE_COLORS.new,        displayOrder: 2,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'unsorted' },
+  { key: 'onhold',    name: 'Подумать',          type: 'on_hold',    color: STAGE_COLORS.on_hold,    displayOrder: 3,  bucket: 'working',  isTerminal: false, isSystemStage: true },
+  { key: 'later',     name: 'Вернуться позже',   type: 'on_hold',    color: STAGE_COLORS.on_hold,    displayOrder: 4,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'onhold' },
+  { key: 'contact',   name: 'Первичный контакт', type: 'contact',    color: STAGE_COLORS.contact,    displayOrder: 5,  bucket: 'working',  isTerminal: false, isSystemStage: true },
+  { key: 'call',      name: 'Звонок',            type: 'contact',    color: STAGE_COLORS.contact,    displayOrder: 6,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'contact' },
+  { key: 'messenger', name: 'Мессенджер',        type: 'contact',    color: STAGE_COLORS.contact,    displayOrder: 7,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'contact' },
+  { key: 'retry',     name: 'Связаться ещё раз', type: 'contact',    color: STAGE_COLORS.contact,    displayOrder: 8,  bucket: 'working',  isTerminal: false, isSystemStage: true, parentKey: 'contact' },
+  { key: 'test',      name: 'Тестовое задание',  type: 'assessment', color: STAGE_COLORS.assessment, displayOrder: 9,  bucket: 'working',  isTerminal: false, isSystemStage: true },
+  { key: 'interview', name: 'Интервью',          type: 'interview',  color: STAGE_COLORS.interview,  displayOrder: 10, bucket: 'working',  isTerminal: false, isSystemStage: true },
+  { key: 'offer',     name: 'Предложение о работе', type: 'offer',   color: STAGE_COLORS.offer,      displayOrder: 11, bucket: 'working',  isTerminal: false, isSystemStage: true },
+  { key: 'hired',     name: 'Выход на работу',   type: 'hired',      color: STAGE_COLORS.hired,      displayOrder: 12, bucket: 'working',  isTerminal: true,  isSystemStage: true },
   // ── Rejected bucket (Спринт 22: родитель «Отказ» + подэтапы-причины) ──
-  { key: 'reject',    name: 'Отказ',                 type: 'rejected',    color: STAGE_COLORS.rejected,    displayOrder: 12, bucket: 'rejected', isTerminal: true, isSystemStage: true },
-  { key: 'notfit',    name: 'Не подходит',           type: 'not_fit',     color: STAGE_COLORS.not_fit,     displayOrder: 13, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
-  { key: 'withdrawn', name: 'Кандидат отказался',    type: 'withdrawn',   color: STAGE_COLORS.withdrawn,   displayOrder: 14, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
-  { key: 'noshow',    name: 'Не выходит на связь',   type: 'no_show',     color: STAGE_COLORS.no_show,     displayOrder: 15, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
-  { key: 'closed',    name: 'Вакансия закрыта',      type: 'job_closed',  color: STAGE_COLORS.job_closed,  displayOrder: 16, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
-  { key: 'transfer',  name: 'Перевод на другую вакансию', type: 'transferred', color: STAGE_COLORS.transferred, displayOrder: 17, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
+  { key: 'reject',    name: 'Отказ',                 type: 'rejected',    color: STAGE_COLORS.rejected,    displayOrder: 13, bucket: 'rejected', isTerminal: true, isSystemStage: true },
+  { key: 'notfit',    name: 'Не подходит',           type: 'not_fit',     color: STAGE_COLORS.not_fit,     displayOrder: 14, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
+  { key: 'withdrawn', name: 'Кандидат отказался',    type: 'withdrawn',   color: STAGE_COLORS.withdrawn,   displayOrder: 15, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
+  { key: 'noshow',    name: 'Не выходит на связь',   type: 'no_show',     color: STAGE_COLORS.no_show,     displayOrder: 16, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
+  { key: 'closed',    name: 'Вакансия закрыта',      type: 'job_closed',  color: STAGE_COLORS.job_closed,  displayOrder: 17, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
+  { key: 'transfer',  name: 'Перевод на другую вакансию', type: 'transferred', color: STAGE_COLORS.transferred, displayOrder: 18, bucket: 'rejected', isTerminal: true, isSystemStage: true, parentKey: 'reject' },
 ]
 
 interface PresetDefinition {
@@ -140,6 +142,8 @@ async function seedPresetForOrg(
       organizationId,
       pipelineId,
       parentStageId: parentKey ? keyToId.get(parentKey) ?? null : null,
+      // ТЗ hm-review-substage: machine-readable ключ пресета для серверной логики
+      presetKey: key,
     }
   })
 

@@ -60,6 +60,7 @@ interface PipelineViewStage {
   isSystemStage?: boolean
   isHidden?: boolean
   parentStageId?: string | null
+  presetKey?: string | null
 }
 interface PipelineViewResponse {
   source: 'snapshot' | 'live' | 'none'
@@ -438,6 +439,20 @@ const stageCounts = computed<Record<string, number>>(() => {
     counts[s.id] = n
   }
   return counts
+})
+
+// ТЗ hm-review-substage: счётчик «На рассмотрении» (preset_key='hm_review') для шапки корневого таба
+const hmReviewCountByRoot = computed<Record<string, number>>(() => {
+  const res: Record<string, number> = {}
+  for (const s of pipelineView.value?.stages ?? []) {
+    if (s.presetKey !== 'hm_review' || !s.parentStageId || s.isHidden) continue
+    let n = 0
+    for (const a of applications.value) {
+      if (a.currentStageId === s.id) n += 1
+    }
+    if (n > 0) res[s.parentStageId] = n
+  }
+  return res
 })
 
 // Sprint 3: разбивка по источнику — все/отклики/холодные/ручные.
@@ -1600,6 +1615,14 @@ function closeDocPreview() {
                   : 'bg-surface-100 text-surface-500 dark:bg-surface-800/80 dark:text-surface-400'"
               >
                 {{ stageCounts[stage.id] ?? 0 }}
+              </span>
+              <!-- ТЗ hm-review-substage: бейдж очереди НМ в шапке корневого таба -->
+              <span
+                v-if="hmReviewCountByRoot[stage.id]"
+                class="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                title="Кандидаты на рассмотрении у нанимающего менеджера"
+              >
+                НМ: {{ hmReviewCountByRoot[stage.id] }}
               </span>
             </button>
           </template>

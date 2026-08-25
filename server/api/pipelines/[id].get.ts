@@ -37,6 +37,8 @@ export default defineEventHandler(async (event) => {
           isSystemStage: true,
           isHidden: true,
           parentStageId: true,
+          // ТЗ hm-review-substage: для подсказки у подэтапа «На рассмотрении» в конструкторе
+          presetKey: true,
           rejectMessageTemplate: true,
           slaDays: true,
           slaAlertDays: true,

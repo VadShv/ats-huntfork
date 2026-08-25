@@ -32,7 +32,7 @@
  * кнопки без целевого этапа в воронке скрываются; хоткеи 1…N — динамические.
  */
 import type { Component } from 'vue'
-import { ThumbsUp, Hourglass, CircleSlash, ChevronDown, Calendar, CalendarClock, FileCheck, BadgeCheck, UserX, Check, CornerDownRight } from 'lucide-vue-next'
+import { ThumbsUp, Hourglass, CircleSlash, ChevronDown, Calendar, CalendarClock, FileCheck, BadgeCheck, UserX, UserCheck, Check, CornerDownRight } from 'lucide-vue-next'
 import { APPLICATION_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 
@@ -68,6 +68,7 @@ interface QuickStage {
   bucket?: string | null
   parentStageId?: string | null
   isHidden?: boolean | null
+  presetKey?: string | null
 }
 
 const quickStages = ref<QuickStage[]>([])
@@ -93,6 +94,37 @@ async function loadQuickStages() {
 }
 onMounted(loadQuickStages)
 watch(() => props.applicationId, loadQuickStages)
+
+// ─── ТЗ hm-review-substage (П3): действие «На рассмотрение НМ» ──────────────
+
+// Подэтап «На рассмотрении» (preset_key='hm_review') в воронке вакансии
+const hmReviewStage = computed(() =>
+  quickStages.value.find(s => s.presetKey === 'hm_review' && !s.isArchived && !s.isHidden) ?? null,
+)
+
+// Назначен ли на вакансию хотя бы один НМ — без НМ действие скрыто
+const hmHasManager = ref(false)
+watch([hmReviewStage, () => props.applicationId], async ([stage]) => {
+  hmHasManager.value = false
+  if (!stage) return
+  try {
+    const res = await $fetch<{ hasHiringManager: boolean }>(`/api/applications/${props.applicationId}/hm-review`)
+    hmHasManager.value = Boolean(res?.hasHiringManager)
+  }
+  catch {
+    hmHasManager.value = false
+  }
+}, { immediate: true })
+
+// Видимость: отклик на корне «Неразобранные» или его подэтапах (кроме самого hm_review)
+const canSendToHmReview = computed(() => {
+  const review = hmReviewStage.value
+  if (!review || !review.parentStageId || !hmHasManager.value) return false
+  const cur = currentQuickStage.value
+  if (!cur || cur.id === review.id) return false
+  const curRootId = cur.parentStageId ?? cur.id
+  return curRootId === review.parentStageId
+})
 
 const NEW_STAGE_TYPES = ['on_hold', 'contact', 'assessment', 'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred']
 const hasHhPipeline = computed(() => quickStages.value.some(s => NEW_STAGE_TYPES.includes(s.type)))
@@ -242,6 +274,10 @@ const quickActionSet = computed<QuickAction[]>(() => {
   const hired = move('hired', hiredStage.value, BadgeCheck, 'success')
   const withdrawn = move('withdrawn', withdrawnStage.value, UserX, 'danger')
   const scheduleOnly: QuickAction = { key: 'schedule', label: t('applications.schedule_interview'), icon: Calendar, tone: 'neutral', run: () => emit('schedule'), title: 'Запланировать интервью' }
+  // ТЗ hm-review-substage: отправить кандидата в очередь нанимающего менеджера
+  const sendToHm: QuickAction | null = canSendToHmReview.value && hmReviewStage.value
+    ? { key: 'hm-review', label: 'На рассмотрение НМ', icon: UserCheck, tone: 'neutral', stage: hmReviewStage.value, title: 'Отправить кандидата на рассмотрение нанимающему менеджеру' }
+    : null
 
   switch (currentRootType.value) {
     case 'rejected':
@@ -261,7 +297,7 @@ const quickActionSet = computed<QuickAction[]>(() => {
       break
     default:
       // Нет этапа / unsorted / on_hold / contact / custom-working — как раньше
-      push(invite); push(consider); push(reject)
+      push(invite); push(consider); push(reject); push(sendToHm)
       push(interviewMove ? { ...interviewMove, tone: 'neutral', icon: Calendar } : scheduleOnly)
   }
   // Кнопка уже-текущего этапа не показывается (правило A1.5)

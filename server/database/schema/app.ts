@@ -292,6 +292,16 @@ export const pipelineStage = pgTable('pipeline_stage', {
    */
   parentStageId: text('parent_stage_id'),
   /**
+   * ТЗ hm-review-substage: machine-readable ключ этапа из сидливаемого пресета
+   * (`unsorted`, `hm_review`, `suitable`, `notfit`, …). Заполняется ТОЛЬКО
+   * сидером/миграцией — в конструкторе воронки не редактируется и не показывается.
+   * NULL для пользовательских этапов. Уникален в пределах воронки
+   * (частичный индекс ux_pipeline_stage_preset_key).
+   * Используется серверной логикой для надёжного поиска семантических этапов
+   * (очередь НМ, цель «Одобрено НМ») вместо хрупкого поиска по имени.
+   */
+  presetKey: text('preset_key'),
+  /**
    * Спринт 22: org-дефолтный шаблон отказного сообщения кандидату при hh-пуше
    * в discard-коллекцию. Имеет смысл для этапов bucket='rejected'.
    * Приоритет: hh_stage_mapping.message_template (per-vacancy) →

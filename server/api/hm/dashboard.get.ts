@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import { application, candidate, job, pipelineStage } from '../../database/schema/app'
 import { hmDecision } from '../../database/schema/hm'
 import { requireHm } from '../../utils/requireHm'
@@ -7,9 +7,12 @@ import { listJobsForHiringManager } from '../../utils/hiringManager'
 /**
  * GET /api/hm/dashboard
  * Единая точка входа для НМ. Возвращает:
- *   - jobs: вакансии, где НМ назначен, с количеством «Ждут решения».
- *   - queue: до 100 кандидатов на этапе `new` из этих вакансий,
- *            у которых ещё нет эффективного решения НМ.
+ *   - jobs: вакансии, где НМ назначен, с количеством «Ждут решения»
+ *           и режимом очереди (reviewMode: 'queue' | 'legacy').
+ *   - queue: до 100 кандидатов, у которых ещё нет эффективного решения НМ.
+ *     ТЗ hm-review-substage: если в воронке вакансии есть подэтап
+ *     «На рассмотрении» (preset_key='hm_review') — только кандидаты с этого
+ *     подэтапа (режим 'queue'); иначе — легаси-режим: все на этапах type new/applied.
  *   - notices: подсказки для UI (например, must_change_password).
  */
 export default defineEventHandler(async (event) => {
@@ -34,6 +37,7 @@ export default defineEventHandler(async (event) => {
       title: job.title,
       location: job.location,
       status: job.status,
+      pipelineId: job.pipelineId,
     })
     .from(job)
     .where(and(
@@ -41,7 +45,54 @@ export default defineEventHandler(async (event) => {
       inArray(job.id, jobIds),
     ))
 
-  // 3. Кандидаты в `new` по этим вакансиям (последние 100)
+  // 2.1. ТЗ hm-review-substage: подэтап «На рассмотрении» пер-воронка
+  const pipelineIds = [...new Set(jobsRows.map(j => j.pipelineId).filter((v): v is string => Boolean(v)))]
+  const reviewStageByPipeline = new Map<string, { stageId: string; stageName: string }>()
+  if (pipelineIds.length > 0) {
+    const reviewRows = await db
+      .select({ id: pipelineStage.id, name: pipelineStage.name, pipelineId: pipelineStage.pipelineId })
+      .from(pipelineStage)
+      .where(and(
+        eq(pipelineStage.organizationId, orgId),
+        eq(pipelineStage.presetKey, 'hm_review'),
+        eq(pipelineStage.isArchived, false),
+        eq(pipelineStage.isHidden, false),
+        inArray(pipelineStage.pipelineId, pipelineIds),
+      ))
+    for (const r of reviewRows) {
+      reviewStageByPipeline.set(r.pipelineId, { stageId: r.id, stageName: r.name })
+    }
+  }
+
+  const queueJobIds: string[] = []
+  const queueStageIds = new Set<string>()
+  const legacyJobIds: string[] = []
+  for (const j of jobsRows) {
+    const review = j.pipelineId ? reviewStageByPipeline.get(j.pipelineId) : undefined
+    if (review) {
+      queueJobIds.push(j.id)
+      queueStageIds.add(review.stageId)
+    }
+    else {
+      legacyJobIds.push(j.id)
+    }
+  }
+
+  const queueConditions = []
+  if (queueJobIds.length > 0) {
+    queueConditions.push(and(
+      inArray(application.jobId, queueJobIds),
+      inArray(application.currentStageId, [...queueStageIds]),
+    ))
+  }
+  if (legacyJobIds.length > 0) {
+    queueConditions.push(and(
+      inArray(application.jobId, legacyJobIds),
+      inArray(pipelineStage.type, ['new', 'applied']),
+    ))
+  }
+
+  // 3. Кандидаты очереди по этим вакансиям (последние 100)
   const queueRows = await db
     .select({
       appId: application.id,
@@ -63,7 +114,7 @@ export default defineEventHandler(async (event) => {
     .where(and(
       eq(application.organizationId, orgId),
       inArray(application.jobId, jobIds),
-      inArray(pipelineStage.type, ['new', 'applied']),
+      or(...queueConditions),
     ))
     .orderBy(desc(application.createdAt))
     .limit(100)
@@ -93,8 +144,13 @@ export default defineEventHandler(async (event) => {
 
   return {
     jobs: jobsRows.map(j => ({
-      ...j,
+      id: j.id,
+      title: j.title,
+      location: j.location,
+      status: j.status,
       pendingCount: pendingByJob.get(j.id) ?? 0,
+      // 'queue' — очередь «На рассмотрении»; 'legacy' — все неразобранные (старое поведение)
+      reviewMode: (j.pipelineId && reviewStageByPipeline.has(j.pipelineId) ? 'queue' : 'legacy') as 'queue' | 'legacy',
     })),
     queue: pending.map(r => ({
       applicationId: r.appId,
@@ -105,16 +161,25 @@ export default defineEventHandler(async (event) => {
       createdAt: r.appCreatedAt,
       stageChangedAt: r.stageChangedAt,
     })),
-    notices: buildNotices(session),
+    notices: buildNotices(session, pending.length),
   }
 })
 
-function buildNotices(session: Awaited<ReturnType<typeof requireHm>>) {
+function buildNotices(session: Awaited<ReturnType<typeof requireHm>>, pendingCount: number) {
   const notices: Array<{ code: string; message: string }> = []
   if (session.hm.mustChangePassword) {
     notices.push({
       code: 'must_change_password',
       message: 'Временный пароль требует смены. Пожалуйста, установите постоянный.',
+    })
+  }
+  // ТЗ hm-review-substage (П4): уведомление о кандидатах, ждущих решения
+  if (pendingCount > 0) {
+    notices.push({
+      code: 'pending_review',
+      message: pendingCount === 1
+        ? '1 кандидат ждёт вашего решения.'
+        : `Кандидатов на рассмотрении: ${pendingCount}. Они ждут вашего решения.`,
     })
   }
   return notices

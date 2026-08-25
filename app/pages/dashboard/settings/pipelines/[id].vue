@@ -26,6 +26,7 @@ interface StageDto {
   isSystemStage: boolean
   isHidden: boolean
   parentStageId: string | null
+  presetKey?: string | null
   rejectMessageTemplate: string | null
   slaDays: number | null
   slaAlertDays: number | null
@@ -148,6 +149,24 @@ async function onStageDrop(target: StageDto, e: DragEvent) {
 }
 
 async function toggleHide(stage: StageDto & { substages?: StageDto[] }) {
+  // ТЗ hm-review-substage: скрытие очереди НМ переключает кабинет НМ в легаси-режим —
+  // предупреждаем и показываем, сколько кандидатов сейчас на подэтапе.
+  if (!stage.isHidden && stage.presetKey === 'hm_review') {
+    let onStage = 0
+    try {
+      const res = await $fetch<{ total: number }>('/api/applications', {
+        query: { stageId: stage.id, limit: 1 },
+      })
+      onStage = res.total ?? 0
+    }
+    catch { /* счётчик необязателен — предупреждаем без него */ }
+    const suffix = onStage > 0 ? `Сейчас на подэтапе: ${onStage}. ` : ''
+    const ok = window.confirm(
+      `Скрыть подэтап «На рассмотрении»? ${suffix}`
+      + 'Кабинет нанимающего менеджера переключится в режим «все неразобранные».',
+    )
+    if (!ok) return
+  }
   busyStageId.value = stage.id
   try {
     await $fetch(`/api/pipelines/${pipelineId.value}/stages/${stage.id}`, {
@@ -591,6 +610,13 @@ async function submitNewStage() {
                     class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                   >
                     скрыт
+                  </span>
+                  <span
+                    v-if="sub.presetKey === 'hm_review'"
+                    class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                    title="Кандидаты на этом подэтапе видны нанимающему менеджеру. После одобрения НМ кандидат переходит в «Подходящие»"
+                  >
+                    очередь НМ
                   </span>
                 </div>
               </div>

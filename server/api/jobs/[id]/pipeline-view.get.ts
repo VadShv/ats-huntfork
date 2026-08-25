@@ -94,6 +94,8 @@ export default defineEventHandler(async (event) => {
       isSystemStage: pipelineStage.isSystemStage,
       isHidden: pipelineStage.isHidden,
       parentStageId: pipelineStage.parentStageId,
+      // ТЗ hm-review-substage: для бейджа «На рассмотрении» в канбане
+      presetKey: pipelineStage.presetKey,
     })
     .from(pipelineStage)
     .where(and(

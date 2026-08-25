@@ -9,6 +9,8 @@ export interface HmDashboardJob {
   location: string | null
   status: string
   pendingCount: number
+  /** ТЗ hm-review-substage: 'queue' — очередь «На рассмотрении»; 'legacy' — все неразобранные. */
+  reviewMode: 'queue' | 'legacy'
 }
 
 export interface HmQueueItem {
@@ -40,7 +42,11 @@ export interface HmApplicationResponse {
     stageChangedAt: string | Date | null
     currentStage: { name: string; type: string } | null
     isOnNewStage: boolean
+    /** ТЗ hm-review-substage: кандидат в очереди НМ. */
+    isInReview: boolean
   }
+  /** ТЗ hm-review-substage: режим очереди воронки этой вакансии. */
+  reviewMode: 'queue' | 'legacy'
   candidate: {
     id: string
     fullName: string
@@ -102,7 +108,7 @@ export function useHmApi() {
     return await $fetch<{
       success: true
       decision: { id: string; applicationId: string; decision: string; targetStage: string }
-      stage: { fromStageName: string | null; toStageName: string | null }
+      stage: { fromStageName: string | null; toStageName: string | null } | null
     }>('/api/hm/decisions', {
       method: 'POST',
       body: payload,

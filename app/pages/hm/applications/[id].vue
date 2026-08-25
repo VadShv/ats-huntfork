@@ -72,7 +72,7 @@ async function decide(kind: 'approved' | 'rejected') {
     })
     toast.success(
       kind === 'approved' ? 'Кандидат одобрен' : 'Кандидат отклонён',
-      `Этап переведён в «${result.stage.toStageName ?? result.decision.targetStage}»`,
+      `Кандидат перемещён в «${result.stage?.toStageName ?? result.decision.targetStage}»`,
     )
     comment.value = ''
     await refresh()

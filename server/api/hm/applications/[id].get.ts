@@ -4,6 +4,7 @@ import { application, candidate, job, pipelineStage } from '../../../database/sc
 import { hmDecision } from '../../../database/schema/hm'
 import { requireHm } from '../../../utils/requireHm'
 import { isHiringManagerOnJob } from '../../../utils/hiringManager'
+import { resolveHmReviewStage } from '../../../utils/hm-stage-resolver'
 
 const paramsSchema = z.object({
   id: z.string().min(1).max(64),
@@ -49,6 +50,7 @@ export default defineEventHandler(async (event) => {
       jobId: job.id,
       jobTitle: job.title,
       jobLocation: job.location,
+      jobPipelineId: job.pipelineId,
 
       stageName: pipelineStage.name,
       stageType: pipelineStage.type,
@@ -181,6 +183,13 @@ export default defineEventHandler(async (event) => {
 
   const isOnNewStage = row.stageType === 'new' || row.stageType === 'applied'
 
+  // ТЗ hm-review-substage: в режиме 'queue' решение доступно только на подэтапе «На рассмотрении»
+  const reviewStage = row.jobPipelineId
+    ? await resolveHmReviewStage({ organizationId: orgId, pipelineId: row.jobPipelineId })
+    : null
+  const reviewMode: 'queue' | 'legacy' = reviewStage ? 'queue' : 'legacy'
+  const isInReview = reviewStage ? row.currentStageId === reviewStage.stageId : isOnNewStage
+
   return {
     application: {
       id: row.appId,
@@ -191,7 +200,10 @@ export default defineEventHandler(async (event) => {
         ? { name: row.stageName, type: row.stageType }
         : null,
       isOnNewStage,
+      /** ТЗ hm-review-substage: кандидат в очереди НМ (подэтап «На рассмотрении» или легаси new/applied). */
+      isInReview,
     },
+    reviewMode,
     candidate: {
       id: row.candidateId,
       fullName: row.displayName || `${row.firstName} ${row.lastName}`.trim(),
@@ -207,7 +219,7 @@ export default defineEventHandler(async (event) => {
     },
     effectiveDecision: effective ?? null,
     /** true = НМ может нажимать «Одобрить/Отклонить». */
-    canDecide: isOnNewStage && !effective,
+    canDecide: isInReview && !effective,
     permissions: {
       canViewSalary: session.hm.canViewSalary,
     },

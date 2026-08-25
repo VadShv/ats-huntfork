@@ -48,6 +48,8 @@ export default defineEventHandler(async (event) => {
       bucket: pipelineStage.bucket,
       parentStageId: pipelineStage.parentStageId,
       isHidden: pipelineStage.isHidden,
+      // ТЗ hm-review-substage: ключ пресета — для распознавания служебных подэтапов (hm_review, suitable) в UI
+      presetKey: pipelineStage.presetKey,
     })
     .from(pipelineStage)
     .where(

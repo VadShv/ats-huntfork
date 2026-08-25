@@ -1,11 +1,11 @@
 import { and, eq } from 'drizzle-orm'
-import { application, pipelineStage } from '../../../database/schema/app'
+import { application, job, pipelineStage } from '../../../database/schema/app'
 import { hmDecision } from '../../../database/schema/hm'
 import { createHmDecisionSchema } from '../../../utils/schemas/hiringManager'
 import { requireHm } from '../../../utils/requireHm'
 import { isHiringManagerOnJob } from '../../../utils/hiringManager'
 import { moveApplicationStage } from '../../../utils/pipeline-move'
-import { resolveApprovedTargetStage, resolveRejectedTargetStage } from '../../../utils/hm-stage-resolver'
+import { resolveApprovedTargetStage, resolveHmReviewStage, resolveRejectedTargetStage } from '../../../utils/hm-stage-resolver'
 
 /**
  * POST /api/hm/decisions
@@ -45,8 +45,41 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
-  // Проверяем что кандидат на канонической стадии `new` (или её legacy-алиасе `applied`)
-  if (app.currentStageId) {
+  // ТЗ hm-review-substage: если в воронке вакансии есть подэтап «На рассмотрении» —
+  // решение допустимо ТОЛЬКО для кандидатов на нём (режим 'queue').
+  // Иначе — легаси-guard: каноническая стадия `new` (или legacy-алиас `applied`).
+  const [jobRow] = await db
+    .select({ pipelineId: job.pipelineId })
+    .from(job)
+    .where(and(eq(job.id, app.jobId), eq(job.organizationId, orgId)))
+    .limit(1)
+  const reviewStage = jobRow?.pipelineId
+    ? await resolveHmReviewStage({ organizationId: orgId, pipelineId: jobRow.pipelineId })
+    : null
+
+  if (reviewStage) {
+    if (app.currentStageId !== reviewStage.stageId) {
+      // Исключение: повтор того же решения тем же НМ (self-repair, шаг 3) —
+      // кандидат уже мог уехать с очереди; проверяем наличие эффективного решения.
+      const [prior] = await db
+        .select({ id: hmDecision.id, hmUserId: hmDecision.hmUserId, decision: hmDecision.decision })
+        .from(hmDecision)
+        .where(and(
+          eq(hmDecision.applicationId, app.id),
+          eq(hmDecision.isEffective, true),
+        ))
+        .limit(1)
+      const isSelfRepair = prior && prior.hmUserId === hmUserId && prior.decision === body.decision
+      if (!isSelfRepair) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: 'Кандидат не находится на рассмотрении',
+          data: { conflict: 'not_in_review' },
+        })
+      }
+    }
+  }
+  else if (app.currentStageId) {
     const [stage] = await db
       .select({ type: pipelineStage.type })
       .from(pipelineStage)

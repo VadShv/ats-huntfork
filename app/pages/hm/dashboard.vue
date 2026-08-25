@@ -129,10 +129,27 @@ function timeAgo(input: string | Date | null): string {
       </div>
     </section>
 
+    <!-- Очередь пуста (есть вакансии, но нет кандидатов на рассмотрении) -->
+    <UiCard v-if="!pending && jobs.length > 0 && queue.length === 0" variant="dashed">
+      <div class="flex flex-col items-center gap-3 py-8 text-center">
+        <div class="flex size-12 items-center justify-center rounded-full bg-surface-100 dark:bg-surface-800">
+          <Inbox class="size-5 text-surface-400" />
+        </div>
+        <div>
+          <div class="text-base font-medium text-surface-900 dark:text-surface-100">
+            На рассмотрении пока никого нет
+          </div>
+          <div class="mt-1 text-sm text-surface-500 dark:text-surface-400">
+            Рекрутёр ещё не отправил кандидатов на рассмотрение — они появятся здесь
+          </div>
+        </div>
+      </div>
+    </UiCard>
+
     <!-- Общая очередь -->
     <section v-if="queue.length > 0" class="space-y-3">
       <h2 class="text-sm font-medium uppercase tracking-wide text-surface-500 dark:text-surface-400">
-        Ждут решения ({{ queue.length }})
+        На рассмотрении ({{ queue.length }})
       </h2>
       <UiCard>
         <ul class="divide-y divide-surface-100 dark:divide-surface-800">
