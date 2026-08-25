@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com). Categories: **Add
 
 ### Added
 
+* **sidekick:** живой стриминг ИИ в панели — этапы «Читаю→Думаю→Пишу» с секундомером, стрим размышлений reasoning-моделей, partial-рендер верификации и карточки интервью по SSE, кнопка «Стоп», телеметрия TTFT (коммиты 85fb87e, 9c96824, 0df1cfc; дока docs/sidekick-ai-streaming.md)
+* **ai-config:** purpose `interactive` для быстрых задач панели (миграция 0068, фолбэк на analysis, кнопка «Использовать для панели» в настройках ИИ)
+
 * **blog:** add Cluster 8 career page articles — pillar (career-page-that-converts) and two supporting articles (career-page-seo, google-for-jobs-structured-data)
 * **blog:** add incoming links to career page content from how-applicant-tracking-systems-work, open-source-applicant-tracking-system, and self-hosted-vs-cloud-ats
 
