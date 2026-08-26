@@ -37,6 +37,7 @@ import {
   Search,
 } from 'lucide-vue-next'
 import { z } from 'zod'
+import { slugifyKeyRu, validateCriterionName } from '~/utils/criteriaKey'
 
 definePageMeta({
   layout: 'dashboard',
@@ -309,18 +310,19 @@ async function generateAiCriteria() {
 
 function addCustomCriterion() {
   const f = customCriterionForm.value
-  if (!f.key || !f.name) return
-
-  const keyExists = scoringCriteria.value.some(c => c.key === f.key)
-  if (keyExists) {
-    toast.warning(t('dashboard.jobs.new.duplicateCriterion'), `${t('dashboard.jobs.new.duplicateCriterionDesc', { key: f.key })}`)
+  const name = (f.name || '').trim()
+  const v = validateCriterionName(name)
+  if (!v.ok) {
+    toast.warning(v.reason)
     return
   }
 
+  const key = slugifyKeyRu(name, scoringCriteria.value.map(c => c.key))
+
   scoringCriteria.value.push({
-    key: f.key,
-    name: f.name,
-    description: f.description,
+    key,
+    name,
+    description: (f.description || '').trim(),
     category: f.category,
     maxScore: f.maxScore,
     weight: f.weight,
@@ -332,13 +334,6 @@ function addCustomCriterion() {
 
 function removeCriterion(key: string) {
   scoringCriteria.value = scoringCriteria.value.filter(c => c.key !== key)
-}
-
-function autoGenerateKey(name: string): string {
-  return name.toLowerCase().trim()
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, '_')
-    .slice(0, 50)
 }
 
 const isSubmitting = ref(false)
@@ -1541,48 +1536,62 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                     class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-950 p-4 transition-all hover:shadow-sm"
                   >
                     <div class="flex items-start justify-between gap-3 mb-3">
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-1">
-                          <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ criterion.name }}</span>
-                          <span
-                            class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset"
+                      <div class="flex-1 min-w-0 space-y-2">
+                        <!-- Inline name + category -->
+                        <div class="flex items-center gap-2">
+                          <input
+                            v-model="criterion.name"
+                            type="text"
+                            :placeholder="t('dashboard.jobs.new.labelName')"
+                            class="flex-1 min-w-0 text-sm font-semibold rounded-md border border-transparent hover:border-surface-200 dark:hover:border-surface-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-transparent px-2 py-1 text-surface-900 dark:text-surface-100 focus:outline-none"
+                          />
+                          <select
+                            v-model="criterion.category"
+                            class="text-[10px] font-medium rounded-full ring-1 ring-inset px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
                             :class="categoryColorClasses[criterion.category] ?? categoryColorClasses.custom"
                           >
-                            {{ categoryLabels[criterion.category] ?? criterion.category }}
-                          </span>
+                            <option v-for="(label, key) in categoryLabels" :key="key" :value="key">{{ label }}</option>
+                          </select>
                         </div>
-                        <p v-if="criterion.description" class="text-xs text-surface-500 dark:text-surface-400 leading-relaxed">
-                          {{ criterion.description }}
-                        </p>
+                        <!-- Inline description -->
+                        <textarea
+                          v-model="criterion.description"
+                          rows="2"
+                          :placeholder="t('dashboard.jobs.new.placeholderCriterionDesc')"
+                          class="w-full text-xs rounded-md border border-transparent hover:border-surface-200 dark:hover:border-surface-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-transparent px-2 py-1 text-surface-600 dark:text-surface-400 leading-relaxed focus:outline-none resize-none"
+                        />
                       </div>
                       <button
                         type="button"
                         class="rounded p-1 text-surface-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors shrink-0"
-:title="t('dashboard.jobs.new.remove')"
+                        :title="t('dashboard.jobs.new.remove')"
                         @click="removeCriterion(criterion.key)"
                       >
                         <Trash2 class="size-4" />
                       </button>
                     </div>
 
-                    <!-- Weight slider -->
+                    <!-- Max score (inline) + Weight slider -->
                     <div class="flex items-center gap-4">
-                      <label class="text-xs font-medium text-surface-500 dark:text-surface-400 shrink-0 w-12">{{ t('dashboard.jobs.new.weight') }}</label>
+                      <label class="text-xs font-medium text-surface-500 dark:text-surface-400 shrink-0">{{ t('dashboard.jobs.new.maxScore') }}</label>
                       <input
+                        v-model.number="criterion.maxScore"
+                        type="number"
+                        min="1"
+                        max="100"
+                        class="w-16 text-xs rounded-md border border-surface-200 dark:border-surface-700 bg-transparent px-2 py-1 text-surface-700 dark:text-surface-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      <label class="text-xs font-medium text-surface-500 dark:text-surface-400 shrink-0 ml-2">{{ t('dashboard.jobs.new.weight') }}</label>
+                      <input
+                        v-model.number="criterion.weight"
                         type="range"
                         :min="0"
                         :max="100"
-                        v-model.number="criterion.weight"
                         class="flex-1 h-2 rounded-lg appearance-none cursor-pointer accent-brand-600 bg-surface-200 dark:bg-surface-700"
                       />
                       <span class="text-xs font-mono font-semibold text-surface-700 dark:text-surface-300 w-8 text-right">
                         {{ criterion.weight }}
                       </span>
-                    </div>
-
-                    <div class="flex items-center gap-4 mt-2 text-xs text-surface-400">
-                      <span>{{ t('dashboard.jobs.new.maxScore') }}: {{ criterion.maxScore }}</span>
-                      <span>{{ t('dashboard.jobs.new.criterionKey') }}: <code class="rounded bg-surface-100 dark:bg-surface-800 px-1 py-0.5 font-mono text-[10px]">{{ criterion.key }}</code></span>
                     </div>
                   </div>
                 </div>
@@ -1607,9 +1616,8 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                     <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">{{ t('dashboard.jobs.new.labelName') }} *</label>
                     <input
                       v-model="customCriterionForm.name"
-                      @input="customCriterionForm.key = autoGenerateKey(customCriterionForm.name)"
                       type="text"
-:placeholder="t('dashboard.jobs.new.placeholderCriterionName')"
+                      placeholder="Локация в Москве"
                       class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
@@ -1657,7 +1665,7 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                 <div class="flex items-center gap-3 pt-2">
                   <button
                     type="button"
-                    :disabled="!customCriterionForm.name"
+                    :disabled="!customCriterionForm.name.trim()"
                     class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     @click="addCustomCriterion"
                   >

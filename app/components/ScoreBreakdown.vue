@@ -60,6 +60,16 @@ const resolvedScoreData = computed(() => scoreData.value ?? cachedScoreData.valu
 const hasScores = computed(() => (resolvedScoreData.value?.scores?.length ?? 0) > 0)
 const isInitialLoad = computed(() => status.value === 'pending' && !cachedScoreData.value)
 
+/**
+ * Критерий требует ручной проверки, если LLM не вернула оценку (zero-fill в scoring.ts):
+ * confidence=0 + текст в evidence, который мы вставляем при пропуске.
+ */
+function needsManualCheck(cs: { confidence?: number | null; evidence?: string | null }): boolean {
+  const conf = cs.confidence ?? -1
+  const ev = (cs.evidence ?? '').toString()
+  return conf < 30 && (ev.includes('LLM не вернула') || ev.includes('Требуется ручная проверка'))
+}
+
 function scoreColor(score: number, max: number): string {
   const pct = (score / max) * 100
   if (pct >= 75) return 'text-success-600 dark:text-success-400'
@@ -239,7 +249,7 @@ async function retryParse() {
             @click="toggleCriterion(cs.criterionKey)"
           >
             <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
                 <span class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate">
                   {{ cs.criterionName ?? cs.criterionKey }}
                 </span>
@@ -248,6 +258,13 @@ async function retryParse() {
                   class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium ring-1 ring-inset text-surface-500 ring-surface-200 dark:ring-surface-700 bg-surface-50 dark:bg-surface-800"
                 >
                   {{ cs.category }}
+                </span>
+                <span
+                  v-if="needsManualCheck(cs)"
+                  class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium ring-1 ring-inset text-warning-700 dark:text-warning-300 ring-warning-200 dark:ring-warning-800 bg-warning-50 dark:bg-warning-950"
+                  title="AI не смог оценить этот критерий — нужна ручная проверка"
+                >
+                  • Требуется ручная проверка
                 </span>
               </div>
               <!-- Progress bar -->

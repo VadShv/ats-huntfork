@@ -2,6 +2,7 @@
 import {
   Brain, Sparkles, SlidersHorizontal, Plus, Trash2, Loader2, Save, RotateCcw,
 } from 'lucide-vue-next'
+import { slugifyKeyRu, validateCriterionName } from '~/utils/criteriaKey'
 
 const { t } = useI18n()
 
@@ -212,45 +213,12 @@ const customCriterionForm = ref({
   weight: 50,
 })
 
-// RU → latin транслитерация для автогенерации технического ключа критерия.
-// Ключ пользователю не показываем — это внутренний атрибут, валидируемый серверным regex ^[a-z][a-z0-9_]*$.
-const RU_TRANSLIT: Record<string, string> = {
-  'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
-  'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'i', 'к': 'k', 'л': 'l', 'м': 'm',
-  'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-  'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
-  'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
-}
-
-function slugifyKeyRu(name: string, existingKeys: string[] = []): string {
-  const base = (name || '').toLowerCase().trim()
-    .split('')
-    .map(ch => RU_TRANSLIT[ch] ?? ch)
-    .join('')
-    .replace(/[^a-z0-9_\s-]/g, '') // оставляем только latin/цифры/пробелы/дефисы/подчёркивания
-    .replace(/[\s-]+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 60)
-
-  // fallback: если пусто или начинается не с буквы — c_<время>
-  let candidate = /^[a-z][a-z0-9_]*$/.test(base) ? base : `c_${Date.now().toString(36)}`
-
-  // добавляем суффикс при коллизии
-  if (existingKeys.includes(candidate)) {
-    let i = 2
-    while (existingKeys.includes(`${candidate}_${i}`)) i++
-    candidate = `${candidate}_${i}`
-  }
-
-  return candidate
-}
-
 function addCustomCriterion() {
   const f = customCriterionForm.value
   const name = (f.name || '').trim()
-  if (!name) {
-    toast.warning(t('dashboard.jobs.aiAnalysis.criterionNameRequired'))
+  const v = validateCriterionName(name)
+  if (!v.ok) {
+    toast.warning(v.reason)
     return
   }
 
@@ -278,7 +246,22 @@ function removeCriterion(key: string) {
 
 const isSaving = ref(false)
 
+// ─── Диалог пересчёта оценок после изменения критериев ───
+const showRescoreDialog = ref(false)
+const rescoreScoredCount = ref(0)
+const rescoreTotalCount = ref(0)
+const isRescoring = ref(false)
+
+function snapshotKeys(criteria: ScoringCriterionDraft[]): string[] {
+  return [...criteria].map(c => c.key).sort()
+}
+
 async function saveCriteria() {
+  // Снапшот ПЕРЕД сохранением — чтобы сравнить с новым набором
+  const before = snapshotKeys(criteriaData.value?.criteria?.map((c: any) => ({ ...c })) ?? [])
+  const after = snapshotKeys(scoringCriteria.value)
+  const setChanged = before.length !== after.length || before.some((k, i) => k !== after[i])
+
   isSaving.value = true
   try {
     await $fetch(`/api/jobs/${jobId}/criteria`, {
@@ -299,10 +282,45 @@ async function saveCriteria() {
     track('scoring_criteria_saved', { job_id: jobId, criteria_count: scoringCriteria.value.length })
     toast.success(t('dashboard.jobs.aiAnalysis.criteriaSaved'), t('dashboard.jobs.aiAnalysis.criteriaSavedDesc', { n: scoringCriteria.value.length }))
     await refreshCriteria()
+
+    // Если набор критериев изменился — проверяем есть ли уже проскоренные отклики
+    if (setChanged) {
+      try {
+        const counts = await $fetch<{ totalApplications: number; scoredApplications: number; hasScoredApps: boolean }>(`/api/jobs/${jobId}/scored-count`)
+        if (counts.hasScoredApps) {
+          rescoreScoredCount.value = counts.scoredApplications
+          rescoreTotalCount.value = counts.totalApplications
+          showRescoreDialog.value = true
+        }
+      } catch {
+        // silently ignore — диалог просто не покажем
+      }
+    }
   } catch (err: any) {
     toast.error(t('dashboard.jobs.aiAnalysis.failedToSave'), { message: err?.data?.statusMessage })
   } finally {
     isSaving.value = false
+  }
+}
+
+async function runRescore(mode: 'rescore_all' | 'all') {
+  isRescoring.value = true
+  try {
+    const res = await $fetch<{ queued: number }>(`/api/jobs/${jobId}/batch-score`, {
+      method: 'POST',
+      body: { mode },
+    })
+    toast.success(
+      mode === 'rescore_all'
+        ? 'Пересчёт запущен'
+        : 'Скрининг новых откликов запущен',
+      { message: `В очереди: ${res.queued}` },
+    )
+    showRescoreDialog.value = false
+  } catch (err: any) {
+    toast.error('Не удалось запустить пересчёт', { message: err?.data?.statusMessage })
+  } finally {
+    isRescoring.value = false
   }
 }
 
@@ -676,5 +694,58 @@ function resetCriteria() {
         </label>
       </div>
     </template>
+
+    <!-- Диалог пересчёта оценок после изменения критериев -->
+    <Teleport to="body">
+      <div
+        v-if="showRescoreDialog"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+        @click.self="!isRescoring && (showRescoreDialog = false)"
+      >
+        <div class="w-full max-w-md rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-950 shadow-xl p-6 space-y-4">
+          <div>
+            <h3 class="text-base font-semibold text-surface-900 dark:text-surface-50">
+              Критерии обновлены — пересчитать оценки?
+            </h3>
+            <p class="mt-2 text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
+              У этой вакансии уже есть
+              <strong>{{ rescoreScoredCount }}</strong> проскоренных откликов
+              <span v-if="rescoreTotalCount > rescoreScoredCount" class="text-surface-400">
+                (всего {{ rescoreTotalCount }}).
+              </span>
+              Они были оценены по старому набору критериев. Пересчитать с новыми?
+            </p>
+          </div>
+          <div class="flex flex-col gap-2 pt-2">
+            <button
+              type="button"
+              :disabled="isRescoring"
+              class="w-full px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              @click="runRescore('rescore_all')"
+            >
+              <Loader2 v-if="isRescoring" class="inline size-4 mr-1.5 animate-spin" />
+              Пересчитать все отклики ({{ rescoreScoredCount }})
+            </button>
+            <button
+              v-if="rescoreTotalCount > rescoreScoredCount"
+              type="button"
+              :disabled="isRescoring"
+              class="w-full px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 bg-surface-100 dark:bg-surface-800 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              @click="runRescore('all')"
+            >
+              Скорить только новые ({{ rescoreTotalCount - rescoreScoredCount }})
+            </button>
+            <button
+              type="button"
+              :disabled="isRescoring"
+              class="w-full px-4 py-2 text-sm font-medium text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              @click="showRescoreDialog = false"
+            >
+              Позже
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

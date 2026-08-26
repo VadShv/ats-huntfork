@@ -222,8 +222,10 @@ export async function scoreApplication(
   },
 ): Promise<{ scoring: ScoringResponse; usage: { promptTokens: number; completionTokens: number } }> {
   const criteriaBlock = params.criteria
-    .map((c, i) => `${i + 1}. **${c.name}** (key: "${c.key}", max: ${c.maxScore})\n   ${c.description ?? 'Описание не указано.'}`)
+    .map((c, i) => `${i + 1}. **${c.name}** (criterionKey: "${c.key}", max: ${c.maxScore})\n   ${c.description ?? 'Описание не указано.'}`)
     .join('\n\n')
+
+  const expectedKeysList = params.criteria.map(c => `"${c.key}"`).join(', ')
 
   const candidateInfo = [
     `РЕЗЮМЕ:\n${params.resumeText}`,
@@ -245,19 +247,27 @@ export async function scoreApplication(
 — applicantScore не должен превышать maxScore для каждого критерия.
 — Сделай краткий summary (вывод) по общей оценке кандидата.
 
+КРИТИЧЕСКИ ВАЖНО — КЛЮЧИ КРИТЕРИЕВ (criterionKey):
+— Верни evaluations ДЛЯ КАЖДОГО критерия из списка (ни один не пропускай).
+— В criterionKey вставляй РОВНО тот ключ (без изменений, перевода или переформулировки), который указан в скобках (criterionKey: "...") в блоке критериев.
+— НЕ выдумывай новые ключи и НЕ объединяй критерии.
+— Порядок evaluations должен совпадать с порядком критериев выше.
+
 ЯЗЫК ОТВЕТА: ВСЕ поля ответа (summary, evidence, strengths, gaps) должны быть на РУССКОМ языке, даже если резюме или вакансия на английском. Пиши деловым, конкретным тоном.`,
     prompt: `НАЗВАНИЕ ВАКАНСИИ: ${params.jobTitle}
 
 ОПИСАНИЕ ВАКАНСИИ:
 ${params.jobDescription}
 
-КРИТЕРИИ ОЦЕНКИ:
+КРИТЕРИИ ОЦЕНКИ (всего: ${params.criteria.length}):
 ${criteriaBlock}
+
+ОЖИДАЕМЫЕ criterionKey в ответе (точно ${params.criteria.length} элементов, в том же порядке): [${expectedKeysList}]
 
 МАТЕРИАЛЫ КАНДИДАТА:
 ${candidateInfo}
 
-Оцени этого кандидата по каждому критерию. Верни свою оценку на русском языке.`,
+Оцени этого кандидата по каждому критерию. Верни ровно ${params.criteria.length} элементов в evaluations, используя criterionKey из списка выше без изменений. Ответ на русском языке.`,
     schema: scoringResponseSchema,
     schemaName: 'CandidateScoring',
     schemaDescription: 'Структурированная оценка кандидата с баллами по каждому критерию',
@@ -266,6 +276,46 @@ ${candidateInfo}
   // Clamp applicantScore to maxScore — LLMs may occasionally exceed the maximum
   for (const evaluation of result.object.evaluations) {
     evaluation.applicantScore = Math.min(evaluation.applicantScore, evaluation.maxScore)
+  }
+
+  // ─── Защита от рассогласованных criterionKey ───
+  // Нет гарантии, что LLM вернёт ключ 1:1 — принудительно выравниваем ответ
+  // со списком критериев вакансии, чтобы UI всегда получал оценку по каждому критерию.
+  const expectedKeys = new Set(params.criteria.map(c => c.key))
+  const returnedKeys = new Set(result.object.evaluations.map(e => e.criterionKey))
+  const missingKeys = params.criteria.filter(c => !returnedKeys.has(c.key)).map(c => c.key)
+  const extraKeys = result.object.evaluations.filter(e => !expectedKeys.has(e.criterionKey)).map(e => e.criterionKey)
+
+  // 1) Фильтруем фантомные ключи (выдуманные LLM)
+  if (extraKeys.length > 0) {
+    result.object.evaluations = result.object.evaluations.filter(e => expectedKeys.has(e.criterionKey))
+  }
+
+  // 2) Zero-fill пропущенные критерии — без данных confidence=0 => UI покажет «Требуется ручная проверка»
+  for (const criterion of params.criteria) {
+    if (!returnedKeys.has(criterion.key)) {
+      result.object.evaluations.push({
+        criterionKey: criterion.key,
+        maxScore: criterion.maxScore,
+        applicantScore: 0,
+        confidence: 0,
+        evidence: 'LLM не вернула оценку по этому критерию. Требуется ручная проверка.',
+        strengths: [],
+        gaps: ['LLM не смогла оценить кандидата по этому критерию.'],
+      })
+    }
+  }
+
+  // 3) Логгируем рассогласование (мониторинг плавающих ключей от LLM)
+  if (missingKeys.length > 0 || extraKeys.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn('[scoring] LLM key mismatch', {
+      jobTitle: params.jobTitle,
+      expected: [...expectedKeys],
+      returned: [...returnedKeys],
+      missing: missingKeys,
+      extra: extraKeys,
+    })
   }
 
   return {
