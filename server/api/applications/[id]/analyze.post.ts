@@ -6,6 +6,7 @@ import {
 import { scoreApplication, computeCompositeScore } from '../../../utils/ai/scoring'
 import type { CriterionDefinition } from '../../../utils/ai/scoring'
 import { applyAutoRejectIfNeeded } from '../../../utils/ai/autoReject'
+import { applyAutoAdvanceIfNeeded } from '../../../utils/ai/autoAdvance'
 import type { SupportedProvider } from '../../../utils/ai/provider'
 import { loadAiConfig } from '../../../utils/ai/loadConfig'
 import { extractResumeText } from '../../../utils/resume-parser'
@@ -230,6 +231,15 @@ export default defineEventHandler(async (event) => {
     evaluations: result.scoring.evaluations,
   })
 
+  // Авто-передвижение на hm_review: только если авто-отказ не сработал.
+  const autoAdvanceResult
+    = autoRejectResult.outcome !== 'rejected' && autoRejectResult.outcome !== 'needs_manual_review'
+      ? await applyAutoAdvanceIfNeeded(applicationId, orgId, {
+        criteria: criteriaDefinitions,
+        evaluations: result.scoring.evaluations,
+      })
+      : { outcome: 'skip_disabled' as const }
+
   return {
     compositeScore,
     evaluations: result.scoring.evaluations,
@@ -237,5 +247,6 @@ export default defineEventHandler(async (event) => {
     analysisRunId: run!.id,
     usage: result.usage,
     autoReject: autoRejectResult,
+    autoAdvance: autoAdvanceResult,
   }
 })

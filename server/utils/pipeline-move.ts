@@ -54,7 +54,7 @@ export function stageTypeToLegacyStatus(type: string): ApplicationStatus | null 
 }
 
 /** Источник перемещения — для PostHog-аналитики и отладки. */
-export type MoveVia = 'manual' | 'bulk' | 'hm_decision' | 'hm_cancel' | 'auto_reject' | 'transfer' | 'system'
+export type MoveVia = 'manual' | 'bulk' | 'hm_decision' | 'hm_cancel' | 'auto_reject' | 'auto_advance' | 'transfer' | 'system'
 
 export interface MoveStageOptions {
   organizationId: string

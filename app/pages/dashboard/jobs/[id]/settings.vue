@@ -51,6 +51,10 @@ const form = ref({
   autoRejectEnabled: false,
   autoRejectBelowScore: null as number | null,
   autoRejectReasonNote: '',
+  // Авто-передвижение на «На рассмотрении» по AI-скору
+  autoAdvanceEnabled: false,
+  autoAdvanceAboveScore: null as number | null,
+  autoAdvanceReasonNote: '',
   pipelineId: null as string | null,
 })
 
@@ -76,6 +80,9 @@ watch(job, (j) => {
       autoRejectEnabled: (j as any).autoRejectEnabled ?? false,
       autoRejectBelowScore: (j as any).autoRejectBelowScore ?? null,
       autoRejectReasonNote: (j as any).autoRejectReasonNote ?? '',
+      autoAdvanceEnabled: (j as any).autoAdvanceEnabled ?? false,
+      autoAdvanceAboveScore: (j as any).autoAdvanceAboveScore ?? null,
+      autoAdvanceReasonNote: (j as any).autoAdvanceReasonNote ?? '',
       pipelineId: (j as any).pipelineId ?? null,
     }
   }
@@ -248,6 +255,28 @@ function formatHhDate(iso: string | null | undefined): string {
   return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+/**
+ * Переводит сырой текст ошибки hh.ru в понятное русскоязычное сообщение.
+ * Ожидает JSON вида {"errors":[{"value":"invalid_vacancy","type":"negotiations"}]}
+ * — если код известен, возвращает человеческую фразу, иначе — исходный текст.
+ */
+function humanizeHhError(raw: string | null | undefined): string {
+  if (!raw) return ''
+  const mapping: Record<string, string> = {
+    invalid_vacancy: 'Вакансия на hh.ru закрыта, архивирована или больше не принадлежит работодателю. Перенос этапов на hh.ru невозможен.',
+    not_found: 'Отклик не найден на hh.ru (возможно, был удалён).',
+    negotiations_forbidden: 'Нет прав двигать отклики: токен hh.ru не назначен менеджером этой вакансии.',
+    conflict_state: 'Отклик уже находится в целевом этапе на hh.ru.',
+    already_in_state: 'Отклик уже находится в целевом этапе на hh.ru.',
+    rate_limited: 'Превышен лимит запросов hh.ru. Следующий перенос будет выполнен позже.',
+  }
+  // Проверяем все коды: строка может содержать raw JSON, только код или смешанный текст.
+  for (const [code, message] of Object.entries(mapping)) {
+    if (raw.includes(code)) return message
+  }
+  return raw
+}
+
 // When "Negotiable" is toggled on, clear the salary range fields
 watch(() => form.value.salaryNegotiable, (negotiable) => {
   if (negotiable) {
@@ -282,6 +311,9 @@ const editSchema = z.object({
   autoRejectEnabled: z.boolean().optional(),
   autoRejectBelowScore: z.number().int().min(0).max(100).nullable().optional(),
   autoRejectReasonNote: z.string().max(500).optional(),
+  autoAdvanceEnabled: z.boolean().optional(),
+  autoAdvanceAboveScore: z.number().int().min(0).max(100).nullable().optional(),
+  autoAdvanceReasonNote: z.string().max(500).optional(),
 })
 
 const errors = ref<Record<string, string>>({})
@@ -314,6 +346,9 @@ async function handleSave() {
       autoRejectEnabled: form.value.autoRejectEnabled,
       autoRejectBelowScore: form.value.autoRejectEnabled ? (form.value.autoRejectBelowScore ?? null) : null,
       autoRejectReasonNote: form.value.autoRejectReasonNote?.trim() ? form.value.autoRejectReasonNote.trim() : null,
+      autoAdvanceEnabled: form.value.autoAdvanceEnabled,
+      autoAdvanceAboveScore: form.value.autoAdvanceEnabled ? (form.value.autoAdvanceAboveScore ?? null) : null,
+      autoAdvanceReasonNote: form.value.autoAdvanceReasonNote?.trim() ? form.value.autoAdvanceReasonNote.trim() : null,
       salaryNegotiable: form.value.salaryNegotiable,
       // Always send salary fields so cleared values write null to the DB
       salaryMin: form.value.salaryNegotiable ? null : (form.value.salaryMin ?? null),
@@ -808,6 +843,79 @@ function onSalaryMaxChange(e: Event) {
                 </div>
               </div>
             </div>
+
+            <!-- Авто-передвижение на «На рассмотрении» по AI-скору -->
+            <div class="pt-3 mt-1 border-t border-surface-100 dark:border-surface-800">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input
+                  v-model="form.autoAdvanceEnabled"
+                  type="checkbox"
+                  class="size-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500"
+                />
+                <div>
+                  <span class="text-sm font-medium text-surface-900 dark:text-surface-100">Авто-передвижение на «На рассмотрении»</span>
+                  <p class="text-xs text-surface-400 dark:text-surface-500">Если AI-скор кандидата не ниже порога — отклик автоматически уйдёт в очередь НМ.</p>
+                </div>
+              </label>
+
+              <div
+                v-if="form.autoAdvanceEnabled"
+                class="mt-4 ml-7 space-y-4 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50/60 dark:bg-surface-900/40 p-4"
+              >
+                <!-- Порог -->
+                <div>
+                  <label for="settings-auto-advance-threshold" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                    Порог авто-передвижения
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <input
+                      id="settings-auto-advance-threshold"
+                      v-model.number="form.autoAdvanceAboveScore"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      placeholder="80"
+                      class="w-28 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                    />
+                    <span class="text-sm text-surface-500 dark:text-surface-400">баллов и выше</span>
+                  </div>
+                  <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">
+                    Кандидаты с AI-скором не ниже этого порога будут автоматически уходить на подэтап «На рассмотрении».
+                  </p>
+                </div>
+
+                <!-- Комментарий (опционально) -->
+                <div>
+                  <label for="settings-auto-advance-note" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                    Комментарий к авто-передвижению
+                  </label>
+                  <textarea
+                    id="settings-auto-advance-note"
+                    v-model="form.autoAdvanceReasonNote"
+                    rows="2"
+                    maxlength="500"
+                    placeholder="Например: «Сильный матч по AI — сразу НМ»"
+                    class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-y"
+                  />
+                  <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">
+                    Попадёт в историю этапов вместе с технической причиной «Авто-передвижение по AI-скору…».
+                  </p>
+                </div>
+
+                <!-- Инфо о защитах -->
+                <div class="rounded-md bg-info-50 dark:bg-info-950/40 border border-info-200 dark:border-info-900 px-3 py-2.5 text-xs text-info-800 dark:text-info-200">
+                  <div class="font-medium mb-1">Правило НЕ сработает, если:</div>
+                  <ul class="list-disc list-inside space-y-0.5 leading-relaxed">
+                    <li>сработало авто-отклонение выше (отказ важнее);</li>
+                    <li>рекрутёр уже перемещал отклик по воронке;</li>
+                    <li>кандидат помечен «только вручную»;</li>
+                    <li>AI-уверенность ниже 50%;</li>
+                    <li>в воронке нет подэтапа «На рассмотрении» (напр. не назначен НМ).</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -883,7 +991,7 @@ function onSalaryMaxChange(e: Event) {
                   :class="hhLink.lastSyncStatus === 'ok' ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400'"
                 >{{ hhLink.lastSyncStatus === 'ok' ? 'успешно' : 'ошибка' }}</span>
               </div>
-              <p v-if="hhLink.lastSyncError" class="text-red-600 dark:text-red-400 break-all">{{ hhLink.lastSyncError }}</p>
+              <p v-if="hhLink.lastSyncError" class="text-red-600 dark:text-red-400 break-all">{{ humanizeHhError(hhLink.lastSyncError) }}</p>
               <div class="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 border-t border-surface-100 dark:border-surface-800">
                 <span class="text-surface-400">Последний пуш этапа:</span>
                 <template v-if="hhLink.lastPush">
@@ -896,7 +1004,7 @@ function onSalaryMaxChange(e: Event) {
                 </template>
                 <span v-else class="text-surface-400">ещё не выполнялся</span>
               </div>
-              <p v-if="hhLink.lastPush?.error" class="text-red-600 dark:text-red-400 break-all">{{ hhLink.lastPush.error }}</p>
+              <p v-if="hhLink.lastPush?.error" class="text-red-600 dark:text-red-400 break-all">{{ humanizeHhError(hhLink.lastPush.error) }}</p>
             </div>
 
             <!-- Спринт 13.5: таблица «этап → коллекция hh.ru» -->

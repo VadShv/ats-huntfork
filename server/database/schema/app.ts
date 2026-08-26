@@ -113,6 +113,12 @@ export const job = pgTable('job', {
   autoRejectBelowScore: integer('auto_reject_below_score'),
   /** Опц. шаблон причины авто-отказа, попадает в applicationStageHistory.reason metadata. */
   autoRejectReasonNote: text('auto_reject_reason_note'),
+  /** Если true, заявки с composite-score >= autoAdvanceAboveScore автоматически уходят в подэтап hm_review. */
+  autoAdvanceEnabled: boolean('auto_advance_enabled').notNull().default(false),
+  /** Порог авто-передвижения на «На рассмотрении» (0-100). Срабатывает только при autoAdvanceEnabled = true. */
+  autoAdvanceAboveScore: integer('auto_advance_above_score'),
+  /** Опц. комментарий, попадает в applicationStageHistory.reason при авто-передвижении. */
+  autoAdvanceReasonNote: text('auto_advance_reason_note'),
   // ── Timestamps ──
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

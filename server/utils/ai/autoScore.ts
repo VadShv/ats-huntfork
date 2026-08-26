@@ -11,6 +11,7 @@ import {
 import { scoreApplication, computeCompositeScore } from './scoring'
 import type { CriterionDefinition } from './scoring'
 import { applyAutoRejectIfNeeded } from './autoReject'
+import { applyAutoAdvanceIfNeeded } from './autoAdvance'
 import type { SupportedProvider } from './provider'
 import { loadAiConfig } from './loadConfig'
 import { extractResumeText } from '../resume-parser'
@@ -139,8 +140,16 @@ export async function autoScoreApplication(applicationId: string, orgId: string)
 
   // Авто-отклонение: применяем правило (если включено для вакансии).
   // Передаём criteria + evaluations, чтобы не дёргать БД повторно ради confidence.
-  await applyAutoRejectIfNeeded(applicationId, orgId, {
+  const rejectRes = await applyAutoRejectIfNeeded(applicationId, orgId, {
     criteria: criteriaDefinitions,
     evaluations: result.scoring.evaluations,
   })
+
+  // Авто-передвижение на hm_review: только если авто-отказ не сработал.
+  if (rejectRes.outcome !== 'rejected' && rejectRes.outcome !== 'needs_manual_review') {
+    await applyAutoAdvanceIfNeeded(applicationId, orgId, {
+      criteria: criteriaDefinitions,
+      evaluations: result.scoring.evaluations,
+    })
+  }
 }

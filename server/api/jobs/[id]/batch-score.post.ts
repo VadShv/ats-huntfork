@@ -31,6 +31,7 @@ import type { SupportedProvider } from '../../../utils/ai/provider'
 import { computeCompositeScore, scoreApplication } from '../../../utils/ai/scoring'
 import type { CriterionDefinition } from '../../../utils/ai/scoring'
 import { applyAutoRejectIfNeeded } from '../../../utils/ai/autoReject'
+import { applyAutoAdvanceIfNeeded } from '../../../utils/ai/autoAdvance'
 import { extractResumeText } from '../../../utils/resume-parser'
 import { resumeToText as hhResumeToText, type HhResumeApi } from '../../../utils/hh/sync'
 import { createRateLimiter } from '../../../utils/rateLimit'
@@ -299,11 +300,21 @@ export default defineEventHandler(async (event) => {
           evaluations: result.scoring.evaluations,
         })
 
+        // Авто-передвижение на hm_review: только если авто-отказ не сработал.
+        const autoAdvanceOutcome
+          = autoRejectResult.outcome !== 'rejected' && autoRejectResult.outcome !== 'needs_manual_review'
+            ? (await applyAutoAdvanceIfNeeded(app.id, orgId, {
+              criteria: criteriaDefinitions,
+              evaluations: result.scoring.evaluations,
+            })).outcome
+            : 'skip_disabled' as const
+
         results.push({
           applicationId: app.id,
           status: 'scored',
           compositeScore,
           autoReject: autoRejectResult.outcome,
+          autoAdvance: autoAdvanceOutcome,
         })
       }
       catch (err: any) {

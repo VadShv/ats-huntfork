@@ -65,6 +65,12 @@ export const updateJobSchema = z.object({
   autoRejectBelowScore: z.coerce.number().int().min(0).max(100).nullable().optional(),
   /** Шаблон причины отказа, попадает в историю этапов */
   autoRejectReasonNote: z.string().max(500).nullable().optional(),
+  /** Авто-передвижение на hm_review: включено ли правило */
+  autoAdvanceEnabled: z.boolean().optional(),
+  /** Порог (0-100). При score >= порога и confidence >= 50% — авто-передвижение */
+  autoAdvanceAboveScore: z.coerce.number().int().min(0).max(100).nullable().optional(),
+  /** Шаблон комментария, попадает в историю этапов */
+  autoAdvanceReasonNote: z.string().max(500).nullable().optional(),
   /** Experience level required for this role */
   experienceLevel: z.enum(['junior', 'mid', 'senior', 'lead']).nullable().optional(),
   status: z.enum(['draft', 'open', 'closed', 'archived']).optional(),
