@@ -212,27 +212,54 @@ const customCriterionForm = ref({
   weight: 50,
 })
 
-function autoGenerateKey(name: string): string {
-  return name.toLowerCase().trim()
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, '_')
-    .slice(0, 50)
+// RU → latin транслитерация для автогенерации технического ключа критерия.
+// Ключ пользователю не показываем — это внутренний атрибут, валидируемый серверным regex ^[a-z][a-z0-9_]*$.
+const RU_TRANSLIT: Record<string, string> = {
+  'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+  'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'i', 'к': 'k', 'л': 'l', 'м': 'm',
+  'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+  'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+  'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+}
+
+function slugifyKeyRu(name: string, existingKeys: string[] = []): string {
+  const base = (name || '').toLowerCase().trim()
+    .split('')
+    .map(ch => RU_TRANSLIT[ch] ?? ch)
+    .join('')
+    .replace(/[^a-z0-9_\s-]/g, '') // оставляем только latin/цифры/пробелы/дефисы/подчёркивания
+    .replace(/[\s-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60)
+
+  // fallback: если пусто или начинается не с буквы — c_<время>
+  let candidate = /^[a-z][a-z0-9_]*$/.test(base) ? base : `c_${Date.now().toString(36)}`
+
+  // добавляем суффикс при коллизии
+  if (existingKeys.includes(candidate)) {
+    let i = 2
+    while (existingKeys.includes(`${candidate}_${i}`)) i++
+    candidate = `${candidate}_${i}`
+  }
+
+  return candidate
 }
 
 function addCustomCriterion() {
   const f = customCriterionForm.value
-  if (!f.key || !f.name) return
-
-  const keyExists = scoringCriteria.value.some(c => c.key === f.key)
-  if (keyExists) {
-    toast.warning(t('dashboard.jobs.aiAnalysis.duplicateKey'))
+  const name = (f.name || '').trim()
+  if (!name) {
+    toast.warning(t('dashboard.jobs.aiAnalysis.criterionNameRequired'))
     return
   }
 
+  const key = slugifyKeyRu(name, scoringCriteria.value.map(c => c.key))
+
   scoringCriteria.value.push({
-    key: f.key,
-    name: f.name,
-    description: f.description,
+    key,
+    name,
+    description: (f.description || '').trim(),
     category: f.category,
     maxScore: f.maxScore,
     weight: f.weight,
@@ -440,32 +467,79 @@ function resetCriteria() {
             :key="criterion.key"
             class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-950 p-4 transition-all hover:shadow-sm"
           >
+            <!-- Шапка: бейдж категории + кнопка удаления -->
             <div class="flex items-start justify-between gap-3 mb-3">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ criterion.name }}</span>
-                  <span
-                    class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset"
-                    :class="categoryColorClasses[criterion.category] ?? categoryColorClasses.custom"
-                  >
-                    {{ categoryLabels[criterion.category] ?? criterion.category }}
-                  </span>
-                </div>
-                <p v-if="criterion.description" class="text-xs text-surface-500 dark:text-surface-400 leading-relaxed">
-                  {{ criterion.description }}
-                </p>
-              </div>
+              <span
+                class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset shrink-0"
+                :class="categoryColorClasses[criterion.category] ?? categoryColorClasses.custom"
+              >
+                {{ categoryLabels[criterion.category] ?? criterion.category }}
+              </span>
               <button
                 type="button"
                 class="rounded p-1 text-surface-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors shrink-0"
-:title="t('dashboard.jobs.aiAnalysis.remove')"
+                :title="t('dashboard.jobs.aiAnalysis.remove')"
                 @click="removeCriterion(criterion.key)"
               >
                 <Trash2 class="size-4" />
               </button>
             </div>
 
-            <!-- Weight slider -->
+            <!-- Имя критерия (инлайн) -->
+            <div class="mb-2">
+              <label class="block text-[10px] uppercase tracking-wide font-medium text-surface-400 dark:text-surface-500 mb-1">
+                {{ t('dashboard.jobs.aiAnalysis.criterionName') }}
+              </label>
+              <input
+                v-model="criterion.name"
+                type="text"
+                maxlength="200"
+                class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-transparent px-2 py-1.5 text-sm font-semibold text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+
+            <!-- Описание (инлайн) -->
+            <div class="mb-3">
+              <label class="block text-[10px] uppercase tracking-wide font-medium text-surface-400 dark:text-surface-500 mb-1">
+                {{ t('dashboard.jobs.aiAnalysis.criterionDescription') }}
+              </label>
+              <textarea
+                v-model="criterion.description"
+                rows="2"
+                maxlength="1000"
+                :placeholder="t('dashboard.jobs.aiAnalysis.criterionDescriptionPlaceholder')"
+                class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-transparent px-2 py-1.5 text-xs text-surface-600 dark:text-surface-300 leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+
+            <!-- Категория + Макс. балл (инлайн) -->
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="block text-[10px] uppercase tracking-wide font-medium text-surface-400 dark:text-surface-500 mb-1">
+                  {{ t('dashboard.jobs.aiAnalysis.criterionCategory') }}
+                </label>
+                <select
+                  v-model="criterion.category"
+                  class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-transparent px-2 py-1.5 text-xs text-surface-700 dark:text-surface-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option v-for="(label, key) in categoryLabels" :key="key" :value="key">{{ label }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase tracking-wide font-medium text-surface-400 dark:text-surface-500 mb-1">
+                  {{ t('dashboard.jobs.aiAnalysis.criterionMaxScore') }}
+                </label>
+                <input
+                  v-model.number="criterion.maxScore"
+                  type="number"
+                  min="1"
+                  max="100"
+                  class="w-full rounded-lg border border-surface-200 dark:border-surface-800 bg-transparent px-2 py-1.5 text-xs text-surface-700 dark:text-surface-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+
+            <!-- Слайдер веса -->
             <div class="flex items-center gap-4">
               <label class="text-xs font-medium text-surface-500 dark:text-surface-400 shrink-0 w-12">{{ t('dashboard.jobs.aiAnalysis.weight') }}</label>
               <input
@@ -478,11 +552,6 @@ function resetCriteria() {
               <span class="text-xs font-mono font-semibold text-surface-700 dark:text-surface-300 w-8 text-right">
                 {{ criterion.weight }}
               </span>
-            </div>
-
-            <div class="flex items-center gap-4 mt-2 text-xs text-surface-400">
-              <span>{{ t('dashboard.jobs.aiAnalysis.maxScore') }}: {{ criterion.maxScore }}</span>
-              <span>{{ t('dashboard.jobs.aiAnalysis.key') }}: <code class="rounded bg-surface-100 dark:bg-surface-800 px-1 py-0.5 font-mono text-[10px]">{{ criterion.key }}</code></span>
             </div>
           </div>
         </div>
@@ -522,9 +591,8 @@ function resetCriteria() {
             <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">{{ t('dashboard.jobs.aiAnalysis.criterionNameRequired') }}</label>
             <input
               v-model="customCriterionForm.name"
-              @input="customCriterionForm.key = autoGenerateKey(customCriterionForm.name)"
               type="text"
-              placeholder="например, знание React"
+              placeholder="например, Локация в Москве"
               class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
@@ -572,7 +640,7 @@ function resetCriteria() {
         <div class="flex items-center gap-3 pt-2">
           <button
             type="button"
-            :disabled="!customCriterionForm.name"
+            :disabled="!customCriterionForm.name.trim()"
             class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             @click="addCustomCriterion"
           >
