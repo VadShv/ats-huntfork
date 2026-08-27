@@ -53,7 +53,7 @@ const visibleCols = useState(`cand-visible-cols-${jobId}`, () => ({
 
 // Тумблер «Скрыть холодных» (hh_sourcing) для таблицы кандидатов вакансии
 const hideColdInTable = useLocalStorageState<boolean>(`cand-hide-cold-${jobId}`, false)
-// Показывать только заявки, помеченные «AI не уверен» — рекрутёру нужно проверить ручно.
+// Показывать только заявки, помеченные «AI не уверен» — рекрутеру нужно проверить ручно.
 const needsReviewOnly = useLocalStorageState<boolean>(`cand-needs-review-only-${jobId}`, false)
 
 // ── Pipeline stages for this job (for stage filter) ────────────────────────────

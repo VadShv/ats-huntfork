@@ -39,7 +39,7 @@ interface ChatConversation {
   canWriteReason: string | null
   unreadCount: number
   assistantMode: string
-  /** Спринт 19.5: чат личного аккаунта рекрутёра (Telegram Business). */
+  /** Спринт 19.5: чат личного аккаунта рекрутера (Telegram Business). */
   business?: { connected: boolean, canReply: boolean, windowOpen: boolean, lastInboundAt: string | null } | null
 }
 
@@ -467,7 +467,7 @@ onBeforeUnmount(() => {
         </button>
         <p class="text-[11px] text-surface-400 dark:text-surface-500 mt-1.5">{{ t('dashboard.chat.inviteHint') }}</p>
         <p v-if="inviteError" class="text-xs text-danger-600 dark:text-danger-400 mt-1">{{ inviteError }}</p>
-        <!-- Спринт 19.5: первый контакт через личный ТГ рекрутёра -->
+        <!-- Спринт 19.5: первый контакт через личный ТГ рекрутера -->
         <div class="mt-2">
           <button
             class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-surface-200/80 dark:border-surface-700/60 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"

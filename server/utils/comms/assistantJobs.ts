@@ -9,7 +9,7 @@
  *
  * Стоп-правила автопилота (безопасность):
  *  - кандидат просит человека (handoff-фразы) → режим деградирует в copilot;
- *  - ≥5 авто-ответов подряд без вмешательства рекрутёра → вместо отправки
+ *  - ≥5 авто-ответов подряд без вмешательства рекрутера → вместо отправки
  *    создаётся черновик на ревью;
  *  - чат недоступен для записи / ассистент выключен / режим не автопилотный → выход.
  */
@@ -212,7 +212,7 @@ async function lastContentMessage(conversationId: string): Promise<MessageRow | 
   })
 }
 
-/** Сколько авто-ответов подряд после последнего сообщения человека-рекрутёра. */
+/** Сколько авто-ответов подряд после последнего сообщения человека-рекрутера. */
 async function agentStreak(conversationId: string): Promise<number> {
   const recent = await db.select({
     direction: commsMessage.direction,
@@ -255,7 +255,7 @@ async function runAutopilotJob({ conversationId, organizationId }: AutopilotJobP
   if (conv.assistantMode !== 'autopilot' && conv.assistantMode !== 'autopilot_review') return
   if (!conv.canWrite) return
 
-  // Последнее сообщение всё ещё от кандидата? (гонка: рекрутёр мог ответить сам)
+  // Последнее сообщение всё ещё от кандидата? (гонка: рекрутер мог ответить сам)
   const last = await lastContentMessage(conv.id)
   if (!last || last.direction !== 'in') return
 

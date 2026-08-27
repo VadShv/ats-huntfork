@@ -622,7 +622,7 @@ async function handleRemoveMember() {
 const roleConfig: Record<string, { label: string; color: string; bg: string; icon: Component }> = {
   owner: { label: 'Владелец', color: 'text-warning-700 dark:text-warning-400', bg: 'bg-warning-50 dark:bg-warning-950', icon: Crown },
   admin: { label: 'Администратор', color: 'text-brand-700 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-950', icon: ShieldCheck },
-  member: { label: 'Рекрутёр', color: 'text-surface-700 dark:text-surface-300', bg: 'bg-surface-100 dark:bg-surface-800', icon: Shield },
+  member: { label: 'Рекрутер', color: 'text-surface-700 dark:text-surface-300', bg: 'bg-surface-100 dark:bg-surface-800', icon: Shield },
   hiring_manager: { label: 'Нанимающий менеджер', color: 'text-info-700 dark:text-info-400', bg: 'bg-info-50 dark:bg-info-950', icon: UserCheck },
 }
 
@@ -926,7 +926,7 @@ onUnmounted(() => {
                   v-model="newLinkRole"
                   class="appearance-none rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 pl-3 pr-8 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors cursor-pointer"
                 >
-                  <option value="member">Рекрутёр</option>
+                  <option value="member">Рекрутер</option>
                   <option value="admin">Администратор</option>
                   <option value="hiring_manager">Нанимающий менеджер</option>
                 </select>
@@ -1289,7 +1289,7 @@ onUnmounted(() => {
             <div>
               <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Команда рекрутинга</h2>
               <p class="text-sm text-surface-500 dark:text-surface-400">
-                {{ isLoadingMembers ? 'Загрузка…' : `Владельцы, администраторы и рекрутёры: ${teamMembers.length}` }}
+                {{ isLoadingMembers ? 'Загрузка…' : `Владельцы, администраторы и рекрутеры: ${teamMembers.length}` }}
               </p>
             </div>
           </div>

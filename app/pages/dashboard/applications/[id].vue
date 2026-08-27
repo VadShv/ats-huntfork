@@ -310,7 +310,7 @@ function formatResponseValue(value: unknown): string {
         @schedule="showInterviewSidebar = true"
       />
 
-      <!-- Спринт 20: панель решения НМ (видна рекрутёру, если есть эффективное решение) -->
+      <!-- Спринт 20: панель решения НМ (видна рекрутеру, если есть эффективное решение) -->
       <ApplicationHmDecisionCard
         class="mb-6"
         :application-id="applicationId"

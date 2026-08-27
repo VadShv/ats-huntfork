@@ -81,7 +81,7 @@ export const jobQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   status: z.enum(['draft', 'open', 'closed', 'archived']).optional(),
-  /** Скоуп видимости: mine — только назначенные (дефолт для рекрутёра), all — все */
+  /** Скоуп видимости: mine — только назначенные (дефолт для рекрутера), all — все */
   scope: z.enum(['mine', 'all']).optional(),
 })
 

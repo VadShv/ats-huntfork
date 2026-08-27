@@ -255,7 +255,7 @@ const sortedJobs = computed(() => {
 // Group jobs: needs attention + others (gallery only)
 // ─────────────────────────────────────────────
 
-// ─── Sprint 20.2: группировка по рекрутёрам для owner/admin (gallery) ───
+// ─── Sprint 20.2: группировка по рекрутерам для owner/admin (gallery) ───
 const { role: orgRole } = usePermission({ job: ['read'] })
 const groupByRecruiter = computed(() => orgRole.value === 'owner' || orgRole.value === 'admin')
 
@@ -266,7 +266,7 @@ interface RecruiterGroup {
 }
 
 const recruiterGroups = computed<RecruiterGroup[]>(() => {
-  // Рекрутёр видит плоский список своих вакансий — псевдогруппа без заголовка
+  // Рекрутер видит плоский список своих вакансий — псевдогруппа без заголовка
   if (!groupByRecruiter.value) {
     return [{ key: 'all', name: null, jobs: sortedJobs.value }]
   }
@@ -278,7 +278,7 @@ const recruiterGroups = computed<RecruiterGroup[]>(() => {
       withoutRecruiter.push(j)
       continue
     }
-    // Вакансия с несколькими рекрутёрами показывается в каждой группе
+    // Вакансия с несколькими рекрутерами показывается в каждой группе
     for (const r of recs) {
       let g = map.get(r.userId)
       if (!g) {
@@ -290,7 +290,7 @@ const recruiterGroups = computed<RecruiterGroup[]>(() => {
   }
   const groups = [...map.values()].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   if (withoutRecruiter.length > 0) {
-    groups.push({ key: '__none__', name: 'Без рекрутёра', jobs: withoutRecruiter })
+    groups.push({ key: '__none__', name: 'Без рекрутера', jobs: withoutRecruiter })
   }
   return groups
 })
@@ -850,7 +850,7 @@ const sortDirOptions = computed(() => [
            GALLERY VIEW (grid)
       ════════════════════════════════════ -->
       <template v-else-if="viewMode === 'gallery'">
-        <!-- ─── Sprint 20.2: группы по рекрутёрам (owner/admin) или одна плоская группа ─── -->
+        <!-- ─── Sprint 20.2: группы по рекрутерам (owner/admin) или одна плоская группа ─── -->
         <div
           v-for="grp in recruiterGroups"
           :key="grp.key"

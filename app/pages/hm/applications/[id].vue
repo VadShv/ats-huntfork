@@ -282,7 +282,7 @@ async function decide(kind: 'approved' | 'rejected') {
           <UiCard v-else-if="!data.candidate.aiSummary" variant="dashed">
             <div class="flex items-center gap-2 py-2 text-sm text-surface-500 dark:text-surface-400">
               <Info class="size-4" />
-              Резюме кандидата ещё не загружено. Попросите рекрутёра обновить данные с hh.ru.
+              Резюме кандидата ещё не загружено. Попросите рекрутера обновить данные с hh.ru.
             </div>
           </UiCard>
         </div>

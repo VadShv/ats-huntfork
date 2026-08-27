@@ -212,7 +212,7 @@ export const application = pgTable('application', {
   externalUrl: text('external_url'),
   /** Опциональный «жёсткий» признак причины отказа: blacklist | security_incident | fake_data | other_fraud. */
   fraudReason: text('fraud_reason'),
-  /** True, когда AI хотел бы отклонить (score < threshold), но confidence низкий — рекрутёр должен глянуть вручную. */
+  /** True, когда AI хотел бы отклонить (score < threshold), но confidence низкий — рекрутер должен глянуть вручную. */
   needsManualReview: boolean('needs_manual_review').notNull().default(false),
   /** Спринт 22 (M4): ссылка на новый отклик после перевода на другую вакансию (этап transferred). */
   transferredToApplicationId: text('transferred_to_application_id'),
@@ -2086,7 +2086,7 @@ export const commsTelegramBot = pgTable('comms_telegram_bot', {
 
 /**
  * Спринт 19 — персональный пригласительный токен в Telegram-чат.
- * Рекрутёр генерирует ссылку t.me/<bot>?start=<token> для конкретного
+ * Рекрутер генерирует ссылку t.me/<bot>?start=<token> для конкретного
  * отклика; по /start бот привязывает tg-чат к кандидату/отклику/вакансии.
  * Анти-спам: без валидного токена диалог не создаётся.
  */
@@ -2120,10 +2120,10 @@ export const commsTelegramLinkTokenRelations = relations(commsTelegramLinkToken,
 }))
 
 /**
- * Спринт 19.5 — Telegram Business: подключение бота к ЛИЧНОМУ аккаунту рекрутёра.
- * Рекрутёр в Telegram (Настройки → Telegram Business → Чат-боты) подключает бота
+ * Спринт 19.5 — Telegram Business: подключение бота к ЛИЧНОМУ аккаунту рекрутера.
+ * Рекрутер в Telegram (Настройки → Telegram Business → Чат-боты) подключает бота
  * организации; бот получает business_connection / business_message и может
- * отвечать кандидатам ОТ ИМЕНИ рекрутёра (business_connection_id в sendMessage).
+ * отвечать кандидатам ОТ ИМЕНИ рекрутера (business_connection_id в sendMessage).
  * connection_id меняется при перенастройке — стабильный ключ (org, tg_user_id).
  */
 export const commsTelegramBusinessConnection = pgTable('comms_telegram_business_connection', {

@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['read'], candidate: ['read'], application: ['read'] })
   const orgId = session.session.activeOrganizationId
 
-  // ─── Sprint 20.2: скоуп «мои вакансии» для рекрутёра (member) ───
+  // ─── Sprint 20.2: скоуп «мои вакансии» для рекрутера (member) ───
   // Сентинел '__none__' даёт нулевые агрегаты без ветвления формы ответа (важно для типов useFetch)
   const scope = await resolveRecruiterScope(orgId, session.user.id)
   const scopedIds = scope.scoped ? (scope.jobIds.length > 0 ? scope.jobIds : ['__none__']) : null
@@ -122,7 +122,7 @@ export default defineEventHandler(async (event) => {
       .where(and(jobCond, eq(job.status, 'open')))
       .groupBy(job.id)
       .orderBy(sql`count(${application.id}) desc`)
-      // Sprint 20.2: 50 вместо 5 — owner/admin видят все открытые вакансии в разбивке по рекрутёрам
+      // Sprint 20.2: 50 вместо 5 — owner/admin видят все открытые вакансии в разбивке по рекрутерам
       .limit(50),
   ])
 
@@ -232,7 +232,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // ─── Sprint 20.2: рекрутёры вакансий (для группировки на клиенте) ───
+  // ─── Sprint 20.2: рекрутеры вакансий (для группировки на клиенте) ───
   const recruitersMap = await getJobRecruitersMap(orgId, topJobIds)
 
   const topJobsEnriched = topJobs.map(j => ({

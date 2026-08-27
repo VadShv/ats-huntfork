@@ -42,7 +42,7 @@ const emit = defineEmits<{
 const roleConfig: Record<string, { label: string, color: string, bg: string, icon: Component }> = {
   owner: { label: 'Владелец', color: 'text-warning-700 dark:text-warning-400', bg: 'bg-warning-50 dark:bg-warning-950', icon: Crown },
   admin: { label: 'Администратор', color: 'text-brand-700 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-950', icon: ShieldCheck },
-  member: { label: 'Рекрутёр', color: 'text-surface-700 dark:text-surface-300', bg: 'bg-surface-100 dark:bg-surface-800', icon: Shield },
+  member: { label: 'Рекрутер', color: 'text-surface-700 dark:text-surface-300', bg: 'bg-surface-100 dark:bg-surface-800', icon: Shield },
   hiring_manager: { label: 'Нанимающий менеджер', color: 'text-info-700 dark:text-info-400', bg: 'bg-info-50 dark:bg-info-950', icon: UserCheck },
 }
 
@@ -143,7 +143,7 @@ function getInitials(name: string | undefined): string {
                 @click="emit('updateRole', 'member')"
               >
                 <Shield class="size-3.5 text-surface-400" />
-                Сделать рекрутёром
+                Сделать рекрутером
               </button>
             </div>
 

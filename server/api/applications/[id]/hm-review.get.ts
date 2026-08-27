@@ -6,7 +6,7 @@ import { resolveHmReviewStage } from '../../../utils/hm-stage-resolver'
 
 /**
  * GET /api/applications/:id/hm-review
- * ТЗ hm-review-substage (П3): данные для действия «На рассмотрение НМ» в UI рекрутёра.
+ * ТЗ hm-review-substage (П3): данные для действия «На рассмотрение НМ» в UI рекрутера.
  * Возвращает:
  *   - stage: подэтап «На рассмотрении» (preset_key='hm_review') воронки вакансии или null;
  *   - hasHiringManager: назначен ли на вакансию хотя бы один НМ (member_role='hiring_manager').

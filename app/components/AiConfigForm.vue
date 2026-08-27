@@ -512,7 +512,7 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
                 Диалоги в чате
               </div>
               <p class="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5">
-                Использовать эту модель для общения с кандидатами и рекрутёрами.
+                Использовать эту модель для общения с кандидатами и рекрутерами.
               </p>
             </div>
           </label>

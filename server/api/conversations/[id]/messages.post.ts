@@ -10,7 +10,7 @@ const bodySchema = z.object({
 
 /**
  * POST /api/conversations/:id/messages
- * Отправка сообщения рекрутёром в диалог (MVP: канал hh.ru).
+ * Отправка сообщения рекрутером в диалог (MVP: канал hh.ru).
  */
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)

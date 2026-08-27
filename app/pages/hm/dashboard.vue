@@ -78,7 +78,7 @@ function timeAgo(input: string | Date | null): string {
             Вы пока не назначены ни на одну вакансию
           </div>
           <div class="mt-1 text-sm text-surface-500 dark:text-surface-400">
-            Рекрутёр добавит вас в вакансии — они появятся здесь
+            Рекрутер добавит вас в вакансии — они появятся здесь
           </div>
         </div>
       </div>
@@ -140,7 +140,7 @@ function timeAgo(input: string | Date | null): string {
             На рассмотрении пока никого нет
           </div>
           <div class="mt-1 text-sm text-surface-500 dark:text-surface-400">
-            Рекрутёр ещё не отправил кандидатов на рассмотрение — они появятся здесь
+            Рекрутер ещё не отправил кандидатов на рассмотрение — они появятся здесь
           </div>
         </div>
       </div>

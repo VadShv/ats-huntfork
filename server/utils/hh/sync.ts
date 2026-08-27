@@ -311,7 +311,7 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
 
       if (existing) {
         // Обновим last_seen + сырой JSON.
-        // Спринт 11.5: также актуализируем hhCollection — если рекрутёр двигал
+        // Спринт 11.5: также актуализируем hhCollection — если рекрутер двигал
         // отклик на стороне hh.ru, локальное значение устаревает.
         await db.update(hhNegotiation).set({
           rawNegotiationJson: neg as unknown,

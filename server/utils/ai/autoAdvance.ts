@@ -14,7 +14,7 @@
  *                                     двигать «наверх» с низкой уверенностью
  *                                     хуже, чем оставить в корне)
  *   - candidate.manualReviewOnly   — VIP-флаг: правило игнорируется
- *   - applicationStageHistory      — если рекрутёр уже двигал заявку, ничего
+ *   - applicationStageHistory      — если рекрутер уже двигал заявку, ничего
  *                                     не трогаем
  *   - currentStage                 — двигаем ТОЛЬКО из корня «Все неразобранные»
  *                                     (тип new, БЕЗ parent). Если кандидат уже
@@ -42,7 +42,7 @@ export type AutoAdvanceOutcome =
   | 'skip_no_score'             // application.score = null
   | 'skip_low_confidence'       // composite confidence < 50%
   | 'skip_manual_review_only'   // candidate.manualReviewOnly = true
-  | 'skip_recruiter_touched'    // рекрутёр уже двигал заявку
+  | 'skip_recruiter_touched'    // рекрутер уже двигал заявку
   | 'skip_not_in_root'          // заявка не в корне «неразобранные» (уже двигалась/hm_review/дальше)
   | 'skip_no_hm_review_stage'   // подэтап hm_review отсутствует/скрыт
   | 'error'                     // внутренняя ошибка
@@ -135,7 +135,7 @@ export async function applyAutoAdvanceIfNeeded(
       return { outcome: 'skip_not_in_root', meta: { score: app.score, threshold } }
     }
 
-    // G5: рекрутёр уже двигал заявку (записи с movedByUserId + fromStageId ≠ NULL)
+    // G5: рекрутер уже двигал заявку (записи с movedByUserId + fromStageId ≠ NULL)
     const recruiterTouch = await db.query.applicationStageHistory.findFirst({
       where: and(
         eq(applicationStageHistory.applicationId, applicationId),

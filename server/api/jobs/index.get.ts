@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   const query = await getValidatedQuery(event, jobQuerySchema.parse)
 
-  // ─── Sprint 20.2: скоуп «мои вакансии» — рекрутёр (member) по умолчанию видит только назначенные ───
+  // ─── Sprint 20.2: скоуп «мои вакансии» — рекрутер (member) по умолчанию видит только назначенные ───
   // Сентинел '__none__' даёт пустую выдачу без ветвления формы ответа (важно для типов useFetch)
   const scope = await resolveRecruiterScope(orgId, session.user.id, query.scope)
 
@@ -181,7 +181,7 @@ export default defineEventHandler(async (event) => {
     hhLinkedMap = Object.fromEntries(hhRows.map(r => [r.jobId, { hhVacancyId: r.hhVacancyId, importedCount: r.importedCount }]))
   }
 
-  // ─── Sprint 20.2: рекрутёры каждой вакансии (для группировки на клиенте) ───
+  // ─── Sprint 20.2: рекрутеры каждой вакансии (для группировки на клиенте) ───
   const recruitersMap = await getJobRecruitersMap(orgId, jobIds)
 
   const enrichedData = data.map((j) => ({

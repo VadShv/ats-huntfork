@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
 
   const query = await getValidatedQuery(event, interviewQuerySchema.parse)
 
-  // ─── Sprint 20.2: рекрутёр (member) видит интервью только по своим вакансиям.
+  // ─── Sprint 20.2: рекрутер (member) видит интервью только по своим вакансиям.
   // Сентинел '__none__' даёт пустую выдачу без ветвления формы ответа (важно для типов useFetch).
   const scope = await resolveRecruiterScope(orgId, session.user.id)
 

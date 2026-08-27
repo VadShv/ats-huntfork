@@ -10,7 +10,7 @@ import { addJobMemberSchema } from '../../../../utils/schemas/hiringManager'
  * Назначает пользователя на вакансию с указанной ролью (в v1 — только HM).
  * Права: `job:update` — это часть редактирования вакансии (команда),
  *   а не org-member (создание НМ как юзера org уже сделано через invite-link).
- *   Доступно owner/admin и рекрутёрам (role=member).
+ *   Доступно owner/admin и рекрутерам (role=member).
  *
  * Может быть несколько НМ на одной вакансии (первое решение выигрывает — см. ТЗ §4.10).
  */
@@ -68,7 +68,7 @@ export default defineEventHandler(async (event) => {
     if (!['owner', 'admin', 'member'].includes(target.role)) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Рекрутёром вакансии может быть только участник с ролью владелец, администратор или рекрутёр',
+        statusMessage: 'Рекрутером вакансии может быть только участник с ролью владелец, администратор или рекрутер',
       })
     }
   }

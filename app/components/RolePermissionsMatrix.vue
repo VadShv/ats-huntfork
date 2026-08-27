@@ -19,7 +19,7 @@ type RoleStatements = { statements: Record<string, readonly string[]> }
 const roles = [
   { key: 'owner', label: 'Владелец', statements: (owner as unknown as RoleStatements).statements },
   { key: 'admin', label: 'Администратор', statements: (admin as unknown as RoleStatements).statements },
-  { key: 'member', label: 'Рекрутёр', statements: (member as unknown as RoleStatements).statements },
+  { key: 'member', label: 'Рекрутер', statements: (member as unknown as RoleStatements).statements },
   { key: 'hiring_manager', label: 'Нанимающий менеджер', statements: (hiringManager as unknown as RoleStatements).statements },
 ] as const
 
@@ -130,7 +130,7 @@ function actionsFor(roleStatements: Record<string, readonly string[]>, resource:
       </div>
 
       <div class="px-4 sm:px-6 py-3 border-t border-surface-100 dark:border-surface-800 space-y-1 text-xs text-surface-500 dark:text-surface-400">
-        <p>• Рекрутёр по умолчанию видит на дашбордах только вакансии, на которые назначен. Владелец и администратор видят все вакансии в разбивке по рекрутёрам.</p>
+        <p>• Рекрутер по умолчанию видит на дашбордах только вакансии, на которые назначен. Владелец и администратор видят все вакансии в разбивке по рекрутерам.</p>
         <p>• Нанимающий менеджер работает в отдельном упрощённом интерфейсе: смотрит назначенных кандидатов и согласовывает этапы — все изменения проводятся системой от его имени.</p>
         <p>• Права заданы в коде системы (единый источник для сервера и интерфейса). Настройка прав по ролям прямо здесь появится в следующем этапе.</p>
       </div>

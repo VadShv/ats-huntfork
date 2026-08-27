@@ -53,7 +53,7 @@ const BUILTIN_TEMPLATES: OutreachTemplate[] = [
     name: 'Тёплый первый контакт (Email)',
     channel: 'email',
     subject: 'Интересная возможность — {{role}}',
-    body: 'Здравствуйте, {{name}}!\n\nОбратил внимание на ваш опыт с {{skill}}. У нас сейчас открыт похожий вызов — позиция {{role}} в {{company}}. Подскажите, было бы вам интересно обсудить детали?\n\nС уважением,\nРекрутёрская команда',
+    body: 'Здравствуйте, {{name}}!\n\nОбратил внимание на ваш опыт с {{skill}}. У нас сейчас открыт похожий вызов — позиция {{role}} в {{company}}. Подскажите, было бы вам интересно обсудить детали?\n\nС уважением,\nРекрутерская команда',
     isBuiltIn: true,
   },
   {
@@ -83,7 +83,7 @@ export function useOutreach() {
   async function load() {
     if (loaded.value) return
     loaded.value = true
-    // П0/П5: никаких демонстрационных черновиков — только то, что создал рекрутёр.
+    // П0/П5: никаких демонстрационных черновиков — только то, что создал рекрутер.
     let custom: OutreachTemplate[] = []
     try {
       const stored = await chrome.storage.local.get([DRAFTS_KEY, TEMPLATES_KEY])

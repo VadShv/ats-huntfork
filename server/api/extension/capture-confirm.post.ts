@@ -1,7 +1,7 @@
 /**
  * POST /api/extension/capture-confirm
  *
- * Второй шаг Universal Capture: рекрутёр отредактировал черновик в панели
+ * Второй шаг Universal Capture: рекрутер отредактировал черновик в панели
  * Sidekick и подтвердил сохранение. Создаём кандидата тем же конвейером,
  * что hh-импорт и ручное создание:
  *   candidate + hh_resume_raw (hh-совместимый, _hf.source='extension_capture')

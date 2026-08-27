@@ -64,7 +64,7 @@ export function tgSetWebhook(token: string, url: string, secretToken: string): P
   return tgCall<boolean>(token, 'setWebhook', {
     url,
     secret_token: secretToken,
-    // Спринт 19.5: + события Telegram Business (личный аккаунт рекрутёра)
+    // Спринт 19.5: + события Telegram Business (личный аккаунт рекрутера)
     allowed_updates: ['message', 'business_connection', 'business_message'],
     drop_pending_updates: false,
   })
@@ -102,7 +102,7 @@ export interface TgBusinessConnection {
 }
 
 /** Отправка текста с разбиением на части по лимиту Telegram (4096).
- * С businessConnectionId сообщение уходит ОТ ИМЕНИ личного аккаунта рекрутёра. */
+ * С businessConnectionId сообщение уходит ОТ ИМЕНИ личного аккаунта рекрутера. */
 export async function tgSendMessage(token: string, chatId: string, text: string, opts: { businessConnectionId?: string } = {}): Promise<string> {
   const chunks: string[] = []
   let rest = text

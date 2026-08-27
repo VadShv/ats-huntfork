@@ -35,7 +35,7 @@ interface JobMember {
   userEmail: string
 }
 
-// `job:update` — кто ведёт вакансию (owner/admin и рекрутёры role=member).
+// `job:update` — кто ведёт вакансию (owner/admin и рекрутеры role=member).
 const { allowed: canManage } = usePermission({ job: ['update'] })
 const toast = useToast()
 

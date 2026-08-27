@@ -20,7 +20,7 @@ const HM_ROLE = 'hiring_manager' as const
 
 /**
  * Читаемый временный пароль — 12 символов, без похожих 0/O/1/l/I.
- * Выдаётся рекрутёром лично; при первом входе НМ обязан сменить.
+ * Выдаётся рекрутером лично; при первом входе НМ обязан сменить.
  */
 export function generateTemporaryPassword(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789abcdefghijkmnpqrstuvwxyz'

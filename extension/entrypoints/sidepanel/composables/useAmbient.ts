@@ -41,7 +41,7 @@ const ACTION_LABELS: Record<string, string> = {
   updated: 'Профиль обновлён',
   status_changed: 'Смена статуса',
   stage_changed: 'Смена этапа',
-  comment_added: 'Заметка рекрутёра',
+  comment_added: 'Заметка рекрутера',
   scored: 'Оценён ИИ',
 }
 

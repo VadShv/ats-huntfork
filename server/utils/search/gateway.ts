@@ -137,7 +137,7 @@ export async function runSearch(req: SearchRequest): Promise<SearchOutcome> {
   const allNoKeys = errors.every(e => e.code === 'no_keys')
   if (allNoKeys) {
     // Демо-режим ТОЛЬКО при явном SEARCH_MOCK=1: молчаливый мок в проде
-    // выдаёт рекрутёру правдоподобные, но фейковые цифры.
+    // выдаёт рекрутеру правдоподобные, но фейковые цифры.
     const config = useRuntimeConfig()
     if (config.searchMock) {
       const mockResult = searchMock(req)

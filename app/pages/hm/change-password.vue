@@ -84,7 +84,7 @@ async function submit() {
             v-model="currentPassword"
             type="password"
             autocomplete="current-password"
-            placeholder="Пароль из письма от рекрутёра"
+            placeholder="Пароль из письма от рекрутера"
             required
           />
         </div>

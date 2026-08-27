@@ -11,7 +11,7 @@ const paramsSchema = z.object({
 /**
  * GET /api/applications/[id]/hm-decision
  * Возвращает актуальное эффективное решение НМ по отклику + краткие сведения
- * об НМ (имя, email). Для рекрутёра/админа, чтобы отрисовать панель отмены.
+ * об НМ (имя, email). Для рекрутера/админа, чтобы отрисовать панель отмены.
  * Возвращает { decision: null } если решения нет.
  */
 export default defineEventHandler(async (event) => {

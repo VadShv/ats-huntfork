@@ -77,7 +77,7 @@ async function handleAccept() {
     })
 
     // НМ ведём в свой дашборд — там он видит только свои карточки кандидатов,
-    // обычные рекрутёры/админы — в общий /dashboard.
+    // обычные рекрутеры/админы — в общий /dashboard.
     const target = result.role === 'hiring_manager' ? '/hm/dashboard' : '/dashboard'
     setTimeout(() => {
       window.location.href = localePath(target)
@@ -95,7 +95,7 @@ async function handleAccept() {
 function getRoleLabel(role: string) {
   if (role === 'admin') return 'Администратор'
   if (role === 'hiring_manager') return 'Нанимающий менеджер'
-  return 'Рекрутёр'
+  return 'Рекрутер'
 }
 
 function getRoleIcon(role: string) {

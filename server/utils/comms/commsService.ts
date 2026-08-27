@@ -260,7 +260,7 @@ export async function sendConversationMessage(
         throw createError({ statusCode: 400, statusMessage: 'Telegram-бот не подключён или выключен' })
       }
       if (conv.tgBusinessConnectionId) {
-        // Спринт 19.5: ответ ОТ ИМЕНИ личного аккаунта рекрутёра (Telegram Business)
+        // Спринт 19.5: ответ ОТ ИМЕНИ личного аккаунта рекрутера (Telegram Business)
         const bizConn = await db.query.commsTelegramBusinessConnection.findFirst({
           where: eq(commsTelegramBusinessConnection.id, conv.tgBusinessConnectionId),
         })

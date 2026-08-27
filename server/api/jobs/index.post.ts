@@ -93,8 +93,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Не удалось создать вакансию' })
   }
 
-  // Авто-назначение: создатель вакансии становится её рекрутёром.
-  // Право job:create есть только у owner/admin/member — все они валидные рекрутёры.
+  // Авто-назначение: создатель вакансии становится её рекрутером.
+  // Право job:create есть только у owner/admin/member — все они валидные рекрутеры.
   // Не блокируем создание вакансии при сбое назначения.
   try {
     await db
@@ -109,7 +109,7 @@ export default defineEventHandler(async (event) => {
       .onConflictDoNothing({ target: [jobMember.jobId, jobMember.userId, jobMember.memberRole] })
   }
   catch (err) {
-    console.error('[jobs.post] Не удалось авто-назначить рекрутёра на вакансию:', err)
+    console.error('[jobs.post] Не удалось авто-назначить рекрутера на вакансию:', err)
   }
 
   recordActivity({

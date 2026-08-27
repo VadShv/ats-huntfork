@@ -3,7 +3,7 @@
  *
  * Спринт 19.5: бот НЕ может писать первым даже через Telegram Business
  * (BUSINESS_PEER_USAGE_MISSING). Поэтому Huntfork генерирует ИИ-драфт первого
- * сообщения и отдаёт ссылку t.me/<username>?text=... — рекрутёр открывает чат
+ * сообщения и отдаёт ссылку t.me/<username>?text=... — рекрутер открывает чат
  * с уже подставленным текстом и жмёт «Отправить» сам. Когда кандидат ответит,
  * диалог появится в Huntfork автоматически (business_message).
  */
@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
       ? await db.query.job.findFirst({ where: eq(jobTable.id, app.jobId), columns: { title: true } })
       : undefined
     const name = cand ? (cand.displayName || cand.firstName || '').trim() : ''
-    text = `Здравствуйте${name ? `, ${name}` : ''}! Меня зовут ${session.user.name ?? 'рекрутёр'}, я по поводу вакансии${jobRow?.title ? ` «${jobRow.title}»` : ''}. Удобно будет пообщаться здесь?`
+    text = `Здравствуйте${name ? `, ${name}` : ''}! Меня зовут ${session.user.name ?? 'рекрутер'}, я по поводу вакансии${jobRow?.title ? ` «${jobRow.title}»` : ''}. Удобно будет пообщаться здесь?`
   }
 
   return {

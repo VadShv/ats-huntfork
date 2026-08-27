@@ -93,7 +93,7 @@ export default defineEventHandler(async (event) => {
 
   // 4. Строим безопасный вариант резюме из hh_resume_raw для НМ.
   //   Не включаем: телефон, email, соцсети, дату рождения, PII
-  //   (их видит только рекрутёр).  Зарплата — только при hm_can_view_salary=true.
+  //   (их видит только рекрутер).  Зарплата — только при hm_can_view_salary=true.
   let expectedSalary: { amount?: number; currency?: string } | null = null
   let resumeSnapshot: {
     title?: string

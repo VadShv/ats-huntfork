@@ -2,7 +2,7 @@
  * Атомарный перенос заявки между этапами воронки.
  *
  * Спринт 22: ЕДИНСТВЕННАЯ реализация перемещения. Все пути обязаны идти через неё:
- *   - PATCH /api/applications/:id/stage  — обычный ход рекрутёра (в т.ч. bulk с фронта).
+ *   - PATCH /api/applications/:id/stage  — обычный ход рекрутера (в т.ч. bulk с фронта).
  *   - POST /api/hm/decisions             — решение НМ (системный контекст).
  *   - server/utils/ai/autoReject.ts      — авто-отказ по скору.
  *   - POST /api/applications/:id/transfer — перевод на другую вакансию.

@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
     if (draft.status !== 'suggested' || !draft.body?.trim()) {
       throw createError({ statusCode: 400, statusMessage: 'Черновик ещё не готов к отправке' })
     }
-    // Отправка от имени агента; одобривший рекрутёр фиксируется в senderUserId
+    // Отправка от имени агента; одобривший рекрутер фиксируется в senderUserId
     const message = await sendConversationMessage(conv, {
       userId: session.user.id,
       userName: session.user.name ?? null,

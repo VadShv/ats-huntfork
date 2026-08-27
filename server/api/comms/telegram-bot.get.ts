@@ -1,7 +1,7 @@
 /**
  * GET /api/comms/telegram-bot — статус Telegram-бота организации.
  * Токен НИКОГДА не возвращаем — только метаданные.
- * Спринт 19.5: + список business-подключений (личные аккаунты рекрутёров).
+ * Спринт 19.5: + список business-подключений (личные аккаунты рекрутеров).
  */
 import { eq } from 'drizzle-orm'
 import { commsTelegramBusinessConnection } from '../../database/schema'

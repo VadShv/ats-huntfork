@@ -6,7 +6,7 @@ export default defineConfig({
   manifest: {
     name: 'Huntfork Sidekick',
     description:
-      'Боковая панель рекрутёра: импорт с hh.ru, захват кандидатов с LinkedIn, Хабр Карьеры, GitHub и любых сайтов в Huntfork.',
+      'Боковая панель рекрутера: импорт с hh.ru, захват кандидатов с LinkedIn, Хабр Карьеры, GitHub и любых сайтов в Huntfork.',
     permissions: ['storage', 'sidePanel', 'tabs', 'scripting'],
     host_permissions: [
       'https://hh.ru/*',

@@ -9,11 +9,11 @@ const paramsSchema = z.object({
 
 /**
  * POST /api/hm/decisions/[id]/cancel
- * Рекрутёр (owner/admin/member с application:update) отменяет ранее вынесенное решение НМ.
+ * Рекрутер (owner/admin/member с application:update) отменяет ранее вынесенное решение НМ.
  *
  * Что делает:
  *   - Ставит is_effective=false, cancelled_at=now, cancelled_by_user_id=actor.
- *   - НЕ откатывает переход этапа — рекрутёр после отмены сам двигает кандидата назад
+ *   - НЕ откатывает переход этапа — рекрутер после отмены сам двигает кандидата назад
  *     через обычный PATCH /api/applications/:id/stage. Так проще и прозрачнее в аудите.
  *   - Логирует hm_cancelled в activity_log.
  *

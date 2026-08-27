@@ -60,7 +60,7 @@ const { interviews: upcomingInterviews } = useInterviews({
 
 const { t } = useI18n()
 
-// ─── Sprint 20.2: группировка вакансий по рекрутёрам для owner/admin ───
+// ─── Sprint 20.2: группировка вакансий по рекрутерам для owner/admin ───
 const { role: orgRole } = usePermission({ job: ['read'] })
 const groupTopJobs = computed(() => orgRole.value === 'owner' || orgRole.value === 'admin')
 
@@ -71,7 +71,7 @@ interface TopJobGroup {
 }
 
 const topJobGroups = computed<TopJobGroup[]>(() => {
-  // Рекрутёр видит плоский список своих вакансий — псевдогруппа без заголовка
+  // Рекрутер видит плоский список своих вакансий — псевдогруппа без заголовка
   if (!groupTopJobs.value) {
     return [{ key: 'all', name: null, jobs: topJobs.value }]
   }
@@ -94,7 +94,7 @@ const topJobGroups = computed<TopJobGroup[]>(() => {
   }
   const groups = [...map.values()].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   if (withoutRecruiter.length > 0) {
-    groups.push({ key: '__none__', name: 'Без рекрутёра', jobs: withoutRecruiter })
+    groups.push({ key: '__none__', name: 'Без рекрутера', jobs: withoutRecruiter })
   }
   return groups
 })
@@ -428,7 +428,7 @@ const isEmpty = computed(() =>
             </div>
 
             <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
-              <!-- ─── Sprint 20.2: группы по рекрутёрам (owner/admin) или плоский список ─── -->
+              <!-- ─── Sprint 20.2: группы по рекрутерам (owner/admin) или плоский список ─── -->
               <template v-for="grp in topJobGroups" :key="grp.key">
                 <button
                   v-if="grp.name !== null"

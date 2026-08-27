@@ -11,7 +11,7 @@
  *   - job.autoRejectBelowScore    — порог; срабатывает при score < threshold (строго меньше)
  *   - composite confidence        — если < 50%, ставим application.needsManualReview = true вместо отказа
  *   - candidate.manualReviewOnly  — VIP-флаг: правило игнорируется полностью
- *   - applicationStageHistory     — если рекрутёр уже двигал заявку (movedByUserId IS NOT NULL),
+ *   - applicationStageHistory     — если рекрутер уже двигал заявку (movedByUserId IS NOT NULL),
  *                                    ничего не трогаем (его решение приоритетнее AI)
  *   - currentStage.isTerminal     — заявка уже в терминальном этапе (hired/rejected/...) — не трогаем
  *
@@ -41,7 +41,7 @@ export type AutoRejectOutcome =
   | 'skip_above_threshold'      // score >= threshold
   | 'skip_no_score'             // application.score = null
   | 'skip_manual_review_only'   // candidate.manualReviewOnly = true (VIP)
-  | 'skip_recruiter_touched'    // рекрутёр уже двигал заявку
+  | 'skip_recruiter_touched'    // рекрутер уже двигал заявку
   | 'skip_terminal_stage'       // заявка уже в терминальном этапе
   | 'skip_no_reject_stage'      // в пайплайне нет reject-terminal
   | 'error'                     // внутренняя ошибка
@@ -122,12 +122,12 @@ export async function applyAutoRejectIfNeeded(
       return { outcome: 'skip_manual_review_only', meta: { score: app.score, threshold } }
     }
 
-    // ── Защита 4: уже в терминальном этапе (рекрутёр или предыдущий авто-проход уже решил)
+    // ── Защита 4: уже в терминальном этапе (рекрутер или предыдущий авто-проход уже решил)
     if (app.currentStage?.isTerminal) {
       return { outcome: 'skip_terminal_stage', meta: { score: app.score, threshold } }
     }
 
-    // ── Защита 5: рекрутёр уже двигал заявку (movedByUserId IS NOT NULL хотя бы в одной записи)
+    // ── Защита 5: рекрутер уже двигал заявку (movedByUserId IS NOT NULL хотя бы в одной записи)
     // Начальную запись при создании отклика (fromStageId IS NULL) не считаем:
     // это размещение на входном этапе, а не осознанный перевод по воронке.
     const recruiterTouch = await db.query.applicationStageHistory.findFirst({

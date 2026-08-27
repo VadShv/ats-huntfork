@@ -179,7 +179,7 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
                   v-model="draft.name"
                   type="text"
                   maxlength="80"
-                  placeholder="Например, Наставник рекрутёра"
+                  placeholder="Например, Наставник рекрутера"
                   class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 >
               </div>

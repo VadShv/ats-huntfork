@@ -3,7 +3,7 @@
  *
  * Используется:
  *   • hh-sync (server/utils/hh/sync.ts) — когда импортим отклики
- *   • Chrome Extension (server/api/extension/import.post.ts) — когда рекрутёр
+ *   • Chrome Extension (server/api/extension/import.post.ts) — когда рекрутер
  *     вручную добавляет резюме при сорсинге
  *
  * Контракт: даёт ТОТ ЖЕ candidate + hh_resume_raw + candidate_resume_version,

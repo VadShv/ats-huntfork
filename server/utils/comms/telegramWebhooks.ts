@@ -98,7 +98,7 @@ async function processOneUpdate(data: TgWebhookJobPayload): Promise<void> {
 
   const update = (row.payload ?? {}) as TgUpdateEnvelope
   try {
-    // Спринт 19.5: события Telegram Business (личный аккаунт рекрутёра)
+    // Спринт 19.5: события Telegram Business (личный аккаунт рекрутера)
     if (update.business_connection) {
       await handleBusinessConnection(row.id, row.organizationId, update.business_connection)
       return
@@ -170,7 +170,7 @@ async function handleStart(
   }
 
   if (!tokenValue) {
-    await fail('start_no_token', 'Здравствуйте! Этот бот работает по персональным приглашениям от рекрутёра. Пожалуйста, перейдите по ссылке из вашего приглашения.')
+    await fail('start_no_token', 'Здравствуйте! Этот бот работает по персональным приглашениям от рекрутера. Пожалуйста, перейдите по ссылке из вашего приглашения.')
     return
   }
 
@@ -181,11 +181,11 @@ async function handleStart(
     ),
   })
   if (!link) {
-    await fail('start_bad_token', 'Ссылка-приглашение не найдена. Попросите рекрутёра прислать новую.')
+    await fail('start_bad_token', 'Ссылка-приглашение не найдена. Попросите рекрутера прислать новую.')
     return
   }
   if (link.expiresAt.getTime() < Date.now()) {
-    await fail('start_token_expired', 'Срок действия приглашения истёк. Попросите рекрутёра прислать новую ссылку.')
+    await fail('start_token_expired', 'Срок действия приглашения истёк. Попросите рекрутера прислать новую ссылку.')
     return
   }
 
@@ -432,10 +432,10 @@ async function collectAttachments(
   return out
 }
 
-// ── Спринт 19.5: Telegram Business (личный аккаунт рекрутёра) ────────────
+// ── Спринт 19.5: Telegram Business (личный аккаунт рекрутера) ────────────
 
 /**
- * Рекрутёр подключил/перенастроил/отключил бота в своём личном Telegram
+ * Рекрутер подключил/перенастроил/отключил бота в своём личном Telegram
  * (Настройки → Telegram Business → Чат-боты). Стабильный ключ — (org, tg id
  * владельца): connection_id меняется при каждой перенастройке.
  */
@@ -481,7 +481,7 @@ async function handleBusinessConnection(
 }
 
 /**
- * Сообщение в личном чате рекрутёра (обе стороны: и кандидат, и сам рекрутёр
+ * Сообщение в личном чате рекрутера (обе стороны: и кандидат, и сам рекрутер
  * с телефона). Диалог создаём автоматически; кандидата мэтчим по username
  * из карточки (candidate.telegram), иначе диалог остаётся непривязанным —
  * привязка вручную из Инбокса.
@@ -567,7 +567,7 @@ async function handleBusinessMessage(
         candidateId,
         applicationId,
         jobId,
-        // Личный аккаунт: ассистент включается рекрутёром осознанно
+        // Личный аккаунт: ассистент включается рекрутером осознанно
         assistantMode: 'off',
         canWrite: true,
       })

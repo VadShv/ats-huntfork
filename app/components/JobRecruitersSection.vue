@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * JobRecruitersSection — секция «Рекрутёры» на странице настроек вакансии.
+ * JobRecruitersSection — секция «Рекрутеры» на странице настроек вакансии.
  *
- * Назначение рекрутёров (org-роли owner/admin/member) на вакансию через
+ * Назначение рекрутеров (org-роли owner/admin/member) на вакансию через
  * job_member (member_role='recruiter'). Создатель вакансии назначается
  * автоматически при создании (см. POST /api/jobs).
  */
@@ -32,17 +32,17 @@ interface JobMember {
   userEmail: string
 }
 
-// `job:update` — кто ведёт вакансию (owner/admin и рекрутёры role=member).
+// `job:update` — кто ведёт вакансию (owner/admin и рекрутеры role=member).
 const { allowed: canManage } = usePermission({ job: ['update'] })
 const toast = useToast()
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Владелец',
   admin: 'Администратор',
-  member: 'Рекрутёр',
+  member: 'Рекрутер',
 }
 
-// ─── Назначенные на вакансию рекрутёры ───
+// ─── Назначенные на вакансию рекрутеры ───
 const assigned = ref<JobMember[]>([])
 const isLoadingAssigned = ref(false)
 const assignedError = ref('')
@@ -62,7 +62,7 @@ async function fetchAssigned() {
   }
 }
 
-// ─── Все потенциальные рекрутёры организации (owner/admin/member) ───
+// ─── Все потенциальные рекрутеры организации (owner/admin/member) ───
 const orgRecruiters = ref<OrgRecruiter[]>([])
 const isLoadingOrg = ref(false)
 
@@ -95,12 +95,12 @@ const availableToAddOptions = computed(() =>
 
 const selectPlaceholder = computed(() => {
   if (availableToAdd.value.length === 0) {
-    return orgRecruiters.value.length > 0 ? 'Все рекрутёры уже назначены' : 'Нет рекрутёров в организации'
+    return orgRecruiters.value.length > 0 ? 'Все рекрутеры уже назначены' : 'Нет рекрутеров в организации'
   }
-  return '— выберите рекрутёра —'
+  return '— выберите рекрутера —'
 })
 
-// ─── Добавить рекрутёра ───
+// ─── Добавить рекрутера ───
 const selectedUserId = ref('')
 const isAdding = ref(false)
 
@@ -112,7 +112,7 @@ async function addExisting() {
       method: 'POST',
       body: { userId: selectedUserId.value, memberRole: 'recruiter' },
     })
-    toast.success('Рекрутёр назначен на вакансию')
+    toast.success('Рекрутер назначен на вакансию')
     selectedUserId.value = ''
     await fetchAssigned()
   }
@@ -125,11 +125,11 @@ async function addExisting() {
   }
 }
 
-// ─── Убрать рекрутёра с вакансии ───
+// ─── Убрать рекрутера с вакансии ───
 async function removeMember(userId: string) {
   try {
     await $fetch(`/api/jobs/${props.jobId}/members/${userId}?memberRole=recruiter`, { method: 'DELETE' })
-    toast.success('Рекрутёр убран с вакансии')
+    toast.success('Рекрутер убран с вакансии')
     await fetchAssigned()
   }
   catch (err: any) {
@@ -149,11 +149,11 @@ onMounted(() => {
     <div class="mb-5">
       <h2 class="flex items-center gap-2 text-base font-semibold text-surface-900 dark:text-surface-100">
         <BriefcaseBusiness class="size-4 text-surface-500" />
-        Рекрутёры
+        Рекрутеры
       </h2>
       <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">
         Кто ведёт эту вакансию: работа с кандидатами, этапами воронки и коммуникациями.
-        Создатель вакансии назначается автоматически. Может быть несколько рекрутёров.
+        Создатель вакансии назначается автоматически. Может быть несколько рекрутеров.
       </p>
     </div>
 
@@ -190,13 +190,13 @@ onMounted(() => {
       </li>
     </ul>
     <div v-else class="rounded-lg border border-dashed border-surface-200 px-3 py-4 text-center text-sm text-surface-500 dark:border-surface-800">
-      Ни один рекрутёр пока не назначен
+      Ни один рекрутер пока не назначен
     </div>
 
     <!-- Add recruiter — панель видна всегда; сервер проверит права job:update при POST. -->
     <div class="mt-4">
       <label class="mb-1.5 block text-sm font-medium text-surface-700 dark:text-surface-300">
-        Назначить рекрутёра
+        Назначить рекрутера
       </label>
 
       <div v-if="isLoadingOrg" class="flex items-center gap-2 text-sm text-surface-500">
@@ -226,10 +226,10 @@ onMounted(() => {
         class="mt-2 text-xs text-surface-500 dark:text-surface-400"
       >
         <template v-if="orgRecruiters.length > 0">
-          Все активные рекрутёры организации уже назначены на эту вакансию.
+          Все активные рекрутеры организации уже назначены на эту вакансию.
         </template>
         <template v-else>
-          В организации пока нет участников с ролью рекрутёра.
+          В организации пока нет участников с ролью рекрутера.
           <NuxtLink
             to="/dashboard/settings/members"
             class="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 underline underline-offset-2"

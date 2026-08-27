@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
     const userId = crypto.randomUUID()
     const now = new Date()
 
-    // 1. user (email_verified=true — рекрутёр выдаёт учётку лично)
+    // 1. user (email_verified=true — рекрутер выдаёт учётку лично)
     await tx.insert(user).values({
       id: userId,
       email: normalizedEmail,
@@ -104,7 +104,7 @@ export default defineEventHandler(async (event) => {
   })
 
   // ── Ответ: пароль возвращается ЕДИНОЖДЫ ─────────────────────
-  // Клиент обязан показать его рекрутёру и не сохранять на сервере.
+  // Клиент обязан показать его рекрутеру и не сохранять на сервере.
   return {
     success: true,
     user: {
