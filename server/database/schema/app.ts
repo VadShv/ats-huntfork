@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
   numeric,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { relations, sql } from 'drizzle-orm'
 import { organization, user } from './auth'
@@ -92,6 +93,10 @@ export const job = pgTable('job', {
   validThrough: timestamp('valid_through'),
   /** Experience level required for this role */
   experienceLevel: experienceLevelEnum('experience_level'),
+  /** Юрлицо (компания холдинга), от имени которого открыта вакансия. Null = не назначено. */
+  companyId: text('company_id').references((): AnyPgColumn => company.id, { onDelete: 'set null' }),
+  /** Подразделение, в которое ведётся подбор. Null = не назначено. */
+  departmentId: text('department_id').references((): AnyPgColumn => department.id, { onDelete: 'set null' }),
   /** Optional pipeline assigned to this job. Null = use org default pipeline. */
   pipelineId: text('pipeline_id').references(() => pipeline.id, { onDelete: 'set null' }),
   /**
@@ -124,6 +129,8 @@ export const job = pgTable('job', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   index('job_organization_id_idx').on(t.organizationId),
+  index('job_company_id_idx').on(t.companyId),
+  index('job_department_id_idx').on(t.departmentId),
 ]))
 
 /**
@@ -944,6 +951,8 @@ export const jobRelations = relations(job, ({ one, many }) => ({
   scoringCriteria: many(scoringCriterion),
   trackingLinks: many(trackingLink),
   pipeline: one(pipeline, { fields: [job.pipelineId], references: [pipeline.id] }),
+  company: one(company, { fields: [job.companyId], references: [company.id] }),
+  department: one(department, { fields: [job.departmentId], references: [department.id] }),
 }))
 
 export const candidateRelations = relations(candidate, ({ one, many }) => ({
@@ -2148,4 +2157,71 @@ export const commsTelegramBusinessConnection = pgTable('comms_telegram_business_
 
 export const commsTelegramBusinessConnectionRelations = relations(commsTelegramBusinessConnection, ({ one }) => ({
   organization: one(organization, { fields: [commsTelegramBusinessConnection.organizationId], references: [organization.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// Организационная структура: компании (юрлица) и подразделения
+// ─────────────────────────────────────────────
+
+/**
+ * Компания (юрлицо) внутри одной организации-тенанта.
+ * Один рекрутер ведёт вакансии нескольких юрлиц без переключения организаций.
+ * Удаление используемой компании запрещено — только архивация (isArchived).
+ */
+export const company = pgTable('company', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  /** Короткое рабочее название, отображается в UI и на публичной странице вакансии. */
+  name: text('name').notNull(),
+  /** Полное юридическое наименование (ООО «…»). */
+  legalName: text('legal_name'),
+  inn: text('inn'),
+  logoUrl: text('logo_url'),
+  /** Компания по умолчанию — предзаполняется при создании вакансии. Ровно одна на организацию (partial unique index). */
+  isDefault: boolean('is_default').notNull().default(false),
+  isArchived: boolean('is_archived').notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('company_organization_id_idx').on(t.organizationId),
+  uniqueIndex('company_default_idx').on(t.organizationId).where(sql`${t.isDefault} = true`),
+]))
+
+/**
+ * Подразделение — узел оргструктуры с произвольной глубиной вложенности
+ * (дирекция → департамент → отдел → сектор → …) через parentId.
+ * Может принадлежать юрлицу (companyId) или быть общим для всей организации (null).
+ * Удаление используемого подразделения запрещено — только архивация.
+ */
+export const department = pgTable('department', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  /** Юрлицо, к которому относится подразделение. Null = общее для всей организации. */
+  companyId: text('company_id').references(() => company.id, { onDelete: 'set null' }),
+  /** Родительское подразделение. Null = корневой узел. Циклы проверяются на уровне API. */
+  parentId: text('parent_id').references((): AnyPgColumn => department.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('department_organization_id_idx').on(t.organizationId),
+  index('department_company_id_idx').on(t.companyId),
+  index('department_parent_id_idx').on(t.parentId),
+]))
+
+export const companyRelations = relations(company, ({ one, many }) => ({
+  organization: one(organization, { fields: [company.organizationId], references: [organization.id] }),
+  departments: many(department),
+  jobs: many(job),
+}))
+
+export const departmentRelations = relations(department, ({ one, many }) => ({
+  organization: one(organization, { fields: [department.organizationId], references: [organization.id] }),
+  company: one(company, { fields: [department.companyId], references: [company.id] }),
+  parent: one(department, { fields: [department.parentId], references: [department.id], relationName: 'department_parent' }),
+  children: many(department, { relationName: 'department_parent' }),
+  jobs: many(job),
 }))

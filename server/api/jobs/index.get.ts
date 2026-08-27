@@ -44,11 +44,19 @@ export default defineEventHandler(async (event) => {
         experienceLevel: true,
         remoteStatus: true,
         pipelineId: true,
+        companyId: true,
+        departmentId: true,
         createdAt: true,
         updatedAt: true,
       },
       with: {
         pipeline: {
+          columns: { id: true, name: true },
+        },
+        company: {
+          columns: { id: true, name: true },
+        },
+        department: {
           columns: { id: true, name: true },
         },
       },

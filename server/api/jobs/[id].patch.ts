@@ -1,5 +1,5 @@
 import { eq, and, isNull } from 'drizzle-orm'
-import { job, pipeline, application } from '../../database/schema'
+import { job, pipeline, application, company, department } from '../../database/schema'
 import { idParamSchema, updateJobSchema, JOB_STATUS_TRANSITIONS } from '../../utils/schemas/job'
 import { countActiveApplicationsForJob } from '../../utils/pipeline-helpers'
 
@@ -80,6 +80,27 @@ export default defineEventHandler(async (event) => {
           eq(application.organizationId, orgId),
         ),
       )
+  }
+
+  // Проверка принадлежности компании и подразделения организации (null — снятие привязки, разрешено)
+  if (body.companyId) {
+    const existingCompany = await db.query.company.findFirst({
+      where: and(eq(company.id, body.companyId), eq(company.organizationId, orgId)),
+      columns: { id: true },
+    })
+    if (!existingCompany) {
+      throw createError({ statusCode: 400, statusMessage: 'Указанная компания не найдена' })
+    }
+  }
+
+  if (body.departmentId) {
+    const existingDepartment = await db.query.department.findFirst({
+      where: and(eq(department.id, body.departmentId), eq(department.organizationId, orgId)),
+      columns: { id: true },
+    })
+    if (!existingDepartment) {
+      throw createError({ statusCode: 400, statusMessage: 'Указанное подразделение не найдено' })
+    }
   }
 
   // Regenerate slug when title or custom slug changes

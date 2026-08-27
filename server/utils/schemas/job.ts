@@ -35,6 +35,10 @@ export const createJobSchema = z.object({
   autoScoreOnApply: z.boolean().optional().default(false),
   /** Experience level required for this role */
   experienceLevel: z.enum(['junior', 'mid', 'senior', 'lead']).optional(),
+  /** Юрлицо (компания холдинга) — проверяется на принадлежность организации */
+  companyId: z.string().nullable().optional(),
+  /** Подразделение — проверяется на принадлежность организации */
+  departmentId: z.string().nullable().optional(),
 })
 
 /** Schema for updating an existing job (all fields optional, no defaults — PATCH semantics) */
@@ -73,6 +77,10 @@ export const updateJobSchema = z.object({
   autoAdvanceReasonNote: z.string().max(500).nullable().optional(),
   /** Experience level required for this role */
   experienceLevel: z.enum(['junior', 'mid', 'senior', 'lead']).nullable().optional(),
+  /** Юрлицо (компания холдинга); null — явно снять привязку */
+  companyId: z.string().nullable().optional(),
+  /** Подразделение; null — явно снять привязку */
+  departmentId: z.string().nullable().optional(),
   status: z.enum(['draft', 'open', 'closed', 'archived']).optional(),
 })
 

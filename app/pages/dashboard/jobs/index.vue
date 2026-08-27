@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   Briefcase, Bell, Plus, Kanban,
-  MapPin, Search, SlidersHorizontal, X, Users,
+  MapPin, Search, SlidersHorizontal, X, Users, Landmark, Network,
   LayoutGrid, List, Table2, ArrowUp, ArrowDown, ArrowUpDown,
   ChevronDown, CircleUser,
 } from 'lucide-vue-next'
@@ -813,11 +813,23 @@ const sortDirOptions = computed(() => [
                   {{ typeLabels[j.type] ?? j.type }}
                 </td>
                 <td class="px-4 py-3 text-surface-500 dark:text-surface-400 hidden md:table-cell">
-                  <span v-if="j.location" class="inline-flex items-center gap-1">
-                    <MapPin class="size-3 shrink-0" />
-                    {{ j.location }}
-                  </span>
-                  <span v-else class="text-surface-300 dark:text-surface-600">—</span>
+                  <div class="flex flex-col gap-0.5">
+                    <span v-if="j.location" class="inline-flex items-center gap-1">
+                      <MapPin class="size-3 shrink-0" />
+                      {{ j.location }}
+                    </span>
+                    <span v-else class="text-surface-300 dark:text-surface-600">—</span>
+                    <span v-if="j.company || j.department" class="inline-flex items-center gap-2 text-[11px] text-surface-400 dark:text-surface-500">
+                      <span v-if="j.company" class="inline-flex items-center gap-1" :title="`Юрлицо: ${j.company.name}`">
+                        <Landmark class="size-3 shrink-0" />
+                        {{ j.company.name }}
+                      </span>
+                      <span v-if="j.department" class="inline-flex items-center gap-1" :title="`Подразделение: ${j.department.name}`">
+                        <Network class="size-3 shrink-0" />
+                        {{ j.department.name }}
+                      </span>
+                    </span>
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-center">
                   <span
@@ -906,6 +918,14 @@ const sortDirOptions = computed(() => [
               <span v-if="j.location" class="inline-flex items-center gap-1">
                 <MapPin class="size-3 shrink-0" />
                 {{ j.location }}
+              </span>
+              <span v-if="j.company" class="inline-flex items-center gap-1" :title="`Юрлицо: ${j.company.name}`">
+                <Landmark class="size-3 shrink-0" />
+                {{ j.company.name }}
+              </span>
+              <span v-if="j.department" class="inline-flex items-center gap-1" :title="`Подразделение: ${j.department.name}`">
+                <Network class="size-3 shrink-0" />
+                {{ j.department.name }}
               </span>
               <!-- Спринт 11.4: итоговое значение (включая отказы) -->
               <span
@@ -1004,11 +1024,19 @@ const sortDirOptions = computed(() => [
                       </NuxtLink>
                       <UiBadge :tone="statusTone(j.status)" class="capitalize shrink-0">{{ j.status }}</UiBadge>
                     </div>
-                    <div class="flex items-center gap-3 text-xs text-surface-400">
+                    <div class="flex items-center gap-3 text-xs text-surface-400 flex-wrap">
                       <span>{{ typeLabels[j.type] ?? j.type }}</span>
                       <span v-if="j.location" class="inline-flex items-center gap-1">
                         <MapPin class="size-3" />
                         {{ j.location }}
+                      </span>
+                      <span v-if="j.company" class="inline-flex items-center gap-1" :title="`Юрлицо: ${j.company.name}`">
+                        <Landmark class="size-3" />
+                        {{ j.company.name }}
+                      </span>
+                      <span v-if="j.department" class="inline-flex items-center gap-1" :title="`Подразделение: ${j.department.name}`">
+                        <Network class="size-3" />
+                        {{ j.department.name }}
                       </span>
                     </div>
                   </div>
@@ -1092,11 +1120,19 @@ const sortDirOptions = computed(() => [
                 </NuxtLink>
                 <UiBadge :tone="statusTone(j.status)" class="capitalize shrink-0">{{ j.status }}</UiBadge>
               </div>
-              <div class="flex items-center gap-3 text-xs text-surface-400 mb-3">
+              <div class="flex items-center gap-3 text-xs text-surface-400 mb-3 flex-wrap">
                 <span>{{ typeLabels[j.type] ?? j.type }}</span>
                 <span v-if="j.location" class="inline-flex items-center gap-1">
                   <MapPin class="size-3" />
                   {{ j.location }}
+                </span>
+                <span v-if="j.company" class="inline-flex items-center gap-1" :title="`Юрлицо: ${j.company.name}`">
+                  <Landmark class="size-3" />
+                  {{ j.company.name }}
+                </span>
+                <span v-if="j.department" class="inline-flex items-center gap-1" :title="`Подразделение: ${j.department.name}`">
+                  <Network class="size-3" />
+                  {{ j.department.name }}
                 </span>
                 <span v-if="j.status === 'draft'" class="text-surface-400 italic">
                   {{ $t('dashboard.jobs.notPublishedYet') }}

@@ -40,6 +40,8 @@ const atsStatements = {
   scoring: ['create', 'read', 'update', 'delete'],
   sourceTracking: ['create', 'read', 'update', 'delete'],
   pipeline: ['create', 'read', 'update', 'delete'],
+  company: ['create', 'read', 'update', 'delete'],
+  department: ['create', 'read', 'update', 'delete'],
 } as const
 
 // ─── Merged statement (Better Auth defaults + ATS resources) ───────
@@ -71,6 +73,8 @@ export const owner = ac.newRole({
   scoring: ['create', 'read', 'update', 'delete'],
   sourceTracking: ['create', 'read', 'update', 'delete'],
   pipeline: ['create', 'read', 'update', 'delete'],
+  company: ['create', 'read', 'update', 'delete'],
+  department: ['create', 'read', 'update', 'delete'],
 })
 
 export const admin = ac.newRole({
@@ -87,6 +91,8 @@ export const admin = ac.newRole({
   scoring: ['create', 'read', 'update', 'delete'],
   sourceTracking: ['create', 'read', 'update', 'delete'],
   pipeline: ['create', 'read', 'update', 'delete'],
+  company: ['create', 'read', 'update', 'delete'],
+  department: ['create', 'read', 'update', 'delete'],
 })
 
 export const member = ac.newRole({
@@ -106,6 +112,9 @@ export const member = ac.newRole({
   scoring: ['create', 'read'],
   sourceTracking: ['read'],
   pipeline: ['read'],
+  // Справочники оргструктуры ведут owner/admin; рекрутер только читает (селекты в вакансии).
+  company: ['read'],
+  department: ['read'],
 })
 
 // hiring_manager — Нанимающий менеджер (Sprint 20.1).
@@ -127,4 +136,6 @@ export const hiringManager = ac.newRole({
   activityLog: ['read'],
   scoring: ['read'],
   pipeline: ['read'],
+  company: ['read'],
+  department: ['read'],
 })

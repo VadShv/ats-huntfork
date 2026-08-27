@@ -35,6 +35,8 @@ export default defineEventHandler(async (event) => {
       autoAdvanceAboveScore: true,
       autoAdvanceReasonNote: true,
       experienceLevel: true,
+      companyId: true,
+      departmentId: true,
       pipelineId: true,
       createdAt: true,
       updatedAt: true,

@@ -43,6 +43,8 @@ const form = ref({
   salaryNegotiable: false,
   remoteStatus: '' as string,
   experienceLevel: '' as string,
+  companyId: '' as string,
+  departmentId: '' as string,
   validThrough: '',
   requireResume: false,
   requireCoverLetter: false,
@@ -73,6 +75,8 @@ watch(job, (j) => {
       salaryNegotiable: j.salaryNegotiable ?? false,
       remoteStatus: j.remoteStatus ?? '',
       experienceLevel: j.experienceLevel ?? '',
+      companyId: (j as any).companyId ?? '',
+      departmentId: (j as any).departmentId ?? '',
       validThrough: j.validThrough ? new Date(j.validThrough).toISOString().split('T')[0] ?? '' : '',
       requireResume: j.requireResume ?? false,
       requireCoverLetter: j.requireCoverLetter ?? false,
@@ -91,6 +95,31 @@ watch(job, (j) => {
 // ─────────────────────────────────────────────
 // Pipeline selector state
 // ─────────────────────────────────────────────
+
+// ── Компании (юрлица) и подразделения ──
+const { data: companiesData } = useFetch<Array<{ id: string, name: string, isDefault: boolean, isArchived: boolean }>>('/api/companies', {
+  headers: useRequestHeaders(['cookie']),
+})
+const activeCompanies = computed(() => (companiesData.value ?? []).filter(c => !c.isArchived || c.id === form.value.companyId))
+
+const { data: departmentsData } = useFetch<Array<{ id: string, name: string, companyId: string | null, depth: number, isArchived: boolean }>>('/api/departments', {
+  headers: useRequestHeaders(['cookie']),
+})
+
+// Подразделения выбранного юрлица + общие (без компании), с отступами по глубине
+const departmentOptions = computed(() =>
+  (departmentsData.value ?? [])
+    .filter(d => (!d.isArchived || d.id === form.value.departmentId)
+      && (!d.companyId || !form.value.companyId || d.companyId === form.value.companyId))
+    .map(d => ({ id: d.id, label: `${'\u00A0\u00A0\u00A0\u00A0'.repeat(d.depth)}${d.name}` })),
+)
+
+// При смене компании сбрасываем неподходящее подразделение
+watch(() => form.value.companyId, () => {
+  if (form.value.departmentId && !departmentOptions.value.some(o => o.id === form.value.departmentId)) {
+    form.value.departmentId = ''
+  }
+})
 
 // Fetch all non-archived pipelines for the org
 const { data: pipelinesData } = useFetch('/api/pipelines', {
@@ -357,6 +386,8 @@ async function handleSave() {
       salaryUnit: form.value.salaryNegotiable ? null : (form.value.salaryUnit || null),
       remoteStatus: form.value.remoteStatus || null,
       experienceLevel: (form.value.experienceLevel as 'junior' | 'mid' | 'senior' | 'lead' | null) || null,
+      companyId: form.value.companyId || null,
+      departmentId: form.value.departmentId || null,
       // Send null when cleared so the DB column is set to NULL
       validThrough: form.value.validThrough ? new Date(form.value.validThrough) : null,
       // Only send pipelineId if it has changed (backend validates active applications)
@@ -551,6 +582,36 @@ function onSalaryMaxChange(e: Event) {
                   <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">
                     {{ opt.label }}
                   </option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Company / Department -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label for="settings-company" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                  Компания (юрлицо)
+                </label>
+                <select
+                  id="settings-company"
+                  v-model="form.companyId"
+                  class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                >
+                  <option value="">— Не указано —</option>
+                  <option v-for="c in activeCompanies" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+              </div>
+              <div>
+                <label for="settings-department" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                  Подразделение
+                </label>
+                <select
+                  id="settings-department"
+                  v-model="form.departmentId"
+                  class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                >
+                  <option value="">— Не указано —</option>
+                  <option v-for="opt in departmentOptions" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
                 </select>
               </div>
             </div>

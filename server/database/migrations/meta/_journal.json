@@ -491,6 +491,13 @@
       "when": 1801000160000,
       "tag": "0070_auto_advance_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1801000170000,
+      "tag": "0071_org_structure",
+      "breakpoints": true
     }
   ]
 }

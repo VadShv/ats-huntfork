@@ -93,6 +93,39 @@ const form = ref({
   experienceLevel: 'mid' as 'junior' | 'mid' | 'senior' | 'lead',
   remoteStatus: undefined as 'remote' | 'hybrid' | 'onsite' | undefined,
   pipelineId: undefined as string | undefined,
+  companyId: '' as string,
+  departmentId: '' as string,
+})
+
+// ── Компании (юрлица) и подразделения ──
+const { data: companiesData } = useFetch<Array<{ id: string, name: string, isDefault: boolean, isArchived: boolean }>>('/api/companies', {
+  headers: useRequestHeaders(['cookie']),
+})
+const activeCompanies = computed(() => (companiesData.value ?? []).filter(c => !c.isArchived))
+
+// Предзаполняем компанией по умолчанию, не перезаписывая выбор пользователя
+watch(activeCompanies, (list) => {
+  if (form.value.companyId) return
+  const def = list.find(c => c.isDefault) ?? list[0]
+  if (def) form.value.companyId = def.id
+}, { immediate: true })
+
+const { data: departmentsData } = useFetch<Array<{ id: string, name: string, companyId: string | null, depth: number, isArchived: boolean }>>('/api/departments', {
+  headers: useRequestHeaders(['cookie']),
+})
+
+// Подразделения выбранного юрлица + общие (без компании), с отступами по глубине
+const departmentOptions = computed(() =>
+  (departmentsData.value ?? [])
+    .filter(d => !d.isArchived && (!d.companyId || !form.value.companyId || d.companyId === form.value.companyId))
+    .map(d => ({ id: d.id, label: `${'\u00A0\u00A0\u00A0\u00A0'.repeat(d.depth)}${d.name}` })),
+)
+
+// При смене компании сбрасываем подразделение, если оно не подходит новому выбору
+watch(() => form.value.companyId, () => {
+  if (form.value.departmentId && !departmentOptions.value.some(o => o.id === form.value.departmentId)) {
+    form.value.departmentId = ''
+  }
 })
 
 // Pipeline selector: fetch all non-archived pipelines for this org
@@ -735,6 +768,8 @@ async function handleSubmit(mode: 'publish' | 'draft' = publishChoice.value) {
       type: form.value.type,
       experienceLevel: form.value.experienceLevel || undefined,
       remoteStatus: form.value.remoteStatus || undefined,
+      companyId: form.value.companyId || null,
+      departmentId: form.value.departmentId || null,
       requireResume: applicationForm.value.requireResume,
       requireCoverLetter: applicationForm.value.requireCoverLetter,
       autoScoreOnApply: autoScoreOnApply.value,
@@ -1022,6 +1057,37 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                   />
                   <p v-if="errors.title" class="mt-1.5 text-xs text-danger-600 dark:text-danger-400 font-medium">{{ errors.title }}</p>
                   <p v-else class="mt-1.5 text-xs text-surface-500">{{ t('dashboard.jobs.new.titleHint') }}</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label for="companyId" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+                      Компания (юрлицо)
+                    </label>
+                    <select
+                      id="companyId"
+                      v-model="form.companyId"
+                      class="w-full rounded-lg border px-3 py-2.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors bg-white dark:bg-surface-900 border-surface-300 dark:border-surface-700"
+                    >
+                      <option value="">— Не указано —</option>
+                      <option v-for="c in activeCompanies" :key="c.id" :value="c.id">{{ c.name }}</option>
+                    </select>
+                    <p class="mt-1.5 text-xs text-surface-500">От имени какого юрлица открыта вакансия. Справочник — в Настройках → Компании.</p>
+                  </div>
+                  <div>
+                    <label for="departmentId" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+                      Подразделение
+                    </label>
+                    <select
+                      id="departmentId"
+                      v-model="form.departmentId"
+                      class="w-full rounded-lg border px-3 py-2.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors bg-white dark:bg-surface-900 border-surface-300 dark:border-surface-700"
+                    >
+                      <option value="">— Не указано —</option>
+                      <option v-for="opt in departmentOptions" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
+                    </select>
+                    <p class="mt-1.5 text-xs text-surface-500">Справочник — в Настройках → Подразделения.</p>
+                  </div>
                 </div>
               </div>
 
