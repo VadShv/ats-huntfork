@@ -9,7 +9,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { generateObject, streamObject, streamText } from 'ai'
+import { generateObject, NoObjectGeneratedError, streamObject, streamText } from 'ai'
 import type { z } from 'zod'
 import { decrypt } from '../encryption'
 import { createYandexFetch } from './yandexFetch'
@@ -226,9 +226,74 @@ export function createLanguageModel(config: ProviderConfig) {
   }
 }
 
+// ─── Устойчивый парсинг structured output ─────────────────────────
+
+/** JSON.parse с одной мягкой починкой: убрать хвостовые запятые перед } и ]. */
+function tryParseJson(text: string): unknown | undefined {
+  try {
+    return JSON.parse(text)
+  }
+  catch { /* пробуем починить */ }
+  try {
+    return JSON.parse(text.replace(/,\s*([}\]])/g, '$1'))
+  }
+  catch {
+    return undefined
+  }
+}
+
+/**
+ * Извлечь валидный JSON из «грязного» ответа модели:
+ * 1) содержимое ```json …```-ограждений (частая привычка моделей);
+ * 2) первая сбалансированная JSON-структура ({…} или […]) в тексте;
+ * 3) голый массив опционально оборачивается через `wrapBareArray`
+ *    (когда схема ожидает объект-обёртку, а модель вернула массив).
+ * Возвращает строку с валидным JSON или null, если восстановить нечего.
+ */
+export function extractJsonPayload(
+  raw: string,
+  wrapBareArray?: (items: unknown[]) => unknown,
+): string | null {
+  let text = raw.trim()
+  if (!text) return null
+
+  const fence = text.match(/```[a-z]*\s*\n?([\s\S]*?)```/i)
+  if (fence?.[1]?.trim()) text = fence[1].trim()
+
+  const objStart = text.indexOf('{')
+  const arrStart = text.indexOf('[')
+  if (objStart === -1 && arrStart === -1) return null
+  const start = objStart === -1
+    ? arrStart
+    : arrStart === -1
+      ? objStart
+      : Math.min(objStart, arrStart)
+  const close = text[start] === '{' ? '}' : ']'
+  const end = text.lastIndexOf(close)
+  if (end <= start) return null
+
+  const parsed = tryParseJson(text.slice(start, end + 1))
+  if (parsed === undefined) return null
+  if (Array.isArray(parsed) && wrapBareArray) {
+    return JSON.stringify(wrapBareArray(parsed))
+  }
+  return JSON.stringify(parsed)
+}
+
+/**
+ * Жёсткое требование формата, добавляется КО ВСЕМ structured-вызовам.
+ * Часть моделей (YandexGPT, GLM, Qwen) любят заворачивать JSON в markdown —
+ * инструкция снижает частоту, а extractJsonPayload добивает остальное.
+ */
+const JSON_ONLY_GUARD = '\n\nФОРМАТ ОТВЕТА (критически важно): верни ТОЛЬКО валидный JSON по заданной схеме. Без markdown-разметки, без ```-ограждений, без пояснений, без текста до или после JSON. Return ONLY raw valid JSON, no markdown fences, no commentary.'
+
 /**
  * Generate a structured JSON response from the AI provider.
  * Uses Vercel AI SDK's `generateObject` for reliable schema-conformant output.
+ *
+ * Надёжность: если модель вернула JSON в markdown/фенсах или голым массивом,
+ * ответ восстанавливается через extractJsonPayload + повторную валидацию схемой,
+ * прежде чем пробрасывать ошибку наверх.
  */
 export async function generateStructuredOutput<T>(
   config: ProviderConfig,
@@ -238,29 +303,59 @@ export async function generateStructuredOutput<T>(
     schema: z.ZodType<T>
     schemaName: string
     schemaDescription?: string
+    /** Как обернуть голый массив, если схема ожидает объект: items => ({ criteria: items }) */
+    wrapBareArray?: (items: unknown[]) => unknown
   },
 ): Promise<{ object: T; usage: { promptTokens: number; completionTokens: number }; responseModel: string | null }> {
   const model = createLanguageModel(config)
 
-  const result = await generateObject({
-    model,
-    system: options.system,
-    prompt: options.prompt,
-    schema: options.schema,
-    schemaName: options.schemaName,
-    schemaDescription: options.schemaDescription,
-    maxTokens: config.maxTokens,
-    temperature: 0.1,
-  })
+  try {
+    // Внимание: НЕ передаём maxOutputTokens. У reasoning-моделей (GLM, Qwen)
+    // «размышления» тратят выходной бюджет, и обрезка структурированного ответа
+    // гарантированно ломает парсинг. config.maxTokens применяется в стриминговых
+    // вызовах (streamTextOutput/streamStructuredOutput), где обрезка не фатальна.
+    const result = await generateObject({
+      model,
+      system: options.system + JSON_ONLY_GUARD,
+      prompt: options.prompt,
+      schema: options.schema,
+      schemaName: options.schemaName,
+      schemaDescription: options.schemaDescription,
+      temperature: 0.1,
+    })
 
-  return {
-    object: result.object,
-    usage: {
-      promptTokens: result.usage.inputTokens ?? 0,
-      completionTokens: result.usage.outputTokens ?? 0,
-    },
-    // Фактическая модель из ответа API — телеметрия «кто реально отвечает»
-    responseModel: result.response?.modelId ?? null,
+    return {
+      object: result.object,
+      usage: {
+        promptTokens: result.usage.inputTokens ?? 0,
+        completionTokens: result.usage.outputTokens ?? 0,
+      },
+      // Фактическая модель из ответа API — телеметрия «кто реально отвечает»
+      responseModel: result.response?.modelId ?? null,
+    }
+  }
+  catch (err) {
+    // Модель ответила, но не чистым JSON (markdown, ```json-фенсы, голый массив,
+    // хвостовые запятые) — пытаемся восстановить и провалидировать схемой.
+    if (NoObjectGeneratedError.isInstance(err) && typeof err.text === 'string' && err.text) {
+      const repairedJson = extractJsonPayload(err.text, options.wrapBareArray)
+      if (repairedJson !== null) {
+        const validated = options.schema.safeParse(JSON.parse(repairedJson))
+        if (validated.success) {
+          console.warn(`[ai] structured output (${options.schemaName}) восстановлен из неструктурированного ответа модели ${config.model}`)
+          return {
+            object: validated.data,
+            usage: {
+              promptTokens: err.usage?.inputTokens ?? 0,
+              completionTokens: err.usage?.outputTokens ?? 0,
+            },
+            responseModel: err.response?.modelId ?? null,
+          }
+        }
+        console.warn(`[ai] восстановленный JSON (${options.schemaName}) не прошёл валидацию схемы: ${validated.error.issues.slice(0, 3).map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`)
+      }
+    }
+    throw err
   }
 }
 

@@ -192,6 +192,8 @@ export async function generateCriteriaFromDescription(
     schema: generatedCriteriaSchema,
     schemaName: 'GeneratedCriteria',
     schemaDescription: 'Критерии оценки, сгенерированные из описания вакансии',
+    // Модели часто возвращают голый массив критериев вместо { criteria: [...] }
+    wrapBareArray: items => ({ criteria: items }),
   })
 
   return result.object.criteria.map((c, i) => ({
@@ -271,6 +273,9 @@ ${candidateInfo}
     schema: scoringResponseSchema,
     schemaName: 'CandidateScoring',
     schemaDescription: 'Структурированная оценка кандидата с баллами по каждому критерию',
+    // Аддитивная защита: если модель вернёт голый массив оценок — оборачиваем;
+    // summary восстановить нельзя — оставляем пустым, оценки важнее.
+    wrapBareArray: items => ({ evaluations: items, summary: '' }),
   })
 
   // Clamp applicantScore to maxScore — LLMs may occasionally exceed the maximum

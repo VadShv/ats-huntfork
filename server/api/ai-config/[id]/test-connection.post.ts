@@ -37,11 +37,14 @@ export default defineEventHandler(async (event) => {
         model: config.model,
         apiKeyEncrypted: config.apiKeyEncrypted,
         baseUrl: config.baseUrl,
-        maxTokens: 20,
+        // Лимит не применяется к structured-вызовам (см. generateStructuredOutput):
+        // reasoning-модели тратят токены на «размышления», и жёсткая обрезка
+        // ломала бы проверку подключения даже с валидным ключом.
+        maxTokens: config.maxTokens,
       },
       {
-        system: 'Respond with ok: true',
-        prompt: 'Test connection',
+        system: 'Ты проверяешь техническое подключение. Ответь объектом {"ok": true}.',
+        prompt: 'Проверка подключения. Верни {"ok": true}.',
         schema: testSchema,
         schemaName: 'TestConnection',
       },
