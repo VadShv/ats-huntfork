@@ -10,20 +10,23 @@ import { generateStructuredOutput, type ProviderConfig } from './provider'
 // ─── Scoring Output Schema ────────────────────────────────────────
 
 /** Schema for a single criterion evaluation from the LLM */
+// Ключевые поля (criterionKey, applicantScore) — строгие: без них оценка бессмысленна.
+// Второстепенные — с безопасными дефолтами (.catch), чтобы пропуск одного поля
+// моделью не ронял весь скоринг (аддитивная защита, счастливый путь не меняется).
 const criterionEvaluationSchema = z.object({
   criterionKey: z.string(),
-  maxScore: z.number().int().min(0),
+  maxScore: z.number().int().min(0).catch(10).default(10),
   applicantScore: z.number().int().min(0),
-  confidence: z.number().min(0).max(100).int(),
-  evidence: z.string(),
-  strengths: z.array(z.string()),
-  gaps: z.array(z.string()),
+  confidence: z.number().min(0).max(100).int().catch(0).default(0),
+  evidence: z.string().catch('').default(''),
+  strengths: z.array(z.string()).catch([]).default([]),
+  gaps: z.array(z.string()).catch([]).default([]),
 })
 
 /** Full scoring response from the LLM */
 const scoringResponseSchema = z.object({
   evaluations: z.array(criterionEvaluationSchema),
-  summary: z.string(),
+  summary: z.string().catch('').default(''),
 })
 
 export type CriterionEvaluation = z.infer<typeof criterionEvaluationSchema>
@@ -157,14 +160,20 @@ export const PREMADE_CRITERIA: Record<string, CriterionDefinition[]> = {
 
 // ─── Rubric Generation from Job Description ───────────────────────
 
+// Устойчивая схема: часть моделей (например, GLM-5.2) игнорирует отдельные поля
+// схемы (category, maxScore) даже при качественном содержании остальных.
+// .catch() даёт безопасный дефолт вместо отказа всего ответа с 500.
+// key/name остаются содержательно обязательными — пустые отсеиваются ниже.
+// .catch(x).default(x): default покрывает пропущенное поле, catch — невалидное значение.
+// key/name/description остаются строгими (required в JSON Schema для провайдера).
 const generatedCriteriaSchema = z.object({
   criteria: z.array(z.object({
     key: z.string(),
     name: z.string(),
     description: z.string(),
-    category: z.enum(['technical', 'experience', 'soft_skills', 'education', 'culture', 'custom']),
-    maxScore: z.number().int().min(1).max(10).describe('Always use 10'),
-    suggestedWeight: z.number().int().min(10).max(100),
+    category: z.enum(['technical', 'experience', 'soft_skills', 'education', 'culture', 'custom']).catch('custom').default('custom'),
+    maxScore: z.number().int().min(1).max(10).catch(10).default(10).describe('Always use 10'),
+    suggestedWeight: z.number().int().min(10).max(100).catch(50).default(50),
   })),
 })
 
@@ -187,7 +196,15 @@ export async function generateCriteriaFromDescription(
 — Фокусируйся на навыках, опыте и квалификации, напрямую релевантных роли.
 — Пиши ясным деловым русским языком. Названия критериев (name) и описания (description) всегда на русском.
 — Каждый key должен быть уникальным, в нижнем регистре и использовать латинские буквы + подчёркивание (например, "react_expertise").
-— suggestedWeight выше для более важных критериев (шкала 10–100).`,
+— suggestedWeight выше для более важных критериев (шкала 10–100).
+
+ОБЯЗАТЕЛЬНЫЕ ПОЛЯ КАЖДОГО КРИТЕРИЯ (ни одно не пропускай):
+— key (строка, латиница_с_подчёркиваниями)
+— name (строка, на русском)
+— description (строка, на русском)
+— category — СТРОГО одно из значений: technical, experience, soft_skills, education, culture, custom
+— maxScore — ВСЕГДА число 10
+— suggestedWeight — целое число от 10 до 100`,
     prompt: `Название вакансии: ${jobTitle}\n\nОписание вакансии:\n${jobDescription}`,
     schema: generatedCriteriaSchema,
     schemaName: 'GeneratedCriteria',
@@ -196,14 +213,25 @@ export async function generateCriteriaFromDescription(
     wrapBareArray: items => ({ criteria: items }),
   })
 
-  return result.object.criteria.map((c, i) => ({
-    key: c.key,
-    name: c.name,
-    description: c.description,
-    category: c.category,
-    maxScore: c.maxScore,
-    weight: c.suggestedWeight,
-  }))
+  // Нормализация: отсеиваем пустые записи, чиним/дедуплицируем ключи,
+  // чтобы в UI и скоринг никогда не попали критерии без имени или с дублирующим key.
+  const seenKeys = new Set<string>()
+  return result.object.criteria
+    .filter(c => c.name.trim() !== '' && c.description.trim() !== '')
+    .map((c, i) => {
+      let key = c.key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '')
+      if (!key) key = `criterion_${i + 1}`
+      while (seenKeys.has(key)) key = `${key}_${i + 1}`
+      seenKeys.add(key)
+      return {
+        key,
+        name: c.name.trim() || key,
+        description: c.description,
+        category: c.category,
+        maxScore: c.maxScore,
+        weight: c.suggestedWeight,
+      }
+    })
 }
 
 // ─── Score Application ────────────────────────────────────────────
