@@ -82,6 +82,42 @@ function closePreview() {
   previewDocId.value = null
 }
 
+// Parsed text preview state
+const showTextPreview = ref(false)
+const textPreviewFilename = ref('')
+const parsedText = ref('')
+const parsedSections = ref<{ heading: string; content: string }[]>([])
+const isLoadingText = ref(false)
+
+async function handleShowText(docId: string) {
+  const doc = candidate.value?.documents?.find((d: any) => d.id === docId)
+  showTextPreview.value = true
+  showPreview.value = false
+  textPreviewFilename.value = doc?.originalFilename ?? 'Документ'
+  isLoadingText.value = true
+  parsedText.value = ''
+  parsedSections.value = []
+  try {
+    const data = await $fetch<{ text: string; sections: { heading: string; content: string }[] }>(`/api/documents/${docId}/parsed`, {
+      headers: useRequestHeaders(['cookie']),
+    })
+    parsedText.value = data.text || ''
+    parsedSections.value = data.sections || []
+  } catch {
+    toast.error('Не удалось загрузить текст документа')
+    showTextPreview.value = false
+  } finally {
+    isLoadingText.value = false
+  }
+}
+
+function closeTextPreview() {
+  showTextPreview.value = false
+  textPreviewFilename.value = ''
+  parsedText.value = ''
+  parsedSections.value = []
+}
+
 async function handleDownload(docId: string) {
   try {
     await downloadDocument(docId)
@@ -443,6 +479,40 @@ onUnmounted(() => { document.body.style.overflow = '' })
                 />
               </template>
 
+              <!-- Parsed text preview -->
+              <template v-else-if="showTextPreview">
+                <div class="flex items-center justify-between mb-3">
+                  <button
+                    class="inline-flex items-center gap-1.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                    @click="closeTextPreview"
+                  >
+                    ← {{ t('dashboard.common.back') }}
+                  </button>
+                </div>
+
+                <div class="flex items-center gap-2 mb-3">
+                  <FileText class="size-4 text-surface-400 shrink-0" />
+                  <span class="text-sm font-medium text-surface-700 dark:text-surface-200 truncate">
+                    {{ textPreviewFilename }}
+                  </span>
+                </div>
+
+                <div v-if="isLoadingText" class="flex items-center justify-center py-12 text-surface-400">
+                  <div class="size-5 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
+                </div>
+
+                <div v-else class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4 overflow-y-auto" style="max-height: 60vh;">
+                  <template v-if="parsedSections.length">
+                    <div v-for="(section, i) in parsedSections" :key="i" class="mb-4 last:mb-0">
+                      <h4 class="text-sm font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ section.heading }}</h4>
+                      <p class="text-sm text-surface-600 dark:text-surface-400 whitespace-pre-wrap">{{ section.content }}</p>
+                    </div>
+                  </template>
+                  <p v-else-if="parsedText" class="text-sm text-surface-600 dark:text-surface-400 whitespace-pre-wrap">{{ parsedText }}</p>
+                  <p v-else class="text-sm text-surface-400 text-center py-8">Текст не найден. Возможно, файл содержит изображения или повреждён.</p>
+                </div>
+              </template>
+
               <!-- Document list -->
               <template v-else>
                 <div
@@ -475,6 +545,14 @@ onUnmounted(() => { document.body.style.overflow = '' })
                       </div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0" @click.stop>
+                      <button
+                        v-if="doc.parsed"
+                        class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                        title="Показать распарсенный текст"
+                        @click="handleShowText(doc.id)"
+                      >
+                        <FileText class="size-4" />
+                      </button>
                       <button
                         v-if="doc.mimeType === 'application/pdf'"
                         class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
