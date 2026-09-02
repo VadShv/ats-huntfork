@@ -1,6 +1,38 @@
-import { readMigrationFiles } from 'drizzle-orm/migrator'
 import { sql } from 'drizzle-orm'
 import { db } from '../utils/db'
+import fs from 'node:fs'
+import path from 'node:path'
+import crypto from 'node:crypto'
+
+interface PendingMigration {
+  sql: string[]
+  folderMillis: number
+  hash: string
+}
+
+/**
+ * Read drizzle migration files in journal order with their sha256 hashes.
+ * Inlined (instead of importing from drizzle-orm/migrator) because that
+ * module pulls node:fs/node:crypto into the Rollup build graph in a way
+ * that breaks the Nitro server bundle.
+ */
+function readMigrations(migrationsFolder: string): PendingMigration[] {
+  const journalPath = path.join(migrationsFolder, 'meta', '_journal.json')
+  const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8')) as {
+    entries: { tag: string; when: number }[]
+  }
+  const migrations: PendingMigration[] = []
+  for (const entry of journal.entries) {
+    const filePath = path.join(migrationsFolder, `${entry.tag}.sql`)
+    const query = fs.readFileSync(filePath, 'utf8')
+    migrations.push({
+      sql: query.split('--> statement-breakpoint'),
+      folderMillis: entry.when,
+      hash: crypto.createHash('sha256').update(query).digest('hex'),
+    })
+  }
+  return migrations
+}
 
 export default defineNitroPlugin(async () => {
   // Skip during build-time prerendering — database isn't available
@@ -39,11 +71,9 @@ export default defineNitroPlugin(async () => {
     // drizzle's migrate() wraps ALL migrations in a single transaction.
     // PostgreSQL forbids using a newly added enum value (ALTER TYPE ADD VALUE)
     // until the transaction commits, so enum migrations break on a fresh DB.
-    // We reuse drizzle's reader (correct sha256 hashes + journal order) but
-    // execute each statement with autocommit instead of one big transaction.
-    const migrations = readMigrationFiles({
-      migrationsFolder: './server/database/migrations',
-    })
+    // We read the migrations ourselves (correct sha256 hashes + journal order)
+    // but execute each statement with autocommit instead of one big transaction.
+    const migrations = readMigrations('./server/database/migrations')
 
     await db.execute(sql`CREATE SCHEMA IF NOT EXISTS "drizzle"`)
     await db.execute(sql`CREATE TABLE IF NOT EXISTS "drizzle"."__drizzle_migrations" (
