@@ -29,17 +29,10 @@ const settingsNav = [
     exact: true,
   },
   {
-    label: 'Компании',
-    description: 'Юрлица холдинга',
-    to: '/dashboard/settings/companies',
+    label: 'Оргструктура',
+    description: 'Компании и подразделения',
+    to: '/dashboard/settings/org-structure',
     icon: Landmark,
-    exact: true,
-  },
-  {
-    label: 'Подразделения',
-    description: 'Оргструктура',
-    to: '/dashboard/settings/departments',
-    icon: Network,
     exact: true,
   },
   {

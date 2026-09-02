@@ -26,15 +26,9 @@ const settingsNav = [
     exact: true,
   },
   {
-    label: 'Компании',
-    to: '/dashboard/settings/companies',
+    label: 'Оргструктура',
+    to: '/dashboard/settings/org-structure',
     icon: Landmark,
-    exact: true,
-  },
-  {
-    label: 'Подразделения',
-    to: '/dashboard/settings/departments',
-    icon: Network,
     exact: true,
   },
   {
