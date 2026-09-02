@@ -1,4 +1,5 @@
-import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import { readMigrationFiles } from 'drizzle-orm/migrator'
+import { sql } from 'drizzle-orm'
 import { db } from '../utils/db'
 
 export default defineNitroPlugin(async () => {
@@ -14,7 +15,7 @@ export default defineNitroPlugin(async () => {
   }
 
   // Advisory lock ID — prevents concurrent migration runs across instances.
-  // The lock is automatically released when the transaction/session ends.
+  // The lock is automatically released when the session/connection ends.
   const MIGRATION_LOCK_ID = 123456789
 
   try {
@@ -33,11 +34,47 @@ export default defineNitroPlugin(async () => {
     console.log('[Reqcore] Running database migrations...')
     // Suppress harmless NOTICE messages (e.g. "schema already exists, skipping")
     await db.execute(`SET client_min_messages TO warning`)
-    await migrate(db, {
+
+    // ── Apply migrations with per-statement autocommit ──────────────────
+    // drizzle's migrate() wraps ALL migrations in a single transaction.
+    // PostgreSQL forbids using a newly added enum value (ALTER TYPE ADD VALUE)
+    // until the transaction commits, so enum migrations break on a fresh DB.
+    // We reuse drizzle's reader (correct sha256 hashes + journal order) but
+    // execute each statement with autocommit instead of one big transaction.
+    const migrations = readMigrationFiles({
       migrationsFolder: './server/database/migrations',
     })
+
+    await db.execute(sql`CREATE SCHEMA IF NOT EXISTS "drizzle"`)
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS "drizzle"."__drizzle_migrations" (
+      id SERIAL PRIMARY KEY,
+      hash text NOT NULL,
+      created_at bigint
+    )`)
+
+    const appliedRows = await db.execute<{ hash: string }>(
+      sql`SELECT hash FROM "drizzle"."__drizzle_migrations"`
+    )
+    const appliedHashes = new Set(appliedRows.map((r) => r.hash))
+
+    let applied = 0
+    for (const migration of migrations) {
+      if (appliedHashes.has(migration.hash)) continue
+      for (const stmt of migration.sql) {
+        const trimmed = stmt.trim()
+        if (!trimmed) continue
+        await db.execute(sql.raw(trimmed))
+      }
+      await db.execute(
+        sql`INSERT INTO "drizzle"."__drizzle_migrations" ("hash", "created_at") VALUES (${migration.hash}, ${migration.folderMillis})`
+      )
+      applied++
+    }
+
     await db.execute(`SET client_min_messages TO notice`)
-    console.log('[Reqcore] Database migrations applied successfully')
+    console.log(
+      `[Reqcore] Database migrations applied successfully${applied ? ` (${applied} new)` : ''}`
+    )
     logInfo('migrations.completed')
   } catch (error) {
     console.error('[Reqcore] Migration failed:', error)
