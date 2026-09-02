@@ -288,6 +288,75 @@ export function extractJsonPayload(
 const JSON_ONLY_GUARD = '\n\nФОРМАТ ОТВЕТА (критически важно): верни ТОЛЬКО валидный JSON по заданной схеме. Без markdown-разметки, без ```-ограждений, без пояснений, без текста до или после JSON. Return ONLY raw valid JSON, no markdown fences, no commentary.'
 
 /**
+ * Fallback mapper for models that ignore the Zod schema and return their own
+ * JSON structure (e.g. GLM-5.2 returns nested Russian-keyed objects).
+ * Converts common field name / nesting variations to the structured_resume schema.
+ */
+function mapStructuredResumeResponse(raw: Record<string, unknown>): Record<string, unknown> {
+  const pi = (raw.personal_info ?? raw.personalInfo ?? {}) as Record<string, unknown>
+  const dj = (raw.desired_job ?? raw.desiredJob ?? {}) as Record<string, unknown>
+  const skills = (raw.skills ?? {}) as Record<string, unknown>
+  const salary = (dj.salary ?? raw.salary ?? {}) as Record<string, unknown>
+
+  const genderRaw = String(pi.gender ?? raw.gender ?? '').toLowerCase()
+  const gender = genderRaw.includes('муж') ? 'male' : genderRaw.includes('жен') ? 'female' : 'unknown'
+
+  const contacts: Array<{ type: string; value: string }> = []
+  if (pi.phone) contacts.push({ type: 'phone', value: String(pi.phone) })
+  if (pi.email) contacts.push({ type: 'email', value: String(pi.email) })
+  if (pi.telegram) contacts.push({ type: 'telegram', value: String(pi.telegram) })
+  if (pi.linkedin) contacts.push({ type: 'linkedin', value: String(pi.linkedin) })
+  if (pi.github) contacts.push({ type: 'github', value: String(pi.github) })
+
+  const exp = Array.isArray(raw.experience) ? raw.experience.map((e: Record<string, unknown>) => ({
+    company: String(e.company ?? e.company_name ?? ''),
+    position: String(e.position ?? ''),
+    start: String(e.start ?? e.start_date ?? ''),
+    end: String(e.end ?? e.end_date ?? ''),
+    description: String(e.description ?? ''),
+  })) : []
+
+  const edu = Array.isArray(raw.education) ? raw.education.map((e: Record<string, unknown>) => ({
+    organization: String(e.organization ?? e.institution ?? ''),
+    name: String(e.name ?? e.faculty ?? e.specialty ?? ''),
+    result: String(e.result ?? e.level ?? ''),
+    year: Number(e.year ?? 0) || 0,
+  })) : []
+
+  const skillArrays = [
+    ...(Array.isArray(skills.hard_skills ?? skills.hardSkills) ? (skills.hard_skills ?? skills.hardSkills) as unknown[] : []),
+    ...(Array.isArray(skills.soft_skills ?? skills.softSkills) ? (skills.soft_skills ?? skills.softSkills) as unknown[] : []),
+    ...(Array.isArray(raw.skill_set) ? raw.skill_set as unknown[] : []),
+  ]
+  const skillStrings = skillArrays.map(s => String(s)).filter(Boolean)
+
+  const languages = Array.isArray(skills.languages)
+    ? skills.languages.map((l: Record<string, unknown>) => ({ name: String(l.name ?? ''), level: String(l.level ?? '') }))
+    : Array.isArray(raw.language)
+      ? raw.language.map((l: Record<string, unknown>) => ({ name: String(l.name ?? ''), level: String((l.level as Record<string, unknown>)?.name ?? l.level ?? '') }))
+      : []
+
+  return {
+    firstName: String(pi.first_name ?? pi.firstName ?? raw.first_name ?? raw.firstName ?? ''),
+    lastName: String(pi.last_name ?? pi.lastName ?? raw.last_name ?? raw.lastName ?? ''),
+    middleName: String(pi.middle_name ?? pi.middleName ?? raw.middle_name ?? raw.middleName ?? ''),
+    title: String(dj.position ?? raw.title ?? ''),
+    birthDate: String(pi.birth_date ?? pi.birthDate ?? raw.birth_date ?? ''),
+    gender,
+    area: String(pi.location ?? pi.area ?? raw.area ?? ''),
+    salaryAmount: Number(salary.amount ?? raw.salaryAmount ?? 0) || 0,
+    salaryCurrency: String(salary.currency ?? raw.salaryCurrency ?? ''),
+    totalExperienceMonths: Number(raw.totalExperienceMonths ?? 0) || 0,
+    experience: exp,
+    education: edu,
+    skills: skillStrings,
+    about: String(raw.about_me ?? raw.about ?? skills.about ?? ''),
+    languages,
+    contacts,
+  }
+}
+
+/**
  * Generate a structured JSON response from the AI provider.
  * Uses Vercel AI SDK's `generateObject` for reliable schema-conformant output.
  *
@@ -314,15 +383,24 @@ export async function generateStructuredOutput<T>(
     // «размышления» тратят выходной бюджет, и обрезка структурированного ответа
     // гарантированно ломает парсинг. config.maxTokens применяется в стриминговых
     // вызовах (streamTextOutput/streamStructuredOutput), где обрезка не фатальна.
-    const result = await generateObject({
-      model,
-      system: options.system + JSON_ONLY_GUARD,
-      prompt: options.prompt,
-      schema: options.schema,
-      schemaName: options.schemaName,
-      schemaDescription: options.schemaDescription,
-      temperature: 0.1,
-    })
+    const abortController = new AbortController()
+    const timeoutHandle = setTimeout(() => abortController.abort(new Error('AI structured output timed out after 90s')), 90_000)
+    let result
+    try {
+      result = await generateObject({
+        model,
+        system: options.system + JSON_ONLY_GUARD,
+        prompt: options.prompt,
+        schema: options.schema,
+        schemaName: options.schemaName,
+        schemaDescription: options.schemaDescription,
+        temperature: 0.1,
+        abortSignal: abortController.signal,
+      })
+   @    }
+    finally {
+      clearTimeout(timeoutHandle)
+    }
 
     return {
       object: result.object,
@@ -353,6 +431,19 @@ export async function generateStructuredOutput<T>(
           }
         }
         console.warn(`[ai] восстановленный JSON (${options.schemaName}) не прошёл валидацию схемы: ${validated.error.issues.slice(0, 3).map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`)
+        // Fallback: map non-schema-conformant response (e.g. GLM-5.2 nested Russian keys)
+        if (options.schemaName === 'structured_resume') {
+          const mapped = mapStructuredResumeResponse(JSON.parse(repairedJson))
+          const mappedValidated = options.schema.safeParse(mapped)
+          if (mappedValidated.success) {
+            console.warn(`[ai] structured output (${options.schemaName}) восстановлен через маппер полей`)
+            return {
+              object: mappedValidated.data,
+              usage: { promptTokens: err.usage?.inputTokens ?? 0, completionTokens: err.usage?.outputTokens ?? 0 },
+              responseModel: err.response?.modelId ?? null,
+            }
+          }
+        }
       }
     }
     throw err
