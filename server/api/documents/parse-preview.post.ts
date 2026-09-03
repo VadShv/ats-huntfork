@@ -109,21 +109,42 @@ export default defineEventHandler(async (event) => {
     phone = `+7${digits}`
   }
 
-  // Full name — first non-empty line of the resume that looks like 2–3 capitalised words
-  // Try the very first lines before any noise (email, phone, header artifacts)
+  // Full name — first non-empty line that looks like 2–3 capitalised words
+  // and is NOT a job title (директор, менеджер, разработчик, …)
   let firstName: string | undefined
   let lastName: string | undefined
   let displayName: string | undefined
 
+  // Слова-маркеры должностей — строки с ними не могут быть ФИО
+  const JOB_TITLE_WORDS = new Set([
+    'директор', 'менеджер', 'разработчик', 'инженер', 'консультант', 'руководитель',
+    'специалист', 'аналитик', 'дизайнер', 'бухгалтер', 'администратор', 'программист',
+    'тестировщик', 'архитектор', 'координатор', 'ассистент',
+    'секретарь', 'оператор', 'контролер', 'кладовщик', 'курьер',
+    'водитель', 'повар', 'электрик', 'слесарь', 'токарь',
+    'маркетолог', 'копирайтер', 'редактор', 'журналист', 'переводчик',
+    'юрист', 'адвокат', 'нотариус', 'следователь', 'прокурор', 'судья',
+    'врач', 'медсестра', 'психолог', 'педагог', 'учитель', 'преподаватель',
+    'экономист', 'финансист', 'брокер', 'агент', 'представитель',
+    'коммерческий', 'технический', 'финансовый', 'операционный', 'креативный',
+    'главный', 'старший', 'младший', 'ведущий', 'заместитель', 'зам',
+    'начальник', 'заведующий', 'председатель', 'декан', 'ректор',
+    'продавец', 'кассир', 'бариста', 'официант',
+  ])
+
+  // Ограничиваем поиск: ФИО всегда до первой секции резюме
+  const SECTION_RE = /^(experience|employment|education|skills|summary|profile|objective|about|contact|certifications?|awards?|languages?|interests?|references?|работа|опыт|образование|навыки|о\s+себе|контакты|обо\s+мне|цель|профиль)/i
+
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  for (const line of lines.slice(0, 10)) {
-    // Skip lines that contain an email, URL, digit-heavy strings, or are too long
+  const sectionIdx = lines.findIndex((l) => SECTION_RE.test(l) && l.length < 60)
+  const searchLines = lines.slice(0, sectionIdx > 0 ? Math.min(sectionIdx, 15) : 10)
+
+  for (const line of searchLines) {
     if (email && line.includes(email)) continue
     if (/https?:\/\/|www\.|@/.test(line)) continue
-    if (/\d{2,}/.test(line)) continue // phone/date lines
+    if (/\d{2,}/.test(line)) continue
     if (line.length > 60) continue
 
-    // 2–3 words, each starting with a capital or cyrillic uppercase letter
     const words = line.split(/\s+/)
     if (words.length < 2 || words.length > 3) continue
 
@@ -131,14 +152,15 @@ export default defineEventHandler(async (event) => {
     const allCapitalised = words.every((w) => /^[A-ZА-ЯЁ]/.test(w))
     if (!allCapitalised) continue
 
+    // Skip job titles — any word matches a known title keyword
+    const lowerWords = words.map((w) => w.toLowerCase())
+    if (lowerWords.some((w) => JOB_TITLE_WORDS.has(w))) continue
+
     // Looks like a name — take it
     if (words.length === 2) {
-      // Could be "Firstname Lastname" or "Lastname Firstname" — assume Western order
       firstName = words[0]
       lastName = words[1]
     } else {
-      // 3 words — likely "Lastname Firstname Patronymic" (Russian style)
-      // Store full as displayName, and split as last/first
       lastName = words[0]
       firstName = words[1]
       displayName = line

@@ -384,7 +384,7 @@ export async function generateStructuredOutput<T>(
     // гарантированно ломает парсинг. config.maxTokens применяется в стриминговых
     // вызовах (streamTextOutput/streamStructuredOutput), где обрезка не фатальна.
     const abortController = new AbortController()
-    const timeoutHandle = setTimeout(() => abortController.abort(new Error('AI structured output timed out after 90s')), 90_000)
+    const timeoutHandle = setTimeout(() => abortController.abort(new Error('AI structured output timed out after 180s')), 180_000)
     let result
     try {
       result = await generateObject({
