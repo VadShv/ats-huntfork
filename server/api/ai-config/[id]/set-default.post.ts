@@ -53,6 +53,15 @@ export default defineEventHandler(async (event) => {
         })
         .where(eq(aiConfig.organizationId, orgId))
     }
+    // Слот «Структурирование» — модель для разбора резюме из файла.
+    if (body.purposes.includes('structuring')) {
+      await tx.update(aiConfig)
+        .set({
+          isDefaultStructuring: sql`${aiConfig.id} = ${id}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiConfig.organizationId, orgId))
+    }
   })
 
   recordActivity({

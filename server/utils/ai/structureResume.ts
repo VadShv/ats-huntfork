@@ -213,7 +213,7 @@ export function buildHhCompatibleRaw(p: StructuredResume, meta: StructureMeta): 
  * (тот же, что для AI-саммари; скрининговый контур не затрагивается).
  */
 export async function structureResumeFromText(opts: { orgId: string, text: string }) {
-  const config = await loadAiConfig(opts.orgId, { purpose: 'analysis', preferId: null })
+  const config = await loadAiConfig(opts.orgId, { purpose: 'structuring', preferId: null })
 
   // Нормализуем пробелы и ограничиваем объём — резюме длиннее 15k символов
   // почти всегда содержат мусор из PDF-экстракции.

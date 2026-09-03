@@ -13,12 +13,13 @@
 import { and, eq } from 'drizzle-orm'
 import { aiConfig } from '../../database/schema'
 
-export type AiConfigPurpose = 'chatbot' | 'analysis' | 'interactive'
+export type AiConfigPurpose = 'chatbot' | 'analysis' | 'interactive' | 'structuring'
 
 const PURPOSE_LABELS: Record<AiConfigPurpose, string> = {
   chatbot: 'ассистента',
   analysis: 'анализ кандидата',
   interactive: 'быстрые задачи панели',
+  structuring: 'структурирования резюме',
 }
 
 export async function loadAiConfig(
@@ -37,7 +38,9 @@ export async function loadAiConfig(
     ? aiConfig.isDefaultChatbot
     : opts.purpose === 'interactive'
       ? aiConfig.isDefaultInteractive
-      : aiConfig.isDefaultAnalysis
+      : opts.purpose === 'structuring'
+        ? aiConfig.isDefaultStructuring
+        : aiConfig.isDefaultAnalysis
 
   const def = await db.query.aiConfig.findFirst({
     where: and(eq(aiConfig.organizationId, orgId), eq(defaultCol, true)),
@@ -47,6 +50,14 @@ export async function loadAiConfig(
   // П2: интерактивный дефолт не назначен — используем дефолт «анализа»,
   // как это работало до появления purpose 'interactive'.
   if (opts.purpose === 'interactive') {
+    const analysisDef = await db.query.aiConfig.findFirst({
+      where: and(eq(aiConfig.organizationId, orgId), eq(aiConfig.isDefaultAnalysis, true)),
+    })
+    if (analysisDef) return analysisDef
+  }
+
+  // Структурирование резюме: если отдельный дефолт не назначен — fallback на «анализ».
+  if (opts.purpose === 'structuring') {
     const analysisDef = await db.query.aiConfig.findFirst({
       where: and(eq(aiConfig.organizationId, orgId), eq(aiConfig.isDefaultAnalysis, true)),
     })

@@ -43,6 +43,7 @@ interface AiConfigRow {
   outputPricePer1m: number | null
   isDefaultChatbot: boolean
   isDefaultAnalysis: boolean
+  isDefaultStructuring: boolean
   hasApiKey: boolean
 }
 
@@ -83,6 +84,7 @@ const form = ref({
   outputPricePer1m: props.config?.outputPricePer1m ?? null as number | null,
   isDefaultChatbot: !isEdit.value && props.isFirst,
   isDefaultAnalysis: !isEdit.value && props.isFirst,
+  isDefaultStructuring: false,
   // Yandex-only: folder ID is embedded in the model id; we keep it in a separate field for UX.
   yandexFolderId: extractFolderId(props.config?.model),
 })
@@ -182,6 +184,7 @@ async function handleSave() {
     else {
       body.isDefaultChatbot = form.value.isDefaultChatbot
       body.isDefaultAnalysis = form.value.isDefaultAnalysis
+      body.isDefaultStructuring = form.value.isDefaultStructuring
       await $fetch('/api/ai-config', {
         method: 'POST',
         body,
@@ -529,6 +532,22 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
               </div>
               <p class="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5">
                 Использовать эту модель для оценки и анализа откликов.
+              </p>
+            </div>
+          </label>
+          <label class="flex items-start gap-3 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-4 py-3 cursor-pointer hover:border-brand-300 dark:hover:border-brand-700 transition-colors">
+            <input
+              v-model="form.isDefaultStructuring"
+              type="checkbox"
+              class="mt-0.5 size-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500"
+            >
+            <div class="flex-1">
+              <div class="flex items-center gap-1.5 text-sm font-medium text-surface-900 dark:text-surface-100">
+                <FileText class="size-3.5 text-brand-500" />
+                Структурирование резюме
+              </div>
+              <p class="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5">
+                Разбор файлов резюме (PDF/DOCX) в карточку кандидата. Если не выбрано — используется модель для анализа.
               </p>
             </div>
           </label>

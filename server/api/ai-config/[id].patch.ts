@@ -48,6 +48,7 @@ export default defineEventHandler(async (event) => {
       outputPricePer1m: aiConfig.outputPricePer1m,
       isDefaultChatbot: aiConfig.isDefaultChatbot,
       isDefaultAnalysis: aiConfig.isDefaultAnalysis,
+      isDefaultStructuring: aiConfig.isDefaultStructuring,
       apiKeyEncrypted: aiConfig.apiKeyEncrypted,
     })
 

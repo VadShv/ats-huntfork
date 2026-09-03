@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
   const isFirst = existingCount === 0
   const isDefaultChatbot = isFirst || body.isDefaultChatbot === true
   const isDefaultAnalysis = isFirst || body.isDefaultAnalysis === true
+  const isDefaultStructuring = body.isDefaultStructuring === true
 
   const created = await db.transaction(async (tx) => {
     if (isDefaultChatbot) {
@@ -34,6 +35,11 @@ export default defineEventHandler(async (event) => {
     if (isDefaultAnalysis) {
       await tx.update(aiConfig)
         .set({ isDefaultAnalysis: false })
+        .where(eq(aiConfig.organizationId, orgId))
+    }
+    if (isDefaultStructuring) {
+      await tx.update(aiConfig)
+        .set({ isDefaultStructuring: false })
         .where(eq(aiConfig.organizationId, orgId))
     }
 
@@ -50,6 +56,7 @@ export default defineEventHandler(async (event) => {
         outputPricePer1m: body.outputPricePer1m != null ? String(body.outputPricePer1m) : null,
         isDefaultChatbot,
         isDefaultAnalysis,
+        isDefaultStructuring,
       })
       .returning({
         id: aiConfig.id,
@@ -60,6 +67,7 @@ export default defineEventHandler(async (event) => {
         maxTokens: aiConfig.maxTokens,
         isDefaultChatbot: aiConfig.isDefaultChatbot,
         isDefaultAnalysis: aiConfig.isDefaultAnalysis,
+        isDefaultStructuring: aiConfig.isDefaultStructuring,
       })
     return row!
   })
