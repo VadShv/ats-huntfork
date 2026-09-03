@@ -397,7 +397,7 @@ export async function generateStructuredOutput<T>(
         temperature: 0.1,
         abortSignal: abortController.signal,
       })
-   @    }
+    }
     finally {
       clearTimeout(timeoutHandle)
     }
