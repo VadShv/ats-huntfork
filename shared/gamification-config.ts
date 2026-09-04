@@ -46,7 +46,39 @@ export const GAMIFICATION_CONFIG = {
    * recruiter is never penalised for a slow HM. Matched by pipeline_stage.preset_key.
    */
   excludedPresetKeys: ['hm_review'] as string[],
+
+  /**
+   * Rank (stage D) — competitive, quality-forward rating.
+   * RP = Σ(result_points × gradeMult) × qualityFactor × speedFactor.
+   */
+  rank: {
+    rpWeights: { hire: 50, offer: 15, interview: 5, vacancyClosed: 40 },
+    quality: { minOffers: 5, high: 1.3, mid: 1.0, low: 0.7 },
+    speed: { fastHours: 12, okHours: 24, slowHours: 48, fast: 1.2, ok: 1.0, slow: 0.8 },
+    /** How many recruiters occupy the relative "Legend" division. */
+    legendTopN: 3,
+  },
 } as const
+
+/** Rank quality factor from offer acceptance. */
+export function rpQualityFactor(hires: number, offers: number): number {
+  const q = GAMIFICATION_CONFIG.rank.quality
+  if (offers < q.minOffers) return q.mid
+  const rate = hires / offers
+  if (rate >= 0.8) return q.high
+  if (rate >= 0.5) return q.mid
+  return q.low
+}
+
+/** Rank speed factor from average time-to-first-response (hours). */
+export function rpSpeedFactor(avgResponseHours: number | null): number {
+  const s = GAMIFICATION_CONFIG.rank.speed
+  if (avgResponseHours == null) return s.ok
+  if (avgResponseHours <= s.fastHours) return s.fast
+  if (avgResponseHours <= s.okHours) return s.ok
+  if (avgResponseHours >= s.slowHours) return s.slow
+  return s.ok
+}
 
 /** Grade multiplier for a job's experience level (null / unknown = 1.0). */
 export function gradeMultiplier(level: string | null | undefined): number {
