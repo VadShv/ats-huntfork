@@ -21,9 +21,25 @@ export async function ensureCatalogSeeded() {
   }
 }
 
+/** Map catalog metric keys (snake_case) to RecruiterMetrics fields (camelCase). */
+const METRIC_KEY_MAP: Record<string, keyof RecruiterMetrics> = {
+  vacancies_closed: 'vacanciesClosed',
+  offers_made: 'offersMade',
+  offers_accepted: 'offersAccepted',
+  interviews: 'interviews',
+  candidates_screened: 'candidatesScreened',
+  offer_accept_rate: 'offerAcceptRate',
+  activity_streak: 'activityStreak',
+  fastest_hire_days: 'fastestHireDays',
+  night_activity: 'nightActivity',
+  morning_activity: 'morningActivity',
+  weekend_activity: 'weekendActivity',
+}
+
 /** Check if a metric meets the achievement threshold. */
 function meetsThreshold(def: AchievementDef, m: RecruiterMetrics): boolean {
-  const val = (m as Record<string, unknown>)[def.metric]
+  const key = METRIC_KEY_MAP[def.metric] ?? (def.metric as keyof RecruiterMetrics)
+  const val = m[key]
   if (val == null) return false
 
   // Ratio metric (offer_accept_rate): need min denominator (threshold2)
@@ -42,7 +58,8 @@ function meetsThreshold(def: AchievementDef, m: RecruiterMetrics): boolean {
 
 /** Get current value for an achievement (for progress display). */
 function currentValue(def: AchievementDef, m: RecruiterMetrics): number {
-  const val = (m as Record<string, unknown>)[def.metric]
+  const key = METRIC_KEY_MAP[def.metric] ?? (def.metric as keyof RecruiterMetrics)
+  const val = m[key]
   if (val == null) return 0
   if (def.metric === 'fastest_hire_days') return val as number
   if (def.metric === 'offer_accept_rate') return m.offersMade >= (def.threshold2 ?? 10) ? val as number : 0
