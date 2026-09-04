@@ -37,15 +37,15 @@ export async function computeRecruiterMetrics(userId: string, orgId: string): Pr
   const candidatesScreened = (stageMap.get('screening') ?? 0) + (stageMap.get('assessment') ?? 0) + (stageMap.get('contact') ?? 0)
   const offerAcceptRate = offersMade >= 10 ? Math.round((offersAccepted / offersMade) * 100) : 0
 
-  // Vacancies closed — from activityLog (action='updated', resourceType='job', metadata has status='closed')
+  // Vacancies closed — from activityLog (action='status_changed', metadata.to='closed')
   const [vacClosed] = await db.execute<{ cnt: number }>(sql`
     SELECT COUNT(*)::int AS cnt
     FROM activity_log
     WHERE organization_id = ${orgId}
       AND actor_id = ${userId}
-      AND action = 'updated'
+      AND action = 'status_changed'
       AND resource_type = 'job'
-      AND metadata->>'status' = 'closed'
+      AND metadata->>'to' = 'closed'
   `)
 
   // Fastest hire — min days from application.created_at to hire stage move
