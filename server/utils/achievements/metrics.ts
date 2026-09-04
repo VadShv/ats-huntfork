@@ -55,7 +55,7 @@ export async function computeRecruiterMetrics(userId: string, orgId: string): Pr
 
   // Fastest hire — min days from application.created_at to hire stage move
   const fastRows = await db
-    .select({ days: sql<number | null>`min(extract(epoch from (ash.moved_at - a.created_at)) / 86400)::int` })
+    .select({ days: sql<number | null>`min(extract(epoch from (${applicationStageHistory.movedAt} - ${application.createdAt})) / 86400)::int` })
     .from(applicationStageHistory)
     .innerJoin(application, eq(application.id, applicationStageHistory.applicationId))
     .innerJoin(pipelineStage, eq(pipelineStage.id, applicationStageHistory.toStageId))
