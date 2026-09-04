@@ -9,8 +9,12 @@ import { computeMetric } from '../gamification/metrics-registry'
 import { dailyPeriod, weeklyPeriod, type Period } from './period'
 import { getOrCreateCurrentSeason } from '../huntpass/season'
 
-/** Seed quest_template from the catalog (idempotent). */
+/** In-memory guard: seed at most once per process (set only on success). */
+let questsSeeded = false
+
+/** Seed quest_template from the catalog (idempotent). Lazy + guarded. */
 export async function ensureQuestCatalogSeeded() {
+  if (questsSeeded) return
   for (const q of QUEST_CATALOG) {
     await db.execute(sql`
       INSERT INTO quest_template (id, key, type, category, title, description, metric, target, sxp_reward, is_quality, weight, is_active)
@@ -21,6 +25,7 @@ export async function ensureQuestCatalogSeeded() {
         is_quality = EXCLUDED.is_quality, weight = EXCLUDED.weight
     `)
   }
+  questsSeeded = true
 }
 
 /** Weighted random pick of `count` quests of a type, guaranteeing >=1 quality. */
@@ -107,6 +112,8 @@ export interface QuestView {
 
 /** Get daily + weekly quests with live progress. */
 export async function getUserQuests(userId: string, orgId: string): Promise<QuestView[]> {
+  // Lazy, guarded seed — resilient to the plugin-before-migration startup race.
+  await ensureQuestCatalogSeeded()
   const now = new Date()
   const daily = dailyPeriod(now)
   const weekly = weeklyPeriod(now)

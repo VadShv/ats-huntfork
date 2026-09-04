@@ -7,8 +7,12 @@ import { achievement, userAchievement } from '../../database/schema'
 import { ACHIEVEMENT_CATALOG, type AchievementDef } from '../../../shared/achievements-catalog'
 import { computeRecruiterMetrics, type RecruiterMetrics } from './metrics'
 
-/** Ensure the catalog is seeded in the DB (idempotent upsert by key). */
+/** In-memory guard: seed at most once per process (set only on success). */
+let catalogSeeded = false
+
+/** Ensure the catalog is seeded in the DB (idempotent upsert by key). Lazy + guarded. */
 export async function ensureCatalogSeeded() {
+  if (catalogSeeded) return
   for (const def of ACHIEVEMENT_CATALOG) {
     await db.execute(sql`
       INSERT INTO achievement (id, key, name, description, category, tier, icon, metric, threshold, threshold2, points, is_hidden, sort_order)
@@ -19,6 +23,7 @@ export async function ensureCatalogSeeded() {
         threshold2 = EXCLUDED.threshold2, sort_order = EXCLUDED.sort_order
     `)
   }
+  catalogSeeded = true
 }
 
 /** Map catalog metric keys (snake_case) to RecruiterMetrics fields (camelCase). */
@@ -92,8 +97,9 @@ export async function checkAchievements(
   orgId: string,
   awardNew = true,
 ): Promise<{ achievements: AchievementWithProgress[], newlyEarned: AchievementDef[], totalXp: number }> {
-  // Catalog is seeded once at startup by server/plugins/seed-achievements.ts —
-  // not on every call. computeRecruiterMetrics reads from existing data.
+  // Lazy, guarded seed (runs once per process on first call) — resilient to the
+  // plugin-before-migration startup race; no restart needed after a new deploy.
+  await ensureCatalogSeeded()
   const metrics = await computeRecruiterMetrics(userId, orgId)
 
   // Get already-earned achievements
