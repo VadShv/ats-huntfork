@@ -272,6 +272,8 @@ export default defineNuxtConfig({
       '*/5 * * * *': ['hh:sync'],
       // Каждую минуту: тик сорсинг-воркера (выбирает поиски с nextRunAt <= now)
       '* * * * *': ['hh:sourcing'],
+      // По понедельникам 03:00: недельный тик рангов (промо/decay/placement)
+      '0 3 * * 1': ['rank:weekly'],
     },
     routeRules: {
       "/**": {

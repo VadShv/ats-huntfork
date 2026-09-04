@@ -57,6 +57,15 @@ export const GAMIFICATION_CONFIG = {
     speed: { fastHours: 12, okHours: 24, slowHours: 48, fast: 1.2, ok: 1.0, slow: 0.8 },
     /** How many recruiters occupy the relative "Legend" division. */
     legendTopN: 3,
+    // ── D2: competitive ladder mechanics ──
+    /** Consecutive weekly checks above the next threshold to promote. */
+    promoWeeksRequired: 3,
+    /** Consecutive inactive weeks before a soft demotion (one subrank). */
+    decayGraceWeeks: 2,
+    /** New-recruiter / new-season calibration period, in weeks. */
+    placementWeeks: 2,
+    /** Season soft-reset: next season seeds from peak RP × this factor. */
+    softResetFactor: 0.5,
   },
 } as const
 

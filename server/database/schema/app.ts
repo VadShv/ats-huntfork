@@ -2358,3 +2358,48 @@ export const userQuestRelations = relations(userQuest, ({ one }) => ({
   organization: one(organization, { fields: [userQuest.organizationId], references: [organization.id] }),
   template: one(questTemplate, { fields: [userQuest.questTemplateId], references: [questTemplate.id] }),
 }))
+
+// ─────────────────────────────────────────────
+// Rank ladder — D2 competitive state (promo / decay / placement)
+// ─────────────────────────────────────────────
+
+export const userRank = pgTable('user_rank', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  seasonId: text('season_id').notNull().references(() => season.id, { onDelete: 'cascade' }),
+  division: text('division').notNull().default('bronze'),
+  subrank: integer('subrank').notNull().default(1),
+  /** 'placement' during calibration, then 'ranked'. */
+  status: text('status').notNull().default('placement'),
+  placementWeeksLeft: integer('placement_weeks_left').notNull().default(2),
+  promoProgress: integer('promo_progress').notNull().default(0),
+  inactiveWeeks: integer('inactive_weeks').notNull().default(0),
+  peakRp: integer('peak_rp').notNull().default(0),
+  lastRp: integer('last_rp').notNull().default(0),
+  lastTickWeek: text('last_tick_week'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('user_rank_org_user_season_idx').on(t.organizationId, t.userId, t.seasonId),
+  index('user_rank_season_idx').on(t.seasonId),
+]))
+
+export const rankHistory = pgTable('rank_history', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  seasonId: text('season_id').notNull().references(() => season.id, { onDelete: 'cascade' }),
+  weekKey: text('week_key').notNull(),
+  rp: integer('rp').notNull(),
+  division: text('division').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('rank_history_unique_idx').on(t.organizationId, t.userId, t.seasonId, t.weekKey),
+  index('rank_history_user_season_idx').on(t.organizationId, t.userId, t.seasonId),
+]))
+
+export const userRankRelations = relations(userRank, ({ one }) => ({
+  user: one(user, { fields: [userRank.userId], references: [user.id] }),
+  organization: one(organization, { fields: [userRank.organizationId], references: [organization.id] }),
+  season: one(season, { fields: [userRank.seasonId], references: [season.id] }),
+}))
