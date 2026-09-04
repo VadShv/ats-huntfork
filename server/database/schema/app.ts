@@ -2298,6 +2298,8 @@ export const userSeasonProgress = pgTable('user_season_progress', {
   seasonId: text('season_id').notNull().references(() => season.id, { onDelete: 'cascade' }),
   isPremium: boolean('is_premium').notNull().default(false),
   claimedTiers: jsonb('claimed_tiers').$type<number[]>().notNull().default([]),
+  /** Bonus SXP accumulated from claimed quests (added on top of data-derived SXP). */
+  bonusSxp: integer('bonus_sxp').notNull().default(0),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   uniqueIndex('user_season_progress_org_user_season_idx').on(t.organizationId, t.userId, t.seasonId),
@@ -2312,4 +2314,47 @@ export const userSeasonProgressRelations = relations(userSeasonProgress, ({ one 
   user: one(user, { fields: [userSeasonProgress.userId], references: [user.id] }),
   organization: one(organization, { fields: [userSeasonProgress.organizationId], references: [organization.id] }),
   season: one(season, { fields: [userSeasonProgress.seasonId], references: [season.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// Quests (gamification)
+// ─────────────────────────────────────────────
+
+export const questTemplate = pgTable('quest_template', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  key: text('key').notNull().unique(),
+  type: text('type').notNull(), // daily | weekly
+  category: text('category').notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  metric: text('metric').notNull(),
+  target: integer('target').notNull(),
+  sxpReward: integer('sxp_reward').notNull(),
+  isQuality: boolean('is_quality').notNull().default(false),
+  weight: integer('weight').notNull().default(5),
+  isActive: boolean('is_active').notNull().default(true),
+})
+
+export const userQuest = pgTable('user_quest', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  questTemplateId: text('quest_template_id').notNull().references(() => questTemplate.id, { onDelete: 'cascade' }),
+  periodKey: text('period_key').notNull(), // '2026-09-04' (daily) | '2026-W36' (weekly)
+  status: text('status').notNull().default('active'), // active | completed | claimed
+  claimedAt: timestamp('claimed_at'),
+  assignedAt: timestamp('assigned_at').notNull().defaultNow(),
+}, (t) => ([
+  index('user_quest_user_period_idx').on(t.organizationId, t.userId, t.periodKey),
+  uniqueIndex('user_quest_unique_idx').on(t.organizationId, t.userId, t.questTemplateId, t.periodKey),
+]))
+
+export const questTemplateRelations = relations(questTemplate, ({ many }) => ({
+  userQuests: many(userQuest),
+}))
+
+export const userQuestRelations = relations(userQuest, ({ one }) => ({
+  user: one(user, { fields: [userQuest.userId], references: [user.id] }),
+  organization: one(organization, { fields: [userQuest.organizationId], references: [organization.id] }),
+  template: one(questTemplate, { fields: [userQuest.questTemplateId], references: [questTemplate.id] }),
 }))

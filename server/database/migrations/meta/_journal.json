@@ -519,6 +519,13 @@
       "when": 1801000200000,
       "tag": "0074_huntpass",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1801000210000,
+      "tag": "0075_quests",
+      "breakpoints": true
     }
   ]
 }

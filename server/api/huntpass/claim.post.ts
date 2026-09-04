@@ -20,7 +20,14 @@ export default defineEventHandler(async (event) => {
 
   const s = await getOrCreateCurrentSeason()
   const breakdown = await computeSeasonSxp(userId, orgId, s.startsAt, s.endsAt)
-  const reachedTier = tierForSxp(breakdown.sxp)
+  const existingProgress = await db.query.userSeasonProgress.findFirst({
+    where: and(
+      eq(userSeasonProgress.organizationId, orgId),
+      eq(userSeasonProgress.userId, userId),
+      eq(userSeasonProgress.seasonId, s.id),
+    ),
+  })
+  const reachedTier = tierForSxp(breakdown.sxp + (existingProgress?.bonusSxp ?? 0))
 
   if (tier > reachedTier) {
     throw createError({ statusCode: 400, statusMessage: 'Тир ещё не достигнут' })

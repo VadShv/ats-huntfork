@@ -596,6 +596,7 @@ const isEmpty = computed(() =>
         <!-- ─── Right column (1/3) ─── -->
         <div class="space-y-6">
           <!-- ─── Achievements widget ─── -->
+          <QuestsWidget />
           <HuntPassWidget />
           <AchievementsWidget />
           <!-- ─── Upcoming interviews ─── -->

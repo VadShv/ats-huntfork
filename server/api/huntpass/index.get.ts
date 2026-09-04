@@ -40,7 +40,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const breakdown = await computeSeasonSxp(userId, orgId, s.startsAt, s.endsAt)
-  const currentTier = tierForSxp(breakdown.sxp)
+  const bonusSxp = progress?.bonusSxp ?? 0
+  const totalSxp = breakdown.sxp + bonusSxp
+  const currentTier = tierForSxp(totalSxp)
   const claimed = new Set(progress?.claimedTiers ?? [])
   const isPremium = progress?.isPremium ?? false
 
@@ -58,20 +60,20 @@ export default defineEventHandler(async (event) => {
       endsAt: s.endsAt.toISOString(),
       daysLeft,
     },
-    sxp: breakdown.sxp,
-    breakdown,
+    sxp: totalSxp,
+    breakdown: { ...breakdown, bonusSxp },
     currentTier,
     tierCount: TIER_COUNT,
     isPremium,
     nextTier: nextTierDef
-      ? { tier: nextTierDef.tier, requiredSxp: nextTierDef.requiredSxp, remaining: Math.max(0, nextTierDef.requiredSxp - breakdown.sxp) }
+      ? { tier: nextTierDef.tier, requiredSxp: nextTierDef.requiredSxp, remaining: Math.max(0, nextTierDef.requiredSxp - totalSxp) }
       : null,
     tiers: SEASON_TIERS.map(t => ({
       tier: t.tier,
       requiredSxp: t.requiredSxp,
       free: t.free,
       premium: t.premium,
-      reached: breakdown.sxp >= t.requiredSxp,
+      reached: totalSxp >= t.requiredSxp,
       claimed: claimed.has(t.tier),
     })),
   }
