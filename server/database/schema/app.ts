@@ -2272,3 +2272,44 @@ export const userAchievementRelations = relations(userAchievement, ({ one }) => 
   organization: one(organization, { fields: [userAchievement.organizationId], references: [organization.id] }),
   achievement: one(achievement, { fields: [userAchievement.achievementId], references: [achievement.id] }),
 }))
+
+// ─────────────────────────────────────────────
+// HuntPass — seasonal track (gamification)
+// ─────────────────────────────────────────────
+
+export const season = pgTable('season', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text('name').notNull(),
+  quarter: integer('quarter').notNull(),
+  year: integer('year').notNull(),
+  theme: text('theme').notNull().default('default'),
+  startsAt: timestamp('starts_at').notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('season_quarter_year_idx').on(t.quarter, t.year),
+]))
+
+export const userSeasonProgress = pgTable('user_season_progress', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  seasonId: text('season_id').notNull().references(() => season.id, { onDelete: 'cascade' }),
+  isPremium: boolean('is_premium').notNull().default(false),
+  claimedTiers: jsonb('claimed_tiers').$type<number[]>().notNull().default([]),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('user_season_progress_org_user_season_idx').on(t.organizationId, t.userId, t.seasonId),
+  index('user_season_progress_season_idx').on(t.seasonId),
+]))
+
+export const seasonRelations = relations(season, ({ many }) => ({
+  progress: many(userSeasonProgress),
+}))
+
+export const userSeasonProgressRelations = relations(userSeasonProgress, ({ one }) => ({
+  user: one(user, { fields: [userSeasonProgress.userId], references: [user.id] }),
+  organization: one(organization, { fields: [userSeasonProgress.organizationId], references: [organization.id] }),
+  season: one(season, { fields: [userSeasonProgress.seasonId], references: [season.id] }),
+}))
