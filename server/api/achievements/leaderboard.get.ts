@@ -13,14 +13,14 @@ export default defineEventHandler(async (event) => {
   const rows = await db.execute<{ user_id: string, name: string, email: string, xp: number }>(sql`
     SELECT
       ua.user_id,
-      CONCAT(u.first_name, ' ', u.last_name) AS name,
+      COALESCE(u.name, u.email) AS name,
       u.email,
       COALESCE(SUM(a.points), 0)::int AS xp
     FROM user_achievement ua
     JOIN achievement a ON a.id = ua.achievement_id
     JOIN "user" u ON u.id = ua.user_id
     WHERE ua.organization_id = ${orgId}
-    GROUP BY ua.user_id, u.first_name, u.last_name, u.email
+    GROUP BY ua.user_id, u.name, u.email
     ORDER BY xp DESC
     LIMIT 20
   `)

@@ -11,8 +11,8 @@ import { computeRecruiterMetrics, type RecruiterMetrics } from './metrics'
 export async function ensureCatalogSeeded() {
   for (const def of ACHIEVEMENT_CATALOG) {
     await db.execute(sql`
-      INSERT INTO achievement (key, name, description, category, tier, icon, metric, threshold, threshold2, points, is_hidden, sort_order)
-      VALUES (${def.key}, ${def.name}, ${def.description}, ${def.category}, ${def.tier}, ${def.icon}, ${def.metric}, ${def.threshold}, ${def.threshold2 ?? null}, ${def.points}, ${def.isHidden ?? false}, ${def.sortOrder})
+      INSERT INTO achievement (id, key, name, description, category, tier, icon, metric, threshold, threshold2, points, is_hidden, sort_order)
+      VALUES (gen_random_uuid(), ${def.key}, ${def.name}, ${def.description}, ${def.category}, ${def.tier}, ${def.icon}, ${def.metric}, ${def.threshold}, ${def.threshold2 ?? null}, ${def.points}, ${def.isHidden ?? false}, ${def.sortOrder})
       ON CONFLICT (key) DO UPDATE SET
         name = EXCLUDED.name, description = EXCLUDED.description, tier = EXCLUDED.tier,
         icon = EXCLUDED.icon, points = EXCLUDED.points, threshold = EXCLUDED.threshold,
