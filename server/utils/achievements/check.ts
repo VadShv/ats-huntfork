@@ -47,9 +47,9 @@ function meetsThreshold(def: AchievementDef, m: RecruiterMetrics): boolean {
     return m.offersMade >= (def.threshold2 ?? 10) && (val as number) >= def.threshold
   }
 
-  // "Less than" metric (fastest_hire_days): value must be <= threshold
+  // "Less than" metric (fastest_hire_days): value must be <= threshold (same-day = 0 days counts)
   if (def.metric === 'fastest_hire_days') {
-    return (val as number) > 0 && (val as number) <= def.threshold
+    return (val as number) >= 0 && (val as number) <= def.threshold
   }
 
   // Default: count >= threshold
@@ -92,7 +92,8 @@ export async function checkAchievements(
   orgId: string,
   awardNew = true,
 ): Promise<{ achievements: AchievementWithProgress[], newlyEarned: AchievementDef[], totalXp: number }> {
-  await ensureCatalogSeeded()
+  // Catalog is seeded once at startup by server/plugins/seed-achievements.ts —
+  // not on every call. computeRecruiterMetrics reads from existing data.
   const metrics = await computeRecruiterMetrics(userId, orgId)
 
   // Get already-earned achievements
@@ -156,4 +157,21 @@ export async function checkAchievements(
   const totalXp = result.filter(a => a.earned).reduce((sum, a) => sum + a.points, 0)
 
   return { achievements: result, newlyEarned, totalXp }
+}
+
+// ── Debounced check for fire-and-forget callers (stage moves) ──────────
+// Prevents redundant full recomputation during bulk stage operations.
+// The dashboard (GET /api/achievements) always calls checkAchievements directly.
+const lastCheckAt = new Map<string, number>()
+const DEBOUNCE_MS = 15_000
+
+export async function checkAchievementsDebounced(userId: string, orgId: string): Promise<void> {
+  const key = `${orgId}:${userId}`
+  const now = Date.now()
+  const last = lastCheckAt.get(key) ?? 0
+  if (now - last < DEBOUNCE_MS) return
+  lastCheckAt.set(key, now)
+  try {
+    await checkAchievements(userId, orgId, true)
+  } catch { /* best-effort */ }
 }

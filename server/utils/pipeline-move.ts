@@ -306,12 +306,12 @@ export async function moveApplicationStage(opts: MoveStageOptions): Promise<Move
     },
   })
 
-  // 7b. Achievements — fire-and-forget (never blocks the stage move)
+  // 7b. Achievements — fire-and-forget, debounced (never blocks the stage move)
   if (actorUserId) {
     void (async () => {
       try {
-        const { checkAchievements } = await import('./achievements/check')
-        await checkAchievements(actorUserId, organizationId, true)
+        const { checkAchievementsDebounced } = await import('./achievements/check')
+        await checkAchievementsDebounced(actorUserId, organizationId)
       } catch { /* best-effort */ }
     })()
   }

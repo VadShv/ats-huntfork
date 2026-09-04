@@ -61,6 +61,11 @@ export const envSchema = z
       )
       .optional()
       .default([]),
+    /** IANA timezone used for time-of-day achievements (night/morning/weekend). */
+    APP_TIMEZONE: emptyToUndefined
+      .pipe(z.string().min(1))
+      .optional()
+      .default("Europe/Moscow"),
     /** Railway environment metadata for PR/preview detection. */
     RAILWAY_ENVIRONMENT_NAME: emptyToUndefined.optional(),
     /** PR number provided by Railway for GitHub-triggered deployments. */
