@@ -306,6 +306,16 @@ export async function moveApplicationStage(opts: MoveStageOptions): Promise<Move
     },
   })
 
+  // 7b. Achievements — fire-and-forget (never blocks the stage move)
+  if (actorUserId) {
+    void (async () => {
+      try {
+        const { checkAchievements } = await import('./achievements/check')
+        await checkAchievements(actorUserId, organizationId, true)
+      } catch { /* best-effort */ }
+    })()
+  }
+
   // 8. hh.ru push — fire-and-forget из ВСЕХ путей (Спринт 22, фикс A2).
   //    Раньше пушил только stage.patch — отказы НМ и авто-отказы «зависали» на hh.
   if (!opts.skipHhPush) {

@@ -2228,3 +2228,47 @@ export const departmentRelations = relations(department, ({ one, many }) => ({
   children: many(department, { relationName: 'department_parent' }),
   jobs: many(job),
 }))
+
+// ─────────────────────────────────────────────
+// Achievements / Gamification
+// ─────────────────────────────────────────────
+
+export const achievementTierEnum = pgEnum('achievement_tier', ['bronze', 'silver', 'gold', 'platinum'])
+
+export const achievement = pgTable('achievement', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  key: text('key').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  category: text('category').notNull(),
+  tier: achievementTierEnum('tier').notNull().default('bronze'),
+  icon: text('icon').notNull().default('🏆'),
+  metric: text('metric').notNull(),
+  threshold: integer('threshold').notNull(),
+  threshold2: integer('threshold2'),
+  points: integer('points').notNull().default(10),
+  isHidden: boolean('is_hidden').notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+})
+
+export const userAchievement = pgTable('user_achievement', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  achievementId: text('achievement_id').notNull().references(() => achievement.id, { onDelete: 'cascade' }),
+  earnedAt: timestamp('earned_at').notNull().defaultNow(),
+  metadata: jsonb('metadata'),
+}, (t) => ([
+  uniqueIndex('user_achievement_org_user_ach_idx').on(t.organizationId, t.userId, t.achievementId),
+  index('user_achievement_user_id_idx').on(t.userId),
+]))
+
+export const achievementRelations = relations(achievement, ({ many }) => ({
+  userAchievements: many(userAchievement),
+}))
+
+export const userAchievementRelations = relations(userAchievement, ({ one }) => ({
+  user: one(user, { fields: [userAchievement.userId], references: [user.id] }),
+  organization: one(organization, { fields: [userAchievement.organizationId], references: [organization.id] }),
+  achievement: one(achievement, { fields: [userAchievement.achievementId], references: [achievement.id] }),
+}))

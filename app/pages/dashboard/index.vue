@@ -595,6 +595,8 @@ const isEmpty = computed(() =>
 
         <!-- ─── Right column (1/3) ─── -->
         <div class="space-y-6">
+          <!-- ─── Achievements widget ─── -->
+          <AchievementsWidget />
           <!-- ─── Upcoming interviews ─── -->
           <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none">
             <div class="flex items-center justify-between px-5 py-4 border-b border-surface-100 dark:border-surface-800">
