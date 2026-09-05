@@ -376,9 +376,22 @@ export async function generateStructuredOutput<T>(
     wrapBareArray?: (items: unknown[]) => unknown
     /** Sampling temperature. Для детерминированного разбора (резюме) передавайте 0. */
     temperature?: number
+    /**
+     * Отключить thinking-фазу reasoning-моделей Cloud.ru (GLM/Qwen3.5/3.6) для этого
+     * вызова. Для structured output (разбор резюме, скоринг) «размышления» не нужны,
+     * а тратят десятки секунд/минуты. По умолчанию true — быстрый структурный вывод.
+     */
+    disableThinking?: boolean
   },
 ): Promise<{ object: T; usage: { promptTokens: number; completionTokens: number }; responseModel: string | null }> {
-  const model = createLanguageModel(config)
+  // Для cloud_ru с отключённым thinking используем OpenAI-compatible клиент с
+  // fetch-обёрткой, инжектящей enable_thinking:false. Иначе — обычный клиент.
+  // По умолчанию поведение не меняем (thinking включён, как раньше) — отключение
+  // запрашивается точечно вызывающим (например, разбор резюме).
+  const disableThinking = options.disableThinking ?? false
+  const model = (config.provider === 'cloud_ru' && disableThinking && thinkingFamilyFor(config.model))
+    ? createCloudRuStreamModel(config, false)
+    : createLanguageModel(config)
 
   try {
     // Внимание: НЕ передаём maxOutputTokens. У reasoning-моделей (GLM, Qwen)

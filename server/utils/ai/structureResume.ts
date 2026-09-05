@@ -236,11 +236,14 @@ export async function structureResumeFromText(opts: { orgId: string, text: strin
   const prompt = `Разложи следующее резюме на структурированные поля.\n\n<резюме>\n${text}\n</резюме>`
 
   // temperature: 0 — детерминированный разбор (одинаковый вход → одинаковый выход).
+  // disableThinking: разбору резюме reasoning не нужен — у Qwen3.6/GLM это экономит
+  // десятки секунд/минуты (thinking-фаза), качество извлечения полей не страдает.
   const result = await generateStructuredOutput(config, {
     system, prompt, schema: structuredResumeSchema,
     schemaName: 'structured_resume',
     schemaDescription: 'Структурированное представление резюме кандидата',
     temperature: 0,
+    disableThinking: true,
   })
 
   return { parsed: result.object, usage: result.usage, config }
