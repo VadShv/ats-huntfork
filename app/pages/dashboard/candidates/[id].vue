@@ -37,9 +37,6 @@ const activeTab = useDetailTabRoute({
   defaultTab: 'applications',
 }) as unknown as import('vue').Ref<CandidateTab>
 
-// Версия резюме: null = текущая, иначе id выбранной версии.
-const selectedResumeVersionId = ref<string | null>(null)
-
 // Единообразие резюме: первый загруженный файл-резюме с извлечённым текстом —
 // для кнопки «Структурировать из файла (ИИ)» в empty state блока резюме.
 const resumeDocumentId = computed<string | null>(() => {
@@ -882,24 +879,13 @@ async function openHhContacts() {
             :can-generate="Boolean((candidate as any).hasResumeSnapshot)"
             @generated="refresh()"
           />
-          <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
-            <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-4 flex items-center justify-between gap-2">
-              <!-- Единообразие резюме: нейтральный заголовок, источник показывает чип внутри компонента -->
-              <span>Резюме</span>
-              <ResumeVersionSelector
-                :candidate-id="candidateId"
-                v-model="selectedResumeVersionId"
-              />
-            </h2>
-            <CandidateHhResumeView
-              :candidate-id="candidateId"
-              :has-snapshot="Boolean((candidate as any).hasResumeSnapshot)"
-              :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
-              :version-id="selectedResumeVersionId"
-              :resume-document-id="resumeDocumentId"
-              @structured="refresh()"
-            />
-          </div>
+          <CandidateResumePanel
+            :candidate-id="candidateId"
+            :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
+            :has-snapshot="Boolean((candidate as any).hasResumeSnapshot)"
+            :resume-document-id="resumeDocumentId"
+            @changed="refresh()"
+          />
         </main>
 
         <!-- ╗╗╗ RIGHT COLUMN: tabs (applications, documents) ╗╗╗ -->

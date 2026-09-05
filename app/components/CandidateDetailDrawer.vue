@@ -25,9 +25,13 @@ const { t, te } = useI18n()
 
 const activeTab = ref<'applications' | 'documents' | 'chat'>('applications')
 
-// ─── Resume version ───────────────────────────────────────────────────────────
+// ─── Resume ───────────────────────────────────────────────────────────────────
 
-const selectedResumeVersionId = ref<string | null>(null)
+// id документа-резюме для кнопки «Структурировать из файла» в empty state панели.
+const resumeDocumentId = computed<string | null>(() => {
+  const docs = (candidate.value as any)?.documents ?? []
+  return docs.find((d: any) => d.type === 'resume')?.id ?? null
+})
 
 // ─── Apply to job modal ───────────────────────────────────────────────────────
 
@@ -198,7 +202,6 @@ onUnmounted(() => { document.body.style.overflow = '' })
         <header class="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-200 dark:border-surface-800 shrink-0">
           <span class="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">Карточка кандидата</span>
           <div class="flex items-center gap-2 shrink-0">
-            <ReferralButton :candidate-id="candidateId" />
             <NuxtLink
               :to="localePath(`/dashboard/candidates/${candidateId}`)"
               class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
@@ -343,25 +346,15 @@ onUnmounted(() => { document.body.style.overflow = '' })
               </dl>
             </div>
 
-            <!-- Единообразие резюме: блок показывается для любого источника структуры (hh или файл) -->
-            <div
+            <!-- Единый блок резюме (тот же, что на полной странице): версии + promote + структурирование -->
+            <CandidateResumePanel
               v-if="(candidate as any).hasResumeSnapshot || (candidate as any).hhResumeId"
-              class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5"
-            >
-              <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-200 mb-3 flex items-center justify-between gap-2">
-                <span>Резюме</span>
-                <CandidateResumeVersionSelector
-                  :candidate-id="candidateId"
-                  v-model="selectedResumeVersionId"
-                />
-              </h3>
-              <CandidateHhResumeView
-                :candidate-id="candidateId"
-                :has-snapshot="Boolean((candidate as any).hasResumeSnapshot || (candidate as any).hhResumeId)"
-                :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
-                :version-id="selectedResumeVersionId"
-              />
-            </div>
+              :candidate-id="candidateId"
+              :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
+              :has-snapshot="Boolean((candidate as any).hasResumeSnapshot || (candidate as any).hhResumeId)"
+              :resume-document-id="resumeDocumentId"
+              @changed="refresh()"
+            />
 
             <!-- Properties -->
             <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4">
