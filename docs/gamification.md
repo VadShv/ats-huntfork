@@ -3,6 +3,11 @@
 > **Статус:** living-doc проектирования. Обновляется при каждом изменении механик геймификации.
 > История: базовый модуль достижений (сентябрь 2026) — `server/utils/achievements`, `shared/achievements-catalog.ts`.
 > HuntPass (сезонный трек) — октябрь 2026.
+>
+> **Реализовано на сентябрь 2026 (этапы A–G2 + G3 UI):** достижения, HuntPass, квесты («Цели дня»),
+> ранги/дивизионы (D1–D2), команды/лига + MVP-пуши (E1), дуэли (E2), экономика/магазин (F),
+> рефералы (G1), kudos (G2), UI-хаб «Лига рекрутеров» с 4 вкладками + сводная таблица метрик +
+> основной рекрутер вакансии (G3). Детали — раздел 10.
 
 ---
 
@@ -41,12 +46,17 @@
 | Этап | Что | Данные | Статус |
 |---|---|---|---|
 | — | Базовые достижения + XP + лидерборд | `achievement`, `user_achievement` | ✅ готово |
-| **B+C** | **HuntPass:** Сезоны (квартал) + Сезонный трек (free/premium) | `season`, `user_season_progress` | 🚧 в работе |
-| **A** | Квесты (daily/weekly/сезонные) + стрик + streak freeze | `quest_template`, `user_quest` | 🎯 след. |
-| **D** | Ранговая лестница + дивизионы + decay | `user_rank` | план |
-| **E** | Командная лига + дуэли + MVP-пуши | `team_score`, `duel` | план |
-| **F** | Монеты + магазин (косметика/перки) | `wallet`, `shop_item` | план |
-| **G** | Метрики качества (acceptance, retention, NPS) | расширение метрик | сквозь все этапы |
+| **B+C** | **HuntPass:** Сезоны (квартал) + Сезонный трек (free/premium) | `season`, `user_season_progress` | ✅ готово |
+| **A** | Квесты (daily/weekly) — «Цели дня» | `quest_template`, `user_quest` | ✅ готово |
+| **D1** | Ранг/дивизионы (RP core) | `user_rank` | ✅ готово |
+| **D2** | Промо-серии, decay, placement, weekly tick | `user_rank`, `rank_history` | ✅ готово |
+| **E1** | Командная лига + weekly MVP-пуш в Telegram | `gamification_team`, `gamification_team_member` | ✅ готово |
+| **E2** | Дуэли 1v1 (недельные) | `duel` | ✅ готово |
+| **F** | Монеты + магазин (косметика) | `wallet`, `wallet_ledger`, `shop_item` | ✅ готово |
+| **G1** | Рефералы (передача кандидатов, ассисты) | `referral` | ✅ готово |
+| **G2** | Kudos (признание коллег) | `kudos` | ✅ готово |
+| **G3** | UI-хаб «Лига рекрутеров» (4 вкладки) + таблица метрик + основной рекрутер | `job_member.is_primary` | ✅ готово |
+| **Q** | Метрики качества (acceptance, retention, NPS) | расширение метрик | сквозь все этапы |
 
 ---
 
@@ -165,9 +175,107 @@ user_quest(id, user_id, org_id, quest_template_id, period_key, progress, status,
 
 ---
 
-## 9. Открытые вопросы
+## 10. Реализованные механики D–G3 (справочник)
+
+> Всё персонально и org-scoped. Метрики считаются из существующих данных
+> (`application_stage_history`, `activity_log`) — новых таблиц трекинга нет.
+> Учитываются только **ручные ходы рекрутера** (`moved_by_user_id`) — AI-авто-переводы
+> и этап «На рассмотрении» у НМ (`hm_review`) не засчитываются.
+
+### 10.1 Ранг и дивизионы (D1–D2)
+
+- **RP** (Rank Points) = `Σ(result_points × gradeMult) × qualityFactor × speedFactor`.
+  - Источник: `server/utils/ranks/rp.ts` → `computeOrgRp(orgId, startISO, endISO)` / `computeUserRp(...)`.
+  - `result_points`: найм/оффер/интервью (из `application_stage_history` по типу стадии) + закрытие вакансии (из `activity_log` `status_changed→closed`).
+  - `gradeMult` — вес по грейду вакансии (`job.experience_level`, junior…lead), `gradeMultiplierSql`.
+  - `qualityFactor` — acceptance (наймы/офферы), `speedFactor` — time-to-first-response (первый ход в contact/screening).
+  - Веса/факторы — `shared/gamification-config.ts`.
+- **Дивизионы** Бронза→Легенда — `shared/ranks-catalog.ts` (`divisionForRp`, `DIVISIONS`, `LEGEND`, топ-N = Легенда).
+- **D2 sticky-state** (`user_rank`): статусы `placement`/`ranked`, промо-серия (`promoProgress`/`promoWeeksRequired`), decay при простое, калибровка новичка (`placementWeeks`). Тренд — `rank_history` (недельные снапшоты RP).
+- **Weekly tick** — `server/tasks/rank/` + `POST /api/rank/tick`: обновляет sticky-state, промо/decay, пишет `rank_history`.
+- **API:** `GET /api/rank` (RP + дивизион + позиция + breakdown + trend), `GET /api/rank/leaderboard`.
+
+### 10.2 Команды и лига (E1)
+
+- Таблицы: `gamification_team` (name, color), `gamification_team_member` (uniqueindex: рекрутер ∈ ≤1 команды на орг).
+- Лига = средний RP на участника (честно к размеру команды). `GET /api/teams/league`.
+- **MVP-пуш**: раз в неделю бот постит лучшего по приросту RP в Telegram-чат.
+  Настройки — `GET/PATCH /api/gamification/settings` (`mvpEnabled`, `mvpTelegramChatId`).
+- Управление — `TeamsManager.vue` (создание/участники/MVP), вкладка «Команда».
+
+### 10.3 Дуэли 1v1 (E2)
+
+- Таблица `duel`. Недельный вызов коллеги по метрике (наймы/офферы/интервью/продвижения). До 3 активных.
+- Победитель получает бонус SXP + монеты. `GET /api/duels`, `POST /api/duels`, `POST /api/duels/{id}/respond`.
+
+### 10.4 Экономика и магазин (F)
+
+- `wallet` (баланс) + `wallet_ledger` (транзакции) + `shop_item` (косметика: рамки, титулы, акценты).
+- Источники монет: квесты, дуэли, ассисты-рефералы, тиры HuntPass. `GET /api/wallet`, магазин `/dashboard/shop`.
+
+### 10.5 Рефералы (G1, кооператив)
+
+- Таблица `referral`. Передача кандидата коллеге (кнопка в карточке). Приём → выбор вакансии.
+- Если принявший в итоге нанял — автор получает **ассист**: SXP + монеты + прогресс ачивки «Командный игрок».
+- `GET /api/referrals`, `POST /api/referrals/{id}/respond`.
+
+### 10.6 Kudos (G2)
+
+- Таблица `kudos` (лимит 5/неделя на отправителя — `week_key`). Признание коллеги → получатель получает монеты.
+- Ачивки за полученные kudos. Weekly «Team Player»-пуш. `GET/POST /api/kudos`.
+
+### 10.7 Квесты — «Цели дня» (A, реализовано)
+
+- Ежедневные (3) + недельные цели. Прогресс из движка метрик. Награда SXP + монеты. `GET /api/quests`, `POST /api/quests/claim`.
+- **UI-название — «Цели дня»** (виджет `QuestsWidget.vue`). Внутренний код/таблицы/API сохраняют имя `quest`.
+
+### 10.8 UI-хаб «Лига рекрутеров» (G3)
+
+Страница `app/pages/dashboard/settings/league.vue` — единый хаб геймификации в настройках
+(виджеты убраны с главного дашборда). **4 внутренние вкладки** (синхр. с `?tab=`):
+
+| Вкладка | `?tab=` | Содержимое |
+|---|---|---|
+| **Прогресс** | (нет) | Таблица метрик + Ранг (справа); ниже HuntPass + Достижения |
+| **Челленджи** | `challenges` | «Цели дня» (QuestsWidget) |
+| **Магазин** | `shop` | ShopWidget |
+| **Команда** | `team` | Лига, Дуэли, Рефералы, Kudos + TeamsManager (в конце) |
+
+- Ленивый рендер по активной вкладке (`v-if`) — грузятся только её виджеты.
+- Обратная совместимость: legacy `?tab=teams`/`overview` → `normalizeTab()`. Старый роут
+  `settings/teams` → 302-редирект на `league?tab=team`.
+- Пункт в `SettingsSidebar.vue` + `SettingsMobileNav.vue` (иконка Sparkles/«Лига»).
+
+### 10.9 Сводная таблица метрик (G3)
+
+- Компонент `MetricsSummaryWidget.vue`, API `GET /api/metrics/summary?period=all|season`.
+- Фильтр периода: **Всё время** (окно от эпохи) / **Сезон** (текущий квартал, `quarterBounds()`).
+- 5 персональных метрик:
+  1. **Вакансий в работе** — `job.status='open'`, где пользователь = **основной рекрутер** (не зависит от периода).
+  2. **Закрыто вакансий** — `computeUserRp.vacanciesClosed` за окно.
+  3. **Сделано офферов** — `computeUserRp.offers` за окно.
+  4. **Средний срок закрытия (дни)** — `avg(activity_log.created_at − job.created_at)` для закрытых пользователем.
+  5. **Интервью в неделю** — `computeUserRp.interviews` ÷ число недель окна.
+- Источник 2/3/5 общий с рангом (`computeUserRp`) — цифры консистентны.
+
+### 10.10 Основной рекрутер вакансии (G3)
+
+- Расширение `job_member` (schema `hm.ts`): колонка `is_primary boolean` + **частичный уникальный индекс**
+  `uq_job_member_primary_recruiter` (один основной recruiter на вакансию). Миграция `0082_job_member_primary.sql`
+  (+ запись в `meta/_journal.json`; применяется рантайм-плагином `server/plugins/migrations.ts`).
+- Backfill: самый ранний рекрутер вакансии → основной.
+- API: `POST /api/jobs/[id]/members` (авто-primary для первого/явного, снятие прежнего),
+  `DELETE .../[userId]` (промоут следующего при удалении основного),
+  `PATCH /api/jobs/[id]/members/[userId]/primary`, `GET` возвращает `isPrimary`.
+- UI `JobRecruitersSection.vue`: бейдж «Основной» + «Сделать основным». Основной — первым в списке.
+- Статистика «вакансий в работе» (10.9) считается по основному рекрутеру.
+
+---
+
+## 11. Открытые вопросы
 
 1. Точная формула качества-множителя (черновик в 5.3).
 2. Реальные premium-награды — конкретика (настраиваемо орг).
-3. Ранги (этап D) — с какого числа рекрутеров включать соревнование.
+3. Ранги — с какого числа рекрутеров включать соревнование (сейчас работает при любом).
 4. Кривая SXP — калибровка после первого сезона по реальным данным.
+5. Метрики качества (retention 90д, NPS, оценка НМ) — сбор данных ещё не подключён (задача Q).
