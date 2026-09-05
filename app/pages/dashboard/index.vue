@@ -598,6 +598,7 @@ const isEmpty = computed(() =>
           <!-- ─── Achievements widget ─── -->
           <RankWidget />
           <ReferralsWidget />
+          <KudosWidget />
           <TeamLeagueWidget />
           <DuelsWidget />
           <ShopWidget />

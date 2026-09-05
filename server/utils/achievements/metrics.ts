@@ -19,6 +19,7 @@ export interface RecruiterMetrics {
   morningActivity: number
   weekendActivity: number
   assists: number
+  kudosReceived: number
 }
 
 export async function computeRecruiterMetrics(userId: string, orgId: string): Promise<RecruiterMetrics> {
@@ -89,6 +90,13 @@ export async function computeRecruiterMetrics(userId: string, orgId: string): Pr
   `)
   const assists = Number((assistRows as any[])[0]?.n ?? 0)
 
+  // Kudos received (lifetime).
+  const kudosRows = await db.execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n FROM kudos
+    WHERE organization_id = ${orgId} AND to_user_id = ${userId}
+  `)
+  const kudosReceived = Number((kudosRows as any[])[0]?.n ?? 0)
+
   return {
     vacanciesClosed, offersMade, offersAccepted, interviews, candidatesScreened,
     offerAcceptRate, activityStreak, fastestHireDays,
@@ -96,5 +104,6 @@ export async function computeRecruiterMetrics(userId: string, orgId: string): Pr
     morningActivity: Number(sp?.morning ?? 0),
     weekendActivity: Number(sp?.weekend ?? 0),
     assists,
+    kudosReceived,
   }
 }

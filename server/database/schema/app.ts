@@ -2564,3 +2564,26 @@ export const referralRelations = relations(referral, ({ one }) => ({
   fromUser: one(user, { fields: [referral.fromUserId], references: [user.id], relationName: 'referral_from' }),
   toUser: one(user, { fields: [referral.toUserId], references: [user.id], relationName: 'referral_to' }),
 }))
+
+// ─────────────────────────────────────────────
+// Kudos — peer recognition (gamification stage G2)
+// ─────────────────────────────────────────────
+
+export const kudos = pgTable('kudos', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  fromUserId: text('from_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  toUserId: text('to_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  reason: text('reason'),
+  weekKey: text('week_key').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('kudos_from_week_idx').on(t.organizationId, t.fromUserId, t.weekKey),
+  index('kudos_to_idx').on(t.organizationId, t.toUserId),
+]))
+
+export const kudosRelations = relations(kudos, ({ one }) => ({
+  organization: one(organization, { fields: [kudos.organizationId], references: [organization.id] }),
+  fromUser: one(user, { fields: [kudos.fromUserId], references: [user.id], relationName: 'kudos_from' }),
+  toUser: one(user, { fields: [kudos.toUserId], references: [user.id], relationName: 'kudos_to' }),
+}))

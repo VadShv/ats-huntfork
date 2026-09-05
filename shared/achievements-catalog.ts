@@ -68,6 +68,11 @@ export const ACHIEVEMENT_CATALOG: AchievementDef[] = [
   { key: 'first_assist', name: 'Командный игрок', description: 'Переданный вами кандидат нанят коллегой', category: 'collaboration', tier: 'bronze', icon: '🤝', metric: 'assists', threshold: 1, points: 15, sortOrder: 22 },
   { key: 'assist_5', name: 'Связной', description: '5 успешных передач кандидатов', category: 'collaboration', tier: 'silver', icon: '🌉', metric: 'assists', threshold: 5, points: 30, sortOrder: 23 },
   { key: 'assist_25', name: 'Архитектор команды', description: '25 успешных передач кандидатов', category: 'collaboration', tier: 'gold', icon: '🧩', metric: 'assists', threshold: 25, points: 60, sortOrder: 24 },
+
+  // ── Collaboration (G2) — kudos received from colleagues ──
+  { key: 'kudos_1', name: 'Признанный', description: 'Получите первый kudos от коллеги', category: 'collaboration', tier: 'bronze', icon: '👍', metric: 'kudos_received', threshold: 1, points: 10, sortOrder: 25 },
+  { key: 'kudos_10', name: 'Уважаемый', description: '10 kudos от коллег', category: 'collaboration', tier: 'silver', icon: '💛', metric: 'kudos_received', threshold: 10, points: 25, sortOrder: 26 },
+  { key: 'kudos_50', name: 'Душа команды', description: '50 kudos от коллег', category: 'collaboration', tier: 'gold', icon: '🌟', metric: 'kudos_received', threshold: 50, points: 55, sortOrder: 27 },
 ]
 
 /** XP thresholds for levels. */

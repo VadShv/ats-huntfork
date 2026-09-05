@@ -90,11 +90,16 @@ export const METRIC_REGISTRY: Record<string, MetricFn> = {
       AND created_at >= ${s} AND created_at <= ${e}
   `)),
 
-  // ── Collaboration (G1) ──
+  // ── Collaboration (G1/G2) ──
   assists: (u, o, s, e) => scalar(db.execute(sql`
     SELECT count(*)::int AS n FROM referral
     WHERE organization_id = ${o} AND from_user_id = ${u} AND status = 'hired'
       AND resolved_at >= ${s} AND resolved_at <= ${e}
+  `)),
+  kudos_received: (u, o, s, e) => scalar(db.execute(sql`
+    SELECT count(*)::int AS n FROM kudos
+    WHERE organization_id = ${o} AND to_user_id = ${u}
+      AND created_at >= ${s} AND created_at <= ${e}
   `)),
 }
 

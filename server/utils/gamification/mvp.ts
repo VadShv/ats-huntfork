@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm'
 import { gamificationSettings, commsTelegramBot } from '../../database/schema'
 import { getOrCreateCurrentSeason } from '../huntpass/season'
 import { getBotToken, tgSendMessage } from '../comms/telegram'
+import { weeklyPeriod } from '../quests/period'
 
 export interface Mvp {
   userId: string
@@ -47,6 +48,40 @@ export async function computeWeeklyMvp(orgId: string): Promise<Mvp | null> {
   return best
 }
 
+export interface TeamPlayer { userId: string, name: string, assists: number, kudos: number, score: number }
+
+/** Compute the weekly Team Player: top by (assists + kudos received) this week. */
+export async function computeTeamPlayer(orgId: string): Promise<TeamPlayer | null> {
+  const week = weeklyPeriod()
+  const start = week.start.toISOString()
+  const end = week.end.toISOString()
+  const rows = await db.execute<{ user_id: string, name: string, assists: number, kudos: number }>(sql`
+    WITH a AS (
+      SELECT from_user_id AS uid, count(*)::int AS assists FROM referral
+      WHERE organization_id = ${orgId} AND status = 'hired' AND resolved_at >= ${start} AND resolved_at <= ${end}
+      GROUP BY from_user_id
+    ), k AS (
+      SELECT to_user_id AS uid, count(*)::int AS kudos FROM kudos
+      WHERE organization_id = ${orgId} AND created_at >= ${start} AND created_at <= ${end}
+      GROUP BY to_user_id
+    ), ids AS (SELECT uid FROM a UNION SELECT uid FROM k)
+    SELECT ids.uid AS user_id, COALESCE(u.name, u.email) AS name,
+           COALESCE(a.assists, 0) AS assists, COALESCE(k.kudos, 0) AS kudos
+    FROM ids
+    LEFT JOIN a ON a.uid = ids.uid
+    LEFT JOIN k ON k.uid = ids.uid
+    JOIN "user" u ON u.id = ids.uid
+  `)
+  let best: TeamPlayer | null = null
+  for (const r of rows as any[]) {
+    const assists = Number(r.assists), kudos = Number(r.kudos)
+    const score = assists * 3 + kudos // assist weighs more than a kudos
+    if (score <= 0) continue
+    if (!best || score > best.score) best = { userId: r.user_id, name: r.name, assists, kudos, score }
+  }
+  return best
+}
+
 /** Announce the weekly MVP to the org's Telegram channel (no-op if not configured). */
 export async function pushMvpToTelegram(orgId: string): Promise<boolean> {
   const settings = await db.query.gamificationSettings.findFirst({
@@ -59,13 +94,16 @@ export async function pushMvpToTelegram(orgId: string): Promise<boolean> {
   })
   if (!bot) return false
 
-  const mvp = await computeWeeklyMvp(orgId)
-  if (!mvp) return false
+  const [mvp, teamPlayer] = await Promise.all([computeWeeklyMvp(orgId), computeTeamPlayer(orgId)])
+  if (!mvp && !teamPlayer) return false
+
+  const parts: string[] = []
+  if (mvp) parts.push(`🏆 <b>MVP недели</b>\n${mvp.name} — <b>+${mvp.delta} RP</b> (всего ${mvp.rp} RP).`)
+  if (teamPlayer) parts.push(`🤝 <b>Командный игрок недели</b>\n${teamPlayer.name} — ${teamPlayer.assists} ассистов, ${teamPlayer.kudos} kudos.`)
 
   try {
     const token = getBotToken(bot)
-    const text = `🏆 <b>MVP недели</b>\n\n${mvp.name} — <b>+${mvp.delta} RP</b> за неделю (всего ${mvp.rp} RP).\nОтличная работа! 🚀`
-    await tgSendMessage(token, settings.mvpTelegramChatId, text)
+    await tgSendMessage(token, settings.mvpTelegramChatId, parts.join('\n\n') + '\n\nОтличная работа! 🚀')
     return true
   } catch (e) {
     console.warn('[mvp] telegram push failed', (e as Error).message)

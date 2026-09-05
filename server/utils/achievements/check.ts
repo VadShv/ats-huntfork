@@ -40,6 +40,7 @@ const METRIC_KEY_MAP: Record<string, keyof RecruiterMetrics> = {
   morning_activity: 'morningActivity',
   weekend_activity: 'weekendActivity',
   assists: 'assists',
+  kudos_received: 'kudosReceived',
 }
 
 /** Check if a metric meets the achievement threshold. */
