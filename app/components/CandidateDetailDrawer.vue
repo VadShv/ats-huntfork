@@ -198,6 +198,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
         <header class="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-200 dark:border-surface-800 shrink-0">
           <span class="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">Карточка кандидата</span>
           <div class="flex items-center gap-2 shrink-0">
+            <ReferralButton :candidate-id="candidateId" />
             <NuxtLink
               :to="localePath(`/dashboard/candidates/${candidateId}`)"
               class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"

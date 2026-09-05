@@ -89,6 +89,13 @@ export const METRIC_REGISTRY: Record<string, MetricFn> = {
       AND metadata->>'to' = 'closed'
       AND created_at >= ${s} AND created_at <= ${e}
   `)),
+
+  // ── Collaboration (G1) ──
+  assists: (u, o, s, e) => scalar(db.execute(sql`
+    SELECT count(*)::int AS n FROM referral
+    WHERE organization_id = ${o} AND from_user_id = ${u} AND status = 'hired'
+      AND resolved_at >= ${s} AND resolved_at <= ${e}
+  `)),
 }
 
 /** Count candidates currently stuck (state metric, excludes HM-review). */

@@ -597,6 +597,7 @@ const isEmpty = computed(() =>
         <div class="space-y-6">
           <!-- ─── Achievements widget ─── -->
           <RankWidget />
+          <ReferralsWidget />
           <TeamLeagueWidget />
           <DuelsWidget />
           <ShopWidget />

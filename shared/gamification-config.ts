@@ -85,6 +85,9 @@ export const GAMIFICATION_CONFIG = {
     maxActivePerUser: 3,
   },
 
+  /** Referrals / assists (stage G1) — cooperative reward for a referred hire. */
+  referralReward: { assistSxp: 60, assistCoins: 30 },
+
   /** Economy (stage F) — coins earned from gameplay, spent in the shop. */
   economy: {
     /** Coins per quest = round(sxpReward × coinRatio). */

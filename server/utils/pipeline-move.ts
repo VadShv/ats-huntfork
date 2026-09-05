@@ -316,6 +316,14 @@ export async function moveApplicationStage(opts: MoveStageOptions): Promise<Move
     })()
   }
 
+  // 7c. Referral assist — pay the referrer if this hire came from a referral.
+  void (async () => {
+    try {
+      const { payReferralAssistOnHire } = await import('./referrals/assist')
+      await payReferralAssistOnHire(organizationId, applicationId, toStageId)
+    } catch { /* best-effort */ }
+  })()
+
   // 8. hh.ru push — fire-and-forget из ВСЕХ путей (Спринт 22, фикс A2).
   //    Раньше пушил только stage.patch — отказы НМ и авто-отказы «зависали» на hh.
   if (!opts.skipHhPush) {

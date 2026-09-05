@@ -17,7 +17,7 @@ export interface AchievementDef {
   key: string
   name: string
   description: string
-  category: 'vacancies' | 'offers' | 'hires' | 'interviews' | 'speed' | 'streak' | 'special'
+  category: 'vacancies' | 'offers' | 'hires' | 'interviews' | 'speed' | 'streak' | 'special' | 'collaboration'
   tier: 'bronze' | 'silver' | 'gold' | 'platinum'
   icon: string
   metric: string
@@ -63,6 +63,11 @@ export const ACHIEVEMENT_CATALOG: AchievementDef[] = [
   { key: 'night_owl', name: 'Ночная смена', description: 'Работа после 22:00', category: 'special', tier: 'bronze', icon: '🦉', metric: 'night_activity', threshold: 1, points: 5, isHidden: true, sortOrder: 19 },
   { key: 'early_bird', name: 'Жаворонок', description: 'Работа до 7:00', category: 'special', tier: 'bronze', icon: '🐓', metric: 'morning_activity', threshold: 1, points: 5, isHidden: true, sortOrder: 20 },
   { key: 'weekend_warrior', name: 'Выходной не отдых', description: 'Работа в выходной день', category: 'special', tier: 'bronze', icon: '💪', metric: 'weekend_activity', threshold: 1, points: 5, isHidden: true, sortOrder: 21 },
+
+  // ── Collaboration (G1) — referred candidates that got hired ──
+  { key: 'first_assist', name: 'Командный игрок', description: 'Переданный вами кандидат нанят коллегой', category: 'collaboration', tier: 'bronze', icon: '🤝', metric: 'assists', threshold: 1, points: 15, sortOrder: 22 },
+  { key: 'assist_5', name: 'Связной', description: '5 успешных передач кандидатов', category: 'collaboration', tier: 'silver', icon: '🌉', metric: 'assists', threshold: 5, points: 30, sortOrder: 23 },
+  { key: 'assist_25', name: 'Архитектор команды', description: '25 успешных передач кандидатов', category: 'collaboration', tier: 'gold', icon: '🧩', metric: 'assists', threshold: 25, points: 60, sortOrder: 24 },
 ]
 
 /** XP thresholds for levels. */

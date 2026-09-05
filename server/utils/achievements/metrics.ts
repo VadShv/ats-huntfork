@@ -18,6 +18,7 @@ export interface RecruiterMetrics {
   nightActivity: number
   morningActivity: number
   weekendActivity: number
+  assists: number
 }
 
 export async function computeRecruiterMetrics(userId: string, orgId: string): Promise<RecruiterMetrics> {
@@ -81,11 +82,19 @@ export async function computeRecruiterMetrics(userId: string, orgId: string): Pr
   `)
   const sp = (specialRows as any[])[0]
 
+  // Assists (lifetime): referred candidates that got hired.
+  const assistRows = await db.execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n FROM referral
+    WHERE organization_id = ${orgId} AND from_user_id = ${userId} AND status = 'hired'
+  `)
+  const assists = Number((assistRows as any[])[0]?.n ?? 0)
+
   return {
     vacanciesClosed, offersMade, offersAccepted, interviews, candidatesScreened,
     offerAcceptRate, activityStreak, fastestHireDays,
     nightActivity: Number(sp?.night ?? 0),
     morningActivity: Number(sp?.morning ?? 0),
     weekendActivity: Number(sp?.weekend ?? 0),
+    assists,
   }
 }

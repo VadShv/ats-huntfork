@@ -2531,3 +2531,36 @@ export const userInventoryRelations = relations(userInventory, ({ one }) => ({
   user: one(user, { fields: [userInventory.userId], references: [user.id] }),
   organization: one(organization, { fields: [userInventory.organizationId], references: [organization.id] }),
 }))
+
+// ─────────────────────────────────────────────
+// Referrals / Assists — cooperative layer (gamification stage G1)
+// ─────────────────────────────────────────────
+
+export const referral = pgTable('referral', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  candidateId: text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
+  fromUserId: text('from_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  toUserId: text('to_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  suggestedJobId: text('suggested_job_id').references(() => job.id, { onDelete: 'set null' }),
+  note: text('note'),
+  /** pending | accepted | declined | hired | expired */
+  status: text('status').notNull().default('pending'),
+  resultApplicationId: text('result_application_id'),
+  assistPaid: boolean('assist_paid').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  resolvedAt: timestamp('resolved_at'),
+}, (t) => ([
+  index('referral_org_idx').on(t.organizationId),
+  index('referral_from_idx').on(t.fromUserId),
+  index('referral_to_idx').on(t.toUserId),
+  index('referral_status_idx').on(t.organizationId, t.status),
+  index('referral_result_app_idx').on(t.resultApplicationId),
+]))
+
+export const referralRelations = relations(referral, ({ one }) => ({
+  organization: one(organization, { fields: [referral.organizationId], references: [organization.id] }),
+  candidate: one(candidate, { fields: [referral.candidateId], references: [candidate.id] }),
+  fromUser: one(user, { fields: [referral.fromUserId], references: [user.id], relationName: 'referral_from' }),
+  toUser: one(user, { fields: [referral.toUserId], references: [user.id], relationName: 'referral_to' }),
+}))

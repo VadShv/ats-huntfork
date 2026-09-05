@@ -554,6 +554,13 @@
       "when": 1801000250000,
       "tag": "0079_economy",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1801000260000,
+      "tag": "0080_referrals",
+      "breakpoints": true
     }
   ]
 }
