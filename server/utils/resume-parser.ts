@@ -38,7 +38,7 @@ function ensurePdfjsPolyfills() {
   }
 }
 
-const PARSER_VERSION = '1.0'
+const PARSER_VERSION = '1.1' // 1.1: layout-aware getText params + word-hyphen repair
 
 export interface ParsedResume {
   /** Full extracted text content */
@@ -151,7 +151,21 @@ async function parsePdf(buffer: Buffer): Promise<ParsedResume | null> {
 
   let result
   try {
-    result = await Promise.race([parser.getText(), timeoutPromise])
+    // Layout-aware извлечение: pdf-parse v2 умеет восстанавливать строки и колонки
+    // по геометрии текстовых элементов. Без этих параметров многоколоночные/
+    // табличные резюме склеиваются в кашу и LLM теряет опыт работы.
+    //   - lineEnforce: вставлять перевод строки по вертикальному разрыву;
+    //   - cellSeparator: между колонками (горизонтальный разрыв) ставим ПРОБЕЛ,
+    //     а не таб, чтобы порядок чтения не ломался и текст оставался читаемым;
+    //   - cellThreshold: чуть больше дефолта — меньше ложных разбиений внутри фраз.
+    result = await Promise.race([
+      parser.getText({
+        lineEnforce: true,
+        cellSeparator: ' ',
+        cellThreshold: 8,
+      }),
+      timeoutPromise,
+    ])
   }
   finally {
     if (timeoutHandle) clearTimeout(timeoutHandle)
@@ -246,6 +260,9 @@ function normalizeText(raw: string): string {
     // Normalize Windows line endings
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
+    // Починка переносов слов по слогам из PDF: «раз-\nработка» → «разработка».
+    // (дефис в конце строки + перенос + строчная буква = разорванное слово)
+    .replace(/([а-яёa-z])-\n([а-яёa-z])/gi, '$1$2')
     // Collapse 3+ consecutive newlines into 2
     .replace(/\n{3,}/g, '\n\n')
     // Collapse multiple spaces/tabs on same line into one
