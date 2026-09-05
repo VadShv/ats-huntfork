@@ -28,7 +28,7 @@ const myTeamId = computed(() => data.value?.myTeamId)
         <Users class="size-5 text-brand-500" />
         <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">Лига команд</span>
       </div>
-      <NuxtLink to="/dashboard/settings/teams" class="text-xs text-brand-600 dark:text-brand-400 hover:underline">Управление</NuxtLink>
+      <NuxtLink to="/dashboard/settings/league?tab=teams" class="text-xs text-brand-600 dark:text-brand-400 hover:underline">Управление</NuxtLink>
     </div>
 
     <div class="space-y-2">

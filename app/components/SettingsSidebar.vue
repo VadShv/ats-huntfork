@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Globe, GitBranch, Bot, Landmark, Network, Trophy,
+  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Globe, GitBranch, Bot, Landmark, Network, Sparkles,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -36,11 +36,11 @@ const settingsNav = [
     exact: true,
   },
   {
-    label: 'Команды',
-    description: 'Лига и MVP-пуши',
-    to: '/dashboard/settings/teams',
-    icon: Trophy,
-    exact: true,
+    label: 'Лига рекрутеров',
+    description: 'Геймификация, прогресс и команды',
+    to: '/dashboard/settings/league',
+    icon: Sparkles,
+    exact: false,
   },
   {
     label: 'Воронки',

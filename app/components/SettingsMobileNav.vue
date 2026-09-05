@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Building2, Users, UserCircle, ChevronLeft, Plug, Brain, ShieldCheck, Globe, GitBranch, Landmark, Network,
+  Building2, Users, UserCircle, ChevronLeft, Plug, Brain, ShieldCheck, Globe, GitBranch, Landmark, Network, Sparkles,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -30,6 +30,12 @@ const settingsNav = [
     to: '/dashboard/settings/org-structure',
     icon: Landmark,
     exact: true,
+  },
+  {
+    label: 'Лига',
+    to: '/dashboard/settings/league',
+    icon: Sparkles,
+    exact: false,
   },
   {
     label: 'Воронки',
