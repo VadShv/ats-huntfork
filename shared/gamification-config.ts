@@ -84,6 +84,15 @@ export const GAMIFICATION_CONFIG = {
     /** Max simultaneously active/pending duels per recruiter. */
     maxActivePerUser: 3,
   },
+
+  /** Economy (stage F) — coins earned from gameplay, spent in the shop. */
+  economy: {
+    /** Coins per quest = round(sxpReward × coinRatio). */
+    questCoinRatio: 0.25,
+    /** Coins awarded to a duel winner. */
+    duelWinCoins: 25,
+    /** Coins per HuntPass tier reward of type 'coins' use reward.amount directly. */
+  },
 } as const
 
 /** Rank quality factor from offer acceptance. */

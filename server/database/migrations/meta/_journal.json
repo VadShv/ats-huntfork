@@ -547,6 +547,13 @@
       "when": 1801000240000,
       "tag": "0078_duels",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1801000250000,
+      "tag": "0079_economy",
+      "breakpoints": true
     }
   ]
 }

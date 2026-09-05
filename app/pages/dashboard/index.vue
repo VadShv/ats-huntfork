@@ -599,6 +599,7 @@ const isEmpty = computed(() =>
           <RankWidget />
           <TeamLeagueWidget />
           <DuelsWidget />
+          <ShopWidget />
           <QuestsWidget />
           <HuntPassWidget />
           <AchievementsWidget />

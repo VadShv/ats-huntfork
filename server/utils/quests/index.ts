@@ -5,6 +5,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { questTemplate, userQuest, userSeasonProgress } from '../../database/schema'
 import { QUEST_CATALOG, DAILY_QUEST_COUNT, WEEKLY_QUEST_COUNT, type QuestType } from '../../../shared/quests-catalog'
+import { GAMIFICATION_CONFIG } from '../../../shared/gamification-config'
 import { computeMetric } from '../gamification/metrics-registry'
 import { dailyPeriod, weeklyPeriod, type Period } from './period'
 import { getOrCreateCurrentSeason } from '../huntpass/season'
@@ -169,5 +170,12 @@ export async function claimQuest(userId: string, orgId: string, userQuestId: str
       set: { bonusSxp: sql`${userSeasonProgress.bonusSxp} + ${row.template.sxpReward}`, updatedAt: new Date() },
     })
 
-  return { success: true, sxpAwarded: row.template.sxpReward }
+  // Award coins (economy stage F).
+  const coins = Math.round(row.template.sxpReward * GAMIFICATION_CONFIG.economy.questCoinRatio)
+  try {
+    const { creditCoins } = await import('../economy/wallet')
+    await creditCoins(userId, orgId, coins, 'quest', row.id)
+  } catch { /* best-effort */ }
+
+  return { success: true, sxpAwarded: row.template.sxpReward, coinsAwarded: coins }
 }

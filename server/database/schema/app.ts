@@ -2482,3 +2482,52 @@ export const duelRelations = relations(duel, ({ one }) => ({
   challenger: one(user, { fields: [duel.challengerId], references: [user.id], relationName: 'duel_challenger' }),
   opponent: one(user, { fields: [duel.opponentId], references: [user.id], relationName: 'duel_opponent' }),
 }))
+
+// ─────────────────────────────────────────────
+// Economy — coins & shop (gamification stage F)
+// ─────────────────────────────────────────────
+
+export const userWallet = pgTable('user_wallet', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  balance: integer('balance').notNull().default(0),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('user_wallet_org_user_idx').on(t.organizationId, t.userId),
+]))
+
+export const coinTransaction = pgTable('coin_transaction', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  amount: integer('amount').notNull(), // + earn, - spend
+  reason: text('reason').notNull(), // quest | duel | tier | purchase
+  refId: text('ref_id'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('coin_transaction_user_idx').on(t.organizationId, t.userId),
+]))
+
+export const userInventory = pgTable('user_inventory', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  itemKey: text('item_key').notNull(),
+  itemType: text('item_type').notNull(), // frame | title | accent
+  equipped: boolean('equipped').notNull().default(false),
+  acquiredAt: timestamp('acquired_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('user_inventory_org_user_item_idx').on(t.organizationId, t.userId, t.itemKey),
+  index('user_inventory_user_idx').on(t.organizationId, t.userId),
+]))
+
+export const userWalletRelations = relations(userWallet, ({ one }) => ({
+  user: one(user, { fields: [userWallet.userId], references: [user.id] }),
+  organization: one(organization, { fields: [userWallet.organizationId], references: [organization.id] }),
+}))
+
+export const userInventoryRelations = relations(userInventory, ({ one }) => ({
+  user: one(user, { fields: [userInventory.userId], references: [user.id] }),
+  organization: one(organization, { fields: [userInventory.organizationId], references: [organization.id] }),
+}))

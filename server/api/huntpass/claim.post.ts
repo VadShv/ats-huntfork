@@ -56,5 +56,15 @@ export default defineEventHandler(async (event) => {
     })
 
   const rewards = [tierDef.free, ...(progress?.isPremium && tierDef.premium ? [tierDef.premium] : [])]
-  return { success: true, tier, rewards }
+
+  // Credit coin-type rewards to the wallet (economy stage F).
+  const coins = rewards.filter(r => r.type === 'coins').reduce((sum, r) => sum + (r.amount ?? 0), 0)
+  if (coins > 0) {
+    try {
+      const { creditCoins } = await import('../../utils/economy/wallet')
+      await creditCoins(userId, orgId, coins, 'tier', `${s.id}:${tier}`)
+    } catch { /* best-effort */ }
+  }
+
+  return { success: true, tier, rewards, coinsAwarded: coins }
 })

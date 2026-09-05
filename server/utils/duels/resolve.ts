@@ -37,6 +37,10 @@ export async function resolveDuel(d: typeof duel.$inferSelect): Promise<void> {
         target: [userSeasonProgress.organizationId, userSeasonProgress.userId, userSeasonProgress.seasonId],
         set: { bonusSxp: sql`${userSeasonProgress.bonusSxp} + ${GAMIFICATION_CONFIG.duel.winSxp}`, updatedAt: new Date() },
       })
+    try {
+      const { creditCoins } = await import('../economy/wallet')
+      await creditCoins(winnerId, d.organizationId, GAMIFICATION_CONFIG.economy.duelWinCoins, 'duel', d.id)
+    } catch { /* best-effort */ }
   }
 }
 
