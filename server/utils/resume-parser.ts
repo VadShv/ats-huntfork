@@ -38,7 +38,7 @@ function ensurePdfjsPolyfills() {
   }
 }
 
-const PARSER_VERSION = '1.1' // 1.1: layout-aware getText params + word-hyphen repair
+const PARSER_VERSION = '1.1' // 1.1: word-hyphen repair (layout params reverted — broke name/order)
 
 export interface ParsedResume {
   /** Full extracted text content */
@@ -151,21 +151,11 @@ async function parsePdf(buffer: Buffer): Promise<ParsedResume | null> {
 
   let result
   try {
-    // Layout-aware извлечение: pdf-parse v2 умеет восстанавливать строки и колонки
-    // по геометрии текстовых элементов. Без этих параметров многоколоночные/
-    // табличные резюме склеиваются в кашу и LLM теряет опыт работы.
-    //   - lineEnforce: вставлять перевод строки по вертикальному разрыву;
-    //   - cellSeparator: между колонками (горизонтальный разрыв) ставим ПРОБЕЛ,
-    //     а не таб, чтобы порядок чтения не ломался и текст оставался читаемым;
-    //   - cellThreshold: чуть больше дефолта — меньше ложных разбиений внутри фраз.
-    result = await Promise.race([
-      parser.getText({
-        lineEnforce: true,
-        cellSeparator: ' ',
-        cellThreshold: 8,
-      }),
-      timeoutPromise,
-    ])
+    // Извлечение текста дефолтными параметрами pdf-parse (естественный порядок чтения).
+    // Прим.: layout-параметры (cellSeparator/cellThreshold) НЕ используем — они
+    // переупорядочивали дизайнерские резюме и ломали определение ФИО. Улучшение
+    // многоколоночных макетов делаем отдельно и осознанно (см. диагностику).
+    result = await Promise.race([parser.getText(), timeoutPromise])
   }
   finally {
     if (timeoutHandle) clearTimeout(timeoutHandle)
