@@ -12,6 +12,7 @@ import {
 } from '../../../../utils/schemas/document'
 import { parseDocument } from '../../../../utils/resume-parser'
 import { refreshCandidateSearchTsv } from '../../../../utils/candidateSearchText'
+import { structureDocumentIntoVersion } from '../../../../utils/resume-version/structure-from-document'
 
 /**
  * POST /api/candidates/:id/documents
@@ -44,7 +45,7 @@ export default defineEventHandler(async (event) => {
       eq(candidate.id, candidateId),
       eq(candidate.organizationId, orgId),
     ),
-    columns: { id: true },
+    columns: { id: true, hhResumeId: true },
   })
 
   if (!existingCandidate) {
@@ -192,8 +193,44 @@ export default defineEventHandler(async (event) => {
       })
     })
 
+    // Мастер-профиль: загруженное резюме автоматически становится новой версией.
+    // Запускаем структурирование в фоне (best-effort) — только для resume-файлов
+    // с извлечённым текстом и при отсутствии приоритетного hh-снепшота.
+    const parsedText = (parsedContent as { text?: string } | null)?.text?.trim() ?? ''
+    const resumeVersioningStarted
+      = documentType === 'resume' && !existingCandidate.hhResumeId && parsedText.length >= 200
+    if (resumeVersioningStarted) {
+      structureDocumentIntoVersion({
+        orgId,
+        candidateId,
+        documentId: created.id,
+        triggeredBy: session.user.id,
+      }).then((res) => {
+        if (res.action === 'created') {
+          recordActivity({
+            organizationId: orgId,
+            actorId: session.user.id,
+            action: 'updated',
+            resourceType: 'candidate',
+            resourceId: candidateId,
+            metadata: { event: 'resume_version_auto', documentId: created.id, versionNumber: res.versionNumber },
+          })
+        }
+        else if (res.action === 'failed') {
+          logWarn('candidate.resume_auto_version_failed', {
+            candidate_id: candidateId, document_id: created.id, error_message: res.reason ?? 'unknown',
+          })
+        }
+      }).catch((err) => {
+        logWarn('candidate.resume_auto_version_failed', {
+          candidate_id: candidateId, document_id: created.id,
+          error_message: err instanceof Error ? err.message : String(err),
+        })
+      })
+    }
+
     setResponseStatus(event, 201)
-    return created
+    return { ...created, resumeVersioningStarted }
   } catch (dbError) {
     // Clean up the orphaned S3 object if DB insert fails
     try {

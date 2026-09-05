@@ -962,6 +962,7 @@ export const candidateRelations = relations(candidate, ({ one, many }) => ({
   organization: one(organization, { fields: [candidate.organizationId], references: [organization.id] }),
   applications: many(application),
   documents: many(document),
+  resumeVersions: many(candidateResumeVersion, { relationName: 'candidateResumeVersions' }),
 }))
 
 export const applicationRelations = relations(application, ({ one, many }) => ({
@@ -1658,7 +1659,7 @@ export const candidateResumeVersion = pgTable('candidate_resume_version', {
 ]))
 
 export const candidateResumeVersionRelations = relations(candidateResumeVersion, ({ one }) => ({
-  candidate: one(candidate, { fields: [candidateResumeVersion.candidateId], references: [candidate.id] }),
+  candidate: one(candidate, { fields: [candidateResumeVersion.candidateId], references: [candidate.id], relationName: 'candidateResumeVersions' }),
   mergedFromCandidate: one(candidate, { fields: [candidateResumeVersion.mergedFromCandidateId], references: [candidate.id] }),
 }))
 

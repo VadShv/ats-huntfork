@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, Check, History } from 'lucide-vue-next'
+import { ChevronDown, Check, History, Star, Loader2 } from 'lucide-vue-next'
 
 const props = defineProps<{
   candidateId: string
@@ -9,7 +9,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | null]
+  /** Эмитится после успешного promote — родитель может обновить рендер резюме. */
+  'promoted': [versionNumber: number]
 }>()
+
+const { allowed: canManage } = usePermission({ candidate: ['update'] })
+const toast = useToast()
+const promotingId = ref<string | null>(null)
 
 interface VersionRow {
   id: string
@@ -26,13 +32,35 @@ interface VersionRow {
   createdAt: string
 }
 
-const { data, status } = useLazyFetch<{ total: number; versions: VersionRow[] }>(
+const { data, status, refresh } = useLazyFetch<{ total: number; versions: VersionRow[] }>(
   () => `/api/candidates/${props.candidateId}/resume-versions`,
   {
     key: computed(() => `resume-versions-${props.candidateId}`),
     server: false,
   },
 )
+
+async function promote(v: VersionRow, e: MouseEvent) {
+  e.stopPropagation()
+  if (v.isCurrent || promotingId.value) return
+  promotingId.value = v.id
+  try {
+    const res = await $fetch<{ ok: true; versionNumber: number }>(
+      `/api/candidates/${props.candidateId}/resume-versions/${v.id}/promote`,
+      { method: 'PATCH' },
+    )
+    toast.success(`Версия v${res.versionNumber} сделана текущей`)
+    emit('update:modelValue', null) // показываем текущую
+    emit('promoted', res.versionNumber)
+    await refresh()
+  }
+  catch (err: any) {
+    toast.error(err?.data?.statusMessage || 'Не удалось сделать версию текущей')
+  }
+  finally {
+    promotingId.value = null
+  }
+}
 
 const versions = computed(() => data.value?.versions ?? [])
 const isOpen = ref(false)
@@ -111,6 +139,19 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <div v-if="v.deltaSummaryText" class="text-xs text-surface-600 dark:text-surface-300 mt-1">
             Δ {{ v.deltaSummaryText }}
           </div>
+          <!-- Promote: сделать эту версию канонической -->
+          <span
+            v-if="canManage && !v.isCurrent"
+            role="button"
+            tabindex="0"
+            class="mt-1.5 inline-flex items-center gap-1 rounded border border-surface-200 dark:border-surface-700 px-1.5 py-0.5 text-[11px] text-surface-600 dark:text-surface-300 hover:border-brand-400 hover:text-brand-600"
+            @click="promote(v, $event)"
+            @keydown.enter="promote(v, $event as unknown as MouseEvent)"
+          >
+            <Loader2 v-if="promotingId === v.id" class="size-3 animate-spin" />
+            <Star v-else class="size-3" />
+            Сделать текущей
+          </span>
         </div>
       </button>
     </div>
