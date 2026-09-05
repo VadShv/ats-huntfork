@@ -121,6 +121,9 @@ export async function runRankTickForOrg(orgId: string, now = new Date()): Promis
     updated++
   }
 
+  // Resolve any duels whose window has ended (award SXP to winners).
+  try { const { resolveExpiredDuels } = await import('../duels/resolve'); await resolveExpiredDuels(orgId) } catch { /* best-effort */ }
+
   // Weekly MVP announcement (best-effort; no-op unless Telegram is configured).
   try { await pushMvpToTelegram(orgId) } catch { /* best-effort */ }
 

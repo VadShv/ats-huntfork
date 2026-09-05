@@ -67,6 +67,23 @@ export const GAMIFICATION_CONFIG = {
     /** Season soft-reset: next season seeds from peak RP × this factor. */
     softResetFactor: 0.5,
   },
+
+  /** Duels (stage E2) — 1v1 weekly challenges. */
+  duel: {
+    /** Duel runs for this many days from acceptance. */
+    durationDays: 7,
+    /** Bonus SXP awarded to the winner (added to HuntPass season). */
+    winSxp: 100,
+    /** Metrics a duel can be fought on (must exist in the metric registry). */
+    metrics: [
+      { key: 'hires', label: 'Наймы' },
+      { key: 'moves_to_offer', label: 'Офферы' },
+      { key: 'moves_to_interview', label: 'Интервью' },
+      { key: 'manual_moves', label: 'Продвижения' },
+    ] as { key: string, label: string }[],
+    /** Max simultaneously active/pending duels per recruiter. */
+    maxActivePerUser: 3,
+  },
 } as const
 
 /** Rank quality factor from offer acceptance. */

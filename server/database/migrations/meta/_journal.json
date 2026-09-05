@@ -540,6 +540,13 @@
       "when": 1801000230000,
       "tag": "0077_teams",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1801000240000,
+      "tag": "0078_duels",
+      "breakpoints": true
     }
   ]
 }

@@ -2450,3 +2450,35 @@ export const gamificationTeamMemberRelations = relations(gamificationTeamMember,
   team: one(gamificationTeam, { fields: [gamificationTeamMember.teamId], references: [gamificationTeam.id] }),
   user: one(user, { fields: [gamificationTeamMember.userId], references: [user.id] }),
 }))
+
+// ─────────────────────────────────────────────
+// Duels — 1v1 weekly challenges (gamification stage E2)
+// ─────────────────────────────────────────────
+
+export const duel = pgTable('duel', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  challengerId: text('challenger_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  opponentId: text('opponent_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  metric: text('metric').notNull(),
+  /** pending | active | completed | declined */
+  status: text('status').notNull().default('pending'),
+  startsAt: timestamp('starts_at'),
+  endsAt: timestamp('ends_at'),
+  winnerId: text('winner_id'),
+  challengerScore: integer('challenger_score').notNull().default(0),
+  opponentScore: integer('opponent_score').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  resolvedAt: timestamp('resolved_at'),
+}, (t) => ([
+  index('duel_org_idx').on(t.organizationId),
+  index('duel_challenger_idx').on(t.challengerId),
+  index('duel_opponent_idx').on(t.opponentId),
+  index('duel_status_idx').on(t.organizationId, t.status),
+]))
+
+export const duelRelations = relations(duel, ({ one }) => ({
+  organization: one(organization, { fields: [duel.organizationId], references: [organization.id] }),
+  challenger: one(user, { fields: [duel.challengerId], references: [user.id], relationName: 'duel_challenger' }),
+  opponent: one(user, { fields: [duel.opponentId], references: [user.id], relationName: 'duel_opponent' }),
+}))
