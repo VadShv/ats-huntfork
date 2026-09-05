@@ -212,6 +212,16 @@ export function buildHhCompatibleRaw(p: StructuredResume, meta: StructureMeta): 
  * Разбор текста резюме через настроенный в организации 'analysis'-провайдер
  * (тот же, что для AI-саммари; скрининговый контур не затрагивается).
  */
+/**
+ * Эвристика: в тексте резюме, похоже, есть опыт работы (даты периодов, ключевые
+ * слова). Нужна, чтобы отличить «модель потеряла опыт» от «опыта реально нет».
+ */
+function textLikelyHasExperience(text: string): boolean {
+  const hasDateRanges = /\b(19|20)\d{2}\b[^\n]{0,40}?((по наст|наст\.?\s*время|present|current)|(19|20)\d{2})/i.test(text)
+  const hasKeywords = /(опыт работы|место работы|должность|обязанности|компания|работал|experience|employment)/i.test(text)
+  return hasDateRanges || hasKeywords
+}
+
 export async function structureResumeFromText(opts: { orgId: string, text: string }) {
   const config = await loadAiConfig(opts.orgId, { purpose: 'structuring', preferId: null })
 
@@ -219,18 +229,36 @@ export async function structureResumeFromText(opts: { orgId: string, text: strin
   // почти всегда содержат мусор из PDF-экстракции.
   const text = opts.text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').slice(0, 15_000)
 
-  const { object, usage } = await generateStructuredOutput(config, {
-    system:
-      'Ты ассистент рекрутера. Разложи сырой текст резюме на структурированные поля. '
-      + 'Используй ТОЛЬКО факты из текста — ничего не выдумывай. '
-      + 'Если данных нет, верни пустую строку, 0 или пустой массив. '
-      + 'Даты приводи к формату YYYY-MM-01 (день всегда 01). '
-      + 'Текст может быть распознан из PDF с артефактами переносов — игнорируй мусор и восстанавливай смысл.',
-    prompt: `Разложи следующее резюме на структурированные поля.\n\n<резюме>\n${text}\n</резюме>`,
-    schema: structuredResumeSchema,
+  const system =
+    'Ты ассистент рекрутера. Разложи сырой текст резюме на структурированные поля. '
+    + 'Используй ТОЛЬКО факты из текста — ничего не выдумывай. '
+    + 'ВАЖНО: обязательно извлеки ВЕСЬ опыт работы в массив experience — каждое место '
+    + 'работы отдельным объектом (компания, должность, период, обязанности). Не пропускай места работы. '
+    + 'Если данных нет, верни пустую строку, 0 или пустой массив. '
+    + 'Даты приводи к формату YYYY-MM-01 (день всегда 01). '
+    + 'Текст может быть распознан из PDF с артефактами переносов — игнорируй мусор и восстанавливай смысл.'
+  const prompt = `Разложи следующее резюме на структурированные поля.\n\n<резюме>\n${text}\n</резюме>`
+
+  // temperature: 0 — детерминированный разбор (одинаковый вход → одинаковый выход).
+  let result = await generateStructuredOutput(config, {
+    system, prompt, schema: structuredResumeSchema,
     schemaName: 'structured_resume',
     schemaDescription: 'Структурированное представление резюме кандидата',
+    temperature: 0,
   })
 
-  return { parsed: object, usage, config }
+  // Защита от «обеднения»: модель вернула пустой опыт, хотя в тексте он явно есть —
+  // одна повторная попытка с усиленной инструкцией. Спасает от недетерминированных пропусков.
+  if (result.object.experience.length === 0 && textLikelyHasExperience(text)) {
+    const retry = await generateStructuredOutput(config, {
+      system: system + ' Ранее опыт работы не был извлечён — перечитай текст и ОБЯЗАТЕЛЬНО заполни массив experience всеми местами работы.',
+      prompt, schema: structuredResumeSchema,
+      schemaName: 'structured_resume',
+      schemaDescription: 'Структурированное представление резюме кандидата',
+      temperature: 0,
+    }).catch(() => null)
+    if (retry && retry.object.experience.length > 0) result = retry
+  }
+
+  return { parsed: result.object, usage: result.usage, config }
 }

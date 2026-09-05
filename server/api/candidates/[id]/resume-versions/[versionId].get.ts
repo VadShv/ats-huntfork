@@ -41,8 +41,16 @@ export default defineEventHandler(async (event) => {
 
   const parsed = parseHhResume(versionRow.snapshot as Record<string, unknown>)
 
+  // Единообразие с /hh-resume: top-level source ('document'|'hh') и fetchedAt,
+  // которые ожидает HhResumeView для чипа источника и «обновлено N назад».
+  const source = (versionRow.snapshot as { _hf?: { source?: string } })?._hf?.source === 'document_parse'
+    ? 'document' as const
+    : 'hh' as const
+
   return {
     candidateId: id,
+    source,
+    fetchedAt: versionRow.fetchedAt,
     version: {
       id: versionRow.id,
       versionNumber: versionRow.versionNumber,

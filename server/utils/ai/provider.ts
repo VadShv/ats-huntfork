@@ -374,6 +374,8 @@ export async function generateStructuredOutput<T>(
     schemaDescription?: string
     /** Как обернуть голый массив, если схема ожидает объект: items => ({ criteria: items }) */
     wrapBareArray?: (items: unknown[]) => unknown
+    /** Sampling temperature. Для детерминированного разбора (резюме) передавайте 0. */
+    temperature?: number
   },
 ): Promise<{ object: T; usage: { promptTokens: number; completionTokens: number }; responseModel: string | null }> {
   const model = createLanguageModel(config)
@@ -394,7 +396,7 @@ export async function generateStructuredOutput<T>(
         schema: options.schema,
         schemaName: options.schemaName,
         schemaDescription: options.schemaDescription,
-        temperature: 0.1,
+        temperature: options.temperature ?? 0.1,
         abortSignal: abortController.signal,
       })
     }

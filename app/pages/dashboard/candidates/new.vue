@@ -479,11 +479,31 @@ async function enrichExistingDup() {
       body,
     })
     const added: string[] = result?.added ?? []
-    if (added.length === 0) {
+
+    // Мастер-профиль: если было загружено резюме — прикрепляем его к существующему
+    // кандидату новой версией (загрузка авто-структурируется в версию). Иначе файл
+    // терялся бы при «Дополнить существующего».
+    let resumeAttached = false
+    if (resumeFile.value) {
+      try {
+        const fd = new FormData()
+        fd.append('file', resumeFile.value)
+        fd.append('type', 'resume')
+        await $fetch(`/api/candidates/${first.candidateId}/documents`, { method: 'POST', body: fd })
+        resumeAttached = true
+      }
+      catch {
+        toast.error?.(t('candidate.new.candidateCreatedResumeFailed'))
+      }
+    }
+
+    if (added.length === 0 && !resumeAttached) {
       toast.warning?.(t('candidate.new.dedup.enrichNothing'))
     }
     else {
-      toast.success?.(`${t('candidate.new.dedup.enrichSuccess')}: ${added.join(', ')}`)
+      const parts = [...added]
+      if (resumeAttached) parts.push('резюме')
+      toast.success?.(`${t('candidate.new.dedup.enrichSuccess')}: ${parts.join(', ')}`)
     }
     showExactDupModal.value = false
     await navigateTo(localePath(`/dashboard/candidates/${first.candidateId}`))
@@ -499,7 +519,7 @@ async function enrichExistingDup() {
 // Доступен ли enrich: хотя бы 1 экзачный дубль в своей org И в форме есть хотя бы 1 поле для передачи
 const canEnrichExisting = computed(() => {
   const hasOwnOrgDup = (dupResult.value?.exact ?? []).some(e => !e.crossOrg)
-  const hasNewData = !!(form.value.phone?.trim() || (form.value.gender && form.value.gender !== '') || form.value.dateOfBirth?.trim())
+  const hasNewData = !!(form.value.phone?.trim() || (form.value.gender && form.value.gender !== '') || form.value.dateOfBirth?.trim() || resumeFile.value)
   return hasOwnOrgDup && hasNewData
 })
 

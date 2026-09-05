@@ -357,7 +357,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
               </h3>
               <CandidateHhResumeView
                 :candidate-id="candidateId"
-                :has-snapshot="true"
+                :has-snapshot="Boolean((candidate as any).hasResumeSnapshot || (candidate as any).hhResumeId)"
                 :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
                 :version-id="selectedResumeVersionId"
               />
