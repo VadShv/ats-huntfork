@@ -31,6 +31,7 @@ export default defineEventHandler(async (event) => {
       id: jobMember.id,
       userId: jobMember.userId,
       memberRole: jobMember.memberRole,
+      isPrimary: jobMember.isPrimary,
       addedAt: jobMember.addedAt,
       addedByUserId: jobMember.addedByUserId,
       userName: user.name,

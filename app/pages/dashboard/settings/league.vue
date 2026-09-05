@@ -1,23 +1,25 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { Trophy, Info, TrendingUp, Users, ShoppingBag } from 'lucide-vue-next'
+import { Trophy, Info, TrendingUp, Target, ShoppingBag, Users } from 'lucide-vue-next'
 
-useSeoMeta({ title: 'Лига рекрутеров', description: 'Геймификация: HuntPass, ранги, квесты, команды, дуэли, рефералы, kudos, магазин' })
+useSeoMeta({ title: 'Лига рекрутеров', description: 'Геймификация: метрики, HuntPass, ранги, цели дня, магазин, команда' })
 
 const route = useRoute()
 const router = useRouter()
 
 /** Active inner tab, synced with ?tab= query for deep-links and legacy redirects. */
-type TabKey = 'progress' | 'team' | 'shop'
+type TabKey = 'progress' | 'challenges' | 'shop' | 'team'
 const tabs: { key: TabKey; label: string; icon: Component; hint: string }[] = [
-  { key: 'progress', label: 'Прогресс', icon: TrendingUp, hint: 'Ваш личный прогресс: сезонный трек, ранг, ежедневные цели и вечные достижения.' },
-  { key: 'team', label: 'Команда', icon: Users, hint: 'Сотрудничество и соревнование с коллегами: лига команд, дуэли, рефералы, kudos и управление командами.' },
+  { key: 'progress', label: 'Прогресс', icon: TrendingUp, hint: 'Ваши метрики, ранг, сезонный трек и достижения. Переключайте метрики между «Всё время» и «Сезон».' },
+  { key: 'challenges', label: 'Челленджи', icon: Target, hint: 'Цели дня: ежедневные и недельные задачи, направляющие на приоритетные действия. Выполнение даёт SXP и монеты.' },
   { key: 'shop', label: 'Магазин', icon: ShoppingBag, hint: 'Монеты и косметика: тратьте заработанное на рамки аватара, титулы и акцентные цвета.' },
+  { key: 'team', label: 'Команда', icon: Users, hint: 'Сотрудничество и соревнование с коллегами: лига команд, дуэли, рефералы, kudos и управление командами.' },
 ]
 
-/** Map query (incl. legacy ?tab=teams) → active tab. */
+/** Map query (incl. legacy ?tab=teams / ?tab=overview) → active tab. */
 function normalizeTab(t: unknown): TabKey {
   if (t === 'team' || t === 'teams') return 'team'
+  if (t === 'challenges') return 'challenges'
   if (t === 'shop') return 'shop'
   return 'progress'
 }
@@ -31,22 +33,11 @@ function setTab(key: TabKey) {
 /** Section metadata: title + rules explanation. Widget rendered in the slot. */
 interface Section { key: string, title: string, rule: string }
 
-const progressSections: Section[] = [
-  { key: 'huntpass', title: 'HuntPass — сезонный трек', rule: 'Сезон = календарный квартал. Копите очки сезона (SXP) за результаты — наймы, офферы, интервью, закрытые вакансии — и продвигаетесь по 30 тирам, забирая награды. SXP за найм умножается на грейд вакансии (Junior…Lead) и качество (доля принятых офферов). В конце сезона SXP обнуляется — свежий старт.' },
-  { key: 'rank', title: 'Ранг и дивизионы', rule: 'Соревновательный рейтинг RP = объём × качество × скорость. Дивизионы Бронза→Легенда. Чтобы подняться — держите RP выше порога несколько недель подряд (промо-серия); при простое ранг мягко падает (decay). Новичок проходит калибровку. Награждает эффективность, а не только количество.' },
-  { key: 'quests', title: 'Квесты дня', rule: 'Ежедневные (3) и недельные цели, направляющие на приоритетные действия: быстрый ответ, разбор входящих, продвижение по воронке. Выполнение даёт SXP и монеты. В наборе всегда есть «качественный» квест. Обновляются каждый день/неделю.' },
-  { key: 'achievements', title: 'Достижения', rule: 'Вечные ачивки за накопленные результаты (наймы, офферы, интервью, стрики, скорость, кооперация). Дают XP и уровни. В отличие от сезонного HuntPass — не сбрасываются.' },
-]
-
 const teamSections: Section[] = [
   { key: 'league', title: 'Лига команд', rule: 'Рекрутеры объединяются в команды (создаются ниже, в блоке «Управление командами»). Лига считается по среднему RP на участника — честно к размеру команды. Соревнование команд за сезон.' },
   { key: 'duels', title: 'Дуэли 1v1', rule: 'Вызовите коллегу на недельную дуэль по метрике (наймы/офферы/интервью/продвижения). Кто наберёт больше за 7 дней — победил. Победитель получает бонус SXP и монеты. До 3 активных дуэлей.' },
   { key: 'referrals', title: 'Рефералы — передача кандидатов', rule: 'Кандидат не подходит вам, но полезен коллеге? Передайте его (кнопка «Передать» в карточке кандидата). Если коллега примет и в итоге наймёт — вы получите ассист: SXP + монеты + прогресс ачивки «Командный игрок». Превращает отказы в наймы.' },
   { key: 'kudos', title: 'Kudos — признание коллег', rule: 'Поблагодарите коллегу за помощь (лимит 5 в неделю — чтобы признание было ценным). Получатель получает монеты и признание. За полученные kudos — ачивки «Признанный/Уважаемый/Душа команды».' },
-]
-
-const shopSections: Section[] = [
-  { key: 'shop', title: 'Монеты и магазин', rule: 'Монеты зарабатываются в квестах, дуэлях, за ассисты и тиры HuntPass. Тратятся в магазине на косметику: рамки аватара, титулы, акцентные цвета.' },
 ]
 
 const activeHint = computed(() => tabs.find(t => t.key === activeTab.value)?.hint ?? '')
@@ -86,24 +77,59 @@ const activeHint = computed(() => tabs.find(t => t.key === activeTab.value)?.hin
       <span>{{ activeHint }}</span>
     </p>
 
-    <!-- Progress: personal progression widgets -->
-    <div v-if="activeTab === 'progress'" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <section v-for="s in progressSections" :key="s.key">
-        <div class="mb-2">
-          <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ s.title }}</h2>
-          <p class="mt-1 flex items-start gap-1.5 text-[12px] leading-relaxed text-surface-500 dark:text-surface-400">
-            <Info class="size-3.5 shrink-0 mt-0.5 text-brand-400" />
-            <span>{{ s.rule }}</span>
-          </p>
+    <!-- Progress: metrics + rank on top, HuntPass + achievements below -->
+    <div v-if="activeTab === 'progress'" class="space-y-5">
+      <!-- Metrics table (left) + Rank (right) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        <MetricsSummaryWidget />
+        <div>
+          <div class="mb-2">
+            <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Ранг и дивизионы</h2>
+            <p class="mt-1 flex items-start gap-1.5 text-[12px] leading-relaxed text-surface-500 dark:text-surface-400">
+              <Info class="size-3.5 shrink-0 mt-0.5 text-brand-400" />
+              <span>Соревновательный рейтинг RP = объём × качество × скорость. Дивизионы Бронза→Легенда. Держите RP выше порога несколько недель (промо-серия); при простое ранг мягко падает.</span>
+            </p>
+          </div>
+          <RankWidget />
         </div>
-        <HuntPassWidget v-if="s.key === 'huntpass'" />
-        <RankWidget v-else-if="s.key === 'rank'" />
-        <QuestsWidget v-else-if="s.key === 'quests'" />
-        <AchievementsWidget v-else-if="s.key === 'achievements'" />
-      </section>
+      </div>
+
+      <!-- HuntPass (battle pass) + Achievements -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        <div>
+          <div class="mb-2">
+            <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200">HuntPass — сезонный трек</h2>
+            <p class="mt-1 flex items-start gap-1.5 text-[12px] leading-relaxed text-surface-500 dark:text-surface-400">
+              <Info class="size-3.5 shrink-0 mt-0.5 text-brand-400" />
+              <span>Сезон = квартал. Копите SXP за результаты и продвигайтесь по 30 тирам, забирая награды. SXP за найм умножается на грейд вакансии и качество. В конце сезона обнуляется.</span>
+            </p>
+          </div>
+          <HuntPassWidget />
+        </div>
+        <div>
+          <div class="mb-2">
+            <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200">Достижения</h2>
+            <p class="mt-1 flex items-start gap-1.5 text-[12px] leading-relaxed text-surface-500 dark:text-surface-400">
+              <Info class="size-3.5 shrink-0 mt-0.5 text-brand-400" />
+              <span>Вечные ачивки за накопленные результаты (наймы, офферы, интервью, стрики, скорость, кооперация). Дают XP и уровни. В отличие от HuntPass — не сбрасываются.</span>
+            </p>
+          </div>
+          <AchievementsWidget />
+        </div>
+      </div>
     </div>
 
-    <!-- Team: cooperation & competition + team management -->
+    <!-- Challenges: daily goals -->
+    <div v-else-if="activeTab === 'challenges'" class="max-w-xl">
+      <QuestsWidget />
+    </div>
+
+    <!-- Shop: coins & cosmetics -->
+    <div v-else-if="activeTab === 'shop'" class="max-w-xl">
+      <ShopWidget />
+    </div>
+
+    <!-- Team: cooperation & competition + team management (moved to the end) -->
     <div v-else-if="activeTab === 'team'">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <section v-for="s in teamSections" :key="s.key">
@@ -132,20 +158,6 @@ const activeHint = computed(() => tabs.find(t => t.key === activeTab.value)?.hin
         </div>
         <TeamsManager />
       </div>
-    </div>
-
-    <!-- Shop: coins & cosmetics -->
-    <div v-else-if="activeTab === 'shop'" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <section v-for="s in shopSections" :key="s.key">
-        <div class="mb-2">
-          <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ s.title }}</h2>
-          <p class="mt-1 flex items-start gap-1.5 text-[12px] leading-relaxed text-surface-500 dark:text-surface-400">
-            <Info class="size-3.5 shrink-0 mt-0.5 text-brand-400" />
-            <span>{{ s.rule }}</span>
-          </p>
-        </div>
-        <ShopWidget v-if="s.key === 'shop'" />
-      </section>
     </div>
   </div>
 </template>

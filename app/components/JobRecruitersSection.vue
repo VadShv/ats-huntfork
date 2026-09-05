@@ -6,7 +6,7 @@
  * job_member (member_role='recruiter'). Создатель вакансии назначается
  * автоматически при создании (см. POST /api/jobs).
  */
-import { BriefcaseBusiness, Trash2, Loader2 } from 'lucide-vue-next'
+import { BriefcaseBusiness, Trash2, Loader2, Star } from 'lucide-vue-next'
 
 interface Props {
   jobId: string
@@ -26,6 +26,7 @@ interface JobMember {
   id: string
   userId: string
   memberRole: string
+  isPrimary: boolean
   addedAt: string | Date
   addedByUserId: string | null
   userName: string | null
@@ -52,7 +53,10 @@ async function fetchAssigned() {
   assignedError.value = ''
   try {
     const res = await $fetch<{ members: JobMember[] }>(`/api/jobs/${props.jobId}/members`)
-    assigned.value = (res.members ?? []).filter(m => m.memberRole === 'recruiter')
+    assigned.value = (res.members ?? [])
+      .filter(m => m.memberRole === 'recruiter')
+      // Основной рекрутер — первым в списке.
+      .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
   }
   catch (err: any) {
     assignedError.value = err?.data?.statusMessage ?? err?.message ?? 'Не удалось загрузить'
@@ -125,6 +129,19 @@ async function addExisting() {
   }
 }
 
+// ─── Сделать рекрутера основным ───
+async function makePrimary(userId: string) {
+  try {
+    await $fetch(`/api/jobs/${props.jobId}/members/${userId}/primary`, { method: 'PATCH' })
+    toast.success('Назначен основной рекрутер')
+    await fetchAssigned()
+  }
+  catch (err: any) {
+    const msg = err?.data?.statusMessage ?? err?.message ?? 'Не удалось назначить'
+    toast.error('Ошибка', { message: String(msg) })
+  }
+}
+
 // ─── Убрать рекрутера с вакансии ───
 async function removeMember(userId: string) {
   try {
@@ -153,7 +170,8 @@ onMounted(() => {
       </h2>
       <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">
         Кто ведёт эту вакансию: работа с кандидатами, этапами воронки и коммуникациями.
-        Создатель вакансии назначается автоматически. Может быть несколько рекрутеров.
+        Создатель вакансии назначается автоматически. Может быть несколько рекрутеров —
+        один основной (по нему считается статистика «вакансий в работе») и дополнительные.
       </p>
     </div>
 
@@ -168,15 +186,31 @@ onMounted(() => {
       {{ assignedError }}
     </div>
     <ul v-else-if="assigned.length > 0" class="divide-y divide-surface-100 dark:divide-surface-800">
-      <li v-for="m in assigned" :key="m.userId" class="flex items-center justify-between py-3">
+      <li v-for="m in assigned" :key="m.userId" class="flex items-center justify-between gap-2 py-3">
         <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-medium text-surface-900 dark:text-surface-100">
-            {{ m.userName || m.userEmail }}
+          <div class="flex items-center gap-2">
+            <span class="truncate text-sm font-medium text-surface-900 dark:text-surface-100">
+              {{ m.userName || m.userEmail }}
+            </span>
+            <span
+              v-if="m.isPrimary"
+              class="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 dark:bg-brand-950/40 dark:text-brand-300"
+            >
+              <Star class="size-3 fill-current" /> Основной
+            </span>
           </div>
           <div class="mt-0.5 truncate text-xs text-surface-500 dark:text-surface-400">
             {{ m.userEmail }}
           </div>
         </div>
+        <button
+          v-if="canManage && !m.isPrimary"
+          type="button"
+          class="inline-flex items-center gap-1 rounded-lg border border-surface-200 px-2 py-1 text-xs text-surface-600 hover:border-brand-400 hover:text-brand-600 dark:border-surface-700 dark:text-surface-300"
+          @click="makePrimary(m.userId)"
+        >
+          <Star class="size-3" /> Сделать основным
+        </button>
         <UiButton
           v-if="canManage"
           size="sm"

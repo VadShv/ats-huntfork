@@ -43,6 +43,12 @@ export const jobMember = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     /** Values: 'hiring_manager' | 'recruiter' | 'watcher' | 'assignee'. Used: 'hiring_manager', 'recruiter'. */
     memberRole: text('member_role').notNull(),
+    /**
+     * Основной рекрутер вакансии. Только один recruiter на вакансию может быть
+     * основным (partial unique index uq_job_member_primary_recruiter).
+     * Статистика «вакансий в работе» считается по основному рекрутеру.
+     */
+    isPrimary: boolean('is_primary').notNull().default(false),
     addedByUserId: text('added_by_user_id').references(() => user.id, { onDelete: 'set null' }),
     addedAt: timestamp('added_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },

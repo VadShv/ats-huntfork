@@ -27,7 +27,7 @@ async function claim(q: Quest) {
   claiming.value = q.id
   try {
     const res = await $fetch<{ sxpAwarded: number }>('/api/quests/claim', { method: 'POST', body: { id: q.id } })
-    toast.success(`Квест выполнен: +${res.sxpAwarded} SXP`)
+    toast.success(`Цель выполнена: +${res.sxpAwarded} SXP`)
     await refresh()
   } catch (e: any) {
     toast.error(e?.data?.statusMessage || 'Не удалось забрать награду')
@@ -58,7 +58,7 @@ function pct(q: Quest) {
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
         <Target class="size-5 text-brand-500" />
-        <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">Квесты дня</span>
+        <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">Цели дня</span>
       </div>
       <span v-if="data.claimable > 0" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-600 text-white">
         {{ data.claimable }} к получению

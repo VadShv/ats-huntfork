@@ -43,10 +43,26 @@ export default defineEventHandler(async (event) => {
       eq(jobMember.userId, userId),
       eq(jobMember.memberRole, memberRole),
     ))
-    .returning({ id: jobMember.id })
+    .returning({ id: jobMember.id, isPrimary: jobMember.isPrimary })
 
   if (!removed) {
     throw createError({ statusCode: 404, statusMessage: 'Назначение не найдено' })
+  }
+
+  // Если сняли основного рекрутера — назначаем основным следующего (самого раннего).
+  if (memberRole === 'recruiter' && removed.isPrimary) {
+    const [next] = await db
+      .select({ id: jobMember.id })
+      .from(jobMember)
+      .where(and(
+        eq(jobMember.jobId, jobId),
+        eq(jobMember.memberRole, 'recruiter'),
+      ))
+      .orderBy(jobMember.addedAt)
+      .limit(1)
+    if (next) {
+      await db.update(jobMember).set({ isPrimary: true }).where(eq(jobMember.id, next.id))
+    }
   }
 
   await recordActivity({

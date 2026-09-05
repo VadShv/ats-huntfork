@@ -26,6 +26,8 @@ export const addJobMemberSchema = z.object({
   userId: z.string().trim().min(1).max(64),
   /** Поддерживаются 'hiring_manager' и 'recruiter'. Задел на watcher/assignee в v2. */
   memberRole: z.enum(['hiring_manager', 'recruiter', 'watcher', 'assignee']).default('hiring_manager'),
+  /** Назначить рекрутера основным на вакансии (только для memberRole='recruiter'). */
+  isPrimary: z.boolean().optional().default(false),
 })
 
 export const removeJobMemberSchema = z.object({

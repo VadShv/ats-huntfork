@@ -79,6 +79,38 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // ── Основной рекрутер: только для recruiter. Первый рекрутер вакансии
+  //    становится основным автоматически; явный isPrimary снимает флаг с прочих. ──
+  let makePrimary = false
+  if (body.memberRole === 'recruiter') {
+    if (body.isPrimary) {
+      makePrimary = true
+    }
+    else {
+      const [existingPrimary] = await db
+        .select({ id: jobMember.id })
+        .from(jobMember)
+        .where(and(
+          eq(jobMember.jobId, jobId),
+          eq(jobMember.memberRole, 'recruiter'),
+          eq(jobMember.isPrimary, true),
+        ))
+        .limit(1)
+      makePrimary = !existingPrimary // нет основного — новый становится основным
+    }
+  }
+
+  // Снимаем прежний primary до вставки, чтобы не нарушить partial unique index.
+  if (makePrimary) {
+    await db.update(jobMember)
+      .set({ isPrimary: false })
+      .where(and(
+        eq(jobMember.jobId, jobId),
+        eq(jobMember.memberRole, 'recruiter'),
+        eq(jobMember.isPrimary, true),
+      ))
+  }
+
   // ── Идемпотентная вставка ──
   const [newRow] = await db
     .insert(jobMember)
@@ -87,6 +119,7 @@ export default defineEventHandler(async (event) => {
       jobId,
       userId: body.userId,
       memberRole: body.memberRole,
+      isPrimary: makePrimary,
       addedByUserId: actorId,
     })
     .onConflictDoNothing({ target: [jobMember.jobId, jobMember.userId, jobMember.memberRole] })
@@ -94,11 +127,21 @@ export default defineEventHandler(async (event) => {
       id: jobMember.id,
       userId: jobMember.userId,
       memberRole: jobMember.memberRole,
+      isPrimary: jobMember.isPrimary,
       addedAt: jobMember.addedAt,
     })
 
   if (!newRow) {
-    // Уже был назначен — возвращаем 200 идемпотентно.
+    // Уже был назначен — при явном запросе основного повышаем существующую запись.
+    if (makePrimary) {
+      await db.update(jobMember)
+        .set({ isPrimary: true })
+        .where(and(
+          eq(jobMember.jobId, jobId),
+          eq(jobMember.userId, body.userId),
+          eq(jobMember.memberRole, 'recruiter'),
+        ))
+    }
     return { success: true, alreadyAssigned: true }
   }
 
