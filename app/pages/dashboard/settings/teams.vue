@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// Управление командами перенесено во вкладку «Лига рекрутеров» → «Команды».
+// Управление командами перенесено во вкладку «Лига рекрутеров» → «Команда».
 // Сохраняем маршрут для обратной совместимости старых ссылок/закладок.
-await navigateTo('/dashboard/settings/league?tab=teams', { redirectCode: 302 })
+await navigateTo('/dashboard/settings/league?tab=team', { redirectCode: 302 })
 </script>
 
 <template>
