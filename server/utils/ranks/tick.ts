@@ -16,6 +16,7 @@ import { DIVISIONS, divisionForRp } from '../../../shared/ranks-catalog'
 import { getOrCreateCurrentSeason } from '../huntpass/season'
 import { computeOrgRp } from './rp'
 import { weeklyPeriod } from '../quests/period'
+import { pushMvpToTelegram } from '../gamification/mvp'
 
 const DIV_KEYS = DIVISIONS.map(d => d.key)
 function divIndex(key: string): number {
@@ -119,6 +120,9 @@ export async function runRankTickForOrg(orgId: string, now = new Date()): Promis
     }).where(eq(userRank.id, row.id))
     updated++
   }
+
+  // Weekly MVP announcement (best-effort; no-op unless Telegram is configured).
+  try { await pushMvpToTelegram(orgId) } catch { /* best-effort */ }
 
   return updated
 }

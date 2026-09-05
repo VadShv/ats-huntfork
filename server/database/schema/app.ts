@@ -2403,3 +2403,50 @@ export const userRankRelations = relations(userRank, ({ one }) => ({
   organization: one(organization, { fields: [userRank.organizationId], references: [organization.id] }),
   season: one(season, { fields: [userRank.seasonId], references: [season.id] }),
 }))
+
+// ─────────────────────────────────────────────
+// Teams & Leagues (gamification stage E)
+// ─────────────────────────────────────────────
+
+export const gamificationTeam = pgTable('gamification_team', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  color: text('color').notNull().default('#01696f'),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('gamification_team_org_idx').on(t.organizationId),
+]))
+
+export const gamificationTeamMember = pgTable('gamification_team_member', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  teamId: text('team_id').notNull().references(() => gamificationTeam.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+}, (t) => ([
+  // A recruiter belongs to at most one team per org.
+  uniqueIndex('gamification_team_member_org_user_idx').on(t.organizationId, t.userId),
+  index('gamification_team_member_team_idx').on(t.teamId),
+]))
+
+/** Per-org gamification settings (MVP-push config + future weight overrides). */
+export const gamificationSettings = pgTable('gamification_settings', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  mvpEnabled: boolean('mvp_enabled').notNull().default(false),
+  mvpTelegramChatId: text('mvp_telegram_chat_id'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('gamification_settings_org_idx').on(t.organizationId),
+]))
+
+export const gamificationTeamRelations = relations(gamificationTeam, ({ many, one }) => ({
+  organization: one(organization, { fields: [gamificationTeam.organizationId], references: [organization.id] }),
+  members: many(gamificationTeamMember),
+}))
+
+export const gamificationTeamMemberRelations = relations(gamificationTeamMember, ({ one }) => ({
+  team: one(gamificationTeam, { fields: [gamificationTeamMember.teamId], references: [gamificationTeam.id] }),
+  user: one(user, { fields: [gamificationTeamMember.userId], references: [user.id] }),
+}))
