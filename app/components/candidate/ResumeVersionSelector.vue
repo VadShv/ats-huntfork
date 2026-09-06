@@ -136,9 +136,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
             {{ fmtDate(v.fetchedAt) }} · {{ sourceLabel(v.source) }}
           </div>
-          <div v-if="v.deltaSummaryText" class="text-xs text-surface-600 dark:text-surface-300 mt-1">
-            Δ {{ v.deltaSummaryText }}
-          </div>
+          <!-- Отображение различий (Δ) намеренно убрано: дельта считалась неточно
+               (заморожена на момент вставки, не пересчитывалась при promote). -->
           <!-- Promote: сделать эту версию канонической -->
           <span
             v-if="canManage && !v.isCurrent"
