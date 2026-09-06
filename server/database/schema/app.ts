@@ -45,6 +45,9 @@ export const interviewQuestionCategoryEnum = pgEnum('interview_question_category
 export const interviewQuestionSourceEnum = pgEnum('interview_question_source', [
   'ai_generated', 'manual', 'edited',
 ])
+// Риск-анализ резюме (Этап 3).
+export const riskRunStatusEnum = pgEnum('risk_run_status', ['running', 'completed', 'failed'])
+export const riskLevelEnum = pgEnum('risk_level', ['low', 'medium', 'high'])
 export const dateFormatEnum = pgEnum('date_format', ['mdy', 'dmy', 'ymd'])
 export const pipelineStageTypeEnum = pgEnum('pipeline_stage_type', [
   // ── Working bucket (canonical hh.ru-style phases) ──
@@ -1769,6 +1772,75 @@ export const candidateResumeVersion = pgTable('candidate_resume_version', {
 export const candidateResumeVersionRelations = relations(candidateResumeVersion, ({ one }) => ({
   candidate: one(candidate, { fields: [candidateResumeVersion.candidateId], references: [candidate.id], relationName: 'candidateResumeVersions' }),
   mergedFromCandidate: one(candidate, { fields: [candidateResumeVersion.mergedFromCandidateId], references: [candidate.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// Resume risk profile (Этап 3) — риск-профиль РЕЗЮМЕ (не вакансии)
+// ─────────────────────────────────────────────
+//
+// Риск привязан к КОНКРЕТНОЙ ВЕРСИИ резюме (resumeVersionId, UNIQUE) — считается
+// один раз на версию и переиспользуется на всех откликах кандидата. От вакансии
+// НЕ зависит (jobMismatch отсутствует). Две части результата:
+//   • tenureJson  — ДЕТЕРМИНИРОВАННО (частота смен работ), считает КОД, не LLM;
+//   • findingsJson — смысловые находки от LLM (противоречия/подозрительное/факты
+//                    для проверки) с confidence и alternative.
+// overallRisk агрегируется в КОДЕ с cap: high только при hard-evidence
+// (date_math|document) либо high job-hopping; чистая лингвистика ≤ medium.
+export const resumeRisk = pgTable('resume_risk', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  candidateId: text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
+  // NB: без DB-FK — candidate_resume_version.id на проде uuid, а тут text (как в
+  // Drizzle-модели этой таблицы). Целостность обеспечивается в коде (worker/endpoints
+  // проверяют version ∈ candidate ∈ org). Каскад при удалении версии не нужен: строки
+  // риска редки и живут по contentHash; осиротевшие безвредны.
+  resumeVersionId: text('resume_version_id').notNull(),
+  status: riskRunStatusEnum('status').notNull().default('running'),
+  overallRisk: riskLevelEnum('overall_risk').notNull().default('low'),
+  overallScore: integer('overall_score').notNull().default(0),
+  isCapped: boolean('is_capped').notNull().default(false),
+  summary: text('summary'),
+  // Детерминированный блок частоты смен (см. server/utils/risk/timeline.ts).
+  tenureJson: jsonb('tenure_json').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  // Смысловые находки LLM (см. server/utils/ai/assessRisk.ts).
+  findingsJson: jsonb('findings_json').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  metricsJson: jsonb('metrics_json').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  provider: text('provider'),
+  model: text('model'),
+  promptTokens: integer('prompt_tokens'),
+  completionTokens: integer('completion_tokens'),
+  errorMessage: text('error_message'),
+  // Кэш-гард = contentHash версии резюме (не пересчитываем неизменное).
+  contentHash: text('content_hash'),
+  // Закреплённая дата прогона (серверный CURRENT_DATE) — чтобы LLM не «угадывал» год.
+  assessedAt: timestamp('assessed_at'),
+  triggeredById: text('triggered_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('resume_risk_resume_version_id_unique').on(t.resumeVersionId),
+  index('resume_risk_candidate_id_idx').on(t.candidateId),
+  index('resume_risk_organization_id_idx').on(t.organizationId),
+]))
+
+// Политика риск-движка на уровне организации (bounded «коробка + под себя»).
+export const riskPolicy = pgTable('risk_policy', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  shortStintMonths: integer('short_stint_months').notNull().default(12),
+  jobHoppingMediumScore: integer('job_hopping_medium_score').notNull().default(40),
+  jobHoppingHighScore: integer('job_hopping_high_score').notNull().default(65),
+  capLinguisticToMedium: boolean('cap_linguistic_to_medium').notNull().default(true),
+  extraInstructions: text('extra_instructions'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('risk_policy_organization_id_unique').on(t.organizationId),
+]))
+
+export const resumeRiskRelations = relations(resumeRisk, ({ one }) => ({
+  candidate: one(candidate, { fields: [resumeRisk.candidateId], references: [candidate.id] }),
+  resumeVersion: one(candidateResumeVersion, { fields: [resumeRisk.resumeVersionId], references: [candidateResumeVersion.id] }),
+  triggeredBy: one(user, { fields: [resumeRisk.triggeredById], references: [user.id] }),
 }))
 
 // ─── Fuzzy-дубли (Этап 3) ──────────────────────────────────────────────────────
