@@ -78,6 +78,14 @@ export interface HmApplicationResponse {
       schedules?: string[]
       updatedAt?: string
     }
+    /** Оригинальный файл резюме (ручная загрузка). null, если резюме не файловое. */
+    resumeDocument: null | {
+      id: string
+      mimeType: string
+      originalFilename: string
+      /** Доступно ли inline-превью (PDF-оригинал или сконвертированный preview-PDF). */
+      previewAvailable: boolean
+    }
   }
   job: { id: string; title: string; location: string | null }
   effectiveDecision: null | {

@@ -29,6 +29,11 @@ const props = defineProps<{
   resumeDocumentId?: string | null
   /** MIME оригинального документа-резюме (для выбора превью/скачивания). */
   resumeDocumentMime?: string | null
+  /**
+   * Доступно ли inline-превью: оригинал PDF или есть сконвертированный preview-PDF
+   * (DOC/DOCX → PDF). Если false — показываем кнопку «Скачать оригинал».
+   */
+  resumeDocumentPreviewAvailable?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -41,13 +46,37 @@ const { getPreviewUrl, downloadDocument } = useDocuments()
 // Выбранная версия: null = текущая, иначе id конкретной версии.
 const selectedVersionId = ref<string | null>(null)
 
-// Вид: 'structure' (JSON, по умолчанию) | 'file' (оригинальный файл).
+// Вид: 'structure' (JSON) | 'file' (оригинальный файл).
 type View = 'structure' | 'file'
-const view = ref<View>('structure')
 
 // Оригинал доступен только для ручных загрузок (есть документ-резюме).
 const hasOriginalFile = computed(() => Boolean(props.resumeDocumentId))
-const isPdf = computed(() => (props.resumeDocumentMime ?? 'application/pdf') === 'application/pdf')
+// Можно ли показать inline-превью: оригинал PDF ИЛИ есть сконвертированный preview-PDF.
+// Обратная совместимость: если previewAvailable не передан — падаем на проверку MIME.
+const canPreview = computed(() =>
+  props.resumeDocumentPreviewAvailable
+  ?? ((props.resumeDocumentMime ?? 'application/pdf') === 'application/pdf'),
+)
+
+// Дефолт вида: для файловых резюме (добавлены вручную файлом) показываем оригинал —
+// превью как есть, без «каши» структурирования кастомных макетов. Для hh/расширения
+// файла нет → остаётся «Структура».
+const view = ref<View>(props.resumeDocumentId && canPreview.value ? 'file' : 'structure')
+
+// Пропсы документа могут прийти асинхронно (родитель дозагружает кандидата). Пока
+// пользователь сам не переключал вид, синхронизируем дефолт: файловое+превью → «Файл».
+const userTouchedView = ref(false)
+function setView(v: View) {
+  userTouchedView.value = true
+  view.value = v
+}
+watch(
+  () => [props.resumeDocumentId, canPreview.value] as const,
+  ([docId, preview]) => {
+    if (userTouchedView.value) return
+    view.value = docId && preview ? 'file' : 'structure'
+  },
+)
 const previewUrl = computed(() =>
   props.resumeDocumentId ? getPreviewUrl(props.resumeDocumentId) : null,
 )
@@ -78,7 +107,7 @@ function onPromoted() {
             :class="view === 'structure'
               ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300'
               : 'text-surface-500 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200'"
-            @click="view = 'structure'"
+            @click="setView('structure')"
           >
             <LayoutList class="size-3.5" /> Структура
           </button>
@@ -88,7 +117,7 @@ function onPromoted() {
             :class="view === 'file'
               ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300'
               : 'text-surface-500 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200'"
-            @click="view = 'file'"
+            @click="setView('file')"
           >
             <FileText class="size-3.5" /> Файл
           </button>
@@ -120,7 +149,7 @@ function onPromoted() {
     <!-- Оригинальный файл резюме (как есть) -->
     <template v-else>
       <iframe
-        v-if="previewUrl && isPdf"
+        v-if="previewUrl && canPreview"
         :src="previewUrl"
         class="w-full rounded-lg border border-surface-200 dark:border-surface-800"
         style="height: 70vh;"
@@ -132,7 +161,7 @@ function onPromoted() {
       >
         <FileText class="size-8 mx-auto text-surface-400" />
         <p class="mt-2 text-sm text-surface-600 dark:text-surface-300">
-          Предпросмотр доступен только для PDF.
+          Предпросмотр недоступен для этого файла.
         </p>
         <button
           v-if="resumeDocumentId"

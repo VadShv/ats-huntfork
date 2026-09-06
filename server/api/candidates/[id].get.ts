@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
         orderBy: (application, { desc }) => [desc(application.createdAt)],
       },
       documents: {
-        columns: { id: true, type: true, originalFilename: true, mimeType: true, parsedContent: true, createdAt: true },
+        columns: { id: true, type: true, originalFilename: true, mimeType: true, previewStorageKey: true, parsedContent: true, createdAt: true },
         orderBy: (document, { desc }) => [desc(document.createdAt)],
       },
     },
@@ -94,9 +94,11 @@ export default defineEventHandler(async (event) => {
     ...rest,
     hasResumeSnapshot: hhResumeRaw != null,
     resumeSource,
-    documents: documents.map(({ parsedContent, ...doc }) => ({
+    documents: documents.map(({ parsedContent, previewStorageKey, ...doc }) => ({
       ...doc,
       parsed: parsedContent != null,
+      // Доступно ли inline-превью (PDF-оригинал или сконвертированный preview-PDF).
+      previewAvailable: doc.mimeType === 'application/pdf' || previewStorageKey != null,
     })),
     properties,
     fuzzyDuplicatesCount: Number(dupCount?.value ?? 0),

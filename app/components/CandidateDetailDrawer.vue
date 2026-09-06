@@ -28,12 +28,13 @@ const activeTab = ref<'applications' | 'documents' | 'chat'>('applications')
 // ─── Resume ───────────────────────────────────────────────────────────────────
 
 // Документ-резюме для кнопки «Структурировать из файла» и превью оригинала.
-const resumeDoc = computed<{ id: string, mimeType?: string } | null>(() => {
+const resumeDoc = computed<{ id: string, mimeType?: string, previewAvailable?: boolean } | null>(() => {
   const docs = (candidate.value as any)?.documents ?? []
   return docs.find((d: any) => d.type === 'resume') ?? null
 })
 const resumeDocumentId = computed<string | null>(() => resumeDoc.value?.id ?? null)
 const resumeDocumentMime = computed<string | null>(() => resumeDoc.value?.mimeType ?? null)
+const resumeDocumentPreviewAvailable = computed<boolean>(() => resumeDoc.value?.previewAvailable ?? false)
 
 // ─── Apply to job modal ───────────────────────────────────────────────────────
 
@@ -356,6 +357,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
               :has-snapshot="Boolean((candidate as any).hasResumeSnapshot || (candidate as any).hhResumeId)"
               :resume-document-id="resumeDocumentId"
               :resume-document-mime="resumeDocumentMime"
+              :resume-document-preview-available="resumeDocumentPreviewAvailable"
               @changed="refresh()"
             />
 

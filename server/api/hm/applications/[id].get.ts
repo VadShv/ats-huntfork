@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { application, candidate, job, pipelineStage } from '../../../database/schema/app'
+import { application, candidate, document, job, pipelineStage } from '../../../database/schema/app'
 import { hmDecision } from '../../../database/schema/hm'
 import { requireHm } from '../../../utils/requireHm'
 import { isHiringManagerOnJob } from '../../../utils/hiringManager'
@@ -74,6 +74,25 @@ export default defineEventHandler(async (event) => {
   if (!isAssigned) {
     throw createError({ statusCode: 403, statusMessage: 'Нет доступа к этой вакансии' })
   }
+
+  // 2.1 Оригинальный файл резюме (если резюме добавлено вручную файлом).
+  //   По решению продукта НМ видит превью файла как есть (включая PII в файле).
+  //   Берём самый свежий документ type='resume' по кандидату в этой org.
+  const [resumeDoc] = await db
+    .select({
+      id: document.id,
+      mimeType: document.mimeType,
+      previewStorageKey: document.previewStorageKey,
+      originalFilename: document.originalFilename,
+    })
+    .from(document)
+    .where(and(
+      eq(document.organizationId, orgId),
+      eq(document.candidateId, row.candidateId),
+      eq(document.type, 'resume'),
+    ))
+    .orderBy(desc(document.createdAt))
+    .limit(1)
 
   // 3. Существующее эффективное решение НМ (любого — не только текущего)
   const [effective] = await db
@@ -211,6 +230,22 @@ export default defineEventHandler(async (event) => {
       aiSummary: row.aiSummary,
       expectedSalary,
       resume: resumeSnapshot,
+      /**
+       * Оригинальный файл резюме (ручная загрузка). Если есть — НМ показываем
+       * превью файла как есть. Превью стримится через /api/hm/documents/:id/preview
+       * с проверкой назначения НМ на вакансию. Для DOCX превью станет доступно после
+       * DOCX→PDF конвертации (isPdf=false → предлагаем скачать оригинал).
+       */
+      resumeDocument: resumeDoc
+        ? {
+            id: resumeDoc.id,
+            mimeType: resumeDoc.mimeType,
+            originalFilename: resumeDoc.originalFilename,
+            // Превью доступно: оригинал PDF или есть сконвертированный preview-PDF.
+            previewAvailable: resumeDoc.mimeType === 'application/pdf'
+              || resumeDoc.previewStorageKey != null,
+          }
+        : null,
     },
     job: {
       id: row.jobId,

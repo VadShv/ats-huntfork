@@ -193,8 +193,34 @@ async function decide(kind: 'approved' | 'rejected') {
             </p>
           </UiCard>
 
-          <!-- Структурированное резюме hh.ru (без PII) -->
-          <UiCard v-if="data.candidate.resume">
+          <!-- Превью оригинального файла резюме (ручная загрузка). По продуктовому
+               решению НМ видит файл как есть, включая PII в самом файле. -->
+          <UiCard v-if="data.candidate.resumeDocument">
+            <div class="mb-3 flex items-center gap-2 text-sm font-medium text-surface-900 dark:text-surface-100">
+              <FileText class="size-4 text-brand-600 dark:text-brand-400" />
+              Резюме (оригинал файла)
+            </div>
+            <iframe
+              v-if="data.candidate.resumeDocument.previewAvailable"
+              :src="`/api/hm/documents/${data.candidate.resumeDocument.id}/preview`"
+              class="w-full rounded-lg border border-surface-200 dark:border-surface-800"
+              style="height: 75vh;"
+              title="Оригинал резюме"
+            />
+            <div
+              v-else
+              class="rounded-lg border border-dashed border-surface-300 dark:border-surface-700 p-6 text-center"
+            >
+              <FileText class="size-8 mx-auto text-surface-400" />
+              <p class="mt-2 text-sm text-surface-600 dark:text-surface-300">
+                Предпросмотр недоступен для этого файла.
+              </p>
+            </div>
+          </UiCard>
+
+          <!-- Структурированное резюме hh.ru (без PII).
+               Показываем только когда нет файлового превью — иначе дублирование. -->
+          <UiCard v-if="data.candidate.resume && !data.candidate.resumeDocument">
             <div class="mb-3 flex items-center gap-2 text-sm font-medium text-surface-900 dark:text-surface-100">
               <FileText class="size-4 text-brand-600 dark:text-brand-400" />
               Резюме кандидата
@@ -279,7 +305,10 @@ async function decide(kind: 'approved' | 'rejected') {
             </div>
           </UiCard>
 
-          <UiCard v-else-if="!data.candidate.aiSummary" variant="dashed">
+          <UiCard
+            v-else-if="!data.candidate.aiSummary && !data.candidate.resumeDocument"
+            variant="dashed"
+          >
             <div class="flex items-center gap-2 py-2 text-sm text-surface-500 dark:text-surface-400">
               <Info class="size-4" />
               Резюме кандидата ещё не загружено. Попросите рекрутера обновить данные с hh.ru.

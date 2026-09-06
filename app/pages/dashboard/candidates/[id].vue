@@ -39,12 +39,13 @@ const activeTab = useDetailTabRoute({
 
 // Единообразие резюме: первый загруженный файл-резюме с извлечённым текстом —
 // для кнопки «Структурировать из файла (ИИ)» в empty state блока резюме.
-const resumeDoc = computed<{ id: string, mimeType?: string } | null>(() => {
+const resumeDoc = computed<{ id: string, mimeType?: string, previewAvailable?: boolean } | null>(() => {
   const docs = (candidate.value as any)?.documents ?? []
   return docs.find((d: any) => d.type === 'resume' && d.parsed) ?? null
 })
 const resumeDocumentId = computed<string | null>(() => resumeDoc.value?.id ?? null)
 const resumeDocumentMime = computed<string | null>(() => resumeDoc.value?.mimeType ?? null)
+const resumeDocumentPreviewAvailable = computed<boolean>(() => resumeDoc.value?.previewAvailable ?? false)
 
 // HH resume header info — подгружаем должность/город/опыт для шапки
 interface HhResumeApiResp {
@@ -886,6 +887,7 @@ async function openHhContacts() {
             :has-snapshot="Boolean((candidate as any).hasResumeSnapshot)"
             :resume-document-id="resumeDocumentId"
             :resume-document-mime="resumeDocumentMime"
+            :resume-document-preview-available="resumeDocumentPreviewAvailable"
             @changed="refresh()"
           />
         </main>

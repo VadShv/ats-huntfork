@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
     ),
     columns: {
       storageKey: true,
+      previewStorageKey: true,
       originalFilename: true,
       mimeType: true,
     },
@@ -42,8 +43,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
   }
 
-  // Only allow inline preview for PDFs — DOC/DOCX can contain macros
-  if (doc.mimeType !== 'application/pdf') {
+  // Inline preview streams a PDF. Originals that are PDF are streamed directly;
+  // DOC/DOCX are streamed via their derived preview PDF (LibreOffice conversion at
+  // upload). If neither is available → 415 (fallback: download original).
+  const previewKey = doc.mimeType === 'application/pdf'
+    ? doc.storageKey
+    : doc.previewStorageKey
+  if (!previewKey) {
     throw createError({
       statusCode: 415,
       statusMessage: 'Предпросмотр доступен только для PDF-файлов',
@@ -54,7 +60,7 @@ export default defineEventHandler(async (event) => {
   const s3Response = await s3Client.send(
     new GetObjectCommand({
       Bucket: env.S3_BUCKET,
-      Key: doc.storageKey,
+      Key: previewKey,
     }),
   )
 
