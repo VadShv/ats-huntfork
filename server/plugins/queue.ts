@@ -12,6 +12,7 @@ import {
   processSuggestJob,
 } from '../utils/comms/assistantJobs'
 import { TG_WEBHOOK_QUEUE, processTelegramWebhookJob } from '../utils/comms/telegramWebhooks'
+import { RESUME_RISK_QUEUE, processResumeRiskJob } from '../utils/risk/worker'
 import { getBoss, stopBoss } from '../utils/queue/boss'
 
 /**
@@ -135,6 +136,26 @@ export default defineNitroPlugin(async (nitroApp) => {
     )
 
     logInfo('queue.workers_registered', { queue: TG_WEBHOOK_QUEUE })
+
+    // ── Этап 3 — очередь риск-анализа резюме ──
+    try {
+      await boss.createQueue(RESUME_RISK_QUEUE)
+    }
+    catch (err) {
+      logDebug('queue.create_queue_skipped', {
+        queue: RESUME_RISK_QUEUE,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    // LLM-bound (ждём провайдера) — бережём лимиты: по 2 параллельно.
+    await boss.work(
+      RESUME_RISK_QUEUE,
+      { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
+      processResumeRiskJob as any,
+    )
+
+    logInfo('queue.workers_registered', { queue: RESUME_RISK_QUEUE })
 
     // Graceful shutdown
     nitroApp.hooks.hook('close', async () => {
