@@ -61,19 +61,90 @@ export interface ResumeSection {
   content: string
 }
 
+/** Max time to wait for the external extractor before falling back. */
+const EXTRACTOR_TIMEOUT_MS = 45_000
+
+/**
+ * Извлечение текста через внешний Python-сервис (pdfplumber + Tesseract OCR).
+ * Возвращает ParsedResume при успехе, иначе null → вызывающий падает на pdf-parse.
+ * Управляется env EXTRACTOR_URL; если он не задан — сервис не используется.
+ */
+async function extractViaService(
+  buffer: Buffer,
+  mimeType: string,
+  filename?: string,
+): Promise<ParsedResume | null> {
+  const base = process.env.EXTRACTOR_URL
+  if (!base) return null
+  try {
+    const form = new FormData()
+    const blob = new Blob([buffer], { type: mimeType })
+    form.append('file', blob, filename || (mimeType === 'application/pdf' ? 'resume.pdf' : 'resume.docx'))
+
+    const controller = new AbortController()
+    const to = setTimeout(() => controller.abort(), EXTRACTOR_TIMEOUT_MS)
+    let resp: Response
+    try {
+      resp = await fetch(`${base.replace(/\/$/, '')}/extract`, {
+        method: 'POST', body: form, signal: controller.signal,
+      })
+    }
+    finally {
+      clearTimeout(to)
+    }
+    if (!resp.ok) {
+      logWarn('resume_parser.extractor_http_error', { status: resp.status })
+      return null
+    }
+    const data = await resp.json() as { text?: string, method?: string, pageCount?: number, isScanned?: boolean }
+    const text = normalizeText(data.text ?? '')
+    if (text.length < 30) return null // пусто — пусть попробует pdf-parse
+
+    return {
+      text,
+      sections: extractSections(text),
+      metadata: {
+        pageCount: data.pageCount ?? null,
+        wordCount: text.split(/\s+/).filter(Boolean).length,
+        characterCount: text.length,
+        extractedAt: new Date().toISOString(),
+        parserVersion: `extractor:${data.method ?? 'unknown'}`,
+        sourceFormat: mimeType === 'application/pdf' ? 'pdf' : 'docx',
+      },
+    }
+  }
+  catch (err) {
+    logWarn('resume_parser.extractor_unavailable', {
+      error_message: err instanceof Error ? err.message : String(err),
+    })
+    return null
+  }
+}
+
 /**
  * Parse a document buffer and extract text content.
  * Routes to the appropriate parser based on MIME type.
  *
  * @param buffer - Raw file bytes
  * @param mimeType - Validated MIME type of the document
+ * @param filename - Original filename (helps the extractor pick a parser)
  * @returns Structured parsed content, or null if extraction fails
  */
 export async function parseDocument(
   buffer: Buffer,
   mimeType: string,
+  filename?: string,
 ): Promise<ParsedResume | null> {
   try {
+    // Layout-aware extractor (pdfplumber + OCR) — для PDF/DOCX. Он корректно читает
+    // многоколоночные/дизайнерские и сканированные резюме, которые pdf-parse портит.
+    // Best-effort: при недоступности/ошибке падаем на встроенные парсеры ниже.
+    if (mimeType === 'application/pdf'
+      || mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const viaService = await extractViaService(buffer, mimeType, filename)
+      if (viaService) return viaService
+    }
+
     switch (mimeType) {
       case 'application/pdf':
         return await parsePdf(buffer)

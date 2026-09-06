@@ -146,7 +146,7 @@ export default defineEventHandler(async (event) => {
   // 8. Parse document content (best-effort — does not block upload)
   // ─────────────────────────────────────────────
 
-  const parsedContent = await parseDocument(fileBuffer, mimeType)
+  const parsedContent = await parseDocument(fileBuffer, mimeType, filePart.filename)
 
   // ─────────────────────────────────────────────
   // 9. Insert DB record — clean up S3 on failure

@@ -36,6 +36,20 @@ services:
       timeout: 5s
       retries: 10
 
+  # Layout-aware resume text extractor (pdfplumber + Tesseract OCR).
+  # Handles multi-column / scanned PDFs the JS pdf-parse mangles.
+  extractor:
+    build: ./services/extractor
+    container_name: reqcore_extractor
+    restart: unless-stopped
+    expose:
+      - "8000" # internal only — reached by app via http://extractor:8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     container_name: reqcore_app
@@ -45,6 +59,8 @@ services:
       # Override localhost URLs with Docker-internal hostnames
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       S3_ENDPOINT: http://minio:9000
+      # Resume text extractor (Docker-internal). Node falls back to pdf-parse if down.
+      EXTRACTOR_URL: http://extractor:8000
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

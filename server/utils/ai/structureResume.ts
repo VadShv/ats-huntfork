@@ -228,32 +228,47 @@ export async function structureResumeFromText(opts: { orgId: string, text: strin
 
   const config = await loadAiConfig(opts.orgId, { purpose: 'structuring', preferId: null })
 
-  // Нормализуем пробелы и ограничиваем объём — резюме длиннее 15k символов
-  // почти всегда содержат мусор из PDF-экстракции.
-  const text = opts.text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').slice(0, 15_000)
+  // Кастомные/дизайнерские макеты. Ограничиваем объём умеренно (не теряя хвост).
+  const text = opts.text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').slice(0, 20_000)
 
   const system =
-    'Ты ассистент рекрутера. Разложи сырой текст резюме на структурированные поля. '
+    'Ты ассистент рекрутера. Разложи сырой текст резюме на структурированные поля JSON. '
+    + 'КРИТИЧЕСКИ ВАЖНО: перенеси В СТРУКТУРУ ВСЮ информацию из резюме, ничего не пропуская — '
+    + 'это нужно для качественного скрининга. Заполни ВСЕ применимые поля: firstName, lastName, '
+    + 'middleName, title (желаемая должность), birthDate, gender, area (город), salaryAmount, '
+    + 'salaryCurrency, experience (ВСЕ места работы с полными обязанностями и достижениями), '
+    + 'education (ВСЕ учебные заведения, факультет, год, степень), skills (ВСЕ навыки отдельными '
+    + 'тегами), about (раздел «О себе» целиком), languages (ВСЕ языки с уровнем), contacts. '
     + 'Используй ТОЛЬКО факты из текста — ничего не выдумывай. '
-    + 'firstName/lastName — это имя и фамилия ЧЕЛОВЕКА, НЕ должность и НЕ город. '
-    + 'Если в начале текста идёт желаемая должность или заголовок — не путай её с именем. '
-    + 'Обязательно извлеки ВЕСЬ опыт работы в массив experience — каждое место '
-    + 'работы отдельным объектом (компания, должность, период, обязанности). Не пропускай места работы. '
-    + 'Если данных нет, верни пустую строку, 0 или пустой массив. '
-    + 'Даты приводи к формату YYYY-MM-01 (день всегда 01). '
-    + 'Текст может быть распознан из PDF с артефактами переносов и в непривычном порядке — восстанавливай смысл.'
-  const prompt = `Разложи следующее резюме на структурированные поля.\n\n<резюме>\n${text}\n</резюме>`
+    + 'firstName/lastName — имя и фамилия ЧЕЛОВЕКА, НЕ должность и НЕ город. '
+    + 'Не пропускай ни одного места работы и ни одного навыка. '
+    + 'Если данных нет — пустая строка / 0 / пустой массив. '
+    + 'Даты в формате YYYY-MM-01. '
+    + 'Текст мог быть распознан из PDF с артефактами (склейка слов, непривычный порядок, колонки) — '
+    + 'восстанавливай смысл и разделяй склеенные слова.'
+  const prompt = `Разложи следующее резюме на структурированные поля. Перенеси ВСЮ информацию.\n\n<резюме>\n${text}\n</резюме>`
 
-  // temperature: 0 — детерминированный разбор (одинаковый вход → одинаковый выход).
-  // disableThinking: разбору резюме reasoning не нужен — у Qwen3.6/GLM это экономит
-  // десятки секунд/минуты (thinking-фаза), качество извлечения полей не страдает.
+  // Для кастомных макетов КАЧЕСТВО важнее скорости → thinking ВКЛючён (disableThinking:false).
+  // Такие резюме редки (львиная доля идёт через hh rule-based / API), поэтому доп. время
+  // приемлемо ради полноты извлечения.
   const result = await generateStructuredOutput(config, {
     system, prompt, schema: structuredResumeSchema,
     schemaName: 'structured_resume',
-    schemaDescription: 'Структурированное представление резюме кандидата',
+    schemaDescription: 'Полное структурированное представление резюме кандидата',
     temperature: 0,
-    disableThinking: true,
+    disableThinking: false,
   })
 
-  return { parsed: result.object, usage: result.usage, config, source: 'llm' as const }
+  // Фаза 4 — regex-валидация контактов: гарантируем корректные email/телефон из текста,
+  // не полагаясь на возможные ошибки LLM (и не теряя их, если LLM пропустил).
+  const parsed = result.object
+  const emailRe = /[\w.+-]+@[\w-]+\.[\w.-]+/g
+  const emails = [...opts.text.matchAll(emailRe)].map(m => m[0])
+  const phoneRe = /(?:\+7|8)[\s\-()]*\d{3}[\s\-()]*\d{3}[\s\-()]*\d{2}[\s\-()]*\d{2}/g
+  const phones = [...opts.text.matchAll(phoneRe)].map(m => `+7${m[0].replace(/\D/g, '').slice(-10)}`)
+  const have = new Set(parsed.contacts.map(c => c.value.toLowerCase()))
+  for (const e of emails) if (!have.has(e.toLowerCase())) { parsed.contacts.push({ type: 'email', value: e }); have.add(e.toLowerCase()) }
+  for (const p of phones) if (!have.has(p.toLowerCase())) { parsed.contacts.push({ type: 'phone', value: p }); have.add(p.toLowerCase()) }
+
+  return { parsed, usage: result.usage, config, source: 'llm' as const }
 }

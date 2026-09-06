@@ -79,7 +79,7 @@ export default defineEventHandler(async (event) => {
   // ─────────────────────────────────────────────
   // 5. Parse document (best-effort — no file saved)
   // ─────────────────────────────────────────────
-  const parsed = await parseDocument(fileBuffer, mimeType)
+  const parsed = await parseDocument(fileBuffer, mimeType, filePart.filename)
 
   if (!parsed || !parsed.text) {
     throw createError({
