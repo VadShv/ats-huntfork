@@ -123,96 +123,107 @@ export function structureHhResumeText(rawText: string): StructuredResume | null 
   }
   const expLines = lines.slice(expHeaderIdx + 1, expEnd)
 
-  // ── Индексы начал периодов ──
-  const starts: number[] = []
+  // ── Токенизация блока опыта на «периоды» и «контент» между ними ──
+  // Место работы начинается с блока дат (1+ дата-строк подряд + опц. длительность),
+  // затем контент (компания, сфера, должность, обязанности) до следующего блока дат.
+  const isDurationLine = (l: string) => /^\d+\s+(год|года|лет|месяц|месяца|месяцев)/i.test(l.trim())
+  const isDateLine = (l: string) => /^[а-яё]+\s+\d{4}\b/i.test(l.trim()) || /настоящее время/i.test(l.trim())
+  // Строка-«сфера деятельности» компании: перечисление индустрий (не должность/обязанность).
+  const isIndustryLine = (l: string) =>
+    /(информационные технологии|телекоммуникац|системная интеграц|розничн|оптов|производство|фармацевт|медицин|консалтинг|связь|интернет|торговл|банк|страхован|недвижимост|логистик|автоматизац|радиоэлектроник|микроэлектроник)/i.test(l)
+    && !/[.]$/.test(l.trim())
+
+  // Собираем индексы, где начинается блок дат.
+  const periodStarts: number[] = []
   for (let i = 0; i < expLines.length; i++) {
-    if (isPeriodStart(expLines[i]!)) starts.push(i)
+    const l = expLines[i]!
+    if (/^[а-яё]+\s+\d{4}\s*[—–-]?\s*$/i.test(l.trim()) || /^[а-яё]+\s+\d{4}\s*[—–-]\s*[а-яё]/i.test(l.trim())) {
+      // Начало периода — но только если предыдущая значимая строка НЕ дата
+      // (иначе это конец предыдущего периода на отдельной строке).
+      let prev = i - 1
+      while (prev >= 0 && !expLines[prev]!) prev--
+      const prevIsDate = prev >= 0 && (isDateLine(expLines[prev]!) || isDurationLine(expLines[prev]!))
+      if (!prevIsDate) periodStarts.push(i)
+    }
   }
-  if (starts.length === 0) return null // не смогли распознать опыт → LLM
+  if (periodStarts.length === 0) return null
 
   const experience: StructuredResume['experience'] = []
-  for (let s = 0; s < starts.length; s++) {
-    const blockStart = starts[s]!
-    const blockEnd = s + 1 < starts.length ? starts[s + 1]! : expLines.length
+  for (let s = 0; s < periodStarts.length; s++) {
+    const blockStart = periodStarts[s]!
+    const blockEnd = s + 1 < periodStarts.length ? periodStarts[s + 1]! : expLines.length
     const block = expLines.slice(blockStart, blockEnd)
 
-    // block[0] = «Февраль 2023 —» (возможно с концом на той же строке)
-    const startLine = block[0]!
-    const start = parseMonthYear(startLine) ?? ''
-    // Конец: остаток строки после «—» или следующая строка.
-    let end = ''
-    const dashRest = startLine.split(/[—–-]/).slice(1).join('-').trim()
-    let cursor = 1
-    if (dashRest && !/настоящее время/i.test(dashRest)) {
-      end = parseMonthYear(dashRest) ?? ''
-    }
-    else if (!dashRest && block[1]) {
-      // конец на отдельной строке
-      if (/настоящее время/i.test(block[1]!)) { end = ''; cursor = 2 }
-      else { end = parseMonthYear(block[1]!) ?? ''; cursor = block[1] && parseMonthYear(block[1]!) ? 2 : 1 }
-    }
-
-    // Компания — первая значимая строка после дат.
-    let company = ''
+    // 1) Съедаем ведущие строки дат/длительностей → start (первая дата), end (последняя дата).
+    const dateBuf: string[] = []
+    let cursor = 0
     while (cursor < block.length) {
       const l = block[cursor]!
-      cursor++
-      if (!l) continue
-      if (/настоящее время/i.test(l)) continue
-      company = cleanCompany(l)
+      if (!l) { cursor++; continue }
+      // строка вида «Месяц Год — Месяц Год» или «Месяц Год —» или «Месяц Год» или «настоящее время» или длительность
+      if (isDateLine(l) || isDurationLine(l) || /^[а-яё]+\s+\d{4}\s*[—–-]/i.test(l)) {
+        dateBuf.push(l); cursor++; continue
+      }
       break
     }
+    // Разбираем даты: все MonthYear токены из dateBuf.
+    const monthYears: string[] = []
+    let hasPresent = false
+    for (const dl of dateBuf) {
+      for (const part of dl.split(/[—–-]/)) {
+        const my = parseMonthYear(part)
+        if (my) monthYears.push(my)
+        if (/настоящее время/i.test(part)) hasPresent = true
+      }
+    }
+    const start = monthYears[0] ?? ''
+    const end = hasPresent ? '' : (monthYears.length > 1 ? monthYears[monthYears.length - 1]! : '')
 
-    // После компании в hh идёт блок «мета» — локация/сайт + сфера деятельности
-    // с буллетами «•», — и ТОЛЬКО потом должность, затем обязанности.
-    // Алгоритм: пропускаем мета-строки (локация, буллеты, индустрии) и берём
-    // ПОСЛЕДНЮЮ строку перед первой строкой-обязанностью как должность.
-    //   - мета-строка: начинается с «•», или содержит www./http, или это «сфера»
-    //     (одна строка без завершающей пунктуации, часто с запятыми-перечислением);
-    //   - должность: короткая строка (≤80) прямо перед содержательным текстом.
-    const rest: string[] = []
-    for (; cursor < block.length; cursor++) rest.push(block[cursor]!)
+    // 2) Контент после дат: компания, [город/сайт], [сфера/буллеты], должность, обязанности.
+    const rest = block.slice(cursor).map(l => l).filter((l, idx, arr) => !(l === '' && arr[idx - 1] === ''))
 
-    // Индекс, с которого начинается «мясо» обязанностей: первая строка,
-    // оканчивающаяся точкой/двоеточием или длиннее 80 символов, или буллет-детализация.
-    let dutiesStart = -1
-    for (let i = 0; i < rest.length; i++) {
-      const l = rest[i]!
-      if (!l) continue
-      const isMeta = /^•/.test(l) || /www\.|http/i.test(l)
-      const looksLikeDuty = l.length > 80 || /[.:]$/.test(l) || /^(Ключевые|Руководство|Управление|Отвечал|Создание|Развитие|Вывод|Обеспеч|Внедр|Организ)/i.test(l)
-      if (!isMeta && looksLikeDuty) { dutiesStart = i; break }
+    // Компания — первая значимая строка, не год/дата/длительность.
+    let ci = rest.findIndex(l => l && !isDateLine(l) && !isDurationLine(l) && !/^\d{4}$/.test(l))
+    let company = ci >= 0 ? cleanCompany(rest[ci]!) : ''
+
+    // Контент после компании: [город/сайт] [сфера/буллеты] ДОЛЖНОСТЬ обязанности...
+    const after = ci >= 0 ? rest.slice(ci + 1) : rest
+
+    // Должностные маркеры — самый надёжный сигнал позиции в hh.
+    const TITLE_WORDS = /(директор|руководител|менеджер|специалист|инженер|аналитик|консультант|начальник|заместитель|глава|head|lead|manager|owner|CxO|CEO|CFO|CTO|COO|CCO|CPO|CIO|президент|вице-президент|управляющ|архитектор|разработчик|продавец|администратор|координатор|эксперт|партн[её]р|founder|основатель|стажёр|стажер|ассистент|бизнес-|product|project|sales|account)/i
+    const isMeta = (l: string) => !l || /^•/.test(l) || /www\.|http/i.test(l) || isIndustryLine(l)
+      || /^(Москва|Санкт-Петербург|Казань|Новосибирск|Екатеринбург|Нижний|Самара|Ростов|Краснодар|Уфа|Пермь|Воронеж|Волгоград|Томск)/i.test(l)
+
+    // 1) Ищем строку-должность: содержит должностной маркер, коротка (<90), без концевой точки.
+    let posIdx = after.findIndex(l => l && !/^•/.test(l) && l.length < 90 && !/[.]$/.test(l) && TITLE_WORDS.test(l) && !isIndustryLine(l))
+
+    // 2) Фолбэк: если не нашли по маркеру — последняя не-мета строка перед первой «обязанностью».
+    if (posIdx === -1) {
+      const dutiesStart = after.findIndex(l => l && (/^•/.test(l) || l.length > 70 || /[.:]$/.test(l)))
+      if (dutiesStart > 0) {
+        for (let i = dutiesStart - 1; i >= 0; i--) {
+          if (!isMeta(after[i]!)) { posIdx = i; break }
+        }
+      }
     }
 
     let position = ''
     let descLines: string[] = []
-    if (dutiesStart > 0) {
-      // Должность — последняя НЕ мета/НЕ буллет строка перед обязанностями.
-      for (let i = dutiesStart - 1; i >= 0; i--) {
-        const l = rest[i]!
-        if (!l) continue
-        if (/^•/.test(l) || /www\.|http/i.test(l)) continue
-        position = l
-        break
-      }
-      descLines = rest.slice(dutiesStart)
+    if (posIdx >= 0) {
+      position = after[posIdx]!
+      descLines = after.slice(posIdx + 1)
     }
     else {
-      // Не нашли явных обязанностей — первая содержательная строка = должность.
-      const firstIdx = rest.findIndex(l => l && !/^•/.test(l) && !/www\.|http/i.test(l))
-      if (firstIdx >= 0) { position = rest[firstIdx]!; descLines = rest.slice(firstIdx + 1) }
+      // совсем не нашли — всё после меты в описание
+      const fi = after.findIndex(l => !isMeta(l))
+      descLines = fi >= 0 ? after.slice(fi) : after
     }
 
-    // Чистка должности: убрать префиксы-метки, отбросить «StartUp»/проектные метки.
+    // Чистка должности.
     position = position.replace(/^(ключевая роль|роль|должность)\s*[:—-]\s*/i, '').trim()
-    if (/^(startup|стартап|проект)\b/i.test(position) && descLines.length) {
-      // «StartUp» — не должность; попробуем взять первую строку описания как роль,
-      // если она короткая и без завершающей точки.
-      const cand = descLines.find(l => l && l.length < 60 && !/[.:]$/.test(l))
-      if (cand) position = cand
-    }
 
-    const description = descLines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+    // Описание: выкидываем оставшиеся мета-строки (сфера, буллеты индустрий, локация).
+    const description = descLines.filter(l => !isIndustryLine(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim()
     if (company || position) {
       experience.push({ company, position, start, end, description })
     }
