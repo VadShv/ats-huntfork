@@ -36,6 +36,11 @@ export default defineEventHandler(async (event) => {
 
   const { id, docId } = await getValidatedRouterParams(event, paramsSchema.parse)
 
+  // Флаг «Переструктурировать через ИИ»: пропустить rule-based/гибрид, сразу сильный LLM.
+  // Рекрутер жмёт его в карточке, если авто-структура вышла кривой (сложный макет).
+  const body = await readBody(event).catch(() => ({})) as { forceLlm?: boolean }
+  const forceLlm = body?.forceLlm === true
+
   // Единая точка структурирования (та же, что и авто-версия при загрузке файла).
   // forceRestructure: ручной вызов кнопкой всегда перезапускает разбор.
   const res = await structureDocumentIntoVersion({
@@ -44,6 +49,7 @@ export default defineEventHandler(async (event) => {
     documentId: docId,
     triggeredBy: session.user.id,
     forceRestructure: true,
+    forceLlm,
   })
 
   if (res.action === 'skipped_hh') {

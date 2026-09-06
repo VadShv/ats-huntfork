@@ -24,9 +24,6 @@ const toast = useToast()
 
 const resumeFile = ref<File | null>(null)
 const isParsing = ref(false)
-// Галочка «нестандартный формат резюме» → структурирование только сильным LLM
-// (пропускаем rule-based/гибрид, которые ошибаются на дизайнерских макетах).
-const nonStandardResume = ref(false)
 const dropzoneActive = ref(false)
 const resumeInputRef = ref<HTMLInputElement | null>(null)
 
@@ -406,7 +403,6 @@ async function doSubmit(force = false) {
         const fd = new FormData()
         fd.append('file', resumeFile.value)
         fd.append('type', 'resume')
-        if (nonStandardResume.value) fd.append('nonStandard', 'true')
         await $fetch(`/api/candidates/${newCandidate.id}/documents`, {
           method: 'POST',
           body: fd,
@@ -503,7 +499,6 @@ async function enrichExistingDup() {
         const fd = new FormData()
         fd.append('file', resumeFile.value)
         fd.append('type', 'resume')
-        if (nonStandardResume.value) fd.append('nonStandard', 'true')
         await $fetch(`/api/candidates/${first.candidateId}/documents`, { method: 'POST', body: fd })
         resumeAttached = true
       }
@@ -593,21 +588,7 @@ function candidateLink(id: string) {
               <X class="size-4" />
             </button>
           </div>
-          <!-- Нестандартный формат: подсказка системе структурировать только сильным LLM -->
-          <label
-            v-if="resumeFile"
-            class="mt-2 flex items-start gap-2 cursor-pointer text-xs text-surface-600 dark:text-surface-400"
-          >
-            <input
-              v-model="nonStandardResume"
-              type="checkbox"
-              class="mt-0.5 size-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500 shrink-0"
-            >
-            <span>
-              Нестандартный формат резюме (дизайнерский/многоколоночный).
-              Структурирование выполнит ИИ — медленнее, но точнее для сложных макетов.
-            </span>
-          </label>
+
           <div
             v-else
             class="relative rounded-lg border-2 border-dashed transition-colors cursor-pointer"

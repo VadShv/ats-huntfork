@@ -143,13 +143,43 @@ function openOnHh() {
 }
 
 // Единообразие резюме: структурирование загруженного файла через ИИ (по кнопке — токены тратятся осознанно).
+/**
+ * Красивое форматирование описания обязанностей: разбиваем «полотно» на строки/
+ * пункты. Строки, начинающиеся с маркеров (•, -, *, «Обязанности:/Достижения:»),
+ * или отдельные предложения → буллеты. Так описание читается как список, а не
+ * сплошным текстом.
+ */
+function formatDuties(desc: string): { label?: string, items: string[] } {
+  const raw = (desc || '').replace(/\r/g, '').trim()
+  if (!raw) return { items: [] }
+  // Уже есть переносы строк — используем их как пункты.
+  let parts = raw.split('\n').map(s => s.trim()).filter(Boolean)
+  // Если всё одной строкой — режем по буллет-маркерам или по границам предложений.
+  if (parts.length <= 1) {
+    const one = parts[0] ?? raw
+    if (/[•·*]|(?:^|\s)[-–—]\s/.test(one)) {
+      parts = one.split(/\s*[•·*]\s*|(?:^|\s)[-–—]\s+/).map(s => s.trim()).filter(Boolean)
+    }
+    else {
+      // По предложениям (точка + пробел + заглавная), сохраняя точку.
+      parts = one.split(/(?<=[.;])\s+(?=[А-ЯЁA-Z])/).map(s => s.trim()).filter(Boolean)
+    }
+  }
+  // Чистим ведущие маркеры у пунктов.
+  const items = parts.map(p => p.replace(/^[•·*\-–—]\s*/, '').trim()).filter(Boolean)
+  return { items }
+}
+
 const structuring = ref(false)
-async function structureFromDocument() {
+async function structureFromDocument(forceLlm = false) {
   if (!props.resumeDocumentId || structuring.value) return
   structuring.value = true
   try {
-    await $fetch(`/api/candidates/${props.candidateId}/documents/${props.resumeDocumentId}/structure`, { method: 'POST' })
-    toast.success('Резюме структурировано')
+    await $fetch(`/api/candidates/${props.candidateId}/documents/${props.resumeDocumentId}/structure`, {
+      method: 'POST',
+      body: forceLlm ? { forceLlm: true } : undefined,
+    })
+    toast.success(forceLlm ? 'Резюме переструктурировано через ИИ' : 'Резюме структурировано')
     emit('structured')
     await refresh()
   }
@@ -241,6 +271,20 @@ async function structureFromDocument() {
           <FileJson class="size-3.5" />
           Скачать JSON
         </button>
+        <!-- Переструктурировать через ИИ — только для файловых резюме (не hh.ru),
+             если авто-структура вышла кривой на сложном макете -->
+        <button
+          v-if="resumeDocumentId && data?.source === 'document'"
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-md border border-brand-300 dark:border-brand-700 text-brand-700 dark:text-brand-300 px-2.5 py-1.5 hover:bg-brand-50 dark:hover:bg-brand-950/30 disabled:opacity-60"
+          :disabled="structuring"
+          :title="'Разобрать заново сильным ИИ — точнее для сложных/нестандартных макетов'"
+          @click="structureFromDocument(true)"
+        >
+          <Loader2 v-if="structuring" class="size-3.5 animate-spin" />
+          <Sparkles v-else class="size-3.5" />
+          {{ structuring ? 'Переструктурируем…' : 'Переструктурировать через ИИ' }}
+        </button>
         <span class="ml-auto inline-flex items-center gap-2">
           <span
             v-if="sourceLabel"
@@ -301,8 +345,21 @@ async function structureFromDocument() {
             <p v-if="exp.company" class="text-sm text-surface-600 dark:text-surface-300">
               {{ exp.company }}
             </p>
+            <ul
+              v-if="exp.description && formatDuties(exp.description).items.length > 1"
+              class="mt-2 space-y-1.5 text-sm text-surface-700 dark:text-surface-300 leading-relaxed"
+            >
+              <li
+                v-for="(item, k) in formatDuties(exp.description).items"
+                :key="k"
+                class="flex gap-2"
+              >
+                <span class="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand-400/70" />
+                <span>{{ item }}</span>
+              </li>
+            </ul>
             <p
-              v-if="exp.description"
+              v-else-if="exp.description"
               class="mt-2 whitespace-pre-line text-sm text-surface-700 dark:text-surface-300 leading-relaxed"
             >
               {{ exp.description }}
