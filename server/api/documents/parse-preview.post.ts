@@ -115,7 +115,7 @@ export default defineEventHandler(async (event) => {
   let lastName: string | undefined
   let displayName: string | undefined
 
-  // Слова-маркеры должностей — строки с ними не могут быть ФИО
+  // Слова-маркеры должностей/заголовков — строки с ними не могут быть ФИО
   const JOB_TITLE_WORDS = new Set([
     'директор', 'менеджер', 'разработчик', 'инженер', 'консультант', 'руководитель',
     'специалист', 'аналитик', 'дизайнер', 'бухгалтер', 'администратор', 'программист',
@@ -130,37 +130,51 @@ export default defineEventHandler(async (event) => {
     'главный', 'старший', 'младший', 'ведущий', 'заместитель', 'зам',
     'начальник', 'заведующий', 'председатель', 'декан', 'ректор',
     'продавец', 'кассир', 'бариста', 'официант',
+    // Заголовки-секции и служебные слова резюме
+    'должность', 'желаемая', 'зарплата', 'резюме', 'контакты', 'опыт',
+    'образование', 'навыки', 'портфолио', 'специализации', 'занятость',
   ])
 
   // Ограничиваем поиск: ФИО всегда до первой секции резюме
   const SECTION_RE = /^(experience|employment|education|skills|summary|profile|objective|about|contact|certifications?|awards?|languages?|interests?|references?|работа|опыт|образование|навыки|о\s+себе|контакты|обо\s+мне|цель|профиль)/i
 
+  /**
+   * Строка — «имя человека» (а не заголовок/должность), если каждое слово в
+   * Title Case: заглавная + хотя бы одна строчная (Упоров, Виталий). Это ключевое
+   * отличие от ALL-CAPS заголовков («ЖЕЛАЕМАЯ ДОЛЖНОСТЬ», «КОНТАКТЫ») и от
+   * должностей. Разрешаем дефис (Римский-Корсаков) и букву Ё.
+   */
+  const NAME_WORD_RE = /^[A-ZА-ЯЁ][a-zа-яё]+(?:-[A-ZА-ЯЁ][a-zа-яё]+)?$/
+
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
   const sectionIdx = lines.findIndex((l) => SECTION_RE.test(l) && l.length < 60)
-  const searchLines = lines.slice(0, sectionIdx > 0 ? Math.min(sectionIdx, 15) : 10)
+  // Ищем шире (до 25 строк / до секции) — в кастомных макетах ФИО бывает не в самом верху.
+  const searchLines = lines.slice(0, sectionIdx > 0 ? Math.min(sectionIdx, 25) : 20)
 
   for (const line of searchLines) {
     if (email && line.includes(email)) continue
     if (/https?:\/\/|www\.|@/.test(line)) continue
-    if (/\d{2,}/.test(line)) continue
-    if (line.length > 60) continue
+    if (/\d/.test(line)) continue // в ФИО не бывает цифр
+    if (line.length > 50) continue
 
     const words = line.split(/\s+/)
     if (words.length < 2 || words.length > 3) continue
 
-    // Each word must start with an uppercase letter (Latin or Cyrillic)
-    const allCapitalised = words.every((w) => /^[A-ZА-ЯЁ]/.test(w))
-    if (!allCapitalised) continue
+    // Каждое слово — в Title Case (не ALL-CAPS заголовок, не строчное).
+    if (!words.every(w => NAME_WORD_RE.test(w))) continue
 
-    // Skip job titles — any word matches a known title keyword
-    const lowerWords = words.map((w) => w.toLowerCase())
-    if (lowerWords.some((w) => JOB_TITLE_WORDS.has(w))) continue
+    // Пропускаем должности/заголовки по ключевым словам.
+    const lowerWords = words.map(w => w.toLowerCase())
+    if (lowerWords.some(w => JOB_TITLE_WORDS.has(w))) continue
 
-    // Looks like a name — take it
+    // Похоже на ФИО — берём. Русское резюме: обычно «Фамилия Имя Отчество».
     if (words.length === 2) {
-      firstName = words[0]
-      lastName = words[1]
-    } else {
+      // «Упоров Виталий» → фамилия первой (частый порядок в РФ-резюме).
+      lastName = words[0]
+      firstName = words[1]
+      displayName = line
+    }
+    else {
       lastName = words[0]
       firstName = words[1]
       displayName = line

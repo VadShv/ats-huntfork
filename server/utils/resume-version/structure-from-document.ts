@@ -82,12 +82,13 @@ export async function structureDocumentIntoVersion(opts: {
   const priorMaxExp = Math.max(0, ...fromThisDoc.map(v => experienceCount(v.snapshot as any)))
 
   try {
-    const { parsed, config } = await structureResumeFromText({ orgId, text })
+    const { parsed, config, source } = await structureResumeFromText({ orgId, text })
     const raw = buildHhCompatibleRaw(parsed, {
       documentId: doc.id,
       sourceFilename: doc.originalFilename,
-      provider: (config as { provider?: string }).provider ?? null,
-      model: (config as { model?: string }).model ?? null,
+      // config === null для rule-based пути (без LLM).
+      provider: source === 'rule_based' ? 'rule_based' : ((config as { provider?: string } | null)?.provider ?? null),
+      model: source === 'rule_based' ? 'hh_text_structurer' : ((config as { model?: string } | null)?.model ?? null),
     })
 
     // Анти-обеднение: если новый разбор потерял опыт, а прошлая версия документа

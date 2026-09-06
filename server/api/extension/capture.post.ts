@@ -188,8 +188,8 @@ export default defineEventHandler(async (event) => {
     contacts: { email, phone, telegram, linkedin, github },
     duplicates: { exact: duplicates.exact, fuzzy: duplicates.fuzzy, social },
     meta: {
-      provider: (config as { provider?: string }).provider ?? null,
-      model: (config as { model?: string }).model ?? null,
+      provider: (config as { provider?: string } | null)?.provider ?? null,
+      model: (config as { model?: string } | null)?.model ?? null,
     },
   }
 })

@@ -16,6 +16,7 @@
 import { z } from 'zod'
 import { loadAiConfig } from './loadConfig'
 import { generateStructuredOutput } from './provider'
+import { structureHhResumeText } from './hh-text-structurer'
 
 const experienceItemSchema = z.object({
   company: z.string().describe('Название компании; "" если неизвестно'),
@@ -217,6 +218,14 @@ export function buildHhCompatibleRaw(p: StructuredResume, meta: StructureMeta): 
  * убран. Детерминизм обеспечивает temperature: 0, полноту опыта — усиленный промпт.
  */
 export async function structureResumeFromText(opts: { orgId: string, text: string }) {
+  // ── Быстрый путь: детерминированный разбор hh-резюме без LLM ──
+  // Моментально, с полными обязанностями и без галлюцинаций. Для нестандартных
+  // макетов вернёт null → уходим в LLM ниже.
+  const ruleBased = structureHhResumeText(opts.text)
+  if (ruleBased) {
+    return { parsed: ruleBased, usage: { promptTokens: 0, completionTokens: 0 }, config: null, source: 'rule_based' as const }
+  }
+
   const config = await loadAiConfig(opts.orgId, { purpose: 'structuring', preferId: null })
 
   // Нормализуем пробелы и ограничиваем объём — резюме длиннее 15k символов
@@ -246,5 +255,5 @@ export async function structureResumeFromText(opts: { orgId: string, text: strin
     disableThinking: true,
   })
 
-  return { parsed: result.object, usage: result.usage, config }
+  return { parsed: result.object, usage: result.usage, config, source: 'llm' as const }
 }
