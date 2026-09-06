@@ -36,6 +36,15 @@ export const propertyTypeEnum = pgEnum('property_type', [
 export const genderEnum = pgEnum('gender', ['male', 'female', 'other', 'prefer_not_to_say'])
 export const experienceLevelEnum = pgEnum('experience_level', ['junior', 'mid', 'senior', 'lead'])
 export const nameDisplayFormatEnum = pgEnum('name_display_format', ['first_last', 'last_first'])
+// Категории интервью-вопросов (банк вопросов вакансии). Отдельно от question_type
+// (тот про поля формы отклика). Здесь — смысловые группы для собеседования.
+export const interviewQuestionCategoryEnum = pgEnum('interview_question_category', [
+  'hard_skill', 'soft_skill', 'experience', 'motivation', 'culture', 'logistics', 'risk_probe', 'other',
+])
+// Источник вопроса: сгенерирован ИИ, добавлен вручную, или ИИ-вопрос отредактирован.
+export const interviewQuestionSourceEnum = pgEnum('interview_question_source', [
+  'ai_generated', 'manual', 'edited',
+])
 export const dateFormatEnum = pgEnum('date_format', ['mdy', 'dmy', 'ymd'])
 export const pipelineStageTypeEnum = pgEnum('pipeline_stage_type', [
   // ── Working bucket (canonical hh.ru-style phases) ──
@@ -421,6 +430,85 @@ export const questionResponse = pgTable('question_response', {
   index('question_response_organization_id_idx').on(t.organizationId),
   index('question_response_application_id_idx').on(t.applicationId),
   index('question_response_question_id_idx').on(t.questionId),
+]))
+
+// ─────────────────────────────────────────────
+// Job Brief (Этап 1) — результаты брифа с ЛПР, внутреннее (не публикуется)
+// ─────────────────────────────────────────────
+//
+// 1:1 к job (отдельная таблица, чтобы не раздувать job и разграничить доступ).
+// Публичный контур (public/jobs/[slug]) НИКОГДА не читает эту таблицу — бриф
+// по построению не утекает наружу. Структурированные chip-поля (jsonb string[])
+// дают машиночитаемый сигнал для будущих AI-фич (вопросы/риски), freeform ловит
+// всё остальное. Все поля опциональны.
+export const jobBrief = pgTable('job_brief', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  // Структурированные требования
+  hardMustHave: jsonb('hard_must_have').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  niceToHave: jsonb('nice_to_have').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  dealBreakers: jsonb('deal_breakers').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  redFlagsToWatch: jsonb('red_flags_to_watch').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  // Свободные текстовые секции
+  responsibilities: text('responsibilities'),
+  teamContext: text('team_context'),
+  interviewProcess: text('interview_process'),
+  compensationNotes: text('compensation_notes'),
+  idealProfile: text('ideal_profile'),
+  sourcingHints: text('sourcing_hints'),
+  freeform: text('freeform'),
+  // Метаданные
+  filledById: text('filled_by_id').references(() => user.id, { onDelete: 'set null' }),
+  filledAt: timestamp('filled_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('job_brief_job_id_unique').on(t.jobId),
+  index('job_brief_organization_id_idx').on(t.organizationId),
+]))
+
+// ─────────────────────────────────────────────
+// Interview Questions bank (Этап 2) — банк интервью-вопросов вакансии
+// ─────────────────────────────────────────────
+//
+// НЕ путать с job_question (вопросы формы отклика для соискателя). Здесь —
+// интервью-вопросы для рекрутера/HM, генерируются ИИ из промпта + описания + брифа,
+// редактируются, версионируются вручную (source), категоризируются. База для
+// персональных наборов под кандидата (Этап 4).
+export const jobInterviewQuestion = pgTable('job_interview_question', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  category: interviewQuestionCategoryEnum('category').notNull().default('other'),
+  rationale: text('rationale'),
+  goodAnswer: text('good_answer'),
+  source: interviewQuestionSourceEnum('source').notNull().default('manual'),
+  displayOrder: integer('display_order').notNull().default(0),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('job_interview_question_organization_id_idx').on(t.organizationId),
+  index('job_interview_question_job_id_idx').on(t.jobId),
+]))
+
+// Сохранённая инструкция генерации вопросов (1:1 к job).
+export const jobQuestionPrompt = pgTable('job_question_prompt', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  promptText: text('prompt_text').notNull().default(''),
+  lastGeneratedAt: timestamp('last_generated_at'),
+  lastProvider: text('last_provider'),
+  lastModel: text('last_model'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('job_question_prompt_job_id_unique').on(t.jobId),
+  index('job_question_prompt_organization_id_idx').on(t.organizationId),
 ]))
 
 // ─────────────────────────────────────────────
@@ -954,11 +1042,28 @@ export const jobRelations = relations(job, ({ one, many }) => ({
   organization: one(organization, { fields: [job.organizationId], references: [organization.id] }),
   applications: many(application),
   questions: many(jobQuestion),
+  interviewQuestions: many(jobInterviewQuestion),
   scoringCriteria: many(scoringCriterion),
   trackingLinks: many(trackingLink),
   pipeline: one(pipeline, { fields: [job.pipelineId], references: [pipeline.id] }),
   company: one(company, { fields: [job.companyId], references: [company.id] }),
   department: one(department, { fields: [job.departmentId], references: [department.id] }),
+  brief: one(jobBrief, { fields: [job.id], references: [jobBrief.jobId] }),
+  questionPrompt: one(jobQuestionPrompt, { fields: [job.id], references: [jobQuestionPrompt.jobId] }),
+}))
+
+export const jobBriefRelations = relations(jobBrief, ({ one }) => ({
+  job: one(job, { fields: [jobBrief.jobId], references: [job.id] }),
+  filledBy: one(user, { fields: [jobBrief.filledById], references: [user.id] }),
+}))
+
+export const jobInterviewQuestionRelations = relations(jobInterviewQuestion, ({ one }) => ({
+  job: one(job, { fields: [jobInterviewQuestion.jobId], references: [job.id] }),
+  createdBy: one(user, { fields: [jobInterviewQuestion.createdById], references: [user.id] }),
+}))
+
+export const jobQuestionPromptRelations = relations(jobQuestionPrompt, ({ one }) => ({
+  job: one(job, { fields: [jobQuestionPrompt.jobId], references: [job.id] }),
 }))
 
 export const candidateRelations = relations(candidate, ({ one, many }) => ({
