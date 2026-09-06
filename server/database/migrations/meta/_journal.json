@@ -596,6 +596,13 @@
       "when": 1801000310000,
       "tag": "0085_interview_questions",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1801000320000,
+      "tag": "0086_resume_risk_and_policy",
+      "breakpoints": true
     }
   ]
 }
