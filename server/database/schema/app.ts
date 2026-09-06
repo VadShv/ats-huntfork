@@ -366,6 +366,9 @@ export const document = pgTable('document', {
   candidateId: text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
   type: documentTypeEnum('type').notNull().default('resume'),
   storageKey: text('storage_key').notNull().unique(),
+  // Производный PDF для inline-превью не-PDF документов (DOC/DOCX → PDF через
+  // LibreOffice). null, если оригинал уже PDF или конвертация не выполнялась.
+  previewStorageKey: text('preview_storage_key').unique(),
   originalFilename: text('original_filename').notNull(),
   mimeType: text('mime_type').notNull(),
   sizeBytes: integer('size_bytes'),

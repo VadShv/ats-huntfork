@@ -15,9 +15,13 @@ HTTP and falls back to its own pdf-parse if the service is unavailable.
 """
 import io
 import logging
+import os
 import re
+import subprocess
+import tempfile
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import Response
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("extractor")
@@ -25,6 +29,8 @@ log = logging.getLogger("extractor")
 app = FastAPI(title="reqcore-extractor", version="1.0")
 
 MAX_BYTES = 15 * 1024 * 1024  # 15 MB
+# LibreOffice conversion can be slow on first run (profile init); cap it.
+CONVERT_TIMEOUT_SEC = 60
 
 
 @app.get("/health")
@@ -295,6 +301,99 @@ def _normalize(text: str) -> str:
     text = re.sub(r"([а-яёa-z])-\n([а-яёa-z])", r"\1\2", text, flags=re.I)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return "\n".join(line.strip() for line in text.split("\n")).strip()
+
+
+def _convert_to_pdf(data: bytes, suffix: str) -> bytes:
+    """Convert an office document (DOC/DOCX/ODT…) to PDF via LibreOffice headless.
+
+    Runs `soffice --convert-to pdf` in an isolated temp dir. Returns PDF bytes.
+    Raises RuntimeError on failure so the caller can map it to an HTTP error.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, f"input{suffix}")
+        with open(src, "wb") as fh:
+            fh.write(data)
+
+        # Isolated per-call user profile → avoids concurrency lock issues.
+        profile = os.path.join(tmp, "profile")
+        cmd = [
+            "soffice",
+            "--headless",
+            "--norestore",
+            "--nolockcheck",
+            f"-env:UserInstallation=file://{profile}",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            tmp,
+            src,
+        ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                timeout=CONVERT_TIMEOUT_SEC,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("conversion timed out")
+
+        out = os.path.join(tmp, "input.pdf")
+        if proc.returncode != 0 or not os.path.exists(out):
+            raise RuntimeError(
+                f"soffice failed (rc={proc.returncode}): "
+                f"{proc.stderr.decode('utf-8', 'ignore')[:400]}"
+            )
+
+        with open(out, "rb") as fh:
+            return fh.read()
+
+
+_CONVERT_SUFFIX = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/msword": ".doc",
+    "application/vnd.oasis.opendocument.text": ".odt",
+}
+
+
+@app.post("/convert")
+async def convert(file: UploadFile = File(...)):
+    """Convert an uploaded office document to PDF and return the PDF bytes.
+
+    Used to give DOC/DOCX resumes a unified inline PDF preview. PDFs are returned
+    as-is (idempotent — the caller may send anything).
+    """
+    data = await file.read()
+    if len(data) > MAX_BYTES:
+        raise HTTPException(status_code=413, detail="file too large")
+
+    name = (file.filename or "").lower()
+    ctype = (file.content_type or "").lower()
+
+    # Already a PDF → return unchanged.
+    if name.endswith(".pdf") or "pdf" in ctype:
+        return Response(content=data, media_type="application/pdf")
+
+    suffix = None
+    if name.endswith(".docx") or "wordprocessingml" in ctype:
+        suffix = ".docx"
+    elif name.endswith(".doc") or "msword" in ctype:
+        suffix = ".doc"
+    elif name.endswith(".odt") or "opendocument.text" in ctype:
+        suffix = ".odt"
+    else:
+        suffix = _CONVERT_SUFFIX.get(ctype)
+
+    if not suffix:
+        raise HTTPException(status_code=415, detail="unsupported type for conversion")
+
+    try:
+        pdf = _convert_to_pdf(data, suffix)
+    except RuntimeError as e:
+        log.exception("convert_failed")
+        raise HTTPException(status_code=500, detail=f"convert failed: {e}")
+
+    return Response(content=pdf, media_type="application/pdf")
 
 
 @app.post("/extract")

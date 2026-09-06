@@ -10,7 +10,7 @@ import {
   documentTypeSchema,
   sanitizeFilename,
 } from '../../../../utils/schemas/document'
-import { parseDocument } from '../../../../utils/resume-parser'
+import { parseDocument, convertToPdfViaService } from '../../../../utils/resume-parser'
 import { refreshCandidateSearchTsv } from '../../../../utils/candidateSearchText'
 import { structureDocumentIntoVersion } from '../../../../utils/resume-version/structure-from-document'
 
@@ -147,6 +147,30 @@ export default defineEventHandler(async (event) => {
   await uploadToS3(storageKey, fileBuffer, mimeType)
 
   // ─────────────────────────────────────────────
+  // 7.1 Derived PDF preview for non-PDF docs (DOC/DOCX → PDF via LibreOffice)
+  //     Best-effort: если конвертация недоступна/упала — просто нет превью,
+  //     загрузка не блокируется (UI предложит скачать оригинал).
+  // ─────────────────────────────────────────────
+
+  let previewStorageKey: string | null = null
+  if (mimeType !== 'application/pdf') {
+    try {
+      const pdf = await convertToPdfViaService(fileBuffer, mimeType, filePart.filename)
+      if (pdf) {
+        const key = `${orgId}/${candidateId}/${documentId}.preview.pdf`
+        await uploadToS3(key, pdf, 'application/pdf')
+        previewStorageKey = key
+      }
+    }
+    catch (convErr) {
+      logWarn('document.preview_convert_failed', {
+        document_id: documentId,
+        error_message: convErr instanceof Error ? convErr.message : String(convErr),
+      })
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // 8. Parse document content (best-effort — does not block upload)
   // ─────────────────────────────────────────────
 
@@ -163,6 +187,7 @@ export default defineEventHandler(async (event) => {
       candidateId,
       type: documentType,
       storageKey,
+      previewStorageKey,
       originalFilename: sanitizeFilename(filePart.filename),
       mimeType,
       sizeBytes: fileBuffer.length,
@@ -237,14 +262,16 @@ export default defineEventHandler(async (event) => {
     setResponseStatus(event, 201)
     return { ...created, resumeVersioningStarted }
   } catch (dbError) {
-    // Clean up the orphaned S3 object if DB insert fails
-    try {
-      await deleteFromS3(storageKey)
-    } catch (cleanupError) {
-      logWarn('document.s3_orphan_cleanup_failed', {
-        storage_key: storageKey,
-        error_message: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
-      })
+    // Clean up the orphaned S3 objects if DB insert fails (original + preview)
+    for (const key of [storageKey, previewStorageKey].filter(Boolean) as string[]) {
+      try {
+        await deleteFromS3(key)
+      } catch (cleanupError) {
+        logWarn('document.s3_orphan_cleanup_failed', {
+          storage_key: key,
+          error_message: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+        })
+      }
     }
     throw dbError
   }

@@ -121,6 +121,63 @@ async function extractViaService(
   }
 }
 
+/** Max time to wait for LibreOffice conversion (cold start can be slow). */
+const CONVERT_TIMEOUT_MS = 70_000
+
+/**
+ * Конвертация office-документа (DOC/DOCX) в PDF через внешний extractor-сервис
+ * (LibreOffice headless). Нужна для единого inline-превью: не-PDF резюме получают
+ * производный PDF. Возвращает PDF-байты при успехе, иначе null (превью недоступно →
+ * UI предложит скачать оригинал). Управляется env EXTRACTOR_URL.
+ */
+export async function convertToPdfViaService(
+  buffer: Buffer,
+  mimeType: string,
+  filename?: string,
+): Promise<Buffer | null> {
+  const base = process.env.EXTRACTOR_URL
+  if (!base) return null
+  // Уже PDF — конвертировать нечего.
+  if (mimeType === 'application/pdf') return buffer
+  try {
+    const form = new FormData()
+    // Uint8Array-view удовлетворяет типу BlobPart (Buffer напрямую — нет под strict TS).
+    const blob = new Blob([new Uint8Array(buffer)], { type: mimeType })
+    const fallbackName = mimeType === 'application/msword' ? 'resume.doc' : 'resume.docx'
+    form.append('file', blob, filename || fallbackName)
+
+    const controller = new AbortController()
+    const to = setTimeout(() => controller.abort(), CONVERT_TIMEOUT_MS)
+    let resp: Response
+    try {
+      resp = await fetch(`${base.replace(/\/$/, '')}/convert`, {
+        method: 'POST', body: form, signal: controller.signal,
+      })
+    }
+    finally {
+      clearTimeout(to)
+    }
+    if (!resp.ok) {
+      logWarn('resume_parser.convert_http_error', { status: resp.status })
+      return null
+    }
+    const arrayBuf = await resp.arrayBuffer()
+    const pdf = Buffer.from(arrayBuf)
+    // Санити: PDF начинается с «%PDF».
+    if (pdf.length < 5 || pdf.subarray(0, 4).toString('latin1') !== '%PDF') {
+      logWarn('resume_parser.convert_invalid_output', { size: pdf.length })
+      return null
+    }
+    return pdf
+  }
+  catch (err) {
+    logWarn('resume_parser.convert_unavailable', {
+      error_message: err instanceof Error ? err.message : String(err),
+    })
+    return null
+  }
+}
+
 /**
  * Parse a document buffer and extract text content.
  * Routes to the appropriate parser based on MIME type.
