@@ -56,6 +56,28 @@ function isNoiseLine(line: string): boolean {
 
 const SECTION_RE = /^(опыт работы|образование|ключевые навыки|обо мне|о себе|дополнительная информация|знание языков|повышение квалификации|тесты|электронные сертификаты|высшее образование)/i
 
+/** Известные заголовки секций hh — границы для секционной нарезки нижней части. */
+const KNOWN_SECTION_RE = /^(опыт работы|образование|высшее образование|ключевые навыки|навыки|знание языков|обо мне|о себе|дополнительная информация|повышение квалификации|тесты|электронные сертификаты|опыт вождения|история общения|сертификаты)(\s|$)/i
+
+/** Ищет зарплатные ожидания в тексте: «Зарплата 1200000 RUR», «200 000 ₽», «$5000». */
+function parseSalary(rawText: string): { amount: number, currency: string } {
+  // Приоритет — явная метка «Зарплата …»; иначе первое «NNN RUR/руб/₽/$».
+  const m = rawText.match(/(?:Зарплата\s+)?([\d][\d\s]{3,})\s*(RUR|руб\.?|₽|USD|EUR|\$|€)/i)
+  if (!m) return { amount: 0, currency: '' }
+  const amount = Number.parseInt(m[1]!.replace(/\s/g, ''), 10) || 0
+  if (amount < 1000) return { amount: 0, currency: '' } // отсекаем случайные числа
+  const cur = /USD|\$/i.test(m[2]!) ? 'USD' : /EUR|€/i.test(m[2]!) ? 'EUR' : 'RUR'
+  return { amount, currency: cur }
+}
+
+/** Парсит строку языка «Английский — C1 — Продвинутый» → {name, level}. */
+function parseLangLine(line: string, out: { name: string, level: string }[]): void {
+  const parts = line.split(/\s+[—–-]\s+/)
+  const name = (parts[0] ?? '').trim()
+  const level = parts.slice(1).join(' — ').trim()
+  if (name && name.length < 30 && /^[А-ЯЁA-Z]/i.test(name)) out.push({ name, level })
+}
+
 /** «билайн (2 года)» → «билайн»; убираем хвостовую скобку с длительностью. */
 function cleanCompany(line: string): string {
   return line.replace(/\s*\([^)]*(?:год|года|лет|месяц)[^)]*\)\s*$/i, '').trim()
@@ -100,19 +122,28 @@ export function structureHhResumeText(rawText: string): StructuredResume | null 
   if (phoneMatch) contacts.push({ type: 'phone', value: `+7${phoneMatch[1]}${phoneMatch[2]}${phoneMatch[3]}${phoneMatch[4]}` })
   if (emailMatch) contacts.push({ type: 'email', value: emailMatch[0]! })
 
-  // ── Желаемая должность: строка «Желаемая должность» → следующая значимая ──
+  // ── Желаемая должность: строка «Желаемая должность и зарплата» → следующие значимые ──
+  // Название может занимать несколько строк (переносы PDF) — склеиваем до «Специализации».
   let title = ''
+  const { amount: salaryAmount, currency: salaryCurrency } = parseSalary(rawText)
   const titleIdx = lines.findIndex(l => /^желаемая должность/i.test(l))
   if (titleIdx !== -1) {
-    for (let i = titleIdx + 1; i < Math.min(titleIdx + 4, lines.length); i++) {
-      if (lines[i] && !/специализаци|занятость|график/i.test(lines[i]!)) { title = lines[i]!; break }
+    const titleParts: string[] = []
+    for (let i = titleIdx + 1; i < Math.min(titleIdx + 6, lines.length); i++) {
+      const l = lines[i]!
+      if (!l) continue
+      if (/^(специализаци|занятость|тип занятости|график|формат работы|желательное время)/i.test(l)) break
+      // Пропускаем строку зарплаты в названии должности.
+      if (/([\d\s]{4,})\s*(RUR|руб|₽|USD|EUR|\$|€)/i.test(l)) continue
+      titleParts.push(l)
     }
+    title = titleParts.join(' ').replace(/\s+/g, ' ').trim()
   }
 
   // ── Город/возраст/пол из шапки ──
   const areaMatch = rawText.match(/Проживает:\s*([^\n,]+)/i)
   const area = areaMatch?.[1]?.trim() ?? ''
-  const birthMatch = rawText.match(/родился\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i)
+  const birthMatch = rawText.match(/родил(?:ся|ась)\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i)
   let birthDate = ''
   if (birthMatch) {
     const mon = MONTHS[birthMatch[2]!.toLowerCase()]
@@ -239,50 +270,78 @@ export function structureHhResumeText(rawText: string): StructuredResume | null 
   const withDesc = experience.filter(e => e.description.length > 20).length
   if (experience.length === 0 || withDesc === 0) return null
 
+  // ── Секционная нарезка нижней части резюме (после опыта) ──
+  // hh регулярно выводит: [Образование] [Навыки → подсекция «Знание языков» + теги]
+  // [Дополнительная информация → «Обо мне»]. Нарезаем на именованные секции и
+  // парсим каждую независимо — так ничего не теряется.
+  const cleanLine = (l: string) => l && !/резюме обновлено/i.test(l) && !/^--\s*\d+\s+of/i.test(l)
+  /** Строки секции: от строки, матчащей headerRe, до следующего известного заголовка. */
+  const sectionBody = (headerRe: RegExp): { headerInline: string, body: string[] } | null => {
+    const idx = lines.findIndex(l => headerRe.test(l))
+    if (idx === -1) return null
+    const headerInline = lines[idx]!.replace(headerRe, '').trim()
+    const body: string[] = []
+    for (let i = idx + 1; i < lines.length; i++) {
+      if (KNOWN_SECTION_RE.test(lines[i]!)) break
+      if (cleanLine(lines[i]!)) body.push(lines[i]!)
+    }
+    return { headerInline, body }
+  }
+
   // ── Навыки ──
-  // Секция называется «Ключевые навыки» ИЛИ просто «Навыки». Теги идут либо через
-  // запятые/буллеты/переносы, либо (реже) через пробелы в одной строке.
+  // Секция «Навыки»/«Ключевые навыки». Внутри может идти подсекция «Знание языков»
+  // (её выносим в languages), а сами теги — после второго «Навыки» или сразу.
   const skills: string[] = []
-  // Строка «Навыки …» с тегами (может встречаться после подсекции «Знание языков»).
-  const skillsDataIdx = lines.findIndex(l => /^навыки\s+\S/i.test(l))
-  const skillsHdrIdx = lines.findIndex(l => /^(ключевые\s+)?навыки(\s|$)/i.test(l))
-  const startIdx = skillsDataIdx !== -1 ? skillsDataIdx : skillsHdrIdx
-  if (startIdx !== -1) {
-    for (let i = startIdx; i < Math.min(startIdx + 40, lines.length); i++) {
-      let l = lines[i]!
-      if (!l) continue
-      // Конец секции навыков — служебные подсекции/следующие блоки.
-      if (i > startIdx && /^(опыт вождения|права категории|дополнительн|обо мне|о себе|образование|знание языков)/i.test(l)) break
-      l = l.replace(/^(ключевые\s+)?навыки\s*/i, '')
-      if (!l) continue
-      const parts = l.split(/[,;•·]/).map(s => s.trim()).filter(Boolean)
-      if (parts.length > 1) {
-        parts.filter(s => s.length > 1 && s.length < 40).forEach(s => skills.push(s))
-      }
-      else if (l.length > 1 && l.length < 60) {
-        skills.push(l)
+  const languages: StructuredResume['languages'] = []
+  {
+    // Собираем ВСЕ строки от первого «Навыки» до «Дополнительная информация»/след. секции.
+    const firstSkillsIdx = lines.findIndex(l => /^(ключевые\s+)?навыки(\s|$)/i.test(l))
+    if (firstSkillsIdx !== -1) {
+      let inLanguages = false
+      for (let i = firstSkillsIdx; i < lines.length; i++) {
+        let l = lines[i]!
+        if (!cleanLine(l)) continue
+        if (/^(дополнительная информация|обо мне|о себе|опыт вождения|история общения)/i.test(l) && i > firstSkillsIdx) break
+        // Подсекция языков.
+        if (/^знание языков/i.test(l)) {
+          inLanguages = true
+          l = l.replace(/^знание языков\s*/i, '')
+          if (l) parseLangLine(l, languages)
+          continue
+        }
+        // Повторный заголовок «Навыки» переключает нас с языков на навыки.
+        if (/^(ключевые\s+)?навыки(\s|$)/i.test(l)) {
+          inLanguages = false
+          l = l.replace(/^(ключевые\s+)?навыки\s*/i, '')
+          if (!l) continue
+        }
+        if (inLanguages) {
+          // строка языка «Английский — C1 — Продвинутый»
+          if (/—|-/.test(l)) parseLangLine(l, languages)
+          else inLanguages = false // языки кончились — дальше навыки
+        }
+        if (!inLanguages && l) {
+          const parts = l.split(/[,;•·]/).map(s => s.trim()).filter(Boolean)
+          if (parts.length > 1) parts.filter(s => s.length > 1 && s.length < 40).forEach(s => skills.push(s))
+          else if (l.length > 1 && l.length < 80) skills.push(l)
+        }
       }
     }
   }
 
-  // ── О себе ──
-  // Заголовок «Обо мне»/«О себе» может стоять ОТДЕЛЬНОЙ строкой, а может быть
-  // склеен с первым предложением («Обо мне Меня зовут …») — учитываем оба.
+  // ── О себе ── (внутри «Дополнительная информация» или отдельной секцией)
   let about = ''
-  const aboutIdx = lines.findIndex(l => /^(обо мне|о себе)(\s|$)/i.test(l))
-  if (aboutIdx !== -1) {
-    const buf: string[] = []
-    // Текст из строки заголовка после «Обо мне»/«О себе» — чтобы не потерять 1-е предложение.
-    const inline = lines[aboutIdx]!.replace(/^(обо мне|о себе)\s*/i, '').trim()
-    if (inline) buf.push(inline)
-    for (let i = aboutIdx + 1; i < lines.length; i++) {
-      const l = lines[i]!
-      if (SECTION_RE.test(l)) break
-      // хвостовой колонтитул «Имя • Резюме обновлено …» и разрыв страниц отбрасываем
-      if (/резюме обновлено/i.test(l) || /^--\s*\d+\s+of/i.test(l)) continue
-      buf.push(l)
+  {
+    const sec = sectionBody(/^(обо мне|о себе)(\s|$)/i) ?? sectionBody(/^дополнительная информация(\s|$)/i)
+    if (sec) {
+      const buf: string[] = []
+      if (sec.headerInline) buf.push(sec.headerInline)
+      // Если это была «Дополнительная информация», внутри строка «Обо мне …».
+      for (const l of sec.body) {
+        buf.push(l.replace(/^(обо мне|о себе)\s*/i, ''))
+      }
+      about = buf.join('\n').replace(/\n{3,}/g, '\n\n').trim()
     }
-    about = buf.join('\n').replace(/\n{3,}/g, '\n\n').trim()
   }
 
   // ── Образование ──
@@ -360,10 +419,10 @@ export function structureHhResumeText(rawText: string): StructuredResume | null 
   return {
     firstName, lastName, middleName,
     title, birthDate, gender, area,
-    salaryAmount: 0, salaryCurrency: '',
+    salaryAmount, salaryCurrency,
     totalExperienceMonths: 0, // посчитается из experience в buildHhCompatibleRaw
-    experience, education, skills: skills.slice(0, 50), about,
-    languages: [], contacts,
+    experience, education, skills: skills.slice(0, 80), about,
+    languages, contacts,
   }
 }
 
@@ -488,10 +547,19 @@ export function structurePortfolioResumeText(rawText: string): StructuredResume 
   const aboutLines = sectionLines(/^О СЕБЕ$/)
   const about = aboutLines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 
-  // Навыки — слова через пробелы/строки (капс-секция «КЛЮЧЕВЫЕ НАВЫКИ»).
-  const skillLines = sectionLines(/^КЛЮЧЕВЫЕ НАВЫКИ$/)
-  const skills = skillLines.join(' ').split(/[,;]|\s{2,}/).map(s => s.trim())
-    .filter(s => s.length > 1 && s.length < 40).slice(0, 50)
+  // Навыки — капс-секция «КЛЮЧЕВЫЕ НАВЫКИ»/«НАВЫКИ». Теги через запятые/буллеты,
+  // либо (часто) построчно с пробелами — тогда каждую строку сохраняем как есть.
+  const skillLines = sectionLines(/^(КЛЮЧЕВЫЕ\s+)?НАВЫКИ$/)
+  const skills: string[] = []
+  for (const l of skillLines) {
+    const parts = l.split(/[,;•·]/).map(s => s.trim()).filter(Boolean)
+    if (parts.length > 1) parts.filter(s => s.length > 1 && s.length < 40).forEach(s => skills.push(s))
+    else if (l.length > 1 && l.length < 80) skills.push(l)
+  }
+
+  // Языки — капс-секция «ЗНАНИЕ ЯЗЫКОВ».
+  const languages: StructuredResume['languages'] = []
+  for (const l of sectionLines(/^ЗНАНИЕ ЯЗЫКОВ$/)) parseLangLine(l, languages)
 
   // Образование — «Высшее / <ВУЗ, город> / <факультет / специальность> / <год>».
   const education: StructuredResume['education'] = []
@@ -520,13 +588,14 @@ export function structurePortfolioResumeText(rawText: string): StructuredResume 
     }
   }
 
+  const { amount: salaryAmount, currency: salaryCurrency } = parseSalary(rawText)
   return {
     firstName, lastName, middleName,
     title, birthDate, gender, area: '',
-    salaryAmount: 0, salaryCurrency: '',
+    salaryAmount, salaryCurrency,
     totalExperienceMonths: 0,
     experience, education, skills, about,
-    languages: [], contacts,
+    languages, contacts,
   }
 }
 
