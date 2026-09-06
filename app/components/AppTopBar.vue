@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Calendar, ArrowUpCircle,
   Cloud, Server, Sparkles, Radio, History, ChartNoAxesCombined,
   MessageCircle, MoreHorizontal, GitMerge, History as HistoryIcon, Upload,
-  Inbox, Bot,
+  Inbox, Bot, ClipboardList, MessageCircleQuestion,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -114,6 +114,8 @@ const jobTabs = computed(() => {
   return [
     { label: t('dashboard.jobs.tabs.pipeline'), to: base, icon: Kanban, exact: true },
     { label: t('dashboard.jobs.tabs.table'), to: `${base}/candidates`, icon: Table2, exact: true },
+    { label: t('dashboard.jobs.tabs.brief'), to: `${base}/brief`, icon: ClipboardList, exact: true },
+    { label: t('dashboard.jobs.tabs.questions'), to: `${base}/questions`, icon: MessageCircleQuestion, exact: true },
     { label: t('dashboard.jobs.tabs.applicationForm'), to: `${base}/application-form`, icon: FileText, exact: true },
     { label: t('dashboard.jobs.tabs.aiAnalysis'), to: `${base}/ai-analysis`, icon: Sparkles, exact: true },
     { label: t('dashboard.jobs.tabs.aiChat'), to: `${base}/ai-chat`, icon: Bot, exact: true }, // Чат 2.0
