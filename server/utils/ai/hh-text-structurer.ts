@@ -240,26 +240,47 @@ export function structureHhResumeText(rawText: string): StructuredResume | null 
   if (experience.length === 0 || withDesc === 0) return null
 
   // ── Навыки ──
+  // Секция называется «Ключевые навыки» ИЛИ просто «Навыки». Теги идут либо через
+  // запятые/буллеты/переносы, либо (реже) через пробелы в одной строке.
   const skills: string[] = []
-  const skillsIdx = lines.findIndex(l => /^ключевые навыки/i.test(l))
-  if (skillsIdx !== -1) {
-    for (let i = skillsIdx + 1; i < Math.min(skillsIdx + 40, lines.length); i++) {
-      const l = lines[i]!
+  // Строка «Навыки …» с тегами (может встречаться после подсекции «Знание языков»).
+  const skillsDataIdx = lines.findIndex(l => /^навыки\s+\S/i.test(l))
+  const skillsHdrIdx = lines.findIndex(l => /^(ключевые\s+)?навыки(\s|$)/i.test(l))
+  const startIdx = skillsDataIdx !== -1 ? skillsDataIdx : skillsHdrIdx
+  if (startIdx !== -1) {
+    for (let i = startIdx; i < Math.min(startIdx + 40, lines.length); i++) {
+      let l = lines[i]!
       if (!l) continue
-      if (SECTION_RE.test(l)) break
-      // навыки в hh идут тегами через строки/запятые
-      l.split(/[,;•]/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 40).forEach(s => skills.push(s))
+      // Конец секции навыков — служебные подсекции/следующие блоки.
+      if (i > startIdx && /^(опыт вождения|права категории|дополнительн|обо мне|о себе|образование|знание языков)/i.test(l)) break
+      l = l.replace(/^(ключевые\s+)?навыки\s*/i, '')
+      if (!l) continue
+      const parts = l.split(/[,;•·]/).map(s => s.trim()).filter(Boolean)
+      if (parts.length > 1) {
+        parts.filter(s => s.length > 1 && s.length < 40).forEach(s => skills.push(s))
+      }
+      else if (l.length > 1 && l.length < 60) {
+        skills.push(l)
+      }
     }
   }
 
   // ── О себе ──
+  // Заголовок «Обо мне»/«О себе» может стоять ОТДЕЛЬНОЙ строкой, а может быть
+  // склеен с первым предложением («Обо мне Меня зовут …») — учитываем оба.
   let about = ''
-  const aboutIdx = lines.findIndex(l => /^обо мне|^о себе/i.test(l))
+  const aboutIdx = lines.findIndex(l => /^(обо мне|о себе)(\s|$)/i.test(l))
   if (aboutIdx !== -1) {
     const buf: string[] = []
+    // Текст из строки заголовка после «Обо мне»/«О себе» — чтобы не потерять 1-е предложение.
+    const inline = lines[aboutIdx]!.replace(/^(обо мне|о себе)\s*/i, '').trim()
+    if (inline) buf.push(inline)
     for (let i = aboutIdx + 1; i < lines.length; i++) {
-      if (SECTION_RE.test(lines[i]!)) break
-      buf.push(lines[i]!)
+      const l = lines[i]!
+      if (SECTION_RE.test(l)) break
+      // хвостовой колонтитул «Имя • Резюме обновлено …» и разрыв страниц отбрасываем
+      if (/резюме обновлено/i.test(l) || /^--\s*\d+\s+of/i.test(l)) continue
+      buf.push(l)
     }
     about = buf.join('\n').replace(/\n{3,}/g, '\n\n').trim()
   }

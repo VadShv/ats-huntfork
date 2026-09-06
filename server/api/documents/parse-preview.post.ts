@@ -109,6 +109,23 @@ export default defineEventHandler(async (event) => {
     phone = `+7${digits}`
   }
 
+  // Дата рождения: «родился/родилась 1 февраля 1987» | «Дата рождения 29 августа 1983».
+  const MONTHS_RU: Record<string, number> = {
+    'января': 1, 'февраля': 2, 'марта': 3, 'апреля': 4, 'мая': 5, 'июня': 6,
+    'июля': 7, 'августа': 8, 'сентября': 9, 'октября': 10, 'ноября': 11, 'декабря': 12,
+  }
+  let dateOfBirth: string | undefined
+  const dobMatch = text.match(/(?:родил(?:ся|ась)|дата рождения)\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i)
+  if (dobMatch) {
+    const mon = MONTHS_RU[dobMatch[2]!.toLowerCase()]
+    if (mon) dateOfBirth = `${dobMatch[3]}-${String(mon).padStart(2, '0')}-${dobMatch[1]!.padStart(2, '0')}`
+  }
+
+  // Пол: «Мужчина/Женщина» или «Мужской/Женский пол». (Без \b — не работает с кириллицей.)
+  let gender: 'male' | 'female' | undefined
+  if (/(Мужчина|Мужской пол|Мужской)/i.test(text)) gender = 'male'
+  else if (/(Женщина|Женский пол|Женский)/i.test(text)) gender = 'female'
+
   // Full name — first non-empty line that looks like 2–3 capitalised words
   // and is NOT a job title (директор, менеджер, разработчик, …)
   let firstName: string | undefined
@@ -189,6 +206,8 @@ export default defineEventHandler(async (event) => {
     firstName,
     lastName,
     displayName,
+    dateOfBirth,
+    gender,
     email,
     phone,
     textPreview: text.slice(0, 500),

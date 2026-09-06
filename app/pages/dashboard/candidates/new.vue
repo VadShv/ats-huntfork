@@ -228,6 +228,8 @@ async function handleResumeFile(file: File) {
       firstName?: string
       lastName?: string
       displayName?: string
+      dateOfBirth?: string
+      gender?: 'male' | 'female'
       email?: string
       phone?: string
       textPreview: string
@@ -259,8 +261,16 @@ async function handleResumeFile(file: File) {
       form.value.phone = result.phone
       anyFilled = true
     }
+    if (result.dateOfBirth && !form.value.dateOfBirth) {
+      form.value.dateOfBirth = result.dateOfBirth
+      anyFilled = true
+    }
+    if (result.gender && !form.value.gender) {
+      form.value.gender = result.gender
+      anyFilled = true
+    }
 
-    const hasContacts = !!(result.firstName || result.lastName || result.email || result.phone)
+    const hasContacts = !!(result.firstName || result.lastName || result.email || result.phone || result.dateOfBirth || result.gender)
     if (hasContacts) {
       toast.success(t('candidate.new.parsedSuccess'))
     } else {
