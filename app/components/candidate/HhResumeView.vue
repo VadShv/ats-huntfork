@@ -149,6 +149,40 @@ function openOnHh() {
  * или отдельные предложения → буллеты. Так описание читается как список, а не
  * сплошным текстом.
  */
+const DUTY_MARKER_RE = /^[•·*\-–—]\s*/
+// Начало нового пункта: маркер, цифра-нумерация («1.», «2)»), или заглавная буква
+// (кириллица/латиница). Строка-продолжение (перенос-обёртка от page-break) обычно
+// начинается со строчной буквы, запятой, союза и т.п.
+const DUTY_ITEM_START_RE = /^([•·*\-–—]|\d+[.):]|[A-ZА-ЯЁ])/
+// Терминаторы конца пункта. Если предыдущая строка ими не заканчивается, а следующая
+// не выглядит как начало нового пункта — это перенос внутри одного предложения.
+const SENTENCE_END_RE = /[.!?:;]$/
+
+/**
+ * Склеивает строки, разорванные переносом (page-break/word-wrap) внутри одного
+ * предложения. Правило консервативное: соединяем ТОЛЬКО когда предыдущая строка не
+ * оканчивается терминатором И следующая не начинается как новый пункт (нет маркера,
+ * не с заглавной/цифры). Так корректные буллеты не сливаются, а «оборванные»
+ * предложения (кейс Погорелова) восстанавливаются.
+ */
+function mergeWrappedLines(lines: string[]): string[] {
+  const out: string[] = []
+  for (const line of lines) {
+    const prev = out[out.length - 1]
+    if (
+      prev !== undefined
+      && !SENTENCE_END_RE.test(prev)
+      && !DUTY_ITEM_START_RE.test(line)
+    ) {
+      out[out.length - 1] = `${prev} ${line}`.replace(/\s{2,}/g, ' ')
+    }
+    else {
+      out.push(line)
+    }
+  }
+  return out
+}
+
 function formatDuties(desc: string): { items: string[] } {
   const raw = (desc || '').replace(/\r/g, '').trim()
   if (!raw) return { items: [] }
@@ -165,7 +199,11 @@ function formatDuties(desc: string): { items: string[] } {
       parts = [one] // нет маркеров — единый абзац (не дробим по точкам)
     }
   }
-  const items = parts.map(p => p.replace(/^[•·*\-–—]\s*/, '').trim()).filter(Boolean)
+  else {
+    // Несколько строк: восстанавливаем предложения, разорванные page-break/word-wrap.
+    parts = mergeWrappedLines(parts)
+  }
+  const items = parts.map(p => p.replace(DUTY_MARKER_RE, '').trim()).filter(Boolean)
   return { items }
 }
 
