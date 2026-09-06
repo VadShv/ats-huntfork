@@ -11,7 +11,9 @@
 import { z } from 'zod'
 import { generateStructuredOutput, type ProviderConfig } from './provider'
 
-export const interviewQuestionCategories = [
+// Local (не экспортируем — канонический список в utils/schemas/interviewQuestion.ts,
+// чтобы не плодить дублирующий авто-импорт Nuxt).
+const interviewQuestionCategories = [
   'hard_skill', 'soft_skill', 'experience', 'motivation', 'culture', 'logistics', 'risk_probe', 'other',
 ] as const
 export type InterviewQuestionCategory = (typeof interviewQuestionCategories)[number]
