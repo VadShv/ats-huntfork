@@ -72,6 +72,10 @@ export default defineEventHandler(async (event) => {
   // 3. Validate document type
   // ─────────────────────────────────────────────
 
+  // Флаг «нестандартный формат резюме» из формы → структурируем только сильным LLM.
+  const nonStandardPart = formData.find((part) => part.name === 'nonStandard')
+  const nonStandard = (nonStandardPart?.data?.toString() ?? '') === 'true'
+
   const typeValue = typePart?.data?.toString() ?? 'resume'
   const typeResult = documentTypeSchema.safeParse(typeValue)
   if (!typeResult.success) {
@@ -205,6 +209,7 @@ export default defineEventHandler(async (event) => {
         candidateId,
         documentId: created.id,
         triggeredBy: session.user.id,
+        forceLlm: nonStandard,
       }).then((res) => {
         if (res.action === 'created') {
           recordActivity({

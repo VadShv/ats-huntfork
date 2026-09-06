@@ -41,8 +41,10 @@ export async function structureDocumentIntoVersion(opts: {
   bypassDebounce?: boolean
   /** Принудительно перезапустить разбор, даже если версия из документа уже есть (ручная кнопка). */
   forceRestructure?: boolean
+  /** Рекрутер отметил «нестандартный формат» → сразу сильный LLM, без rule-based/гибрида. */
+  forceLlm?: boolean
 }): Promise<StructureFromDocumentResult> {
-  const { orgId, candidateId, documentId, triggeredBy, bypassDebounce = true, forceRestructure = false } = opts
+  const { orgId, candidateId, documentId, triggeredBy, bypassDebounce = true, forceRestructure = false, forceLlm = false } = opts
 
   const cand = await db.query.candidate.findFirst({
     where: and(eq(candidate.id, candidateId), eq(candidate.organizationId, orgId)),
@@ -82,7 +84,7 @@ export async function structureDocumentIntoVersion(opts: {
   const priorMaxExp = Math.max(0, ...fromThisDoc.map(v => experienceCount(v.snapshot as any)))
 
   try {
-    const { parsed, config, source } = await structureResumeFromText({ orgId, text })
+    const { parsed, config, source } = await structureResumeFromText({ orgId, text, forceLlm })
     const raw = buildHhCompatibleRaw(parsed, {
       documentId: doc.id,
       sourceFilename: doc.originalFilename,

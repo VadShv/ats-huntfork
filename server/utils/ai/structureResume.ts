@@ -217,13 +217,17 @@ export function buildHhCompatibleRaw(p: StructuredResume, meta: StructureMeta): 
  * удваивал время на медленных reasoning-моделях (структурирование шло минуты) —
  * убран. Детерминизм обеспечивает temperature: 0, полноту опыта — усиленный промпт.
  */
-export async function structureResumeFromText(opts: { orgId: string, text: string }) {
+export async function structureResumeFromText(opts: { orgId: string, text: string, forceLlm?: boolean }) {
   // ── Быстрый путь: детерминированный разбор hh-резюме без LLM ──
   // Моментально, с полными обязанностями и без галлюцинаций. Для нестандартных
   // макетов вернёт null → уходим в LLM ниже.
-  const ruleBased = structureResumeRuleBased(opts.text)
-  if (ruleBased) {
-    return { parsed: ruleBased, usage: { promptTokens: 0, completionTokens: 0 }, config: null, source: 'rule_based' as const }
+  // forceLlm: рекрутер отметил «нестандартный формат» → пропускаем rule-based
+  // и гибрид, полностью доверяемся сильной модели (меньше ошибок сегментации).
+  if (!opts.forceLlm) {
+    const ruleBased = structureResumeRuleBased(opts.text)
+    if (ruleBased) {
+      return { parsed: ruleBased, usage: { promptTokens: 0, completionTokens: 0 }, config: null, source: 'rule_based' as const }
+    }
   }
 
   const config = await loadAiConfig(opts.orgId, { purpose: 'structuring', preferId: null })
@@ -271,10 +275,15 @@ export async function structureResumeFromText(opts: { orgId: string, text: strin
   for (const p of phones) if (!have.has(p.toLowerCase())) { parsed.contacts.push({ type: 'phone', value: p }); have.add(p.toLowerCase()) }
 
   // ── Гибрид: обязанности ДОСЛОВНО из исходного текста ──
-  // Слабые модели обрезают длинные description. Чтобы НИЧЕГО НЕ ТЕРЯЛОСЬ, находим
-  // блок каждого места работы в исходном тексте по якорю (компания/должность) и,
-  // если дословный блок содержательнее LLM-описания, заменяем им description.
-  enrichExperienceFromText(parsed, opts.text)
+  // Слабые модели обрезают длинные description. Находим блок каждого места работы
+  // по якорю и заменяем description дословным текстом — НО только когда якоря
+  // найдены строго по порядку и без пересечений (иначе на кривом порядке текста
+  // из 2-колоночных PDF гибрид смешивает места → «Консалтика→КРОК»).
+  // При forceLlm (рекрутер отметил нестандартный формат) гибрид не применяем —
+  // полностью доверяемся сильной модели.
+  if (!opts.forceLlm) {
+    enrichExperienceFromText(parsed, opts.text)
+  }
 
   return { parsed, usage: result.usage, config, source: 'llm' as const }
 }
@@ -307,7 +316,14 @@ function enrichExperienceFromText(parsed: StructuredResume, rawText: string): vo
     }
     if (pos !== -1) anchors.push({ i, start: pos })
   })
-  if (anchors.length < 1) return
+
+  // Надёжность якорей: гибрид применяем ТОЛЬКО если нашли якоря для ВСЕХ мест
+  // и они идут в том же порядке, что и в experience (без перестановок). Иначе
+  // порядок текста ненадёжен (2-колоночный PDF) → не трогаем, доверяем модели.
+  if (anchors.length !== parsed.experience.length) return
+  const inOrder = anchors.every((a, k) => a.i === k)
+  const monotonic = anchors.every((a, k) => k === 0 || a.start > anchors[k - 1]!.start)
+  if (!inOrder || !monotonic) return
   anchors.sort((a, b) => a.start - b.start)
 
   // Соответствие позиций в нормализованном тексте ≈ позициям в исходном:
