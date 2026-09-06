@@ -76,6 +76,60 @@ def _cluster_columns(words, page_width, gap_ratio=0.18):
     return "\n".join(parts)
 
 
+def _detect_column_boundaries(page, gap_ratio=0.06):
+    """
+    Find vertical whitespace gutters that separate columns. Uses word x-ranges:
+    a boundary is a wide x-gap that persists (few words straddle it).
+    Returns sorted list of x-cut positions (may be empty for single-column).
+    """
+    words = page.extract_words(use_text_flow=False)
+    if len(words) < 20:
+        return []
+    # Build coverage of x-axis by word spans; find empty vertical bands.
+    W = page.width
+    bins = 100
+    covered = [0] * bins
+    for w in words:
+        a = max(0, int(w["x0"] / W * bins))
+        b = min(bins - 1, int(w["x1"] / W * bins))
+        for i in range(a, b + 1):
+            covered[i] += 1
+    # A gutter = run of empty bins wide enough.
+    cuts = []
+    i = 0
+    min_run = max(2, int(bins * gap_ratio))
+    while i < bins:
+        if covered[i] == 0:
+            j = i
+            while j < bins and covered[j] == 0:
+                j += 1
+            if (j - i) >= min_run and i > bins * 0.15 and j < bins * 0.9:
+                cuts.append((i + j) / 2 / bins * W)
+            i = j
+        else:
+            i += 1
+    return cuts
+
+
+def _extract_page_columns(page) -> str:
+    """
+    Extract page text preserving reading order for multi-column layouts using
+    native extract_text() per column crop (keeps intra-word spacing correct,
+    avoids the char-level gluing of manual word clustering).
+    """
+    cuts = _detect_column_boundaries(page)
+    if not cuts:
+        return page.extract_text(layout=False, x_tolerance=1.5) or ""
+    xs = [0.0] + cuts + [page.width]
+    parts = []
+    for k in range(len(xs) - 1):
+        crop = page.crop((xs[k], 0, xs[k + 1], page.height))
+        t = crop.extract_text(layout=False, x_tolerance=1.5) or ""
+        if t.strip():
+            parts.append(t)
+    return "\n".join(parts)
+
+
 def _extract_pdf(data: bytes) -> tuple[str, str, int]:
     """Returns (text, method, page_count)."""
     import pdfplumber
@@ -86,8 +140,7 @@ def _extract_pdf(data: bytes) -> tuple[str, str, int]:
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         page_count = len(pdf.pages)
         for page in pdf.pages:
-            words = page.extract_words(use_text_flow=False, keep_blank_chars=False)
-            page_text = _cluster_columns(words, page.width) if words else ""
+            page_text = _extract_page_columns(page)
             # Scanned page (image, no text layer) → OCR fallback.
             if len(page_text.strip()) < 30:
                 ocr_text = _ocr_page(page)
