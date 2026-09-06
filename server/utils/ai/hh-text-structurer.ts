@@ -258,12 +258,216 @@ export function structureHhResumeText(rawText: string): StructuredResume | null 
     about = buf.join('\n').replace(/\n{3,}/g, '\n\n').trim()
   }
 
+  // ── Образование ──
+  // hh выводит секцию «Образование» в двух вариантах:
+  //   (полный)   Образование / <Уровень> / <Год> / <Уровень> / <ВУЗ, город> / <специальность>
+  //   (краткий)  Образование / Уровень Высшее образование, <специальность>   — без ВУЗа (Мездриков)
+  const education: StructuredResume['education'] = []
+  const eduIdx = lines.findIndex(l => /^(образование|высшее образование)$/i.test(l))
+  if (eduIdx !== -1) {
+    // Границы секции — до следующей секции резюме.
+    let eduEnd = lines.length
+    for (let i = eduIdx + 1; i < lines.length; i++) {
+      if (SECTION_RE.test(lines[i]!) && !/^высшее образование$/i.test(lines[i]!)) { eduEnd = i; break }
+      if (/^(навыки|знание языков|дополнительная информация|гражданство|повышение квалификации|электронные сертификаты)/i.test(lines[i]!)) { eduEnd = i; break }
+    }
+    const eduLines = lines.slice(eduIdx + 1, eduEnd).filter(Boolean)
+    const LEVEL_RE = /(высшее|неоконченное высшее|среднее специальное|среднее|бакалавр|магистр|специалитет|аспирантура|MBA)/i
+    const UNIVERSITY_RE = /(университет|институт|академия|колледж|школа экономики|техникум|училище|university|institute|college|МГУ|МГТУ|МФТИ|ВШЭ|РЭУ|РАНХиГС)/i
+
+    // Краткий вариант: одна строка «Уровень Высшее образование, <специальность>».
+    const shortLine = eduLines.find(l => /^уровень\s+/i.test(l) || (LEVEL_RE.test(l) && l.includes(',')))
+    const uniLines = eduLines.filter(l => UNIVERSITY_RE.test(l))
+
+    if (uniLines.length === 0 && shortLine) {
+      // Только уровень + специальность, без ВУЗа.
+      const cleaned = shortLine.replace(/^уровень\s+/i, '')
+      const parts = cleaned.split(',')
+      const result = parts[0]?.trim() ?? '' // «Высшее образование»
+      const name = parts.slice(1).join(',').trim() // специальность
+      education.push({ organization: '', name, result, year: 0 })
+    }
+    else {
+      // Полный вариант: по каждому ВУЗу собираем запись.
+      const yearOf = (arr: string[], idx: number) => {
+        for (let k = Math.max(0, idx - 3); k <= Math.min(arr.length - 1, idx + 1); k++) {
+          const ym = arr[k]!.match(/\b(19|20)\d{2}\b/)
+          if (ym) return Number.parseInt(ym[0], 10)
+        }
+        return 0
+      }
+      const levelNear = (arr: string[], idx: number) => {
+        for (let k = Math.max(0, idx - 3); k < idx; k++) {
+          if (LEVEL_RE.test(arr[k]!)) return arr[k]!.replace(/\n/g, ' ').trim()
+        }
+        return ''
+      }
+      eduLines.forEach((l, idx) => {
+        if (!UNIVERSITY_RE.test(l)) return
+        // Склейка названия ВУЗа, разорванного переносом PDF: если следующая строка —
+        // продолжение (строчная буква / кавычка / «наук»), присоединяем её к org.
+        let orgRaw = l
+        let nameIdx = idx + 1
+        const cont = eduLines[idx + 1]
+        if (cont && /^([а-яё"«»]|наук|экономики|техники)/i.test(cont) && !LEVEL_RE.test(cont)) {
+          orgRaw = `${l} ${cont}`
+          nameIdx = idx + 2
+        }
+        // Убираем ведущий год («2013 Физический институт…») и хвостовой город.
+        const organization = orgRaw
+          .replace(/^\s*(19|20)\d{2}\s+/, '')
+          .replace(/,\s*(Москва|Санкт-Петербург|[А-ЯЁ][а-яё-]+)\s*$/i, '')
+          .trim()
+        // специальность — строка после ВУЗа, если она не ВУЗ/уровень/год/город.
+        let name = ''
+        const next = eduLines[nameIdx]
+        if (next && !UNIVERSITY_RE.test(next) && !LEVEL_RE.test(next) && !/^\d{4}$/.test(next)
+          && !/^(Москва|Санкт-Петербург)/i.test(next)) {
+          name = next.replace(/^[«"]?\s*/, '').trim()
+        }
+        education.push({ organization, name, result: levelNear(eduLines, idx), year: yearOf(eduLines, idx) })
+      })
+    }
+  }
+
   return {
     firstName, lastName, middleName,
     title, birthDate, gender, area,
     salaryAmount: 0, salaryCurrency: '',
     totalExperienceMonths: 0, // посчитается из experience в buildHhCompatibleRaw
-    experience, education: [], skills: skills.slice(0, 50), about,
+    experience, education, skills: skills.slice(0, 50), about,
     languages: [], contacts,
   }
+}
+
+/**
+ * Второй детерминированный профиль — «портфолио»-макет (кастомные PDF, которые
+ * НЕ являются экспортом hh.ru): секция «ПРОФЕССИОНАЛЬНЫЙ ОПЫТ», ФИО отдельной
+ * строкой (не в самом верху), блок опыта в порядке:
+ *   <Компания> / <Город> / <сфера> / <сайт> / <Должность> / <Период (в скобках)> / *обязанности
+ * Период тут ПОСЛЕ должности и в одну строку: «Апрель 2022 — по настоящее время (…)».
+ * Возвращает null при низкой уверенности → LLM.
+ */
+export function structurePortfolioResumeText(rawText: string): StructuredResume | null {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(l => !isNoiseLine(l) || l === '')
+
+  const expIdx = lines.findIndex(l => /^профессиональный опыт$/i.test(l))
+  if (expIdx === -1) return null
+
+  // ФИО: строка «Фамилия Имя [Отчество]» Title Case до секции опыта, не заголовок капсом.
+  const NAME_RE = /^[А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?(?:\s+[А-ЯЁ][а-яё]+){1,2}$/
+  let firstName = '', lastName = '', middleName = ''
+  for (const l of lines.slice(0, expIdx)) {
+    if (!NAME_RE.test(l)) continue
+    if (/должность|контакт|занятость|формат|опыт/i.test(l)) continue
+    if (l === l.toUpperCase()) continue // ALL-CAPS заголовок
+    const w = l.split(/\s+/)
+    lastName = w[0]!; firstName = w[1]!; middleName = w[2] ?? ''
+    break
+  }
+  if (!firstName || !lastName) return null
+
+  // Контакты, желаемая должность, город/ДР/пол.
+  const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+  const phoneMatch = rawText.match(/(?:\+7|8)[\s\-]?\(?(\d{3})\)?[\s\-]?(\d{3})[\s\-]?(\d{2})[\s\-]?(\d{2})/)
+  const contacts: StructuredResume['contacts'] = []
+  if (phoneMatch) contacts.push({ type: 'phone', value: `+7${phoneMatch[1]}${phoneMatch[2]}${phoneMatch[3]}${phoneMatch[4]}` })
+  if (emailMatch) contacts.push({ type: 'email', value: emailMatch[0]! })
+
+  let title = ''
+  const tIdx = lines.findIndex(l => /^желаемая должность$/i.test(l))
+  if (tIdx !== -1 && lines[tIdx + 1]) title = lines[tIdx + 1]!
+  const birthMatch = rawText.match(/(?:родил[ся|ась]*|рождения)\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i)
+  let birthDate = ''
+  if (birthMatch) {
+    const mon = MONTHS[birthMatch[2]!.toLowerCase()]
+    if (mon) birthDate = `${birthMatch[3]}-${String(mon).padStart(2, '0')}-${birthMatch[1]!.padStart(2, '0')}`
+  }
+  const gender: StructuredResume['gender'] = /Мужск/i.test(rawText) ? 'male' : /Женск/i.test(rawText) ? 'female' : 'unknown'
+
+  // Границы секции опыта: до следующей ALL-CAPS секции («ОБРАЗОВАНИЕ», «НАВЫКИ», …).
+  let expEnd = lines.length
+  for (let i = expIdx + 1; i < lines.length; i++) {
+    if (/^[А-ЯЁ ]{6,}$/.test(lines[i]!) && /ОБРАЗОВАНИЕ|НАВЫКИ|КЛЮЧЕВЫЕ|ЯЗЫК|СЕРТИФИК|ДОСТИЖЕНИ|О СЕБЕ/i.test(lines[i]!)) { expEnd = i; break }
+  }
+  const expLines = lines.slice(expIdx + 1, expEnd)
+
+  // Период вида «Апрель 2022 — по настоящее время (…)» / «Май 2018 — Январь 2020 (…)».
+  const PERIOD_RE = /^([а-яё]+\s+\d{4})\s*[—–-]\s*(по настоящее время|[а-яё]+\s+\d{4})/i
+  const periodIdxs: number[] = []
+  for (let i = 0; i < expLines.length; i++) if (PERIOD_RE.test(expLines[i]!)) periodIdxs.push(i)
+  if (periodIdxs.length === 0) return null
+
+  const experience: StructuredResume['experience'] = []
+  for (let p = 0; p < periodIdxs.length; p++) {
+    const periodIdx = periodIdxs[p]!
+    // Блок компании: от конца пред. обязанностей до этого периода — здесь компания/сфера/должность.
+    const headStart = p === 0 ? 0 : periodIdxs[p - 1]! + 1
+    // Обязанности: строки после периода до следующего периода (за вычетом хвостовых ФИО-колонтитулов).
+    const dutiesEnd = p + 1 < periodIdxs.length
+      ? findHeadStartBefore(expLines, periodIdxs[p + 1]!)
+      : expLines.length
+
+    const m = expLines[periodIdx]!.match(PERIOD_RE)!
+    const start = parseMonthYear(m[1]!) ?? ''
+    const end = /настоящее время/i.test(m[2]!) ? '' : (parseMonthYear(m[2]!) ?? '')
+
+    // Голова блока: [Компания, Город, сфера, сайт, Должность]. Должность — последняя
+    // не-мета строка перед периодом; компания — первая не-мета строка головы.
+    const head = expLines.slice(headStart, periodIdx).filter(Boolean)
+    const isMeta = (l: string) => /^•|\*/.test(l) || /www\.|http/i.test(l)
+      || /(информационные технологии|телекоммуникац|системная интеграц|розничн|оптов|производство|фармацевт|медицин|консалтинг|связь|интернет|торговл|интеграц|радиоэлектрон|электрооборуд|автоматиз)/i.test(l)
+      || /^(Москва|Санкт-Петербург|Одинцово|Казань|Новосибирск|Екатеринбург|Нижний|Самара|Ростов|Краснодар)/i.test(l)
+    const nonMeta = head.filter(l => !isMeta(l))
+    // Компания — первая не-мета строка головы, которая похожа на название (не хвост
+    // обязанностей пред. места: не начинается со строчной буквы, без завершающей точки,
+    // разумной длины).
+    const looksLikeCompany = (l: string) => l.length < 80 && !/^[а-яё]/.test(l) && !/[.]$/.test(l)
+    const company = cleanCompany(nonMeta.find(looksLikeCompany) ?? nonMeta[0] ?? head[0] ?? '')
+    const position = nonMeta.length > 1 ? nonMeta[nonMeta.length - 1]! : (nonMeta[0] ?? '')
+
+    // Обязанности: строки после периода, чистим ФИО-колонтитулы и звёздочки.
+    const dutyLines = expLines.slice(periodIdx + 1, dutiesEnd)
+      .filter(l => l && !new RegExp(`^${lastName}\\s+${firstName}`, 'i').test(l))
+      .map(l => l.replace(/^\*\s*/, '• '))
+    const description = dutyLines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+
+    if ((company || position) && description.length > 15) {
+      experience.push({ company: company === position ? '' : company, position, start, end, description })
+    }
+  }
+
+  if (experience.length === 0) return null
+
+  return {
+    firstName, lastName, middleName,
+    title, birthDate, gender, area: '',
+    salaryAmount: 0, salaryCurrency: '',
+    totalExperienceMonths: 0,
+    experience, education: [], skills: [], about: '',
+    languages: [], contacts,
+  }
+}
+
+/** Начало «головы» следующего блока: отступаем от периода к строке-компании. */
+function findHeadStartBefore(expLines: string[], nextPeriodIdx: number): number {
+  // Голова следующего места — несколько строк перед его периодом; обязанности
+  // текущего заканчиваются там, где начинается компания следующего. Эвристически
+  // отступаем максимум 6 строк назад до первой «не-обязанности».
+  let i = nextPeriodIdx - 1
+  let steps = 0
+  while (i > 0 && steps < 6) {
+    const l = expLines[i]!
+    if (/^\*|^•/.test(l) || l.length > 90) break // это ещё обязанность пред. места
+    i--; steps++
+  }
+  return i + 1
+}
+
+/**
+ * Единая точка детерминированного разбора: пробуем hh-формат, затем портфолио.
+ * null → вызывающий использует LLM.
+ */
+export function structureResumeRuleBased(rawText: string): StructuredResume | null {
+  return structureHhResumeText(rawText) ?? structurePortfolioResumeText(rawText)
 }

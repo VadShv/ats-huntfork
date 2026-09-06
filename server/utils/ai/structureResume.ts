@@ -16,7 +16,7 @@
 import { z } from 'zod'
 import { loadAiConfig } from './loadConfig'
 import { generateStructuredOutput } from './provider'
-import { structureHhResumeText } from './hh-text-structurer'
+import { structureResumeRuleBased } from './hh-text-structurer'
 
 const experienceItemSchema = z.object({
   company: z.string().describe('Название компании; "" если неизвестно'),
@@ -221,7 +221,7 @@ export async function structureResumeFromText(opts: { orgId: string, text: strin
   // ── Быстрый путь: детерминированный разбор hh-резюме без LLM ──
   // Моментально, с полными обязанностями и без галлюцинаций. Для нестандартных
   // макетов вернёт null → уходим в LLM ниже.
-  const ruleBased = structureHhResumeText(opts.text)
+  const ruleBased = structureResumeRuleBased(opts.text)
   if (ruleBased) {
     return { parsed: ruleBased, usage: { promptTokens: 0, completionTokens: 0 }, config: null, source: 'rule_based' as const }
   }
