@@ -47,6 +47,9 @@ const resumeDocumentId = computed<string | null>(() => resumeDoc.value?.id ?? nu
 const resumeDocumentMime = computed<string | null>(() => resumeDoc.value?.mimeType ?? null)
 const resumeDocumentPreviewAvailable = computed<boolean>(() => resumeDoc.value?.previewAvailable ?? false)
 
+// Ссылка на панель резюме — чтобы клик по риск-находке переключал её на вид «Риски».
+const resumePanelRef = ref<{ showRisks: () => void } | null>(null)
+
 // HH resume header info — подгружаем должность/город/опыт для шапки
 interface HhResumeApiResp {
   resume?: {
@@ -881,7 +884,13 @@ async function openHhContacts() {
             :can-generate="Boolean((candidate as any).hasResumeSnapshot)"
             @generated="refresh()"
           />
+          <CandidateRiskCard
+            :candidate-id="candidateId"
+            :can-generate="Boolean((candidate as any).hasResumeSnapshot)"
+            @open-details="resumePanelRef?.showRisks()"
+          />
           <CandidateResumePanel
+            ref="resumePanelRef"
             :candidate-id="candidateId"
             :candidate-name="`${candidate.lastName} ${candidate.firstName}`"
             :has-snapshot="Boolean((candidate as any).hasResumeSnapshot)"

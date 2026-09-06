@@ -446,6 +446,16 @@ function formatResponseValue(value: unknown): string {
         </div>
       </div>
 
+      <!-- Риск-профиль резюме кандидата (переиспользуется, без повторной генерации) -->
+      <div class="mt-4 mb-4">
+        <CandidateRiskCard
+          :candidate-id="application.candidate.id"
+          :can-generate="Boolean((application.candidate as any).hhResumeId) || (application.candidate.documents ?? []).some((d: any) => d.type === 'resume')"
+          compact
+          @open-details="navigateTo($localePath(`/dashboard/candidates/${application.candidate.id}`))"
+        />
+      </div>
+
       <!-- Collaboration thread (заменил блок «Заметки») -->
       <div class="mt-4 mb-4" data-comment-composer>
         <ApplicationCommentThread :application-id="applicationId" />
