@@ -70,6 +70,28 @@ function parseSalary(rawText: string): { amount: number, currency: string } {
   return { amount, currency: cur }
 }
 
+/**
+ * Эвристика неполноты rule-based результата: у нескольких мест пустое описание,
+ * а в тексте (после секции опыта) есть «оторванные» абзацы обязанностей — признак
+ * page-break, когда hh вынес обязанности вниз. Тогда лучше уйти в LLM.
+ */
+function looksIncomplete(
+  experience: { description: string }[],
+  lines: string[],
+  expEnd: number,
+): boolean {
+  const empty = experience.filter(e => e.description.length < 20).length
+  if (empty < 1) return false
+  // Ищем «оторванные» строки-обязанности после конца секции опыта.
+  const tail = lines.slice(expEnd)
+  const dutyLike = tail.filter(l =>
+    l.length > 60
+    && /^(Запустил|Внедрил|Оптимизировал|Реализовал|Разработал|Настроил|Сделал|Участвовал|Провёл|Создал|Автоматизировал|Обеспечил|Организовал|Руководил|Выстроил|Сократил|Повысил|Улучшил)/i.test(l),
+  ).length
+  // Есть пустые места И есть оторванные обязанности → неполно, нужен LLM.
+  return empty >= 1 && dutyLike >= 2
+}
+
 /** Парсит строку языка «Английский — C1 — Продвинутый» → {name, level}. */
 function parseLangLine(line: string, out: { name: string, level: string }[]): void {
   const parts = line.split(/\s+[—–-]\s+/)
@@ -269,6 +291,14 @@ export function structureHhResumeText(rawText: string): StructuredResume | null 
   // Если ни у одного места нет описания — вероятно, распознали плохо → LLM.
   const withDesc = experience.filter(e => e.description.length > 20).length
   if (experience.length === 0 || withDesc === 0) return null
+
+  // ── Авто-фолбэк на LLM при НЕПОЛНОТЕ ──
+  // Иногда hh-PDF из-за page-break выносит обязанности части мест вниз (после
+  // «Образование»/колонтитула), и rule-based оставляет у этих мест пустое описание,
+  // хотя текст обязанностей в резюме ЕСТЬ. Разделить слитый хвост по местам кодом
+  // надёжно нельзя (нет границ) — поэтому если у ≥2 мест пустые описания, а в тексте
+  // явно много «оторванных» строк-обязанностей, сигналим вызывающему уйти в LLM.
+  if (looksIncomplete(experience, lines, expEnd)) return null
 
   // ── Секционная нарезка нижней части резюме (после опыта) ──
   // hh регулярно выводит: [Образование] [Навыки → подсекция «Знание языков» + теги]
