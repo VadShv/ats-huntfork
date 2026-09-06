@@ -130,27 +130,94 @@ def _extract_page_columns(page) -> str:
     return "\n".join(parts)
 
 
+def _extract_pymupdf(data: bytes) -> tuple[str, int]:
+    """
+    PyMuPDF (fitz): fast, layout-aware. Extract blocks with coordinates and order
+    them by column (x) then top (y), which restores reading order for multi-column
+    layouts better than a naive flow on many designer PDFs.
+    """
+    import fitz  # PyMuPDF
+
+    doc = fitz.open(stream=data, filetype="pdf")
+    pages = []
+    for page in doc:
+        blocks = page.get_text("blocks")  # (x0,y0,x1,y1,text,block_no,block_type)
+        text_blocks = [b for b in blocks if len(b) >= 5 and isinstance(b[4], str) and b[4].strip()]
+        if not text_blocks:
+            pages.append("")
+            continue
+        width = page.rect.width
+        # Column split: blocks whose center-x is on left/right of the page midline,
+        # only if there is a real 2-column structure (blocks on both sides).
+        mid = width / 2
+        left = [b for b in text_blocks if (b[0] + b[2]) / 2 < mid]
+        right = [b for b in text_blocks if (b[0] + b[2]) / 2 >= mid]
+        two_col = len(left) >= 3 and len(right) >= 3
+        if two_col:
+            ordered = sorted(left, key=lambda b: b[1]) + sorted(right, key=lambda b: b[1])
+        else:
+            ordered = sorted(text_blocks, key=lambda b: (b[1], b[0]))
+        pages.append("\n".join(b[4].strip() for b in ordered))
+    n = len(doc)
+    doc.close()
+    return "\n\n".join(pages), n
+
+
+def _score_text(t: str) -> float:
+    """
+    Heuristic quality: more clean whitespace-separated Cyrillic/Latin words and
+    fewer glued tokens (long alnum runs) = better. Used to pick the best engine.
+    """
+    if not t:
+        return 0.0
+    words = t.split()
+    if not words:
+        return 0.0
+    glued = sum(1 for w in words if len(w) > 25)  # suspiciously long = glued cols
+    return len(words) - glued * 5
+
+
 def _extract_pdf(data: bytes) -> tuple[str, str, int]:
-    """Returns (text, method, page_count)."""
+    """
+    Returns (text, method, page_count). Runs PyMuPDF and pdfplumber, picks the
+    higher-quality result; falls back to OCR for scanned pages.
+    """
     import pdfplumber
 
-    texts = []
-    method = "pdfplumber"
+    # Engine 1: PyMuPDF (fast, block-based reading order).
+    mupdf_text, mupdf_pages = "", 0
+    try:
+        mupdf_text, mupdf_pages = _extract_pymupdf(data)
+    except Exception as e:  # noqa: BLE001
+        log.warning("pymupdf_failed: %s", e)
+
+    # Engine 2: pdfplumber (column crop) + OCR fallback for scans.
+    plumber_parts = []
+    page_count = mupdf_pages
     ocr_used = False
-    with pdfplumber.open(io.BytesIO(data)) as pdf:
-        page_count = len(pdf.pages)
-        for page in pdf.pages:
-            page_text = _extract_page_columns(page)
-            # Scanned page (image, no text layer) → OCR fallback.
-            if len(page_text.strip()) < 30:
-                ocr_text = _ocr_page(page)
-                if len(ocr_text.strip()) > len(page_text.strip()):
-                    page_text = ocr_text
-                    ocr_used = True
-            texts.append(page_text)
+    try:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            page_count = len(pdf.pages)
+            for page in pdf.pages:
+                page_text = _extract_page_columns(page)
+                if len(page_text.strip()) < 30:
+                    ocr_text = _ocr_page(page)
+                    if len(ocr_text.strip()) > len(page_text.strip()):
+                        page_text = ocr_text
+                        ocr_used = True
+                plumber_parts.append(page_text)
+    except Exception as e:  # noqa: BLE001
+        log.warning("pdfplumber_failed: %s", e)
+    plumber_text = "\n\n".join(plumber_parts)
+
+    # If a page was scanned, OCR (via pdfplumber path) wins regardless of score.
     if ocr_used:
-        method = "pdfplumber+ocr"
-    return "\n\n".join(texts), method, page_count
+        return plumber_text, "pdfplumber+ocr", page_count
+
+    # Otherwise pick the higher-quality engine.
+    if _score_text(mupdf_text) >= _score_text(plumber_text):
+        return mupdf_text, "pymupdf", page_count or mupdf_pages
+    return plumber_text, "pdfplumber", page_count
 
 
 def _ocr_page(page) -> str:

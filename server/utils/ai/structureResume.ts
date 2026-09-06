@@ -270,5 +270,85 @@ export async function structureResumeFromText(opts: { orgId: string, text: strin
   for (const e of emails) if (!have.has(e.toLowerCase())) { parsed.contacts.push({ type: 'email', value: e }); have.add(e.toLowerCase()) }
   for (const p of phones) if (!have.has(p.toLowerCase())) { parsed.contacts.push({ type: 'phone', value: p }); have.add(p.toLowerCase()) }
 
+  // ── Гибрид: обязанности ДОСЛОВНО из исходного текста ──
+  // Слабые модели обрезают длинные description. Чтобы НИЧЕГО НЕ ТЕРЯЛОСЬ, находим
+  // блок каждого места работы в исходном тексте по якорю (компания/должность) и,
+  // если дословный блок содержательнее LLM-описания, заменяем им description.
+  enrichExperienceFromText(parsed, opts.text)
+
   return { parsed, usage: result.usage, config, source: 'llm' as const }
+}
+
+/** Нормализация для нечёткого поиска якоря в тексте. */
+function norm(s: string): string {
+  return s.toLowerCase().replace(/[«»"'()]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Дополняет experience[].description дословным текстом из исходного резюме.
+ * Для каждого места ищем позицию его якоря (company, затем position) в тексте,
+ * берём фрагмент до следующего места и, если он длиннее/содержательнее того, что
+ * вернула модель, — используем его. Гарантия: обязанности не теряются.
+ */
+function enrichExperienceFromText(parsed: StructuredResume, rawText: string): void {
+  const text = rawText.replace(/\r/g, '')
+  const normText = norm(text)
+  if (!parsed.experience.length) return
+
+  // Находим индекс якоря каждого места в НОРМАЛИЗОВАННОМ тексте.
+  const anchors: { i: number, start: number }[] = []
+  parsed.experience.forEach((e, i) => {
+    let pos = -1
+    for (const cand of [e.company, e.position].filter(Boolean)) {
+      const n = norm(cand).slice(0, 40)
+      if (n.length < 4) continue
+      const p = normText.indexOf(n)
+      if (p !== -1) { pos = p; break }
+    }
+    if (pos !== -1) anchors.push({ i, start: pos })
+  })
+  if (anchors.length < 1) return
+  anchors.sort((a, b) => a.start - b.start)
+
+  // Соответствие позиций в нормализованном тексте ≈ позициям в исходном:
+  // norm() почти сохраняет длину (кроме схлопывания пробелов), для среза достаточно.
+  // Чтобы резать по исходному тексту, строим карту нормализованных→исходных индексов.
+  const map: number[] = []
+  {
+    let acc = ''
+    // Повторяем нормализацию посимвольно, запоминая исходный индекс каждого норм-символа.
+    let prevSpace = false
+    for (let k = 0; k < text.length; k++) {
+      let ch = text[k]!
+      if (/[«»"'()]/.test(ch)) continue
+      ch = ch.toLowerCase()
+      if (/\s/.test(ch)) {
+        if (prevSpace) continue
+        ch = ' '; prevSpace = true
+      }
+      else prevSpace = false
+      acc += ch
+      map.push(k)
+    }
+    void acc
+  }
+
+  for (let a = 0; a < anchors.length; a++) {
+    const cur = anchors[a]!
+    const nextStart = a + 1 < anchors.length ? anchors[a + 1]!.start : normText.length
+    const rawStart = map[cur.start] ?? 0
+    const rawEnd = map[Math.min(nextStart, map.length - 1)] ?? text.length
+    let block = text.slice(rawStart, rawEnd).trim()
+    // Убираем из блока строку-заголовок (компанию/должность/период) — оставляем обязанности.
+    block = block
+      .replace(/^[^\n]*\n/, '') // первая строка (обычно компания/должность)
+      .replace(/\b(19|20)\d{2}\b[^\n]*\n?/g, m => m.length < 40 ? '' : m) // короткие строки-даты
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+    const llmDesc = parsed.experience[cur.i]!.description ?? ''
+    // Берём дословный блок, если он заметно содержательнее (модель обрезала).
+    if (block.length > llmDesc.length + 40 && block.length < 6000) {
+      parsed.experience[cur.i]!.description = block
+    }
+  }
 }
