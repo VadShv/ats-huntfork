@@ -48,6 +48,18 @@ export const interviewQuestionSourceEnum = pgEnum('interview_question_source', [
 // Риск-анализ резюме (Этап 3).
 export const riskRunStatusEnum = pgEnum('risk_run_status', ['running', 'completed', 'failed'])
 export const riskLevelEnum = pgEnum('risk_level', ['low', 'medium', 'high'])
+// Персональные вопросы под кандидата (Этап 4).
+// Категории = интервью-категории вакансии + 'verification' (под конкретный риск/факт).
+export const candidateQuestionCategoryEnum = pgEnum('candidate_question_category', [
+  'hard_skill', 'soft_skill', 'experience', 'motivation', 'culture', 'logistics', 'risk_probe', 'verification', 'other',
+])
+export const candidateQuestionOriginEnum = pgEnum('candidate_question_origin', [
+  'from_job_bank', 'risk_derived', 'manual',
+])
+export const candidateQuestionAskStatusEnum = pgEnum('candidate_question_ask_status', [
+  'pending', 'asked', 'skipped',
+])
+export const candidateQuestionSetStatusEnum = pgEnum('candidate_question_set_status', ['draft', 'ready'])
 export const dateFormatEnum = pgEnum('date_format', ['mdy', 'dmy', 'ymd'])
 export const pipelineStageTypeEnum = pgEnum('pipeline_stage_type', [
   // ── Working bucket (canonical hh.ru-style phases) ──
@@ -1841,6 +1853,58 @@ export const resumeRiskRelations = relations(resumeRisk, ({ one }) => ({
   candidate: one(candidate, { fields: [resumeRisk.candidateId], references: [candidate.id] }),
   resumeVersion: one(candidateResumeVersion, { fields: [resumeRisk.resumeVersionId], references: [candidateResumeVersion.id] }),
   triggeredBy: one(user, { fields: [resumeRisk.triggeredById], references: [user.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// Candidate question set (Этап 4) — персональные вопросы под отклик
+// ─────────────────────────────────────────────
+//
+// Собирается ДЕТЕРМИНИРОВАННО (без LLM): банк вопросов вакансии (Этап 2) +
+// вопросы из риск-находок резюме (Этап 3, берём готовые findings[].question).
+// Один активный набор на отклик; item'ы трассируемы (origin + sourceRef).
+export const applicationQuestionSet = pgTable('application_question_set', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  applicationId: text('application_id').notNull().references(() => application.id, { onDelete: 'cascade' }),
+  status: candidateQuestionSetStatusEnum('status').notNull().default('ready'),
+  // id риск-профиля резюме, из которого взяты verification-вопросы (для трассировки).
+  basedOnResumeRiskId: text('based_on_resume_risk_id'),
+  generatedAt: timestamp('generated_at').notNull().defaultNow(),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('application_question_set_application_id_unique').on(t.applicationId),
+  index('application_question_set_organization_id_idx').on(t.organizationId),
+]))
+
+export const applicationQuestionItem = pgTable('application_question_item', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  setId: text('set_id').notNull().references(() => applicationQuestionSet.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  listenFor: text('listen_for'),
+  category: candidateQuestionCategoryEnum('category').notNull().default('other'),
+  origin: candidateQuestionOriginEnum('origin').notNull().default('manual'),
+  // id вопроса банка вакансии или индекс/id риск-находки (трассировка).
+  sourceRef: text('source_ref'),
+  rationale: text('rationale'),
+  askStatus: candidateQuestionAskStatusEnum('ask_status').notNull().default('pending'),
+  answerNote: text('answer_note'),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('application_question_item_set_id_idx').on(t.setId),
+  index('application_question_item_organization_id_idx').on(t.organizationId),
+]))
+
+export const applicationQuestionSetRelations = relations(applicationQuestionSet, ({ one, many }) => ({
+  application: one(application, { fields: [applicationQuestionSet.applicationId], references: [application.id] }),
+  items: many(applicationQuestionItem),
+}))
+
+export const applicationQuestionItemRelations = relations(applicationQuestionItem, ({ one }) => ({
+  set: one(applicationQuestionSet, { fields: [applicationQuestionItem.setId], references: [applicationQuestionSet.id] }),
 }))
 
 // ─── Fuzzy-дубли (Этап 3) ──────────────────────────────────────────────────────
