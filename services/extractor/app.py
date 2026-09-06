@@ -130,6 +130,49 @@ def _extract_page_columns(page) -> str:
     return "\n".join(parts)
 
 
+# Narrow left-column labels used inside experience entries in some designer resumes,
+# where the value text sits to the RIGHT of the label on ~the same baseline.
+_LABELS = ("обязанности", "достижения", "задачи", "результаты", "функционал", "проекты")
+
+
+def _join_label_value(ordered_blocks) -> str:
+    """
+    Rebuild reading order and, for «label on the left / value on the right» layouts
+    (e.g. «Обязанности» | «<text>» on the same baseline), merge them into
+    «Обязанности: <text>» so the LLM keeps duties/achievements attached to their
+    heading instead of losing the value column. Conservative: only triggers for a
+    known short label whose block is narrow and has a text block to its right on a
+    near-equal baseline.
+    """
+    used = [False] * len(ordered_blocks)
+    out = []
+    for i, b in enumerate(ordered_blocks):
+        if used[i]:
+            continue
+        txt = b[4].strip()
+        low = txt.lower()
+        is_label = (
+            (b[2] - b[0]) < 75  # narrow block
+            and len(txt) < 20
+            and any(low.startswith(lbl) for lbl in _LABELS)
+        )
+        if is_label:
+            # Find the nearest text block to the right on ~the same baseline.
+            best = None
+            for j, c in enumerate(ordered_blocks):
+                if used[j] or j == i:
+                    continue
+                if c[0] >= b[2] - 2 and abs(c[1] - b[1]) < 16:
+                    if best is None or c[0] < ordered_blocks[best][0]:
+                        best = j
+            if best is not None:
+                used[best] = True
+                out.append(f"{txt}: {ordered_blocks[best][4].strip()}")
+                continue
+        out.append(txt)
+    return "\n".join(out)
+
+
 def _extract_pymupdf(data: bytes) -> tuple[str, int]:
     """
     PyMuPDF (fitz): fast, layout-aware. Extract blocks with coordinates and order
@@ -157,7 +200,7 @@ def _extract_pymupdf(data: bytes) -> tuple[str, int]:
             ordered = sorted(left, key=lambda b: b[1]) + sorted(right, key=lambda b: b[1])
         else:
             ordered = sorted(text_blocks, key=lambda b: (b[1], b[0]))
-        pages.append("\n".join(b[4].strip() for b in ordered))
+        pages.append(_join_label_value(ordered))
     n = len(doc)
     doc.close()
     return "\n\n".join(pages), n
