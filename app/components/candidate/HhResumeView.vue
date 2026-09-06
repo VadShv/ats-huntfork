@@ -149,23 +149,22 @@ function openOnHh() {
  * или отдельные предложения → буллеты. Так описание читается как список, а не
  * сплошным текстом.
  */
-function formatDuties(desc: string): { label?: string, items: string[] } {
+function formatDuties(desc: string): { items: string[] } {
   const raw = (desc || '').replace(/\r/g, '').trim()
   if (!raw) return { items: [] }
-  // Уже есть переносы строк — используем их как пункты.
+  // Разбиваем ТОЛЬКО по явным границам: переносы строк или буллет-маркеры.
+  // НЕ режем по точкам внутри предложений (это ломало смысл, как у Погорелова).
   let parts = raw.split('\n').map(s => s.trim()).filter(Boolean)
-  // Если всё одной строкой — режем по буллет-маркерам или по границам предложений.
   if (parts.length <= 1) {
     const one = parts[0] ?? raw
-    if (/[•·*]|(?:^|\s)[-–—]\s/.test(one)) {
-      parts = one.split(/\s*[•·*]\s*|(?:^|\s)[-–—]\s+/).map(s => s.trim()).filter(Boolean)
+    // Одной строкой: режем по буллет-маркерам, если они есть; иначе оставляем одним абзацем.
+    if (/[•·]|(?:^|\s)[*]\s|(?:^|\s)[-–—]\s/.test(one)) {
+      parts = one.split(/\s*[•·]\s*|(?:^|\s)[*]\s+|(?:\s)[-–—]\s+/).map(s => s.trim()).filter(Boolean)
     }
     else {
-      // По предложениям (точка + пробел + заглавная), сохраняя точку.
-      parts = one.split(/(?<=[.;])\s+(?=[А-ЯЁA-Z])/).map(s => s.trim()).filter(Boolean)
+      parts = [one] // нет маркеров — единый абзац (не дробим по точкам)
     }
   }
-  // Чистим ведущие маркеры у пунктов.
   const items = parts.map(p => p.replace(/^[•·*\-–—]\s*/, '').trim()).filter(Boolean)
   return { items }
 }

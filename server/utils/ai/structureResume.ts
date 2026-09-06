@@ -279,16 +279,14 @@ export async function structureResumeFromText(opts: { orgId: string, text: strin
   for (const e of emails) if (!have.has(e.toLowerCase())) { parsed.contacts.push({ type: 'email', value: e }); have.add(e.toLowerCase()) }
   for (const p of phones) if (!have.has(p.toLowerCase())) { parsed.contacts.push({ type: 'phone', value: p }); have.add(p.toLowerCase()) }
 
-  // ── Гибрид: обязанности ДОСЛОВНО из исходного текста ──
-  // Слабые модели обрезают длинные description. Находим блок каждого места работы
-  // по якорю и заменяем description дословным текстом — НО только когда якоря
-  // найдены строго по порядку и без пересечений (иначе на кривом порядке текста
-  // из 2-колоночных PDF гибрид смешивает места → «Консалтика→КРОК»).
-  // При forceLlm (рекрутер отметил нестандартный формат) гибрид не применяем —
-  // полностью доверяемся сильной модели.
-  if (!opts.forceLlm) {
-    enrichExperienceFromText(parsed, opts.text)
-  }
+  // ── WhiteBox-гарантия полноты: обязанности ДОСЛОВНО из исходного текста ──
+  // LLM (даже сильный) может выбрасывать фрагменты при переписывании (напр. «ФСТЭК»).
+  // Поэтому description берём дословно из текста, а не из генерации модели:
+  //   • якоря надёжны (все места, по порядку) → блок каждого места целиком;
+  //   • якоря ненадёжны → добираем дословным текстом те места, где он содержательнее
+  //     LLM-версии (лучше «с лишним», чем потерять ключевое слово).
+  // Работает всегда, в т.ч. при forceLlm (кнопка «Переструктурировать через ИИ»).
+  enrichExperienceFromText(parsed, opts.text)
 
   return { parsed, usage: result.usage, config, source: 'llm' as const }
 }
@@ -323,12 +321,11 @@ function enrichExperienceFromText(parsed: StructuredResume, rawText: string): vo
   })
 
   // Надёжность якорей: гибрид применяем ТОЛЬКО если нашли якоря для ВСЕХ мест
-  // и они идут в том же порядке, что и в experience (без перестановок). Иначе
-  // порядок текста ненадёжен (2-колоночный PDF) → не трогаем, доверяем модели.
-  if (anchors.length !== parsed.experience.length) return
-  const inOrder = anchors.every((a, k) => a.i === k)
-  const monotonic = anchors.every((a, k) => k === 0 || a.start > anchors[k - 1]!.start)
-  if (!inOrder || !monotonic) return
+  // Нужен хотя бы один надёжный якорь. Режем блоки по фактическим позициям якорей
+  // в тексте (сортировка по start), а привязываем к местам по anchor.i — так добор
+  // работает даже при кривом порядке 2-колоночного текста (не смешивая места:
+  // границы блоков — по соседним ПО ПОЗИЦИИ якорям, а не по индексу места).
+  if (anchors.length === 0) return
   anchors.sort((a, b) => a.start - b.start)
 
   // Соответствие позиций в нормализованном тексте ≈ позициям в исходном:
