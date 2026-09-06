@@ -456,6 +456,14 @@ function formatResponseValue(value: unknown): string {
         />
       </div>
 
+      <!-- Персональные вопросы под кандидата (банк вакансии + риск-находки) -->
+      <div class="mb-4">
+        <ApplicationQuestionSet
+          :application-id="applicationId"
+          :candidate-id="application.candidate.id"
+        />
+      </div>
+
       <!-- Collaboration thread (заменил блок «Заметки») -->
       <div class="mt-4 mb-4" data-comment-composer>
         <ApplicationCommentThread :application-id="applicationId" />
