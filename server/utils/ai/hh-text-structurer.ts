@@ -66,7 +66,13 @@ function cleanCompany(line: string): string {
  * уверенности (не hh-формат) — тогда вызывающий использует LLM.
  */
 export function structureHhResumeText(rawText: string): StructuredResume | null {
-  const allLines = rawText.split('\n').map(l => l.trim())
+  // Нормализация формата «Город · Месяц Год — …» (некоторые кастомные экспорты):
+  // выносим период на отдельную строку, чтобы сработала стандартная логика периодов.
+  const normalized = rawText.replace(
+    /^([А-ЯЁ][а-яё-]+(?:\s*\([^)]*\))?)\s*·\s*([а-яё]+\s+\d{4}\s*[—–-].*)$/gim,
+    '$1\n$2',
+  )
+  const allLines = normalized.split('\n').map(l => l.trim())
   // Убираем шум, но сохраняем пустые как разделители абзацев описания.
   const lines = allLines.filter(l => !isNoiseLine(l) || l === '')
 
@@ -439,12 +445,66 @@ export function structurePortfolioResumeText(rawText: string): StructuredResume 
 
   if (experience.length === 0) return null
 
+  // ── Секции портфолио по ALL-CAPS заголовкам: О СЕБЕ / КЛЮЧЕВЫЕ НАВЫКИ / ОБРАЗОВАНИЕ ──
+  const CAPS_HEADER = /^[А-ЯЁ][А-ЯЁ \-]{4,}$/
+  const allLines = rawText.split('\n').map(l => l.trim())
+  // Возвращает строки секции между заголовком header и следующим CAPS-заголовком.
+  const sectionLines = (headerRe: RegExp): string[] => {
+    const i = allLines.findIndex(l => headerRe.test(l))
+    if (i === -1) return []
+    const out: string[] = []
+    for (let j = i + 1; j < allLines.length; j++) {
+      const l = allLines[j]!
+      if (CAPS_HEADER.test(l)) break
+      if (/^--\s*\d+\s+of\s+\d+/.test(l)) continue
+      if (new RegExp(`^${lastName}\\s+${firstName}`, 'i').test(l)) continue
+      out.push(l)
+    }
+    return out.filter(Boolean)
+  }
+
+  // О себе — буллеты/текст.
+  const aboutLines = sectionLines(/^О СЕБЕ$/)
+  const about = aboutLines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+
+  // Навыки — слова через пробелы/строки (капс-секция «КЛЮЧЕВЫЕ НАВЫКИ»).
+  const skillLines = sectionLines(/^КЛЮЧЕВЫЕ НАВЫКИ$/)
+  const skills = skillLines.join(' ').split(/[,;]|\s{2,}/).map(s => s.trim())
+    .filter(s => s.length > 1 && s.length < 40).slice(0, 50)
+
+  // Образование — «Высшее / <ВУЗ, город> / <факультет / специальность> / <год>».
+  const education: StructuredResume['education'] = []
+  const eduLines = sectionLines(/^ОБРАЗОВАНИЕ$/)
+  {
+    const LEVEL_RE = /(высшее|неоконченное высшее|среднее специальное|среднее|бакалавр|магистр|специалитет|аспирантура|MBA)/i
+    const UNI_RE = /(университет|институт|академия|колледж|школа|техникум|училище|university|institute)/i
+    for (let i = 0; i < eduLines.length; i++) {
+      const l = eduLines[i]!
+      if (!UNI_RE.test(l)) continue
+      const organization = l.replace(/,\s*(Москва|Санкт-Петербург|[А-ЯЁ][а-яё-]+)\s*$/i, '').trim()
+      // специальность — следующая не-год/не-уровень строка.
+      let name = ''
+      const next = eduLines[i + 1]
+      if (next && !/^\d{4}$/.test(next) && !LEVEL_RE.test(next) && !UNI_RE.test(next)) name = next.trim()
+      // уровень — предыдущая строка если это уровень.
+      const prev = eduLines[i - 1]
+      const result = prev && LEVEL_RE.test(prev) ? prev.trim() : ''
+      // год — ближайшая 4-значная в пределах ±2 строк.
+      let year = 0
+      for (let k = Math.max(0, i - 1); k <= Math.min(eduLines.length - 1, i + 3); k++) {
+        const ym = eduLines[k]!.match(/\b(19|20)\d{2}\b/)
+        if (ym) { year = Number.parseInt(ym[0], 10); break }
+      }
+      education.push({ organization, name, result, year })
+    }
+  }
+
   return {
     firstName, lastName, middleName,
     title, birthDate, gender, area: '',
     salaryAmount: 0, salaryCurrency: '',
     totalExperienceMonths: 0,
-    experience, education: [], skills: [], about: '',
+    experience, education, skills, about,
     languages: [], contacts,
   }
 }
