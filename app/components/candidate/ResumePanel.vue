@@ -18,7 +18,7 @@
  * Управление выбранной версией инкапсулировано здесь (общий источник правды),
  * что исключает рассинхрон между drawer и страницей.
  */
-import { FileText, LayoutList, ShieldAlert, ArrowLeftRight, ChevronDown, ChevronUp, History } from 'lucide-vue-next'
+import { FileText, LayoutList, ShieldAlert, ArrowLeftRight, ChevronDown, ChevronUp, History, AlignLeft, Copy, Check } from 'lucide-vue-next'
 import type { RiskFinding } from '~/composables/useResumeRisk'
 import { useResumeComparison, type SnapshotDiff } from '~/composables/useResumeComparison'
 
@@ -53,8 +53,9 @@ const { t } = useI18n()
 const selectedVersionId = ref<string | null>(null)
 const isVersionPopupOpen = ref(false)
 
-// Вид: 'structure' (JSON) | 'file' (оригинальный файл) | 'risks' (риск-профиль) | 'compare' (сравнение версий).
-type View = 'structure' | 'file' | 'risks' | 'compare'
+// Вид: 'structure' (JSON) | 'file' (оригинальный файл) | 'text' (извлечённый текст
+// по блокам, без LLM) | 'risks' (риск-профиль) | 'compare' (сравнение версий).
+type View = 'structure' | 'file' | 'text' | 'risks' | 'compare'
 
 // Оригинал доступен только для ручных загрузок (есть документ-резюме).
 const hasOriginalFile = computed(() => Boolean(props.resumeDocumentId))
@@ -99,10 +100,11 @@ const activePreviewUrl = computed(() =>
   activeDocumentId.value ? getPreviewUrl(activeDocumentId.value) : null,
 )
 
-// Тянем documentId выбранной версии (лениво, только в виде 'file').
+// Тянем documentId выбранной версии (лениво, для видов 'file' и 'text' — оба
+// работают с оригинальным документом версии).
 const versionDocumentId = ref<string | null>(null)
 watch([selectedVersionId, () => view.value], async ([vId, v]) => {
-  if (v !== 'file' || !vId) { versionDocumentId.value = null; return }
+  if ((v !== 'file' && v !== 'text') || !vId) { versionDocumentId.value = null; return }
   try {
     const res = await $fetch<{ versions: Array<{ id: string, documentId: string | null }> }>(
       `/api/candidates/${props.candidateId}/resume-versions`,
@@ -112,6 +114,106 @@ watch([selectedVersionId, () => view.value], async ([vId, v]) => {
   }
   catch { versionDocumentId.value = null }
 }, { immediate: false })
+
+// ── Извлечённый текст резюме (вид «Текст») ──
+// Показывает parsedContent.sections/text документа-резюме БЕЗ вызова LLM:
+// мгновенно, дословно из оригинала, работает на любом (в т.ч. колоночном) макете.
+// Источник — тот же GET /documents/:id/parsed. Ленивая загрузка при открытии вкладки,
+// кэш по documentId, чтобы не тянуть повторно при переключениях.
+interface ParsedTextData {
+  text: string
+  sections: Array<{ heading: string, content: string }>
+  metadata?: { parserVersion?: string }
+}
+const textDocId = computed<string | null>(() => activeDocumentId.value ?? null)
+const parsedText = ref('')
+const parsedSections = ref<Array<{ heading: string, content: string }>>([])
+const textParserVersion = ref<string | null>(null)
+const isLoadingText = ref(false)
+const textError = ref(false)
+let loadedTextDocId: string | null = null
+
+async function loadParsedText(force = false) {
+  const docId = textDocId.value
+  if (!docId) { parsedText.value = ''; parsedSections.value = []; return }
+  if (!force && loadedTextDocId === docId) return // уже загружено для этого документа
+  isLoadingText.value = true
+  textError.value = false
+  parsedText.value = ''
+  parsedSections.value = []
+  textParserVersion.value = null
+  try {
+    const data = await $fetch<ParsedTextData>(`/api/documents/${docId}/parsed`, {
+      headers: useRequestHeaders(['cookie']),
+    })
+    parsedText.value = data.text || ''
+    parsedSections.value = Array.isArray(data.sections) ? data.sections : []
+    textParserVersion.value = data.metadata?.parserVersion ?? null
+    loadedTextDocId = docId
+  }
+  catch {
+    textError.value = true
+    loadedTextDocId = null
+  }
+  finally {
+    isLoadingText.value = false
+  }
+}
+
+// Ленивая загрузка: тянем текст только когда открыт вид «Текст» или сменился документ.
+watch([view, textDocId], ([v]) => { if (v === 'text') loadParsedText() })
+
+// ── T3: копирование, источник извлечения, сворачивание длинных секций ──
+
+// Человекочитаемый источник извлечения из metadata.parserVersion:
+//   'extractor:pdfplumber' / 'extractor:ocr' → внешний сервис;
+//   '1.1' и т.п. → встроенный парсер (pdf-parse/mammoth).
+const extractionSourceLabel = computed(() => {
+  const v = textParserVersion.value ?? ''
+  if (v.startsWith('extractor:')) {
+    const method = v.slice('extractor:'.length)
+    return method === 'ocr' ? 'OCR' : (method || 'pdfplumber')
+  }
+  return t('candidate.resumeText.builtinParser')
+})
+
+const textCopied = ref(false)
+let copyResetTimer: ReturnType<typeof setTimeout> | null = null
+async function copyResumeText() {
+  // Собираем полный текст: если есть секции — «Заголовок\nконтент», иначе плоский text.
+  const full = parsedSections.value.length
+    ? parsedSections.value.map(s => `${s.heading}\n${s.content}`).join('\n\n')
+    : parsedText.value
+  try {
+    await navigator.clipboard.writeText(full)
+    textCopied.value = true
+    if (copyResetTimer) clearTimeout(copyResetTimer)
+    copyResetTimer = setTimeout(() => { textCopied.value = false }, 2000)
+  }
+  catch { /* clipboard недоступен — молча игнорируем */ }
+}
+onBeforeUnmount(() => { if (copyResetTimer) clearTimeout(copyResetTimer) })
+
+// Сворачивание длинных секций (> ~6 строк или > 600 символов).
+const collapsedSections = ref<Set<number>>(new Set())
+function isSectionLong(content: string): boolean {
+  return content.length > 600 || content.split('\n').length > 6
+}
+function isSectionCollapsed(i: number): boolean {
+  return collapsedSections.value.has(i)
+}
+function toggleSection(i: number) {
+  const next = new Set(collapsedSections.value)
+  if (next.has(i)) next.delete(i)
+  else next.add(i)
+  collapsedSections.value = next
+}
+// При загрузке нового текста — длинные секции по умолчанию свёрнуты.
+watch(parsedSections, (sections) => {
+  const collapsed = new Set<number>()
+  sections.forEach((s, i) => { if (isSectionLong(s.content)) collapsed.add(i) })
+  collapsedSections.value = collapsed
+})
 
 function onStructured() {
   selectedVersionId.value = null
@@ -255,6 +357,17 @@ async function toggleTransition(baseId: string, compareId: string) {
             @click="setView('file')"
           >
             <FileText class="size-3.5" /> Файл
+          </button>
+          <button
+            v-if="hasOriginalFile"
+            type="button"
+            class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
+            :class="view === 'text'
+              ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300'
+              : 'text-surface-500 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200'"
+            @click="setView('text')"
+          >
+            <AlignLeft class="size-3.5" /> {{ t('candidate.resumeText.tab') }}
           </button>
           <!-- Версии (попап со списком) -->
           <div v-if="cmpVersions.length > 1" class="relative">
@@ -456,6 +569,77 @@ async function toggleTransition(baseId: string, compareId: string) {
             </div>
           </template>
         </div>
+      </div>
+    </template>
+
+    <!-- Извлечённый текст резюме по блокам (без LLM) — точно из оригинала -->
+    <template v-else-if="view === 'text'">
+      <!-- Тулбар: источник извлечения + копирование -->
+      <div class="mb-2 flex items-center justify-between gap-2">
+        <span
+          v-if="textParserVersion"
+          class="text-[11px] text-surface-400 dark:text-surface-500"
+        >{{ t('candidate.resumeText.extractedVia', { source: extractionSourceLabel }) }}</span>
+        <span v-else />
+        <button
+          v-if="(parsedSections.length || parsedText) && !isLoadingText"
+          type="button"
+          class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-surface-500 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+          @click="copyResumeText"
+        >
+          <Check v-if="textCopied" class="size-3.5 text-success-600" />
+          <Copy v-else class="size-3.5" />
+          {{ textCopied ? t('candidate.resumeText.copied') : t('candidate.resumeText.copy') }}
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="isLoadingText" class="flex items-center justify-center py-12 text-surface-400">
+        <div class="size-5 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
+      </div>
+
+      <!-- Error -->
+      <div
+        v-else-if="textError"
+        class="rounded-lg border border-dashed border-surface-300 dark:border-surface-700 p-6 text-center"
+      >
+        <AlignLeft class="size-8 mx-auto text-surface-400" />
+        <p class="mt-2 text-sm text-surface-600 dark:text-surface-300">{{ t('candidate.resumeText.error') }}</p>
+        <button
+          type="button"
+          class="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm px-3 py-2"
+          @click="loadParsedText(true)"
+        >
+          {{ t('candidate.resumeText.retry') }}
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div
+        v-else
+        class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4 overflow-y-auto"
+        style="max-height: 70vh;"
+      >
+        <template v-if="parsedSections.length">
+          <div v-for="(section, i) in parsedSections" :key="i" class="mb-4 last:mb-0">
+            <h4 class="text-sm font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ section.heading }}</h4>
+            <p
+              class="text-sm text-surface-600 dark:text-surface-400 whitespace-pre-wrap"
+              :class="{ 'line-clamp-6': isSectionCollapsed(i) }"
+            >{{ section.content }}</p>
+            <button
+              v-if="isSectionLong(section.content)"
+              type="button"
+              class="mt-1 inline-flex items-center gap-0.5 text-[11px] text-brand-600 hover:text-brand-700 dark:text-brand-400"
+              @click="toggleSection(i)"
+            >
+              <component :is="isSectionCollapsed(i) ? ChevronDown : ChevronUp" class="size-3" />
+              {{ isSectionCollapsed(i) ? t('candidate.resumeText.showMore') : t('candidate.resumeText.showLess') }}
+            </button>
+          </div>
+        </template>
+        <p v-else-if="parsedText" class="text-sm text-surface-600 dark:text-surface-400 whitespace-pre-wrap">{{ parsedText }}</p>
+        <p v-else class="text-sm text-surface-400 text-center py-8">{{ t('candidate.resumeText.empty') }}</p>
       </div>
     </template>
 

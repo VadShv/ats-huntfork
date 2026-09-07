@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseDocument, extractResumeText, type ParsedResume } from '../../server/utils/resume-parser'
+import { parseDocument, extractResumeText, extractSections, type ParsedResume } from '../../server/utils/resume-parser'
 
 /**
  * Create a minimal valid PDF containing the given text.
@@ -75,7 +75,9 @@ describe('resume-parser', () => {
       expect(result).not.toBeNull()
       expect(result!.text).toContain('John Doe')
       expect(result!.metadata.sourceFormat).toBe('pdf')
-      expect(result!.metadata.parserVersion).toBe('1.0')
+      // Проверяем формат версии, а не конкретное значение — иначе тест ломается
+      // при каждом бампе PARSER_VERSION (был захардкожен '1.0', код ушёл на '1.1').
+      expect(result!.metadata.parserVersion).toMatch(/^\d+\.\d+$/)
       expect(result!.metadata.wordCount).toBeGreaterThan(0)
       expect(result!.metadata.extractedAt).toBeTruthy()
       expect(result!.metadata.pageCount).toBe(1)
@@ -152,6 +154,85 @@ describe('resume-parser', () => {
       const result = extractResumeText(parsed)
       // Empty text should return null (falls through to stringify)
       expect(result).toBeNull()
+    })
+  })
+
+  describe('extractSections', () => {
+    it('splits an English resume into sections by known headings', () => {
+      const text = [
+        'John Doe',
+        'Software Engineer',
+        '',
+        'Experience',
+        'Senior Developer at Google (2020-2024)',
+        '',
+        'Education',
+        'BSc Computer Science, MIT',
+        '',
+        'Skills',
+        'TypeScript, Vue, Node.js',
+      ].join('\n')
+
+      const sections = extractSections(text)
+      const headings = sections.map(s => s.heading)
+      expect(headings).toContain('Experience')
+      expect(headings).toContain('Education')
+      expect(headings).toContain('Skills')
+
+      const exp = sections.find(s => s.heading === 'Experience')
+      expect(exp?.content).toContain('Google')
+    })
+
+    it('splits a RUSSIAN resume into sections (RU headings)', () => {
+      const text = [
+        'Иван Иванов',
+        'Backend-разработчик',
+        '',
+        'Опыт работы',
+        'Ведущий разработчик в Яндексе (2020–2024)',
+        '',
+        'Образование',
+        'МГУ, факультет ВМК',
+        '',
+        'Ключевые навыки',
+        'Go, PostgreSQL, Docker',
+        '',
+        'О себе',
+        'Более 8 лет в бэкенде.',
+      ].join('\n')
+
+      const sections = extractSections(text)
+      const headings = sections.map(s => s.heading)
+      expect(headings).toContain('Опыт работы')
+      expect(headings).toContain('Образование')
+      expect(headings).toContain('Ключевые навыки')
+      expect(headings).toContain('О себе')
+
+      const exp = sections.find(s => s.heading === 'Опыт работы')
+      expect(exp?.content).toContain('Яндексе')
+      const about = sections.find(s => s.heading === 'О себе')
+      expect(about?.content).toContain('8 лет')
+    })
+
+    it('matches RU headings case-insensitively and with a trailing colon', () => {
+      const text = [
+        'Опыт:',
+        'Компания А',
+        '',
+        'НАВЫКИ',
+        'Python, SQL',
+      ].join('\n')
+
+      const sections = extractSections(text)
+      const headings = sections.map(s => s.heading)
+      expect(headings).toContain('Опыт:')
+      expect(headings).toContain('НАВЫКИ')
+    })
+
+    it('returns no sections when there are no recognizable headings', () => {
+      const text = 'Просто сплошной текст без заголовков разделов, одна строка.'
+      const sections = extractSections(text)
+      expect(sections).toEqual([])
     })
   })
 })
