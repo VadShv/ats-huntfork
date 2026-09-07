@@ -14,7 +14,7 @@ const route = useRoute()
 const candidateId = route.params.id as string
 const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const toast = useToast()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 const { candidate, status: fetchStatus, error, refresh, updateCandidate, deleteCandidate } = useCandidate(candidateId)
 const { formatCandidateName, formatDate } = useOrgSettings()
@@ -39,12 +39,13 @@ const activeTab = useDetailTabRoute({
 
 // Единообразие резюме: первый загруженный файл-резюме с извлечённым текстом —
 // для кнопки «Структурировать из файла (ИИ)» в empty state блока резюме.
-const resumeDoc = computed<{ id: string, mimeType?: string, previewAvailable?: boolean } | null>(() => {
+const resumeDoc = computed<{ id: string, mimeType?: string, previewAvailable?: boolean, originalFilename?: string } | null>(() => {
   const docs = (candidate.value as any)?.documents ?? []
   return docs.find((d: any) => d.type === 'resume' && d.parsed) ?? null
 })
 const resumeDocumentId = computed<string | null>(() => resumeDoc.value?.id ?? null)
 const resumeDocumentMime = computed<string | null>(() => resumeDoc.value?.mimeType ?? null)
+const resumeDocumentName = computed<string | null>(() => resumeDoc.value?.originalFilename ?? null)
 const resumeDocumentPreviewAvailable = computed<boolean>(() => resumeDoc.value?.previewAvailable ?? false)
 
 // Ссылка на панель резюме — чтобы клик по риск-находке/сравнению переключал её на соответствующий вид.
@@ -248,11 +249,11 @@ const applicationStatusClasses: Record<string, string> = {
   rejected: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
 }
 
-const genderLabels: Record<string, string> = {
-  male: 'Male',
-  female: 'Female',
-  other: 'Other',
-  prefer_not_to_say: 'Prefer not to say',
+// Локализованный лейбл пола через i18n (RU). Fallback — сырое значение,
+// если сервер вернул неизвестный ключ.
+function genderLabel(gender: string): string {
+  const key = `dashboard.candidates.gender.${gender}`
+  return te(key) ? t(key) : gender
 }
 
 const documentTypeLabels = computed<Record<string, string>>(() => ({
@@ -302,8 +303,14 @@ async function handleInterviewScheduled() {
           body: { stageId: interviewStage.id },
         })
       }
-    } catch {
-      // Интервью уже создано — не блокируем закрытие из-за ошибки синка этапа
+    } catch (err) {
+      // Интервью уже создано — не блокируем закрытие из-за ошибки синка этапа,
+      // но предупреждаем рекрутера, что этап воронки не перевёлся автоматически.
+      console.error('[candidate] interview stage sync failed', err)
+      toast.warning(
+        t('candidate.interview.stageSyncFailed'),
+        t('candidate.interview.stageSyncFailedHint'),
+      )
     }
   }
   await refresh()
@@ -388,8 +395,9 @@ async function handleFileSelected(event: Event) {
 }
 
 async function handleDownload(docId: string) {
+  const filename = candidate.value?.documents?.find((d: any) => d.id === docId)?.originalFilename
   try {
-    await downloadDocument(docId)
+    await downloadDocument(docId, filename)
   } catch {
     toast.error(t('candidate.documents.downloadFailed'))
   }
@@ -446,8 +454,9 @@ function openMergeModal() {
 
 async function handleMerged(_payload: { primaryCandidateId: string; mergedCandidateId: string }) {
   showMergeModal.value = false
-  // Обновим карточку — кол-во заявок, документов и т.д. могло измениться
-  await refresh()
+  // Обновим карточку (кол-во заявок/документов могло измениться) И историю слияний —
+  // иначе блок «История слияний» показывал бы устаревшие данные до перезагрузки страницы.
+  await Promise.all([refresh(), refreshMergeHistory()])
 }
 
 function openFraudDialog() {
@@ -674,7 +683,7 @@ async function openHhContacts() {
                   </a>
                   <span v-if="candidate.gender" class="inline-flex items-center gap-1">
                     <component :is="candidate.gender === 'female' ? Venus : Mars" class="size-3.5" />
-                    {{ genderLabels[candidate.gender] ?? candidate.gender }}
+                    {{ genderLabel(candidate.gender) }}
                   </span>
                   <span v-if="candidate.dateOfBirth" class="inline-flex items-center gap-1">
                     <Calendar class="size-3.5" />
@@ -913,6 +922,7 @@ async function openHhContacts() {
             :has-snapshot="Boolean((candidate as any).hasResumeSnapshot)"
             :resume-document-id="resumeDocumentId"
             :resume-document-mime="resumeDocumentMime"
+            :resume-document-name="resumeDocumentName"
             :resume-document-preview-available="resumeDocumentPreviewAvailable"
             @changed="refresh()"
           />

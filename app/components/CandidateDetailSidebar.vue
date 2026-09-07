@@ -247,9 +247,10 @@ function closePreview() {
 }
 
 async function handleDownload(docId: string) {
+  const filename = documents.value.find((d: any) => d.id === docId)?.originalFilename
   try {
     track('document_downloaded', { document_id: docId })
-    await downloadDocument(docId)
+    await downloadDocument(docId, filename)
   } catch {
     toast.error('Не удалось скачать документ')
   }

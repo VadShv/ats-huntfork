@@ -86,12 +86,15 @@ const activeTab = ref<'applications' | 'documents' | 'chat'>('applications')
 // ─── Resume ───────────────────────────────────────────────────────────────────
 
 // Документ-резюме для кнопки «Структурировать из файла» и превью оригинала.
-const resumeDoc = computed<{ id: string, mimeType?: string, previewAvailable?: boolean } | null>(() => {
+// Критерий выровнен с полной страницей ([id].vue): требуем d.parsed, иначе
+// панель резюме получала бы иной документ, чем на полной странице.
+const resumeDoc = computed<{ id: string, mimeType?: string, previewAvailable?: boolean, originalFilename?: string } | null>(() => {
   const docs = (candidate.value as any)?.documents ?? []
-  return docs.find((d: any) => d.type === 'resume') ?? null
+  return docs.find((d: any) => d.type === 'resume' && d.parsed) ?? null
 })
 const resumeDocumentId = computed<string | null>(() => resumeDoc.value?.id ?? null)
 const resumeDocumentMime = computed<string | null>(() => resumeDoc.value?.mimeType ?? null)
+const resumeDocumentName = computed<string | null>(() => resumeDoc.value?.originalFilename ?? null)
 const resumeDocumentPreviewAvailable = computed<boolean>(() => resumeDoc.value?.previewAvailable ?? false)
 
 // ─── Apply to job modal ───────────────────────────────────────────────────────
@@ -184,8 +187,9 @@ function closeTextPreview() {
 }
 
 async function handleDownload(docId: string) {
+  const filename = candidate.value?.documents?.find((d: any) => d.id === docId)?.originalFilename
   try {
-    await downloadDocument(docId)
+    await downloadDocument(docId, filename)
   } catch {
     toast.error('Не удалось скачать документ')
   }
@@ -202,11 +206,10 @@ const applicationStatusClasses: Record<string, string> = {
   rejected: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
 }
 
-const genderLabels: Record<string, string> = {
-  male: 'Male',
-  female: 'Female',
-  other: 'Other',
-  prefer_not_to_say: 'Prefer not to say',
+// Локализованный лейбл пола через i18n (RU). Fallback — сырое значение.
+function genderLabel(gender: string): string {
+  const key = `dashboard.candidates.gender.${gender}`
+  return te(key) ? t(key) : gender
 }
 
 const documentTypeLabels = computed<Record<string, string>>(() => ({
@@ -405,7 +408,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
                 <div v-if="candidate.gender">
                   <dt class="text-surface-400">Пол</dt>
                   <dd class="text-surface-700 dark:text-surface-200 font-medium">
-                    {{ genderLabels[candidate.gender] ?? candidate.gender }}
+                    {{ genderLabel(candidate.gender) }}
                   </dd>
                 </div>
                 <div v-if="candidate.dateOfBirth">
@@ -477,6 +480,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
               :has-snapshot="Boolean((candidate as any).hasResumeSnapshot || (candidate as any).hhResumeId)"
               :resume-document-id="resumeDocumentId"
               :resume-document-mime="resumeDocumentMime"
+              :resume-document-name="resumeDocumentName"
               :resume-document-preview-available="resumeDocumentPreviewAvailable"
               @changed="refresh()"
             />
@@ -743,8 +747,9 @@ onUnmounted(() => { document.body.style.overflow = '' })
         </div>
         <select v-model="drawerFraudForm.reason" class="w-full mb-2 rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1.5 text-sm bg-white dark:bg-surface-900">
           <option value="blacklist">Чёрный список</option>
-          <option value="duplicate">Дубликат</option>
-          <option value="suspicious">Подозрительное поведение</option>
+          <option value="security_incident">Инцидент безопасности</option>
+          <option value="fake_data">Ложные данные</option>
+          <option value="other_fraud">Иной фрод</option>
         </select>
         <textarea v-model="drawerFraudForm.notes" rows="2" placeholder="Заметки (необязательно)" class="w-full mb-3 rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1.5 text-sm bg-white dark:bg-surface-900" />
         <div class="flex justify-end gap-2">

@@ -31,6 +31,8 @@ const props = defineProps<{
   resumeDocumentId?: string | null
   /** MIME оригинального документа-резюме (для выбора превью/скачивания). */
   resumeDocumentMime?: string | null
+  /** Оригинальное имя файла резюме — для корректного имени при скачивании. */
+  resumeDocumentName?: string | null
   /**
    * Доступно ли inline-превью: оригинал PDF или есть сконвертированный preview-PDF
    * (DOC/DOCX → PDF). Если false — показываем кнопку «Скачать оригинал».
@@ -494,7 +496,7 @@ async function toggleTransition(baseId: string, compareId: string) {
           v-if="resumeDocumentId"
           type="button"
           class="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm px-3 py-2"
-          @click="downloadDocument(resumeDocumentId)"
+          @click="downloadDocument(resumeDocumentId, resumeDocumentName ?? undefined).catch(() => {})"
         >
           <FileText class="size-4" /> Скачать оригинал
         </button>

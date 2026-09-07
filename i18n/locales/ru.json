@@ -2121,6 +2121,10 @@
       "scheduleInterview": "Запланировать интервью",
       "resumeVersion": "Версия резюме при отклике"
     },
+    "interview": {
+      "stageSyncFailed": "Интервью создано, но этап не обновился",
+      "stageSyncFailedHint": "Переведите отклик на этап «Интервью» вручную."
+    },
     "detail": {
       "backToCandidates": "Назад к кандидатам",
       "loading": "Загружаем кандидата…",
