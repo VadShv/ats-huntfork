@@ -590,14 +590,22 @@ function formatInterviewDate(dateStr: string) {
                 <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t('applications.details') }}</h3>
               </div>
               <dl class="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.score') }}</dt>
-                  <dd>
-                    <ScoreBadge :score="application.score" size="sm" />
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.status') }}</dt>
+                 <div>
+                   <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.score') }}</dt>
+                   <dd>
+                     <ScoreBadge :score="application.score" size="sm" />
+                   </dd>
+                 </div>
+                 <div v-if="(application as any).resumeVersion">
+                   <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('candidate.applications.resumeVersion') }}</dt>
+                   <dd>
+                     <span class="inline-flex rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[11px] font-medium text-surface-600 dark:text-surface-300">
+                       v{{ (application as any).resumeVersion.versionNumber }}
+                     </span>
+                   </dd>
+                 </div>
+                 <div>
+                   <dt class="text-xs font-medium text-surface-400 dark:text-surface-500 mb-1">{{ t('applications.status') }}</dt>
                   <dd>
                     <StatusBadge :status="application.status as any" size="sm" />
                   </dd>

@@ -1970,6 +1970,12 @@ function closeDocPreview() {
                   <!-- Спринт 3: источник application через SourceBadge — иконка в компактном виде -->
                   <SourceBadge :source="(app as any).source" size="xs" icon-only />
                   <ScoreBadge v-if="app.score != null" :score="app.score" size="xs" :show-unit="false" />
+                  <!-- Версия резюме, с которой оставлен отклик -->
+                  <span
+                    v-if="(app as any).resumeVersion"
+                    class="rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400"
+                    :title="t('candidate.applications.resumeVersion')"
+                  >v{{ (app as any).resumeVersion.versionNumber }}</span>
                   <span class="text-[11px] text-surface-400 dark:text-surface-500">{{ timeAgo(app.createdAt) }}</span>
                   <span v-if="applicationsWithInterviews.has(app.id)" class="inline-flex items-center text-warning-500 dark:text-warning-400" :title="t('dashboard.jobs.detail.interviewScheduledHint')">
                     <Calendar class="size-3" />

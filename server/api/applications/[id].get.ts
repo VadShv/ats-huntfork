@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm'
-import { application, pipelineStage } from '../../database/schema'
+import { application, candidateResumeVersion, pipelineStage } from '../../database/schema'
 import { applicationIdParamSchema } from '../../utils/schemas/application'
 import { loadPropertyEntriesForEntity } from '../../utils/properties'
 
@@ -60,6 +60,8 @@ export default defineEventHandler(async (event) => {
       source: true,
       // Спринт 22 (M4): ссылка на новый отклик после перевода
       transferredToApplicationId: true,
+      // Версия резюме, с которой оставлен отклик (для бейджа v{N}).
+      resumeVersionId: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -88,5 +90,21 @@ export default defineEventHandler(async (event) => {
     jobId: result.jobId,
   })
 
-  return { ...result, currentStage, properties }
+  // Версия резюме, с которой оставлен отклик (отдельный запрос —
+  // candidate_resume_version.id на проде uuid, а application.resume_version_id text,
+  // прямой JOIN падает с "operator does not exist: uuid = text").
+  let resumeVersion: { id: string; versionNumber: number } | null = null
+  if (result.resumeVersionId) {
+    // Явный candidateId-scope: версия обязана принадлежать кандидату этого отклика.
+    const version = await db.query.candidateResumeVersion.findFirst({
+      where: and(
+        eq(candidateResumeVersion.id, result.resumeVersionId),
+        eq(candidateResumeVersion.candidateId, result.candidateId),
+      ),
+      columns: { id: true, versionNumber: true },
+    })
+    if (version) resumeVersion = version
+  }
+
+  return { ...result, currentStage, properties, resumeVersion }
 })

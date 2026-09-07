@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
     for (const v of versions) versionMap.set(v.id, v.versionNumber)
   }
   for (const app of (result.applications ?? [])) {
-    ;(app as any).resumeVersion = app.resumeVersionId= null
+    ;(app as any).resumeVersion = app.resumeVersionId == null
       ? null
       : versionMap.has(app.resumeVersionId)
         ? { id: app.resumeVersionId, versionNumber: versionMap.get(app.resumeVersionId)! }

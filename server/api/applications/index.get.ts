@@ -1,5 +1,5 @@
 import { eq, and, or, ilike, desc, sql, inArray, count } from 'drizzle-orm'
-import { application, candidate, job, pipelineStage, pipelineStageTypeEnum } from '../../database/schema'
+import { application, candidate, candidateResumeVersion, job, pipelineStage, pipelineStageTypeEnum } from '../../database/schema'
 import { applicationQuerySchema } from '../../utils/schemas/application'
 import { propertyFiltersArraySchema } from '../../utils/schemas/property'
 import {
@@ -150,6 +150,8 @@ export default defineEventHandler(async (event) => {
     currentStageBucket: pipelineStage.bucket,
     currentStageType: pipelineStage.type,
     needsManualReview: application.needsManualReview,
+    // Версия резюме, с которой оставлен отклик (для бейджа v{N} на карточке).
+    resumeVersionId: application.resumeVersionId,
   }
   if (ftsQuery) {
     // ts_rank_cd по search_tsv кандидата. Для матчей только по job.title score будет 0 — такие попадут в хвост.
@@ -201,10 +203,34 @@ export default defineEventHandler(async (event) => {
     jobIds,
     entityJobIds,
   })
-  const enriched = data.map((a) => ({
-    ...a,
-    properties: propertyMap.get(a.id) ?? [],
-  }))
+  // Подтянуть versionNumber для откликов с resumeVersionId (отдельный запрос —
+  // candidate_resume_version.id на проде uuid, а application.resume_version_id text,
+  // прямой JOIN падает с "operator does not exist: uuid = text").
+  const versionIds = [...new Set(
+    data.map((a) => (a as { resumeVersionId?: string | null }).resumeVersionId).filter((v): v is string => v != null),
+  )]
+  // Ключ карты = `${versionId}:${candidateId}` — версия учитывается только для
+  // своего кандидата (явный scope против рассинхрона resume_version_id ↔ candidate).
+  const versionMap = new Map<string, number>()
+  if (versionIds.length) {
+    const versions = await db.query.candidateResumeVersion.findMany({
+      where: inArray(candidateResumeVersion.id, versionIds),
+      columns: { id: true, versionNumber: true, candidateId: true },
+    })
+    for (const v of versions) versionMap.set(`${v.id}:${v.candidateId}`, v.versionNumber)
+  }
+
+  const enriched = data.map((a) => {
+    const versionId = (a as { resumeVersionId?: string | null }).resumeVersionId ?? null
+    const versionKey = versionId != null ? `${versionId}:${a.candidateId}` : null
+    return {
+      ...a,
+      properties: propertyMap.get(a.id) ?? [],
+      resumeVersion: versionKey != null && versionMap.has(versionKey)
+        ? { id: versionId!, versionNumber: versionMap.get(versionKey)! }
+        : null,
+    }
+  })
 
   return { data: enriched, total, page: query.page, limit: query.limit }
 })

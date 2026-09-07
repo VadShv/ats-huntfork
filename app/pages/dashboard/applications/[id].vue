@@ -404,14 +404,22 @@ function formatResponseValue(value: unknown): string {
             <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('applications.details') }}</h2>
           </div>
           <dl class="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt class="text-surface-400">{{ t('applications.score') }}</dt>
-              <dd>
-                <ScoreBadge :score="application.score" size="sm" />
-              </dd>
-            </div>
-            <div>
-              <dt class="text-surface-400">{{ $t('applications.stage.current') }}</dt>
+             <div>
+               <dt class="text-surface-400">{{ t('applications.score') }}</dt>
+               <dd>
+                 <ScoreBadge :score="application.score" size="sm" />
+               </dd>
+             </div>
+             <div v-if="(application as any).resumeVersion">
+               <dt class="text-surface-400">{{ t('candidate.applications.resumeVersion') }}</dt>
+               <dd>
+                 <span class="inline-flex rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[11px] font-medium text-surface-600 dark:text-surface-300">
+                   v{{ (application as any).resumeVersion.versionNumber }}
+                 </span>
+               </dd>
+             </div>
+             <div>
+               <dt class="text-surface-400">{{ $t('applications.stage.current') }}</dt>
               <dd class="text-surface-700 dark:text-surface-200 font-medium">
                 <ApplicationStageBadge
                   :name="localStageName ?? ''"
