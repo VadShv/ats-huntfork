@@ -21,6 +21,45 @@ const { profile, status, refresh, assess } = useResumeRisk(() => props.candidate
 
 const isRunning = ref(false)
 const risk = computed(() => profile.value?.risk ?? null)
+
+// ── Устойчивый поллинг до терминального статуса ──
+// Проблема была: короткий цикл (20с) заканчивался, а джоб ещё считался →
+// результат не появлялся без ручного обновления. Теперь поллим до completed/failed
+// (до ~2 мин, с backoff) и автоматически подхватываем «running» при монтировании.
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+let polling = false
+
+async function pollUntilDone() {
+  if (polling) return
+  polling = true
+  const started = Date.now()
+  const maxMs = 120_000
+  try {
+    while (Date.now() - started < maxMs) {
+      const elapsed = Date.now() - started
+      const delay = elapsed < 20_000 ? 2000 : elapsed < 60_000 ? 4000 : 6000
+      await new Promise((r) => { pollTimer = setTimeout(r, delay) })
+      await refresh()
+      const st = risk.value?.status
+      if (st === 'completed') { toast.success(t('candidate.risk.done')); break }
+      if (st === 'failed') { toast.error(t('candidate.risk.failed')); break }
+    }
+  }
+  finally {
+    polling = false
+    isRunning.value = false
+  }
+}
+
+// Если при открытии карточки риск уже в статусе «running» (запущен ранее / на другой
+// вкладке / после перезагрузки) — сами дожидаемся результата.
+onMounted(() => {
+  if (risk.value?.status === 'running') {
+    isRunning.value = true
+    void pollUntilDone()
+  }
+})
+onBeforeUnmount(() => { if (pollTimer) clearTimeout(pollTimer) })
 const tenure = computed<TenureFacts | null>(() => {
   const tj = risk.value?.tenureJson
   return tj && 'hasStructuredDates' in tj ? tj as TenureFacts : null
@@ -43,18 +82,13 @@ async function run() {
   isRunning.value = true
   try {
     await assess(true)
-    toast.success(t('candidate.risk.queued'))
-    // Poll a few times for the background job to finish.
-    for (let i = 0; i < 8; i++) {
-      await new Promise(r => setTimeout(r, 2500))
-      await refresh()
-      if (risk.value?.status === 'completed' || risk.value?.status === 'failed') break
-    }
+    toast.info(t('candidate.risk.queued'))
+    await refresh()
+    // Дожидаемся завершения фонового джоба и сами показываем результат.
+    await pollUntilDone()
   }
   catch {
     toast.error(t('candidate.risk.error'))
-  }
-  finally {
     isRunning.value = false
   }
 }

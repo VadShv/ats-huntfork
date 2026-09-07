@@ -36,19 +36,42 @@ async function pick(m: MymeetMeeting) {
   try {
     await importMeeting(m.id, m.title ?? undefined)
     dialogOpen.value = false
-    toast.success(t('interview.mymeet.importing'))
-    // Poll for completion.
-    for (let i = 0; i < 10; i++) {
-      await new Promise(r => setTimeout(r, 3000))
-      await refresh()
-      if (report.value?.status === 'completed' || report.value?.status === 'failed') break
-    }
+    toast.info(t('interview.mymeet.importing'))
+    await refresh()
+    await pollUntilDone()
   }
   catch (err: any) {
     toast.error(t('interview.mymeet.importError'), { message: err?.data?.statusMessage })
+    importing.value = false
   }
-  finally { importing.value = false }
 }
+
+// Поллинг импорта до терминального статуса (импорт может быть долгим).
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+let polling = false
+async function pollUntilDone() {
+  if (polling) return
+  polling = true
+  const started = Date.now()
+  const maxMs = 180_000
+  try {
+    while (Date.now() - started < maxMs) {
+      const elapsed = Date.now() - started
+      const delay = elapsed < 30_000 ? 3000 : 6000
+      await new Promise((r) => { pollTimer = setTimeout(r, delay) })
+      await refresh()
+      const st = report.value?.status
+      if (st === 'completed') { toast.success(t('interview.mymeet.done')); break }
+      if (st === 'failed') { toast.error(t('interview.mymeet.failed')); break }
+    }
+  }
+  finally { polling = false; importing.value = false }
+}
+
+onMounted(() => {
+  if (report.value?.status === 'importing') { importing.value = true; void pollUntilDone() }
+})
+onBeforeUnmount(() => { if (pollTimer) clearTimeout(pollTimer) })
 
 function fmtDuration(sec: number | null): string {
   if (!sec) return ''
