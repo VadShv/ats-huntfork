@@ -16,7 +16,6 @@ const emit = defineEmits<{
 const localePath = useLocalePath()
 const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const toast = useToast()
-const { t } = useI18n()
 const isDrawerMoreOpen = ref(false)
 const drawerReferralOpen = ref(false)
 
