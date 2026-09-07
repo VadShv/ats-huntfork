@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X, ExternalLink, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Download, Eye, AlertTriangle, MapPin, Linkedin, Github, Send, MessageSquare, MoreHorizontal, Handshake } from 'lucide-vue-next'
+import { X, ExternalLink, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Download, Eye, AlertTriangle, MapPin, Linkedin, Github, Send, MessageSquare, MoreHorizontal, Handshake, GitMerge, ShieldCheck } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
@@ -18,10 +18,66 @@ const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const toast = useToast()
 const isDrawerMoreOpen = ref(false)
 const drawerReferralOpen = ref(false)
+const drawerFraudOpen = ref(false)
+const drawerMergeOpen = ref(false)
+const drawerFraudForm = ref({ reason: 'blacklist', notes: '' })
+const drawerIsUpdatingFraud = ref(false)
+const drawerIsUpdatingManualOnly = ref(false)
 
 const { candidate, status: fetchStatus, error, refresh } = useCandidate(() => props.candidateId)
 const { formatCandidateName, formatDate } = useOrgSettings()
 const { t, te } = useI18n()
+
+// ── Действия меню «Другое» (аналогично полной странице) ──
+async function drawerSubmitFraud() {
+  if (drawerIsUpdatingFraud.value) return
+  drawerIsUpdatingFraud.value = true
+  try {
+    await $fetch(`/api/candidates/${props.candidateId}/fraud-flag`, {
+      method: 'POST',
+      body: { flag: true, reason: drawerFraudForm.value.reason, notes: drawerFraudForm.value.notes || null },
+    })
+    await refresh()
+    toast.success?.('Кандидат помечен фрод-флагом')
+    drawerFraudOpen.value = false
+  }
+  catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error('Не удалось выставить фрод-флаг')
+  }
+  finally { drawerIsUpdatingFraud.value = false }
+}
+
+async function drawerRemoveFraud() {
+  if (drawerIsUpdatingFraud.value) return
+  drawerIsUpdatingFraud.value = true
+  try {
+    await $fetch(`/api/candidates/${props.candidateId}/fraud-flag`, { method: 'POST', body: { flag: false } })
+    await refresh()
+    toast.success?.('Фрод-флаг снят')
+  }
+  catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error('Не удалось снять фрод-флаг')
+  }
+  finally { drawerIsUpdatingFraud.value = false }
+}
+
+async function drawerToggleManualOnly() {
+  if (!candidate.value || drawerIsUpdatingManualOnly.value) return
+  const next = !(candidate.value as any).manualReviewOnly
+  drawerIsUpdatingManualOnly.value = true
+  try {
+    await $fetch(`/api/candidates/${props.candidateId}`, { method: 'PATCH', body: { manualReviewOnly: next } })
+    await refresh()
+    toast.success?.(next ? 'Ручной режим включён' : 'Ручной режим выключен')
+  }
+  catch (err: any) {
+    if (handlePreviewReadOnlyError(err)) return
+    toast.error('Не удалось переключить ручной режим')
+  }
+  finally { drawerIsUpdatingManualOnly.value = false }
+}
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -225,7 +281,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
               </button>
               <div
                 v-if="isDrawerMoreOpen"
-                class="absolute top-[calc(100%+4px)] right-0 min-w-[200px] bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg z-50 overflow-hidden"
+                class="absolute top-[calc(100%+4px)] right-0 min-w-[220px] bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg z-50 overflow-hidden"
               >
                 <button
                   type="button"
@@ -234,6 +290,45 @@ onUnmounted(() => { document.body.style.overflow = '' })
                 >
                   <Handshake class="size-4 shrink-0" />
                   <span>{{ t('candidate.detail.referralAction') }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+                  @click="isDrawerMoreOpen = false; drawerMergeOpen = true"
+                >
+                  <GitMerge class="size-4 shrink-0" />
+                  <span>{{ t('candidate.detail.mergeAction') }}</span>
+                </button>
+                <button
+                  v-if="!(candidate as any)?.fraudFlag"
+                  type="button"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer"
+                  @click="isDrawerMoreOpen = false; drawerFraudForm = { reason: 'blacklist', notes: '' }; drawerFraudOpen = true"
+                >
+                  <AlertTriangle class="size-4 shrink-0" />
+                  <span>{{ t('candidate.detail.fraudAction') }}</span>
+                </button>
+                <button
+                  v-else
+                  type="button"
+                  :disabled="drawerIsUpdatingFraud"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors cursor-pointer disabled:opacity-50"
+                  @click="isDrawerMoreOpen = false; drawerRemoveFraud()"
+                >
+                  <AlertTriangle class="size-4 shrink-0" />
+                  <span>{{ t('candidate.detail.fraudRemoveAction') }}</span>
+                </button>
+                <button
+                  type="button"
+                  :disabled="drawerIsUpdatingManualOnly"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer disabled:opacity-50"
+                  :class="(candidate as any)?.manualReviewOnly
+                    ? 'text-info-700 dark:text-info-300 bg-info-50/40 dark:bg-info-950/40 hover:bg-info-50 dark:hover:bg-info-950'
+                    : 'text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'"
+                  @click="isDrawerMoreOpen = false; drawerToggleManualOnly()"
+                >
+                  <ShieldCheck class="size-4 shrink-0" />
+                  <span>{{ (candidate as any)?.manualReviewOnly ? t('candidate.detail.manualReviewOnlyOn') : t('candidate.detail.manualReviewOnly') }}</span>
                 </button>
               </div>
             </div>
@@ -634,6 +729,42 @@ onUnmounted(() => { document.body.style.overflow = '' })
           <button type="button" class="rounded-lg p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200" @click="drawerReferralOpen = false"><X class="size-4" /></button>
         </div>
         <ReferralButton :candidate-id="candidateId" />
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Фрод-флаг (из меню «Другое» drawer) -->
+  <Teleport to="body">
+    <div v-if="drawerFraudOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" @click.self="drawerFraudOpen = false">
+      <div class="w-full max-w-md rounded-xl bg-white dark:bg-surface-900 p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-100">{{ t('candidate.detail.fraudAction') }}</h3>
+          <button type="button" class="rounded-lg p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200" @click="drawerFraudOpen = false"><X class="size-4" /></button>
+        </div>
+        <select v-model="drawerFraudForm.reason" class="w-full mb-2 rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1.5 text-sm bg-white dark:bg-surface-900">
+          <option value="blacklist">Чёрный список</option>
+          <option value="duplicate">Дубликат</option>
+          <option value="suspicious">Подозрительное поведение</option>
+        </select>
+        <textarea v-model="drawerFraudForm.notes" rows="2" placeholder="Заметки (необязательно)" class="w-full mb-3 rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1.5 text-sm bg-white dark:bg-surface-900" />
+        <div class="flex justify-end gap-2">
+          <button type="button" class="rounded-lg px-3 py-1.5 text-sm text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800" @click="drawerFraudOpen = false">Отмена</button>
+          <button type="button" :disabled="drawerIsUpdatingFraud" class="rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50" @click="drawerSubmitFraud()">{{ drawerIsUpdatingFraud ? 'Сохранение…' : 'Пометить фрод' }}</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Слияние: редирект на полную страницу (где есть полноценный MergeCandidatesModal) -->
+  <Teleport to="body">
+    <div v-if="drawerMergeOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" @click.self="drawerMergeOpen = false">
+      <div class="w-full max-w-md rounded-xl bg-white dark:bg-surface-900 p-5 shadow-xl text-center">
+        <GitMerge class="size-8 mx-auto text-surface-400 mb-3" />
+        <p class="text-sm text-surface-600 dark:text-surface-300 mb-4">Слияние кандидатов доступно на полной странице карточки.</p>
+        <div class="flex justify-center gap-2">
+          <button type="button" class="rounded-lg px-3 py-1.5 text-sm text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800" @click="drawerMergeOpen = false">Отмена</button>
+          <NuxtLink :to="localePath(`/dashboard/candidates/${candidateId}`)" class="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700" @click="drawerMergeOpen = false">Открыть страницу</NuxtLink>
+        </div>
       </div>
     </div>
   </Teleport>

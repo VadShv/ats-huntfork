@@ -18,7 +18,7 @@
  * Управление выбранной версией инкапсулировано здесь (общий источник правды),
  * что исключает рассинхрон между drawer и страницей.
  */
-import { FileText, LayoutList, ShieldAlert, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { FileText, LayoutList, ShieldAlert, ArrowLeftRight, ChevronDown, ChevronUp, History } from 'lucide-vue-next'
 import type { RiskFinding } from '~/composables/useResumeRisk'
 import { useResumeComparison, type SnapshotDiff } from '~/composables/useResumeComparison'
 
@@ -49,6 +49,7 @@ const { t } = useI18n()
 
 // Выбранная версия: null = текущая, иначе id конкретной версии.
 const selectedVersionId = ref<string | null>(null)
+const isVersionPopupOpen = ref(false)
 
 // Вид: 'structure' (JSON) | 'file' (оригинальный файл) | 'risks' (риск-профиль) | 'compare' (сравнение версий).
 type View = 'structure' | 'file' | 'risks' | 'compare'
@@ -253,14 +254,49 @@ async function toggleTransition(baseId: string, compareId: string) {
           >
             <FileText class="size-3.5" /> Файл
           </button>
+          <!-- Версии (попап со списком) -->
+          <div v-if="cmpVersions.length > 1" class="relative">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
+              :class="isVersionPopupOpen
+                ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300'
+                : 'text-surface-500 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200'"
+              @click="isVersionPopupOpen = !isVersionPopupOpen"
+            >
+              <History class="size-3.5" /> Версии
+              <span v-if="selectedVersionId" class="text-[10px] opacity-70">v{{ cmpVersions.find(v => v.id === selectedVersionId)?.versionNumber ?? '' }}</span>
+            </button>
+            <div
+              v-if="isVersionPopupOpen"
+              class="absolute top-[calc(100%+4px)] left-0 min-w-[200px] bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg z-50 overflow-hidden max-h-60 overflow-y-auto"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer"
+                :class="!selectedVersionId ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300' : 'text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'"
+                @click="selectedVersionId = null; isVersionPopupOpen = false"
+              >
+                <span class="flex-1">Текущая</span>
+                <span v-if="cmpVersions.find(v => v.isCurrent)" class="text-[10px] text-surface-400">v{{ cmpVersions.find(v => v.isCurrent)?.versionNumber }}</span>
+              </button>
+              <button
+                v-for="v in cmpVersions"
+                :key="v.id"
+                type="button"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer"
+                :class="selectedVersionId === v.id ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300' : 'text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'"
+                @click="selectedVersionId = v.id; isVersionPopupOpen = false"
+              >
+                <span class="flex-1">v{{ v.versionNumber }}</span>
+                <span v-if="v.isCurrent" class="rounded bg-brand-100 px-1 text-[10px] font-medium text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">текущая</span>
+                <span class="text-[10px] text-surface-400">{{ sourceLabel(v.source) }}</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <CandidateResumeVersionSelector
-          :candidate-id="candidateId"
-          v-model="selectedVersionId"
-          @promoted="onPromoted"
-        />
       </div>
     </div>
 
