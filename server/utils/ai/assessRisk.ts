@@ -100,6 +100,7 @@ export async function assessResumeRisk(
     schemaName: 'resume_risk_findings',
     schemaDescription: 'Смысловые риск-находки по резюме кандидата',
     temperature: 0,
+    wrapBareArray: (items) => ({ findings: items, metrics: { density: 0, adequacy: 0 }, summary: '' }),
   })
 }
 
