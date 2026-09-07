@@ -2113,6 +2113,12 @@
       "showStructure": "Показать структуру"
     },
     "applications": {
+      "tab": "Отклики",
+      "applyToJob": "Добавить отклик",
+      "schedule": "Запланировать",
+      "applied": "Откликнулся",
+      "empty": "Откликов пока нет.",
+      "scheduleInterview": "Запланировать интервью",
       "resumeVersion": "Версия резюме при отклике"
     },
     "detail": {
