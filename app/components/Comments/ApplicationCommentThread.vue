@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
-import { MessageSquare, Users, Plus, X, Eye, Bot, ShieldAlert } from 'lucide-vue-next'
+import { onMounted, onBeforeUnmount, ref, computed, nextTick, watch } from 'vue'
+import { MessageSquare, Users, Plus, X, Eye, Bot, ShieldAlert, Maximize2, ArrowDown } from 'lucide-vue-next'
 import ApplicationCommentItem from './ApplicationCommentItem.vue'
 import ApplicationCommentComposer from './ApplicationCommentComposer.vue'
 import ThreadStageEvent from './ThreadStageEvent.vue'
+import ThreadDayDivider from './ThreadDayDivider.vue'
+import ThreadNewMessagesLine from './ThreadNewMessagesLine.vue'
 import { useApplicationComments } from '~/composables/useApplicationComments'
 
 const props = withDefaults(
@@ -17,9 +19,18 @@ const props = withDefaults(
      * Запись возможна только в текущий (активный) отклик.
      */
     readOnly?: boolean
+    /**
+     * Collaboration Hub (Этап 0): режим фокуса — тред открыт в полноэкранном
+     * drawer. Занимает всю доступную высоту, скрывает кнопку «развернуть».
+     */
+    expanded?: boolean
+    /** Показывать ли кнопку «Развернуть» (скрыта внутри drawer'а отклика). */
+    canExpand?: boolean
   }>(),
-  { compact: false, readOnly: false },
+  { compact: false, readOnly: false, expanded: false, canExpand: true },
 )
+
+const emit = defineEmits<{ expand: [] }>()
 
 const { t } = useI18n()
 const { data: session } = await authClient.useSession(useFetch)
@@ -38,6 +49,10 @@ const {
   comments,
   watchers,
   timeline,
+  renderRows,
+  unseenCount,
+  loadLastSeen,
+  markSeen,
   loading,
   error,
   fetchComments,
@@ -51,7 +66,37 @@ const {
   searchMembers,
 } = useApplicationComments(props.applicationId)
 
-const toast = useToast()
+// ── Скролл-поведение (Этап 0) ──
+const scrollBody = ref<HTMLElement | null>(null)
+const atBottom = ref(true)
+const NEAR_BOTTOM_PX = 80
+
+function isNearBottom(el: HTMLElement): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX
+}
+
+function scrollToBottom(smooth = false) {
+  const el = scrollBody.value
+  if (!el) return
+  el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+  atBottom.value = true
+  markSeen()
+}
+
+function onBodyScroll() {
+  const el = scrollBody.value
+  if (!el) return
+  atBottom.value = isNearBottom(el)
+  if (atBottom.value) markSeen()
+}
+
+// Новое сообщение/событие: если пользователь у низа — доскроллить; иначе показать «N новых».
+watch(() => timeline.value.length, async (next, prev) => {
+  if (next <= prev) return
+  await nextTick()
+  if (atBottom.value) scrollToBottom(true)
+})
+
 const pinning = ref(false)
 async function onAttachSnapshot(kind: 'ai_screening_snapshot' | 'risk_snapshot') {
   if (pinning.value) return
@@ -79,11 +124,16 @@ const replyTo = ref<string | null>(null)
 
 let disconnectStream: (() => void) | null = null
 onMounted(async () => {
+  loadLastSeen()
   await Promise.all([fetchComments(), fetchWatchers(), fetchStageHistory()])
+  // Стартовая позиция — низ ленты (последнее сообщение видно сразу).
+  await nextTick()
+  scrollToBottom(false)
   // Realtime: подписка на изменения треда (новые сообщения/снимки/этапы)
   disconnectStream = connectStream()
 })
 onBeforeUnmount(() => {
+  markSeen()
   disconnectStream?.()
 })
 
@@ -127,11 +177,16 @@ const watcherCandidates = computed(() =>
 
 <template>
   <section
-    class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900"
-    :class="compact ? '' : 'p-5'"
+    class="flex flex-col rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900"
+    :class="[
+      expanded ? 'h-full' : 'max-h-[min(60vh,640px)] min-h-[280px]',
+    ]"
   >
-    <!-- Header -->
-    <header class="flex items-center justify-between gap-2" :class="compact ? 'px-4 pt-4' : 'mb-4'">
+    <!-- Header (sticky top, не скроллится) -->
+    <header
+      class="flex flex-none items-center justify-between gap-2 border-b border-surface-200 dark:border-surface-800"
+      :class="compact ? 'px-4 py-3' : 'px-5 py-3'"
+    >
       <div class="flex items-center gap-2">
         <MessageSquare class="size-4 text-surface-500 dark:text-surface-400" />
         <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">
@@ -141,22 +196,34 @@ const watcherCandidates = computed(() =>
           {{ comments.length }}
         </span>
       </div>
-      <button
-        type="button"
-        class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
-        @click="watchersOpen = !watchersOpen"
-      >
-        <Users class="size-3.5" />
-        {{ t('watchers.label') }}
-        <span class="rounded-full bg-surface-200 dark:bg-surface-700 px-1.5 text-[10px]">{{ watchers.length }}</span>
-      </button>
+      <div class="flex items-center gap-1">
+        <button
+          type="button"
+          class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+          @click="watchersOpen = !watchersOpen"
+        >
+          <Users class="size-3.5" />
+          {{ t('watchers.label') }}
+          <span class="rounded-full bg-surface-200 dark:bg-surface-700 px-1.5 text-[10px]">{{ watchers.length }}</span>
+        </button>
+        <button
+          v-if="!expanded && canExpand"
+          type="button"
+          class="rounded-md p-1.5 text-surface-500 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+          :title="t('thread_ui.expand')"
+          :aria-label="t('thread_ui.expand')"
+          @click="emit('expand')"
+        >
+          <Maximize2 class="size-3.5" />
+        </button>
+      </div>
     </header>
 
     <!-- Watcher panel -->
     <div
       v-if="watchersOpen"
-      class="border-t border-b border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950/40"
-      :class="compact ? 'px-4 py-3' : 'mb-4 -mx-5 px-5 py-3'"
+      class="flex-none border-b border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950/40"
+      :class="compact ? 'px-4 py-3' : 'px-5 py-3'"
     >
       <div class="mb-2 flex items-center justify-between">
         <span class="text-xs font-medium text-surface-700 dark:text-surface-300">{{ t('watchers.subscribed') }}</span>
@@ -216,79 +283,101 @@ const watcherCandidates = computed(() =>
       </div>
     </div>
 
-    <!-- Thread -->
-    <div :class="compact ? 'px-2 pb-2' : ''">
-      <div v-if="loading && comments.length === 0" class="py-8 text-center text-sm text-surface-400">
-        {{ t('comments.loading') }}
-      </div>
-      <div v-else-if="error" class="py-4 text-center text-sm text-red-600">
-        {{ error }}
-      </div>
-      <div v-else-if="timeline.length === 0" class="py-6 text-center text-sm text-surface-400 italic">
-        {{ t('comments.empty') }}
-      </div>
-      <div v-else class="space-y-1">
-        <template v-for="item in timeline" :key="`${item.type}-${item.type === 'comment' ? item.comment.id : item.event.id}`">
-          <ApplicationCommentItem
-            v-if="item.type === 'comment'"
-            :application-id="applicationId"
-            :comment="item.comment"
-            :current-user-id="currentUserId"
-            :can-delete-any="canDeleteAny"
-            :can-reply="false"
-            :read-only="readOnly"
-            @reply="onReply"
-            @reaction-toggle="onReactionToggle"
-          />
-          <ThreadStageEvent
-            v-else
-            :event="item.event"
-          />
-        </template>
+    <!-- Thread body (единственная скроллируемая зона) -->
+    <div class="relative min-h-0 flex-1">
+      <div
+        ref="scrollBody"
+        class="h-full overflow-y-auto px-3 py-2"
+        @scroll="onBodyScroll"
+      >
+        <div v-if="loading && comments.length === 0" class="py-8 text-center text-sm text-surface-400">
+          {{ t('comments.loading') }}
+        </div>
+        <div v-else-if="error" class="py-4 text-center text-sm text-red-600">
+          {{ error }}
+        </div>
+        <div v-else-if="timeline.length === 0" class="py-6 text-center text-sm text-surface-400 italic">
+          {{ t('comments.empty') }}
+        </div>
+        <div v-else class="space-y-1">
+          <template v-for="row in renderRows" :key="row.key">
+            <ThreadDayDivider v-if="row.kind === 'day'" :at="row.at" />
+            <ThreadNewMessagesLine v-else-if="row.kind === 'new_line'" />
+            <template v-else>
+              <ApplicationCommentItem
+                v-if="row.item.type === 'comment'"
+                :application-id="applicationId"
+                :comment="row.item.comment"
+                :current-user-id="currentUserId"
+                :can-delete-any="canDeleteAny"
+                :can-reply="false"
+                :read-only="readOnly"
+                @reply="onReply"
+                @reaction-toggle="onReactionToggle"
+              />
+              <ThreadStageEvent
+                v-else
+                :event="row.item.event"
+              />
+            </template>
+          </template>
+        </div>
       </div>
 
-      <!-- Composer (только текущий отклик) / баннер «только просмотр» для чужих откликов -->
-      <div :class="compact ? 'px-2 pb-3 pt-2' : 'mt-3'">
-        <div
-          v-if="readOnly"
-          class="flex items-center gap-2 rounded-lg border border-dashed border-rose-300 dark:border-rose-800/60 bg-rose-50/60 dark:bg-rose-900/10 px-3 py-2.5 text-xs text-rose-700 dark:text-rose-300"
-        >
-          <Eye class="size-3.5 flex-shrink-0" />
-          <span>{{ t('comments.read_only_other_application') }}</span>
-        </div>
-        <template v-else>
-          <!-- Прикрепить результат ИИ в ленту (Этап 3) -->
-          <div class="mb-2 flex flex-wrap items-center gap-1.5">
-            <span class="text-[11px] text-surface-400">{{ t('comment_snapshot.attach_label') }}:</span>
-            <button
-              type="button"
-              :disabled="pinning"
-              class="inline-flex items-center gap-1 rounded-md border border-brand-200 dark:border-brand-800/60 bg-brand-50/50 dark:bg-brand-900/10 px-2 py-1 text-[11px] font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/30 disabled:opacity-50 cursor-pointer"
-              @click="onAttachSnapshot('ai_screening_snapshot')"
-            >
-              <Bot class="size-3" />
-              {{ t('discussion_widgets.screening') }}
-            </button>
-            <button
-              type="button"
-              :disabled="pinning"
-              class="inline-flex items-center gap-1 rounded-md border border-amber-200 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-900/10 px-2 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 disabled:opacity-50 cursor-pointer"
-              @click="onAttachSnapshot('risk_snapshot')"
-            >
-              <ShieldAlert class="size-3" />
-              {{ t('discussion_widgets.risk') }}
-            </button>
-          </div>
-          <ApplicationCommentComposer
-            ref="composerRef"
-            :application-id="applicationId"
-            :can-mark-internal="canSeeInternal"
-            :parent-comment-id="replyTo"
-            @submitted="onSubmitted"
-            @cancel="onCancelReply"
-          />
-        </template>
+      <!-- Кнопка «вниз» + счётчик новых (когда не у низа) -->
+      <button
+        v-if="!atBottom && timeline.length > 0"
+        type="button"
+        class="absolute bottom-3 right-3 z-20 inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:bg-brand-700 cursor-pointer"
+        @click="scrollToBottom(true)"
+      >
+        <ArrowDown class="size-3.5" />
+        <span v-if="unseenCount > 0">{{ t('thread_ui.new_count', { n: unseenCount }) }}</span>
+        <span v-else>{{ t('thread_ui.to_bottom') }}</span>
+      </button>
+    </div>
+
+    <!-- Footer (sticky bottom): композер / баннер «только просмотр» -->
+    <div class="flex-none border-t border-surface-200 dark:border-surface-800 px-3 py-2.5">
+      <div
+        v-if="readOnly"
+        class="flex items-center gap-2 rounded-lg border border-dashed border-rose-300 dark:border-rose-800/60 bg-rose-50/60 dark:bg-rose-900/10 px-3 py-2.5 text-xs text-rose-700 dark:text-rose-300"
+      >
+        <Eye class="size-3.5 flex-shrink-0" />
+        <span>{{ t('comments.read_only_other_application') }}</span>
       </div>
+      <template v-else>
+        <!-- Прикрепить результат ИИ в ленту (Этап 3) -->
+        <div class="mb-2 flex flex-wrap items-center gap-1.5">
+          <span class="text-[11px] text-surface-400">{{ t('comment_snapshot.attach_label') }}:</span>
+          <button
+            type="button"
+            :disabled="pinning"
+            class="inline-flex items-center gap-1 rounded-md border border-brand-200 dark:border-brand-800/60 bg-brand-50/50 dark:bg-brand-900/10 px-2 py-1 text-[11px] font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/30 disabled:opacity-50 cursor-pointer"
+            @click="onAttachSnapshot('ai_screening_snapshot')"
+          >
+            <Bot class="size-3" />
+            {{ t('discussion_widgets.screening') }}
+          </button>
+          <button
+            type="button"
+            :disabled="pinning"
+            class="inline-flex items-center gap-1 rounded-md border border-amber-200 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-900/10 px-2 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 disabled:opacity-50 cursor-pointer"
+            @click="onAttachSnapshot('risk_snapshot')"
+          >
+            <ShieldAlert class="size-3" />
+            {{ t('discussion_widgets.risk') }}
+          </button>
+        </div>
+        <ApplicationCommentComposer
+          ref="composerRef"
+          :application-id="applicationId"
+          :can-mark-internal="canSeeInternal"
+          :parent-comment-id="replyTo"
+          @submitted="onSubmitted"
+          @cancel="onCancelReply"
+        />
+      </template>
     </div>
   </section>
 </template>

@@ -13,6 +13,7 @@ import type { PropertyEntry, PropertyFilter } from '~~/shared/properties'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta, type ApplicationSource } from '~/composables/useApplicationSource'
 import CandidateDiscussionTabs from '~/components/Comments/CandidateDiscussionTabs.vue'
+import ApplicationDiscussionDrawer from '~/components/Comments/ApplicationDiscussionDrawer.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
 const { t, te } = useI18n()
@@ -22,6 +23,9 @@ definePageMeta({
   layout: 'dashboard',
   middleware: ['auth', 'require-org'],
 })
+
+/** Collaboration Hub (Этап 0): режим фокуса обсуждения. */
+const discussionExpanded = ref(false)
 
 const route = useRoute()
 const localePath = useLocalePath()
@@ -2333,6 +2337,15 @@ function closeDocPreview() {
                   :current-application-id="currentSummary.id"
                   :candidate-id="currentSummary.candidateId"
                   :compact="true"
+                  @expand="discussionExpanded = true"
+                />
+
+                <!-- Режим фокуса обсуждения (полноэкранный drawer) -->
+                <ApplicationDiscussionDrawer
+                  v-if="discussionExpanded && currentSummary?.id"
+                  :current-application-id="currentSummary.id"
+                  :candidate-id="currentSummary.candidateId"
+                  @close="discussionExpanded = false"
                 />
 
                 <!-- Quick links -->

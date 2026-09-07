@@ -45,9 +45,15 @@ const props = withDefaults(
     candidateId: string
     /** Компактный лейаут для drawer. */
     compact?: boolean
+    /** Режим фокуса — модуль открыт в полноэкранном drawer (занимает всю высоту). */
+    expanded?: boolean
+    /** Показывать ли кнопку «Развернуть» (в drawer отклика скрываем). */
+    canExpand?: boolean
   }>(),
-  { compact: false },
+  { compact: false, expanded: false, canExpand: true },
 )
+
+const emit = defineEmits<{ expand: [] }>()
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -140,13 +146,13 @@ function openRisk() {
 
 <template>
   <section
-    class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900"
-    :class="compact ? '' : ''"
+    class="flex flex-col rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900"
+    :class="expanded ? 'h-full' : 'max-h-[min(72vh,760px)]'"
   >
     <!-- Панель вкладок (только если откликов > 1) -->
     <div
       v-if="hasMultiple"
-      class="flex items-center gap-1 overflow-x-auto border-b border-surface-200 dark:border-surface-800 px-2 pt-2"
+      class="flex flex-none items-center gap-1 overflow-x-auto border-b border-surface-200 dark:border-surface-800 px-2 pt-2"
       role="tablist"
     >
       <button
@@ -193,19 +199,20 @@ function openRisk() {
       </button>
     </div>
 
-    <!-- Тред активной вкладки -->
-    <div v-if="!loading">
-      <!-- Контекст-шапка: AI-скрининг + оценка рисков активной вкладки -->
-      <div :class="compact ? 'px-3 pt-3' : 'px-5 pt-4'">
-        <DiscussionContextWidgets
-          :key="`ctx-${activeId}`"
-          :application-id="activeId"
-          :candidate-id="candidateId"
-          :compact="compact"
-          @open-screening="openScreening"
-          @open-risk="openRisk"
-        />
-      </div>
+    <!-- Контекст-шапка: AI-скрининг + оценка рисков активной вкладки (не скроллится) -->
+    <div v-if="!loading" class="flex-none border-b border-surface-200 dark:border-surface-800" :class="compact ? 'px-3 pt-3' : 'px-5 pt-4'">
+      <DiscussionContextWidgets
+        :key="`ctx-${activeId}`"
+        :application-id="activeId"
+        :candidate-id="candidateId"
+        :compact="compact"
+        @open-screening="openScreening"
+        @open-risk="openRisk"
+      />
+    </div>
+
+    <!-- Тред активной вкладки — заполняет оставшуюся высоту, скролл внутри него -->
+    <div v-if="!loading" class="min-h-0 flex-1">
       <!--
         :key форсирует пересоздание треда при переключении вкладки, чтобы
         useApplicationComments заново загрузил свой applicationId-scoped state.
@@ -215,7 +222,10 @@ function openRisk() {
         :application-id="activeId"
         :read-only="isReadOnly"
         :compact="compact"
-        class="!border-0"
+        expanded
+        :can-expand="canExpand"
+        class="!rounded-none !border-0"
+        @expand="emit('expand')"
       />
     </div>
     <div v-else class="py-8 text-center text-sm text-surface-400">

@@ -81,6 +81,18 @@
 
 ## 5. Функциональные требования по этапам
 
+### Этап 0 — Редизайн UX (фикс-окно чата) ✅ реализовано
+
+Мотивация: длинная переписка растягивала карточку отклика (тред жил в скролле страницы без ограничения высоты).
+
+- **0.1 Фикс-окно**: `ApplicationCommentThread` — `flex flex-col` с ограниченной высотой (`max-h-[min(60vh,640px)]`, в drawer/tabs — `expanded` → `h-full`). Sticky-хедер (заголовок + подписчики + «развернуть»), sticky-футер (композер/снимки), скроллится **только** зона ленты. `CandidateDiscussionTabs` тоже стал flex-контейнером: вкладки+виджеты — `flex-none` шапка, тред — `flex-1`.
+- **0.2 Скролл-поведение**: автоскролл вниз при открытии; плавающая кнопка «Вниз»/«N новых», когда пользователь не у низа; при новом сообщении доскролл только если уже был внизу (не мешаем чтению истории).
+- **0.3 Навигация**: липкие разделители дней (`ThreadDayDivider`: Сегодня/Вчера/дата), линия «Новые сообщения» (`ThreadNewMessagesLine`) по отметке прочтения (`lastSeenAt` в localStorage).
+- **0.4 Режим фокуса**: кнопка «Развернуть» (Maximize2) → `ApplicationDiscussionDrawer` — обсуждение во весь экран справа (Teleport + useEscapeStack). В drawer отклика кнопка скрыта (`canExpand=false`).
+- **0.5 Полиш**: единый каркас/бордеры/бейджи; i18n `thread_ui.*`.
+- Composable: `renderRows` (дни + линия «новые»), `unseenCount`, `loadLastSeen()`, `markSeen()`.
+- Файлы: `ApplicationCommentThread.vue`, `CandidateDiscussionTabs.vue`, `ApplicationDiscussionDrawer.vue`, `ThreadDayDivider.vue`, `ThreadNewMessagesLine.vue`, `useApplicationComments.ts`; интеграция в `pages/dashboard/applications/[id].vue`, `pages/dashboard/jobs/[id]/index.vue`, `ApplicationDetailDrawer.vue`.
+
 ### Этап 1 — Вкладки по откликам кандидата (read-only для чужих) ✅ первый
 
 - Компонент-обёртка `CandidateDiscussionTabs.vue` над `ApplicationCommentThread`.
@@ -117,7 +129,9 @@
 - Клиент: `useApplicationComments` → `timeline`, `fetchStageHistory()`, `connectStream()`; тред подписывается в `onMounted`, отписка в `onBeforeUnmount`.
 - i18n `thread_events.*`. Для мультиинстанса шину заменить на PG LISTEN/NOTIFY (отмечено в коде).
 
-### Этап 5 — Продвинутое (беклог идей)
+### Этап 5 — Продвинутое (беклог идей) ⏸ ОТЛОЖЕН
+
+Статус: зафиксирован, к реализации после редизайна (Этап 0 завершён). Новые фичи ложить в уже единый визуальный язык.
 
 - Reply-цепочки: `parentCommentId` уже в схеме — включить threaded-UI (сейчас `can-reply=false`).
 - Задачи из упоминаний: `@user проверь диплом` + чекбокс → лёгкий to-do на watcher.

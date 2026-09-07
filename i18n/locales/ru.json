@@ -2470,6 +2470,15 @@
     "system": "Система",
     "moved_stage": "перевёл(а) этап"
   },
+  "thread_ui": {
+    "today": "Сегодня",
+    "yesterday": "Вчера",
+    "new_messages": "Новые сообщения",
+    "to_bottom": "Вниз",
+    "new_count": "{n} новых",
+    "expand": "Развернуть на весь экран",
+    "collapse": "Свернуть"
+  },
   "discussion_widgets": {
     "title": "Контекст ИИ",
     "screening": "AI-скрининг",
