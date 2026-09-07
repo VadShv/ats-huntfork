@@ -2213,8 +2213,43 @@
     "cloneNamePlaceholder": "{name} (копия)"
   },
   "settings": {
+    "mymeet": {
+      "title": "MyMeet",
+      "subtitle": "Импорт отчётов по интервью (транскрибация → отчёт) через MCP-сервер MyMeet. Ключ вводится вами, шифруется и не возвращается.",
+      "statusConnected": "Подключено",
+      "keyPlaceholder": "API-ключ MyMeet",
+      "connect": "Подключить",
+      "connected": "MyMeet подключён (tools: {n})",
+      "connectError": "Не удалось подключить MyMeet",
+      "tested": "Соединение работает (tools: {n})",
+      "testError": "MyMeet недоступен",
+      "test": "Проверить",
+      "disconnect": "Отключить",
+      "disconnected": "MyMeet отключён",
+      "discovered": "Обнаруженные возможности",
+      "noPermission": "Нет прав на управление интеграцией"
+    },
     "sidebar": {
       "pipelines": "Воронки"
+    }
+  },
+  "interview": {
+    "mymeet": {
+      "title": "Отчёт MyMeet",
+      "notConnected": "MyMeet не подключён. Настройте интеграцию в разделе «Интеграции».",
+      "empty": "Встреча MyMeet не привязана к этому интервью.",
+      "link": "Привязать встречу MyMeet",
+      "relink": "Перепривязать встречу",
+      "selectMeeting": "Выберите встречу MyMeet",
+      "noMeetings": "Встречи не найдены",
+      "listError": "Не удалось получить список встреч",
+      "importing": "Импорт отчёта…",
+      "importError": "Не удалось импортировать отчёт",
+      "failed": "Импорт не удался",
+      "report": "Отчёт по интервью",
+      "transcript": "Транскрибация",
+      "min": "мин",
+      "cancel": "Отмена"
     }
   },
   "application": {
