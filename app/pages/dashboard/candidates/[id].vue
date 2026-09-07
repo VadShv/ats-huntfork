@@ -47,8 +47,8 @@ const resumeDocumentId = computed<string | null>(() => resumeDoc.value?.id ?? nu
 const resumeDocumentMime = computed<string | null>(() => resumeDoc.value?.mimeType ?? null)
 const resumeDocumentPreviewAvailable = computed<boolean>(() => resumeDoc.value?.previewAvailable ?? false)
 
-// Ссылка на панель резюме — чтобы клик по риск-находке переключал её на вид «Риски».
-const resumePanelRef = ref<{ showRisks: () => void } | null>(null)
+// Ссылка на панель резюме — чтобы клик по риск-находке/сравнению переключал её на соответствующий вид.
+const resumePanelRef = ref<{ showRisks: () => void, showCompare: () => void } | null>(null)
 
 // HH resume header info — подгружаем должность/город/опыт для шапки
 interface HhResumeApiResp {
@@ -884,11 +884,19 @@ async function openHhContacts() {
             :can-generate="Boolean((candidate as any).hasResumeSnapshot)"
             @generated="refresh()"
           />
-          <CandidateRiskCard
-            :candidate-id="candidateId"
-            :can-generate="Boolean((candidate as any).hasResumeSnapshot)"
-            @open-details="resumePanelRef?.showRisks()"
-          />
+          <!-- Две плашки параллельно: Риски | Сравнение версий -->
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <CandidateRiskCard
+              :candidate-id="candidateId"
+              :can-generate="Boolean((candidate as any).hasResumeSnapshot)"
+              @open-details="resumePanelRef?.showRisks()"
+            />
+            <CandidateComparisonCard
+              :candidate-id="candidateId"
+              :can-generate="Boolean((candidate as any).hasResumeSnapshot)"
+              @open-details="resumePanelRef?.showCompare()"
+            />
+          </div>
           <CandidateResumePanel
             ref="resumePanelRef"
             :candidate-id="candidateId"

@@ -2137,6 +2137,23 @@
       "fraudRemoveAction": "Снять фрод-флаг",
       "manualReviewOnly": "Только ручная проверка",
       "manualReviewOnlyOn": "Ручная проверка: вкл."
+    },
+    "comparison": {
+      "title": "Сравнение версий",
+      "tab": "Сравнить",
+      "notEnough": "Нужны минимум 2 версии резюме для сравнения",
+      "versions": "версий",
+      "latest": "последнее изменение",
+      "noDelta": "нет данных",
+      "details": "Подробнее в панели резюме",
+      "loading": "Загрузка версий…",
+      "current": "текущая",
+      "timelineTitle": "История изменений",
+      "experience": "Опыт работы",
+      "skills": "Навыки",
+      "fields": "Поля",
+      "aboutChanged": "Текст «О себе» изменён",
+      "noChanges": "Между версиями нет изменений"
     }
   },
   "pipelines": {

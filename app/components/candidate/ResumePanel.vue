@@ -18,8 +18,9 @@
  * Управление выбранной версией инкапсулировано здесь (общий источник правды),
  * что исключает рассинхрон между drawer и страницей.
  */
-import { FileText, LayoutList, ShieldAlert } from 'lucide-vue-next'
+import { FileText, LayoutList, ShieldAlert, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-vue-next'
 import type { RiskFinding } from '~/composables/useResumeRisk'
+import { useResumeComparison, type SnapshotDiff } from '~/composables/useResumeComparison'
 
 const props = defineProps<{
   candidateId: string
@@ -49,8 +50,8 @@ const { t } = useI18n()
 // Выбранная версия: null = текущая, иначе id конкретной версии.
 const selectedVersionId = ref<string | null>(null)
 
-// Вид: 'structure' (JSON) | 'file' (оригинальный файл) | 'risks' (риск-профиль версии).
-type View = 'structure' | 'file' | 'risks'
+// Вид: 'structure' (JSON) | 'file' (оригинальный файл) | 'risks' (риск-профиль) | 'compare' (сравнение версий).
+type View = 'structure' | 'file' | 'risks' | 'compare'
 
 // Оригинал доступен только для ручных загрузок (есть документ-резюме).
 const hasOriginalFile = computed(() => Boolean(props.resumeDocumentId))
@@ -98,7 +99,12 @@ function showRisks() {
   userTouchedView.value = true
   view.value = 'risks'
 }
-defineExpose({ showRisks })
+// Позволяет родителю (клик «Подробнее» в ComparisonCard) переключить панель на «Сравнение».
+function showCompare() {
+  userTouchedView.value = true
+  view.value = 'compare'
+}
+defineExpose({ showRisks, showCompare })
 
 // ── Риск-профиль выбранной версии (вид «Риски») ──
 // null selectedVersionId → текущая версия (endpoint risk-profile);
@@ -129,6 +135,43 @@ const riskLevelClass: Record<string, string> = {
   low: 'bg-success-50 text-success-700 dark:bg-success-950/50 dark:text-success-400',
   medium: 'bg-warning-50 text-warning-700 dark:bg-warning-950/50 dark:text-warning-400',
   high: 'bg-danger-50 text-danger-700 dark:bg-danger-950/50 dark:text-danger-400',
+}
+
+// ── Сравнение версий (вид «Сравнение») ──
+const { versions: cmpVersions, canCompare, fetchDiff } = useResumeComparison(() => props.candidateId)
+// Какая ступень развёрнута (id пары base→compare), null = все свёрнуты.
+const expandedTransition = ref<string | null>(null)
+const cmpDiff = ref<SnapshotDiff | null>(null)
+const cmpLoading = ref(false)
+
+function sourceLabel(src: string): string {
+  switch (src) {
+    case 'hh': return 'hh.ru'
+    case 'manual_upload': return 'файл'
+    case 'api_import': return 'API'
+    case 'merged_from': return 'слияние'
+    default: return src
+  }
+}
+
+function fmtVersionDate(s: string): string {
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+}
+
+// Клик по ступени таймлайна (vN → vN+1) — загрузить diff пары.
+async function toggleTransition(baseId: string, compareId: string) {
+  const key = `${baseId}→${compareId}`
+  if (expandedTransition.value === key) {
+    expandedTransition.value = null
+    cmpDiff.value = null
+    return
+  }
+  expandedTransition.value = key
+  cmpLoading.value = true
+  cmpDiff.value = await fetchDiff(baseId, compareId)
+  cmpLoading.value = false
 }
 </script>
 
@@ -162,6 +205,17 @@ const riskLevelClass: Record<string, string> = {
             @click="setView('risks')"
           >
             <ShieldAlert class="size-3.5" /> {{ t('candidate.risk.tab') }}
+          </button>
+          <button
+            v-if="canCompare"
+            type="button"
+            class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
+            :class="view === 'compare'
+              ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300'
+              : 'text-surface-500 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200'"
+            @click="setView('compare')"
+          >
+            <ArrowLeftRight class="size-3.5" /> {{ t('candidate.comparison.tab') }}
           </button>
           <button
             v-if="hasOriginalFile"
@@ -235,6 +289,112 @@ const riskLevelClass: Record<string, string> = {
           </div>
         </div>
         <p v-else class="text-sm text-surface-500">{{ t('candidate.risk.noFindings') }}</p>
+      </div>
+    </template>
+
+    <!-- Сравнение версий резюме (таймлайн изменений) -->
+    <template v-else-if="view === 'compare'">
+      <div v-if="cmpVersions.length < 2" class="rounded-lg border border-dashed border-surface-300 dark:border-surface-700 p-6 text-center text-sm text-surface-500">
+        {{ t('candidate.comparison.notEnough') }}
+      </div>
+      <div v-else class="space-y-3">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-surface-400">{{ t('candidate.comparison.timelineTitle') }}</h3>
+        <!-- Версии идут desc (новейшая сверху). Ступень между vN и vN+1 показана под vN. -->
+        <div
+          v-for="(v, idx) in cmpVersions"
+          :key="v.id"
+          class="rounded-lg border border-surface-200 dark:border-surface-800"
+        >
+          <!-- Строка версии -->
+          <div class="flex items-center justify-between gap-2 px-3 py-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-sm font-medium text-surface-800 dark:text-surface-100">v{{ v.versionNumber }}</span>
+              <span v-if="v.isCurrent" class="rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">{{ t('candidate.comparison.current') }}</span>
+              <span class="text-xs text-surface-400">{{ fmtVersionDate(v.fetchedAt) }} · {{ sourceLabel(v.source) }}</span>
+            </div>
+          </div>
+          <!-- Ступень к предыдущей версии (vN → vN+1), если она есть -->
+          <template v-if="idx < cmpVersions.length - 1">
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 border-t border-surface-100 px-3 py-1.5 text-left text-xs hover:bg-surface-50 dark:border-surface-800 dark:hover:bg-surface-800/50"
+              @click="toggleTransition(cmpVersions[idx + 1]!.id, v.id)"
+            >
+              <component :is="expandedTransition === `${cmpVersions[idx + 1]!.id}→${v.id}` ? ChevronUp : ChevronDown" class="size-3 shrink-0 text-surface-400" />
+              <span class="text-surface-500 dark:text-surface-400">
+                {{ v.deltaSummaryText || t('candidate.comparison.noDelta') }}
+              </span>
+            </button>
+            <!-- Разворот: полный diff пары -->
+            <div
+              v-if="expandedTransition === `${cmpVersions[idx + 1]!.id}→${v.id}`"
+              class="border-t border-surface-100 px-3 py-3 dark:border-surface-800"
+            >
+              <div v-if="cmpLoading" class="py-4 text-center text-xs text-surface-400">…</div>
+              <div v-else-if="cmpDiff" class="space-y-3">
+                <!-- Сводка изменений -->
+                <p class="text-xs font-medium text-surface-600 dark:text-surface-300">{{ cmpDiff.summary }}</p>
+
+                <!-- Опыт работы -->
+                <div v-if="cmpDiff.experience.some(e => e.status !== 'unchanged')" class="space-y-1.5">
+                  <h4 class="text-[11px] font-semibold uppercase tracking-wide text-surface-400">{{ t('candidate.comparison.experience') }}</h4>
+                  <div
+                    v-for="(e, ei) in cmpDiff.experience.filter(x => x.status !== 'unchanged')"
+                    :key="ei"
+                    class="rounded-md border p-2 text-xs"
+                    :class="{
+                      'border-success-200 bg-success-50/50 dark:border-success-800 dark:bg-success-950/20': e.status === 'added',
+                      'border-danger-200 bg-danger-50/50 dark:border-danger-800 dark:bg-danger-950/20': e.status === 'removed',
+                      'border-warning-200 bg-warning-50/50 dark:border-warning-800 dark:bg-warning-950/20': e.status === 'changed',
+                    }"
+                  >
+                    <div class="flex items-start gap-1.5">
+                      <span class="font-mono font-bold" :class="{ 'text-success-600': e.status === 'added', 'text-danger-600': e.status === 'removed', 'text-warning-600': e.status === 'changed' }">
+                        {{ e.status === 'added' ? '+' : e.status === 'removed' ? '−' : '~' }}
+                      </span>
+                      <div class="min-w-0">
+                        <span class="font-medium text-surface-800 dark:text-surface-100">{{ e.company }}</span>
+                        <span v-if="e.position" class="text-surface-500"> · {{ e.position }}</span>
+                        <span class="text-surface-400"> · {{ e.period }}</span>
+                        <p v-if="e.changes.length" class="mt-0.5 text-surface-400">{{ e.changes.join(', ') }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Навыки -->
+                <div v-if="cmpDiff.skillsAdded.length || cmpDiff.skillsRemoved.length" class="space-y-1.5">
+                  <h4 class="text-[11px] font-semibold uppercase tracking-wide text-surface-400">{{ t('candidate.comparison.skills') }}</h4>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span v-for="s in cmpDiff.skillsAdded" :key="`+${s}`" class="rounded-md bg-success-50 px-2 py-0.5 text-xs text-success-700 dark:bg-success-950/40 dark:text-success-400">+{{ s }}</span>
+                    <span v-for="s in cmpDiff.skillsRemoved" :key="`-${s}`" class="rounded-md bg-danger-50 px-2 py-0.5 text-xs text-danger-700 line-through dark:bg-danger-950/40 dark:text-danger-400">−{{ s }}</span>
+                  </div>
+                </div>
+
+                <!-- Поля -->
+                <div v-if="cmpDiff.fields.some(f => f.changed)" class="space-y-1">
+                  <h4 class="text-[11px] font-semibold uppercase tracking-wide text-surface-400">{{ t('candidate.comparison.fields') }}</h4>
+                  <div
+                    v-for="(f, fi) in cmpDiff.fields.filter(x => x.changed)"
+                    :key="fi"
+                    class="text-xs text-surface-600 dark:text-surface-300"
+                  >
+                    <span class="font-medium">{{ f.label }}:</span>
+                    <span class="text-surface-400"> {{ f.base || '—' }} → {{ f.compare || '—' }}</span>
+                  </div>
+                </div>
+
+                <!-- О себе -->
+                <div v-if="cmpDiff.aboutChanged" class="text-xs text-warning-600 dark:text-warning-400">
+                  {{ t('candidate.comparison.aboutChanged') }}
+                </div>
+
+                <!-- Без изменений -->
+                <p v-if="!cmpDiff.hasChanges" class="text-xs text-surface-400">{{ t('candidate.comparison.noChanges') }}</p>
+              </div>
+            </div>
+          </template>
+        </div>
       </div>
     </template>
 
