@@ -6,6 +6,7 @@ import {
 } from '../../../../../../database/schema/app'
 import { z } from 'zod'
 import { createNotification } from '../../../../../../utils/comments/notifications'
+import { notifyThreadChanged } from '../../../../../../utils/comments/threadBus'
 
 const paramsSchema = z.object({
   id: z.string().uuid('Неверный id отклика'),
@@ -95,6 +96,8 @@ export default defineEventHandler(async (event) => {
       actorUserId: userId,
     })
   }
+
+  notifyThreadChanged(id)
 
   setResponseStatus(event, 201)
   return inserted

@@ -11,6 +11,8 @@ const props = defineProps<{
   commentId: string
   reactions: CommentReaction[]
   currentUserId: string
+  /** Collaboration Hub: тред чужого отклика — реакции только для чтения. */
+  readOnly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -36,8 +38,14 @@ onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
 function onEmojiClick(emoji: string) {
+  if (props.readOnly) return
   emit('toggle', props.commentId, emoji)
   pickerOpen.value = false
+}
+
+function onChipClick(emoji: string) {
+  if (props.readOnly) return
+  emit('toggle', props.commentId, emoji)
 }
 
 function buildTitle(r: CommentReaction): string {
@@ -56,18 +64,22 @@ function buildTitle(r: CommentReaction): string {
       :key="r.emoji"
       type="button"
       :title="buildTitle(r)"
-      class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors cursor-pointer"
-      :class="r.reactedByMe
-        ? 'bg-brand-100 dark:bg-brand-900/40 border-brand-300 dark:border-brand-700 text-brand-800 dark:text-brand-200'
-        : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700'"
-      @click="emit('toggle', commentId, r.emoji)"
+      class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors"
+      :class="[
+        r.reactedByMe
+          ? 'bg-brand-100 dark:bg-brand-900/40 border-brand-300 dark:border-brand-700 text-brand-800 dark:text-brand-200'
+          : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 text-surface-700 dark:text-surface-300',
+        readOnly ? 'cursor-default' : 'cursor-pointer hover:bg-surface-100 dark:hover:bg-surface-700',
+      ]"
+      :disabled="readOnly"
+      @click="onChipClick(r.emoji)"
     >
       <span>{{ r.emoji }}</span>
       <span class="font-medium tabular-nums">{{ r.count }}</span>
     </button>
 
-    <!-- Add reaction button -->
-    <div ref="pickerRoot" class="relative">
+    <!-- Add reaction button (скрыт в режиме просмотра чужого отклика) -->
+    <div v-if="!readOnly" ref="pickerRoot" class="relative">
       <button
         type="button"
         class="inline-flex items-center justify-center rounded-full border border-dashed border-surface-300 dark:border-surface-700 text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:border-surface-400 dark:hover:border-surface-600 size-6 cursor-pointer bg-transparent transition-colors"

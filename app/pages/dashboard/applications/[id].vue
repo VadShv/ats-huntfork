@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch, Keyboard, X, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
-import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
+import CandidateDiscussionTabs from '~/components/Comments/CandidateDiscussionTabs.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
 definePageMeta({
@@ -464,9 +464,12 @@ function formatResponseValue(value: unknown): string {
         />
       </div>
 
-      <!-- Collaboration thread (заменил блок «Заметки») -->
+      <!-- Collaboration Hub: обсуждение с вкладками по откликам кандидата -->
       <div class="mt-4 mb-4" data-comment-composer>
-        <ApplicationCommentThread :application-id="applicationId" />
+        <CandidateDiscussionTabs
+          :current-application-id="applicationId"
+          :candidate-id="application.candidate.id"
+        />
       </div>
 
       <!-- Чат с кандидатом (Спринт 18) -->

@@ -12,7 +12,7 @@ import { useLocalStorageState } from '~/composables/useLocalStorageState'
 import type { PropertyEntry, PropertyFilter } from '~~/shared/properties'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta, type ApplicationSource } from '~/composables/useApplicationSource'
-import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
+import CandidateDiscussionTabs from '~/components/Comments/CandidateDiscussionTabs.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
 const { t, te } = useI18n()
@@ -2320,11 +2320,12 @@ function closeDocPreview() {
 
               <!-- PROFILE SECTION (overview only) -->
               <div v-if="showSection.profile" ref="overviewRef" class="space-y-5 max-w-4xl mx-auto">
-                <!-- Collaboration thread (заменяет старые заметки) -->
-                <ApplicationCommentThread
+                <!-- Collaboration Hub: обсуждение с вкладками по откликам кандидата -->
+                <CandidateDiscussionTabs
                   v-if="currentSummary?.id"
                   :key="currentSummary.id"
-                  :application-id="currentSummary.id"
+                  :current-application-id="currentSummary.id"
+                  :candidate-id="currentSummary.candidateId"
                   :compact="true"
                 />
 

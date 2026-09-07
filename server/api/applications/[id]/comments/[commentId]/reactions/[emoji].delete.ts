@@ -5,6 +5,7 @@ import {
   commentReaction,
 } from '../../../../../../database/schema/app'
 import { z } from 'zod'
+import { notifyThreadChanged } from '../../../../../../utils/comments/threadBus'
 
 const paramsSchema = z.object({
   id: z.string().uuid('Неверный id отклика'),
@@ -53,6 +54,8 @@ export default defineEventHandler(async (event) => {
         eq(commentReaction.emoji, emoji),
       ),
     )
+
+  notifyThreadChanged(id)
 
   setResponseStatus(event, 204)
   return null

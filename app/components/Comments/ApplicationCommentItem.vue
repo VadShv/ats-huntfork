@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { Lock, MoreVertical, Pencil, Trash2, MessageSquare } from 'lucide-vue-next'
 import type { ThreadComment } from '~/composables/useApplicationComments'
 import { useApplicationComments } from '~/composables/useApplicationComments'
+import CommentSnapshotWidget from './CommentSnapshotWidget.vue'
 
 const props = defineProps<{
   applicationId: string
@@ -10,6 +11,8 @@ const props = defineProps<{
   currentUserId: string
   canDeleteAny: boolean
   canReply?: boolean
+  /** Collaboration Hub: тред чужого отклика — только просмотр. */
+  readOnly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,9 +29,13 @@ const editBody = ref(props.comment.body)
 const saving = ref(false)
 const menuOpen = ref(false)
 
+const isSnapshot = computed(() =>
+  props.comment.kind === 'ai_screening_snapshot' || props.comment.kind === 'risk_snapshot',
+)
 const isAuthor = computed(() => props.comment.author.id === props.currentUserId)
-const canEdit = computed(() => isAuthor.value)
-const canDelete = computed(() => isAuthor.value || props.canDeleteAny)
+// Снимки нельзя редактировать (это зафиксированные данные), но можно удалить.
+const canEdit = computed(() => !props.readOnly && !isSnapshot.value && isAuthor.value)
+const canDelete = computed(() => !props.readOnly && (isAuthor.value || props.canDeleteAny))
 
 const initial = computed(() => (props.comment.author.name ?? props.comment.author.email ?? '?').slice(0, 1).toUpperCase())
 
@@ -171,6 +178,13 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         </div>
       </div>
 
+      <!-- Прикреплённый снимок ИИ (Этап 3) -->
+      <CommentSnapshotWidget
+        v-else-if="isSnapshot"
+        class="mt-1"
+        :comment="comment"
+      />
+
       <!-- Rendered body -->
       <div
         v-else
@@ -189,17 +203,18 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           :application-id="applicationId"
           :comment-id="comment.id"
           :attachment="a"
-          :can-delete="isAuthor || canDeleteAny"
+          :can-delete="!readOnly && (isAuthor || canDeleteAny)"
           @remove="(aid) => deleteAttachment(comment.id, aid)"
         />
       </div>
 
       <!-- Reactions -->
       <CommentReactions
-        v-if="!isEditing"
+        v-if="!isEditing && (comment.reactions.length > 0 || !readOnly)"
         :comment-id="comment.id"
         :reactions="comment.reactions"
         :current-user-id="currentUserId"
+        :read-only="readOnly"
         @toggle="(cid, emoji) => emit('reactionToggle', cid, emoji)"
       />
     </div>

@@ -1,5 +1,5 @@
-import { eq, and, or, count } from 'drizzle-orm'
-import { candidate, candidateDuplicateCandidate } from '../../database/schema'
+import { eq, and, or, count, inArray } from 'drizzle-orm'
+import { candidate, candidateDuplicateCandidate, candidateResumeVersion } from '../../database/schema'
 import { candidateIdParamSchema } from '../../utils/schemas/candidate'
 import { loadPropertyEntriesForEntity } from '../../utils/properties'
 
@@ -49,10 +49,8 @@ export default defineEventHandler(async (event) => {
           currentStage: {
             columns: { id: true, name: true, color: true, type: true },
           },
-          // Версия резюме, с которой был оставлен отклик (для бейджа на карточке)
-          resumeVersion: {
-            columns: { id: true, versionNumber: true },
-          },
+          // NB: resumeVersion не через with (uuid/text несовместимость на проде) —
+          // подтягиваем отдельным запросом ниже.
         },
         orderBy: (application, { desc }) => [desc(application.createdAt)],
       },
@@ -62,6 +60,28 @@ export default defineEventHandler(async (event) => {
       },
     },
   })
+
+  // Подтянуть versionNumber для откликов с resumeVersionId (отдельный запрос —
+  // т.к. candidate_resume_version.id на проде uuid, а application.resume_version_id text,
+  // и Drizzle JOIN падает с "operator does not exist: uuid = text").
+  const versionIds = (result.applications ?? [])
+    .map((a: any) => a.resumeVersionId)
+    .filter((v: string | null): v is string => v != null)
+  const versionMap = new Map<string, number>()
+  if (versionIds.length) {
+    const versions = await db.query.candidateResumeVersion.findMany({
+      where: inArray(candidateResumeVersion.id, versionIds),
+      columns: { id: true, versionNumber: true },
+    })
+    for (const v of versions) versionMap.set(v.id, v.versionNumber)
+  }
+  for (const app of (result.applications ?? [])) {
+    ;(app as any).resumeVersion = app.resumeVersionId= null
+      ? null
+      : versionMap.has(app.resumeVersionId)
+        ? { id: app.resumeVersionId, versionNumber: versionMap.get(app.resumeVersionId)! }
+        : null
+  }
 
   if (!result) {
     throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })

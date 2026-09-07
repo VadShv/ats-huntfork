@@ -13,6 +13,7 @@ import { parseMentionTokens, resolveMentions } from '../../../../utils/comments/
 import { ensureWatcher } from '../../../../utils/comments/ensure-watcher'
 import { renderMarkdown } from '../../../../utils/comments/sanitize'
 import { createNotification } from '../../../../utils/comments/notifications'
+import { notifyThreadChanged } from '../../../../utils/comments/threadBus'
 
 /**
  * PATCH /api/applications/:id/comments/:commentId
@@ -113,6 +114,8 @@ export default defineEventHandler(async (event) => {
       })
     }
   }
+
+  notifyThreadChanged(id)
 
   const author = await db.query.user.findFirst({
     where: eq(user.id, userId),

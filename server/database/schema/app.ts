@@ -1103,7 +1103,9 @@ export const applicationRelations = relations(application, ({ one, many }) => ({
   source: one(applicationSource),
   currentStage: one(pipelineStage, { fields: [application.currentStageId], references: [pipelineStage.id] }),
   stageHistory: many(applicationStageHistory),
-  resumeVersion: one(candidateResumeVersion, { fields: [application.resumeVersionId], references: [candidateResumeVersion.id] }),
+  // NB: resumeVersion relation убрана — candidate_resume_version.id на проде uuid,
+  // application.resume_version_id — text, JOIN невозможен (uuid = text). Версию
+  // подтягиваем отдельным запросом в API (candidates/[id].get.ts).
 }))
 
 export const documentRelations = relations(document, ({ one }) => ({
@@ -2041,6 +2043,15 @@ export const applicationComment = pgTable(
     body:            text('body').notNull(),
     bodyHtml:        text('body_html'),
     isInternal:      boolean('is_internal').notNull().default(false),
+    /**
+     * Collaboration Hub (Этап 3): тип записи ленты.
+     * NULL/'text' — обычный комментарий; 'ai_screening_snapshot' | 'risk_snapshot'
+     * — прикреплённый снимок результата ИИ (данные в payloadJson);
+     * 'system_event' — задел под Этап 4 (события воронки/аудита).
+     */
+    kind:            text('kind'),
+    /** Снимок данных виджета на момент прикрепления (для аудита обсуждаемой версии). */
+    payloadJson:     jsonb('payload_json').$type<Record<string, unknown> | null>(),
     parentCommentId: text('parent_comment_id').references((): any => applicationComment.id, { onDelete: 'set null' }),
     editedAt:        timestamp('edited_at', { withTimezone: true, mode: 'date' }),
     createdAt:       timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

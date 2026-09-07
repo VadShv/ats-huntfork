@@ -8,7 +8,7 @@
  * показывается только если у отклика нет этапа воронки.
  */
 import { X, ExternalLink, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare } from 'lucide-vue-next'
-import ApplicationCommentThread from '~/components/Comments/ApplicationCommentThread.vue'
+import CandidateDiscussionTabs from '~/components/Comments/CandidateDiscussionTabs.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
@@ -319,9 +319,10 @@ onUnmounted(() => { document.body.style.overflow = '' })
               </dl>
             </div>
 
-            <!-- Collaboration thread (compact) -->
-            <ApplicationCommentThread
-              :application-id="applicationId"
+            <!-- Collaboration Hub: обсуждение с вкладками по откликам кандидата (compact) -->
+            <CandidateDiscussionTabs
+              :current-application-id="applicationId"
+              :candidate-id="application.candidate.id"
               :compact="true"
             />
 

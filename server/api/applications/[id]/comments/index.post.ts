@@ -16,6 +16,7 @@ import {
   createNotificationsBulk,
 } from '../../../../utils/comments/notifications'
 import { canSeeInternal, getMemberRole } from '../../../../utils/comments/visibility'
+import { notifyThreadChanged } from '../../../../utils/comments/threadBus'
 
 /**
  * POST /api/applications/:id/comments
@@ -185,6 +186,9 @@ export default defineEventHandler(async (event) => {
       mentionsCount: mentionedUserIds.length,
     },
   })
+
+  // Realtime: оповестить открытые треды (Этап 4)
+  notifyThreadChanged(id)
 
   // ── 9. Return enriched response ──
   const author = await db.query.user.findFirst({

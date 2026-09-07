@@ -21,6 +21,7 @@
 import { and, eq } from 'drizzle-orm'
 import { application, applicationStageHistory, job, pipelineStage } from '../database/schema/app'
 import { useServerPostHog } from './posthog'
+import { notifyThreadChanged } from './comments/threadBus'
 
 type ApplicationStatus = 'new' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected'
 
@@ -365,6 +366,10 @@ export async function moveApplicationStage(opts: MoveStageOptions): Promise<Move
     })
   }
   catch { /* tracking never breaks the operation */ }
+
+  // Collaboration Hub (Этап 4): смена этапа — событие таймлайна обсуждения.
+  try { notifyThreadChanged(opts.applicationId) }
+  catch { /* realtime never breaks the operation */ }
 
   return {
     applicationId: updated.id,

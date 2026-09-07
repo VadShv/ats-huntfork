@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { application, applicationComment } from '../../../../database/schema/app'
 import { member } from '../../../../database/schema/auth'
 import { applicationCommentIdParamSchema } from '../../../../utils/schemas/applicationComment'
+import { notifyThreadChanged } from '../../../../utils/comments/threadBus'
 
 /**
  * DELETE /api/applications/:id/comments/:commentId
@@ -65,6 +66,8 @@ export default defineEventHandler(async (event) => {
     resourceId: commentId,
     metadata: { applicationId: id },
   })
+
+  notifyThreadChanged(id)
 
   setResponseStatus(event, 204)
   return null
