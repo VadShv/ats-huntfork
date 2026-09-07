@@ -60,6 +60,8 @@ export const candidateQuestionAskStatusEnum = pgEnum('candidate_question_ask_sta
   'pending', 'asked', 'skipped',
 ])
 export const candidateQuestionSetStatusEnum = pgEnum('candidate_question_set_status', ['draft', 'ready'])
+// MyMeet-интеграция (Этап 5).
+export const meetingReportStatusEnum = pgEnum('meeting_report_status', ['importing', 'completed', 'failed'])
 export const dateFormatEnum = pgEnum('date_format', ['mdy', 'dmy', 'ymd'])
 export const pipelineStageTypeEnum = pgEnum('pipeline_stage_type', [
   // ── Working bucket (canonical hh.ru-style phases) ──
@@ -1905,6 +1907,61 @@ export const applicationQuestionSetRelations = relations(applicationQuestionSet,
 
 export const applicationQuestionItemRelations = relations(applicationQuestionItem, ({ one }) => ({
   set: one(applicationQuestionSet, { fields: [applicationQuestionItem.setId], references: [applicationQuestionSet.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// MyMeet integration (Этап 5) — MCP-клиент, ручной pull
+// ─────────────────────────────────────────────
+//
+// Подключение MyMeet — на уровне организации (API-ключ, шифруется как hh/ai_config).
+// MyMeet — MCP-сервер (https://mcp.mymeet.ai/mcp), не REST. lastToolsJson кэширует
+// результат tools/list после discovery (реальные имена tools подставляются оттуда).
+export const mymeetAccount = pgTable('mymeet_account', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  apiKeyEncrypted: text('api_key_encrypted').notNull(),
+  lastToolsJson: jsonb('last_tools_json').$type<Record<string, unknown>>(),
+  lastCheckedAt: timestamp('last_checked_at'),
+  connectedById: text('connected_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('mymeet_account_organization_id_unique').on(t.organizationId),
+]))
+
+// Импортированный отчёт MyMeet, привязанный к интервью (ручной pull).
+export const meetingReport = pgTable('meeting_report', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  interviewId: text('interview_id').references(() => interview.id, { onDelete: 'cascade' }),
+  applicationId: text('application_id').references(() => application.id, { onDelete: 'set null' }),
+  status: meetingReportStatusEnum('status').notNull().default('importing'),
+  externalMeetingId: text('external_meeting_id').notNull(),
+  title: text('title'),
+  meetingDate: timestamp('meeting_date'),
+  durationSec: integer('duration_sec'),
+  transcriptText: text('transcript_text'),
+  reportJson: jsonb('report_json').$type<Record<string, unknown>>(),
+  summary: text('summary'),
+  participantsJson: jsonb('participants_json').$type<unknown[]>(),
+  sourceUrl: text('source_url'),
+  errorMessage: text('error_message'),
+  importedById: text('imported_by_id').references(() => user.id, { onDelete: 'set null' }),
+  importedAt: timestamp('imported_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('meeting_report_org_external_unique').on(t.organizationId, t.externalMeetingId),
+  index('meeting_report_interview_id_idx').on(t.interviewId),
+  index('meeting_report_organization_id_idx').on(t.organizationId),
+]))
+
+export const mymeetAccountRelations = relations(mymeetAccount, ({ one }) => ({
+  organization: one(organization, { fields: [mymeetAccount.organizationId], references: [organization.id] }),
+}))
+
+export const meetingReportRelations = relations(meetingReport, ({ one }) => ({
+  interview: one(interview, { fields: [meetingReport.interviewId], references: [interview.id] }),
+  application: one(application, { fields: [meetingReport.applicationId], references: [application.id] }),
 }))
 
 // ─── Fuzzy-дубли (Этап 3) ──────────────────────────────────────────────────────
