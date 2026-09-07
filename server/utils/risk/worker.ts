@@ -55,9 +55,21 @@ export async function enqueueResumeRisk(payload: ResumeRiskPayload): Promise<voi
   }
 }
 
-/** Worker — считает риск-профиль версии резюме и пишет resume_risk. */
-export async function processResumeRiskJob(job: { data: ResumeRiskPayload }): Promise<void> {
-  const { organizationId, candidateId, resumeVersionId, triggeredById, force } = job.data
+/**
+ * Worker — считает риск-профиль версии резюме и пишет resume_risk.
+ * pg-boss 10 передаёт МАССИВ джобов (batch) — обрабатываем каждый.
+ */
+export async function processResumeRiskJob(
+  jobs: { data: ResumeRiskPayload } | { data: ResumeRiskPayload }[],
+): Promise<void> {
+  const list = Array.isArray(jobs) ? jobs : [jobs]
+  for (const job of list) {
+    await runResumeRiskJob(job.data)
+  }
+}
+
+async function runResumeRiskJob(payload: ResumeRiskPayload): Promise<void> {
+  const { organizationId, candidateId, resumeVersionId, triggeredById, force } = payload
   const startedAt = Date.now()
 
   // Версия резюме (org-scope через candidate cascade — проверяем organizationId ниже).

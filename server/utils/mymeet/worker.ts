@@ -59,8 +59,18 @@ function pickNumber(obj: any, keys: string[]): number | undefined {
   return undefined
 }
 
-export async function processMymeetImportJob(job: { data: MymeetImportPayload }): Promise<void> {
-  const { organizationId, meetingReportId, externalMeetingId } = job.data
+/** pg-boss 10 передаёт МАССИВ джобов (batch) — обрабатываем каждый. */
+export async function processMymeetImportJob(
+  jobs: { data: MymeetImportPayload } | { data: MymeetImportPayload }[],
+): Promise<void> {
+  const list = Array.isArray(jobs) ? jobs : [jobs]
+  for (const job of list) {
+    await runMymeetImportJob(job.data)
+  }
+}
+
+async function runMymeetImportJob(payload: MymeetImportPayload): Promise<void> {
+  const { organizationId, meetingReportId, externalMeetingId } = payload
 
   const apiKey = await getMymeetApiKey(organizationId)
   if (!apiKey) {
