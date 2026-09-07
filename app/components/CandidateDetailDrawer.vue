@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X, ExternalLink, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Download, Eye, AlertTriangle, MapPin, Linkedin, Github, Send, MessageSquare } from 'lucide-vue-next'
+import { X, ExternalLink, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Download, Eye, AlertTriangle, MapPin, Linkedin, Github, Send, MessageSquare, MoreHorizontal, Handshake } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
@@ -16,6 +16,9 @@ const emit = defineEmits<{
 const localePath = useLocalePath()
 const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 const toast = useToast()
+const { t } = useI18n()
+const isDrawerMoreOpen = ref(false)
+const drawerReferralOpen = ref(false)
 
 const { candidate, status: fetchStatus, error, refresh } = useCandidate(() => props.candidateId)
 const { formatCandidateName, formatDate } = useOrgSettings()
@@ -212,6 +215,30 @@ onUnmounted(() => { document.body.style.overflow = '' })
               <ExternalLink class="size-3.5" />
               Полная страница
             </NuxtLink>
+            <!-- Меню «Другое»: Передать -->
+            <div class="relative">
+              <button
+                type="button"
+                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                @click="isDrawerMoreOpen = !isDrawerMoreOpen"
+              >
+                <MoreHorizontal class="size-3.5" />
+                {{ t('candidate.detail.more') }}
+              </button>
+              <div
+                v-if="isDrawerMoreOpen"
+                class="absolute top-[calc(100%+4px)] right-0 min-w-[200px] bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg z-50 overflow-hidden"
+              >
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+                  @click="isDrawerMoreOpen = false; drawerReferralOpen = true"
+                >
+                  <Handshake class="size-4 shrink-0" />
+                  <span>{{ t('candidate.detail.referralAction') }}</span>
+                </button>
+              </div>
+            </div>
             <button
               class="rounded-lg p-1.5 text-surface-500 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
               @click="emit('close')"
@@ -594,5 +621,18 @@ onUnmounted(() => { document.body.style.overflow = '' })
       @close="showInterviewSidebar = false"
       @scheduled="showInterviewSidebar = false"
     />
+  </Teleport>
+
+  <!-- Передать кандидата (из меню «Другое» drawer) -->
+  <Teleport to="body">
+    <div v-if="drawerReferralOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" @click.self="drawerReferralOpen = false">
+      <div class="w-full max-w-md rounded-xl bg-white dark:bg-surface-900 p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-100">{{ t('candidate.detail.referralModal') }}</h3>
+          <button type="button" class="rounded-lg p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200" @click="drawerReferralOpen = false"><X class="size-4" /></button>
+        </div>
+        <ReferralButton :candidate-id="candidateId" />
+      </div>
+    </div>
   </Teleport>
 </template>

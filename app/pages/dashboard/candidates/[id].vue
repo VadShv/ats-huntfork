@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall, MoreHorizontal, ShieldCheck } from 'lucide-vue-next'
+import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall, MoreHorizontal, ShieldCheck, Handshake } from 'lucide-vue-next'
 import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
@@ -523,6 +523,7 @@ async function toggleManualReviewOnly() {
 // ── Dropdown «Другое» в шапке кандидата ────────────────────────────────────
 const isMoreMenuOpen = ref(false)
 const moreMenuRef = useTemplateRef<HTMLElement>('moreMenuRoot')
+const referralOpen = ref(false)
 
 function onMoreMenuClickOutside(e: MouseEvent) {
   if (moreMenuRef.value && !moreMenuRef.value.contains(e.target as Node)) {
@@ -717,6 +718,14 @@ async function openHhContacts() {
                   v-if="isMoreMenuOpen"
                   class="absolute top-[calc(100%+4px)] right-0 min-w-[220px] bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg z-50 overflow-hidden"
                 >
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-surface-700 dark:hover:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+                    @click="isMoreMenuOpen = false; referralOpen = true"
+                  >
+                    <Handshake class="size-4 shrink-0" />
+                    <span>{{ t('candidate.detail.referralAction') }}</span>
+                  </button>
                   <button
                     type="button"
                     class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors cursor-pointer"
@@ -1519,6 +1528,19 @@ async function openHhContacts() {
                 {{ isUpdatingFraud ? 'Сохранение…' : 'Пометить фрод' }}
               </button>
             </div>
+          </div>
+        </div>
+      </Teleport>
+
+      <!-- Передать кандидата (из меню «Другое») -->
+      <Teleport to="body">
+        <div v-if="referralOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="referralOpen = false">
+          <div class="w-full max-w-md rounded-xl bg-white dark:bg-surface-900 p-5 shadow-xl">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-100">{{ t('candidate.detail.referralModal') }}</h3>
+              <button type="button" class="rounded-lg p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200" @click="referralOpen = false"><X class="size-4" /></button>
+            </div>
+            <ReferralButton :candidate-id="candidateId" />
           </div>
         </div>
       </Teleport>

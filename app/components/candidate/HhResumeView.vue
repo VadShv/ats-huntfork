@@ -293,7 +293,7 @@ async function structureFromDocument(forceLlm = false) {
             {{ sourceLabel }}
           </span>
           <span v-if="fetchedAgo" class="text-surface-400 dark:text-surface-500">
-            Обновлено {{ fetchedAgo }}
+            {{ t('candidate.resume.addedAgo') }} {{ fetchedAgo }}
           </span>
         </span>
       </div>

@@ -183,7 +183,6 @@ const riskLevelClass: Record<string, string> = {
           v-model="selectedVersionId"
           @promoted="onPromoted"
         />
-        <ReferralButton :candidate-id="candidateId" />
       </div>
     </div>
 
