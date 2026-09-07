@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
     },
     with: {
       applications: {
-        columns: { id: true, status: true, createdAt: true, source: true, externalUrl: true, score: true, currentStageId: true },
+        columns: { id: true, status: true, createdAt: true, source: true, externalUrl: true, score: true, currentStageId: true, resumeVersionId: true },
         with: {
           job: {
             columns: { id: true, title: true },
@@ -48,6 +48,10 @@ export default defineEventHandler(async (event) => {
           // Аудит синхронизации (Н-6): этап воронки для бейджа на странице кандидата
           currentStage: {
             columns: { id: true, name: true, color: true, type: true },
+          },
+          // Версия резюме, с которой был оставлен отклик (для бейджа на карточке)
+          resumeVersion: {
+            columns: { id: true, versionNumber: true },
           },
         },
         orderBy: (application, { desc }) => [desc(application.createdAt)],

@@ -1,6 +1,6 @@
 import { eq, and, asc, sql } from 'drizzle-orm'
 import { fileTypeFromBuffer } from 'file-type'
-import { job, candidate, application, jobQuestion, questionResponse, document, organization, applicationSource, trackingLink, applicationStageHistory } from '../../../../database/schema'
+import { job, candidate, application, jobQuestion, questionResponse, document, organization, applicationSource, trackingLink, applicationStageHistory, candidateResumeVersion } from '../../../../database/schema'
 import { publicApplicationSchema, publicJobSlugSchema } from '../../../../utils/schemas/publicApplication'
 import { getEntryStageForPipeline } from '../../../../utils/pipeline-helpers'
 import { createPreviewReadOnlyError } from '../../../../utils/previewReadOnly'
@@ -404,6 +404,12 @@ export default defineEventHandler(async (event) => {
   // 8b. Create application
   // ─────────────────────────────────────────────
 
+  // Зафиксировать текущую версию резюме кандидата для этого отклика.
+  const currentVersion = await db.query.candidateResumeVersion.findFirst({
+    where: and(eq(candidateResumeVersion.candidateId, candidateId), eq(candidateResumeVersion.isCurrent, true)),
+    columns: { id: true },
+  })
+
   const [newApplication] = await db.insert(application).values({
     organizationId: orgId,
     candidateId,
@@ -412,6 +418,7 @@ export default defineEventHandler(async (event) => {
     coverLetterText: coverLetterText || null,
     currentStageId: entryStageId,
     stageChangedAt: entryStageId ? applicationCreatedAt : null,
+    resumeVersionId: currentVersion?.id ?? null,
   }).returning({ id: application.id })
 
   // Write initial stage history row (no movedByUserId — public submission)

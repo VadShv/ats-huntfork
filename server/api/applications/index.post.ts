@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm'
-import { application, candidate, job, applicationStageHistory } from '../../database/schema'
+import { application, candidate, job, applicationStageHistory, candidateResumeVersion } from '../../database/schema'
 import { createApplicationSchema } from '../../utils/schemas/application'
 import { getEntryStageForPipeline } from '../../utils/pipeline-helpers'
 import { autoScoreApplication } from '../../utils/ai/autoScore'
@@ -64,6 +64,12 @@ export default defineEventHandler(async (event) => {
 
   const now = new Date()
 
+  // Зафиксировать текущую версию резюме кандидата для этого отклика.
+  const currentVersion = await db.query.candidateResumeVersion.findFirst({
+    where: and(eq(candidateResumeVersion.candidateId, body.candidateId), eq(candidateResumeVersion.isCurrent, true)),
+    columns: { id: true },
+  })
+
   const [created] = await db.insert(application).values({
     organizationId: orgId,
     candidateId: body.candidateId,
@@ -72,6 +78,7 @@ export default defineEventHandler(async (event) => {
     status: 'new',
     currentStageId: entryStageId,
     stageChangedAt: entryStageId ? now : null,
+    resumeVersionId: currentVersion?.id ?? null,
   }).returning({
     id: application.id,
     candidateId: application.candidateId,

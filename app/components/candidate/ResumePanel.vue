@@ -85,6 +85,31 @@ const previewUrl = computed(() =>
   props.resumeDocumentId ? getPreviewUrl(props.resumeDocumentId) : null,
 )
 
+// Для переключения превью по версиям: если выбрана версия с documentId,
+// показываем превью этого документа. Иначе — дефолтный документ кандидата.
+const activeDocumentId = computed(() => {
+  // Если выбрана версия и у неё есть documentId — используем его.
+  const vDocId = selectedVersionId.value ? versionDocumentId.value : null
+  return vDocId ?? props.resumeDocumentId
+})
+const activePreviewUrl = computed(() =>
+  activeDocumentId.value ? getPreviewUrl(activeDocumentId.value) : null,
+)
+
+// Тянем documentId выбранной версии (лениво, только в виде 'file').
+const versionDocumentId = ref<string | null>(null)
+watch([selectedVersionId, () => view.value], async ([vId, v]) => {
+  if (v !== 'file' || !vId) { versionDocumentId.value = null; return }
+  try {
+    const res = await $fetch<{ versions: Array<{ id: string, documentId: string | null }> }>(
+      `/api/candidates/${props.candidateId}/resume-versions`,
+      { headers: useRequestHeaders(['cookie']) },
+    )
+    versionDocumentId.value = res.versions.find(v => v.id === vId)?.documentId ?? null
+  }
+  catch { versionDocumentId.value = null }
+}, { immediate: false })
+
 function onStructured() {
   selectedVersionId.value = null
   emit('changed')
@@ -232,12 +257,10 @@ async function toggleTransition(baseId: string, compareId: string) {
       </div>
       <div class="flex items-center gap-2">
         <CandidateResumeVersionSelector
-          v-if="view === 'structure' || view === 'risks'"
           :candidate-id="candidateId"
           v-model="selectedVersionId"
           @promoted="onPromoted"
         />
-        <ReferralButton :candidate-id="candidateId" />
       </div>
     </div>
 
@@ -398,15 +421,31 @@ async function toggleTransition(baseId: string, compareId: string) {
       </div>
     </template>
 
-    <!-- Оригинальный файл резюме (как есть) -->
+    <!-- Оригинальный файл резюме (как есть) — переключается по выбранной версии -->
     <template v-else>
       <iframe
-        v-if="previewUrl && canPreview"
-        :src="previewUrl"
+        v-if="activePreviewUrl && canPreview"
+        :src="activePreviewUrl"
         class="w-full rounded-lg border border-surface-200 dark:border-surface-800"
         style="height: 70vh;"
         title="Оригинал резюме"
       />
+      <div
+        v-else-if="selectedVersionId && !versionDocumentId"
+        class="rounded-lg border border-dashed border-surface-300 dark:border-surface-700 p-6 text-center"
+      >
+        <FileText class="size-8 mx-auto text-surface-400" />
+        <p class="mt-2 text-sm text-surface-600 dark:text-surface-300">
+          {{ t('candidate.resumePreview.noFileForVersion') }}
+        </p>
+        <button
+          type="button"
+          class="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm px-3 py-2"
+          @click="setView('structure')"
+        >
+          <LayoutList class="size-4" /> {{ t('candidate.resumePreview.showStructure') }}
+        </button>
+      </div>
       <div
         v-else
         class="rounded-lg border border-dashed border-surface-300 dark:border-surface-700 p-6 text-center"

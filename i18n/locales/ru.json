@@ -2105,6 +2105,16 @@
         "enrichNothing": "Все поля у этого кандидата уже заполнены"
       }
     },
+    "resume": {
+      "addedAgo": "Добавлен"
+    },
+    "resumePreview": {
+      "noFileForVersion": "Для этой версии резюме нет файла-оригинала (например, hh-импорт).",
+      "showStructure": "Показать структуру"
+    },
+    "applications": {
+      "resumeVersion": "Версия резюме при отклике"
+    },
     "detail": {
       "backToCandidates": "Назад к кандидатам",
       "loading": "Загружаем кандидата…",

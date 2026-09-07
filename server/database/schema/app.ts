@@ -249,6 +249,8 @@ export const application = pgTable('application', {
   needsManualReview: boolean('needs_manual_review').notNull().default(false),
   /** Спринт 22 (M4): ссылка на новый отклик после перевода на другую вакансию (этап transferred). */
   transferredToApplicationId: text('transferred_to_application_id'),
+  /** Версия резюме, с которой был оставлен отклик: фиксируется при создании (current version). */
+  resumeVersionId: text('resume_version_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
@@ -1101,6 +1103,7 @@ export const applicationRelations = relations(application, ({ one, many }) => ({
   source: one(applicationSource),
   currentStage: one(pipelineStage, { fields: [application.currentStageId], references: [pipelineStage.id] }),
   stageHistory: many(applicationStageHistory),
+  resumeVersion: one(candidateResumeVersion, { fields: [application.resumeVersionId], references: [candidateResumeVersion.id] }),
 }))
 
 export const documentRelations = relations(document, ({ one }) => ({
@@ -1777,6 +1780,8 @@ export const candidateResumeVersion = pgTable('candidate_resume_version', {
   triggeredBy: text('triggered_by'),
   /** Если версия пришла из мерджимого кандидата — id того кандидата */
   mergedFromCandidateId: text('merged_from_candidate_id').references(() => candidate.id, { onDelete: 'set null' }),
+  /** Документ-оригинал, связанный с этой версией (для ручных загрузок; hh-версии — null). */
+  documentId: text('document_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ([
   index('candidate_resume_version_hash_idx').on(t.candidateId, t.contentHash),

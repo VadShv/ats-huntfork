@@ -425,6 +425,11 @@ onUnmounted(() => { document.body.style.overflow = '' })
                     </span>
                   </NuxtLink>
                   <div class="flex items-center gap-2 shrink-0 sm:ml-3">
+                    <span
+                      v-if="(app as any).resumeVersion"
+                      class="rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400"
+                      :title="t('candidate.applications.resumeVersion')"
+                    >v{{ (app as any).resumeVersion.versionNumber }}</span>
                     <button
                       class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-400 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all cursor-pointer"
                       :title="$t('dashboard.interviews.schedule')"

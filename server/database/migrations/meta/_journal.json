@@ -617,6 +617,13 @@
       "when": 1801000340000,
       "tag": "0088_mymeet",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1801000350000,
+      "tag": "0089_application_resume_version_link",
+      "breakpoints": true
     }
   ]
 }

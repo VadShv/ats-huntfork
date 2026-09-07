@@ -948,15 +948,22 @@ async function openHhContacts() {
               :key="app.id"
               class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-4 py-3 hover:border-surface-300 dark:hover:border-surface-700 hover:shadow-sm transition-all group"
             >
-              <!-- 1. Название вакансии (полностью, без truncate) -->
-              <NuxtLink
-                :to="$localePath(`/dashboard/applications/${app.id}`)"
-                class="block"
-              >
-                <h4 class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-600 transition-colors break-words">
-                  {{ app.job.title }}
-                </h4>
-              </NuxtLink>
+              <!-- 1. Название вакансии (полностью, без truncate) + бейдж версии резюме -->
+              <div class="flex items-start justify-between gap-2">
+                <NuxtLink
+                  :to="$localePath(`/dashboard/applications/${app.id}`)"
+                  class="block min-w-0"
+                >
+                  <h4 class="text-sm font-semibold text-surface-900 dark:text-surface-100 group-hover:text-brand-600 transition-colors break-words">
+                    {{ app.job.title }}
+                  </h4>
+                </NuxtLink>
+                <span
+                  v-if="(app as any).resumeVersion"
+                  class="shrink-0 rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400"
+                  :title="t('candidate.applications.resumeVersion')"
+                >v{{ (app as any).resumeVersion.versionNumber }}</span>
+              </div>
 
               <!-- 2. Этап воронки (Н-6) или legacy-статус + балл + источник -->
               <div class="mt-2 flex flex-wrap items-center gap-2">

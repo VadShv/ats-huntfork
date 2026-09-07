@@ -36,6 +36,7 @@ export default defineEventHandler(async (event) => {
       isCurrent: candidateResumeVersion.isCurrent,
       triggeredBy: candidateResumeVersion.triggeredBy,
       mergedFromCandidateId: candidateResumeVersion.mergedFromCandidateId,
+      documentId: candidateResumeVersion.documentId,
       createdAt: candidateResumeVersion.createdAt,
     })
     .from(candidateResumeVersion)
