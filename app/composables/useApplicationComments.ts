@@ -107,12 +107,6 @@ export type TimelineItem =
   | { type: 'comment', at: number, comment: ThreadComment }
   | { type: 'stage_event', at: number, event: StageEvent }
 
-/** Отрисовочный ряд ленты: маркеры (день/новые) чередуются с элементами. */
-export type RenderRow =
-  | { kind: 'day', key: string, at: number }
-  | { kind: 'new_line', key: string }
-  | { kind: 'item', key: string, item: TimelineItem }
-
 export function useApplicationComments(applicationId: string) {
   // Use Nuxt useState to share state across components mounted for the same applicationId
   // (e.g. Composer + Thread, or page + drawer) so optimistic updates propagate.
@@ -121,31 +115,7 @@ export function useApplicationComments(applicationId: string) {
   const stageEvents = useState<StageEvent[]>(`app-stage-events:${applicationId}`, () => [])
   const loading = useState<boolean>(`app-comments-loading:${applicationId}`, () => false)
   const error = useState<string | null>(`app-comments-error:${applicationId}`, () => null)
-  // Отметка «до какого времени прочитано» — для линии «Новые сообщения».
-  // Значение фиксируется при монтировании и не двигается, пока открыт тред.
-  const lastSeenAt = useState<number>(`app-thread-seen:${applicationId}`, () => 0)
   const toast = useToast()
-
-  const SEEN_STORAGE_KEY = `thread-seen:${applicationId}`
-
-  /** Прочитать сохранённую отметку прочтения (localStorage), один раз при входе. */
-  function loadLastSeen() {
-    if (import.meta.server) return
-    try {
-      const raw = window.localStorage.getItem(SEEN_STORAGE_KEY)
-      lastSeenAt.value = raw ? Number(raw) || 0 : 0
-    } catch {
-      lastSeenAt.value = 0
-    }
-  }
-
-  /** Обновить отметку прочтения на «сейчас» (при уходе/просмотре низа). */
-  function markSeen() {
-    if (import.meta.server) return
-    try {
-      window.localStorage.setItem(SEEN_STORAGE_KEY, String(Date.now()))
-    } catch { /* ignore quota */ }
-  }
 
   async function fetchComments() {
     loading.value = true
@@ -360,48 +330,6 @@ export function useApplicationComments(applicationId: string) {
     return items.sort((a, b) => a.at - b.at)
   })
 
-  function dayKey(ts: number): string {
-    const d = new Date(ts)
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-  }
-
-  /**
-   * Отрисовочные ряды ленты (Этап 0): вставляет разделители дней и одну линию
-   * «Новые сообщения» перед первым элементом новее lastSeenAt (только если он
-   * не самый первый и не автор-сам — линию показываем, если есть что отделять).
-   */
-  const renderRows = computed<RenderRow[]>(() => {
-    const rows: RenderRow[] = []
-    const items = timeline.value
-    let lastDay: string | null = null
-    let newLinePlaced = false
-    const seen = lastSeenAt.value
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i]!
-      const dk = dayKey(it.at)
-      if (dk !== lastDay) {
-        rows.push({ kind: 'day', key: `day-${dk}`, at: it.at })
-        lastDay = dk
-      }
-      // Линия «новые» — перед первым элементом строго новее отметки прочтения,
-      // но не в самом начале ленты (иначе бессмысленно) и только один раз.
-      if (!newLinePlaced && seen > 0 && it.at > seen && i > 0) {
-        rows.push({ kind: 'new_line', key: 'new-line' })
-        newLinePlaced = true
-      }
-      const id = it.type === 'comment' ? it.comment.id : it.event.id
-      rows.push({ kind: 'item', key: `${it.type}-${id}`, item: it })
-    }
-    return rows
-  })
-
-  /** Кол-во элементов новее отметки прочтения (для бейджа «N новых»). */
-  const unseenCount = computed(() =>
-    lastSeenAt.value > 0
-      ? timeline.value.filter(i => i.at > lastSeenAt.value).length
-      : 0,
-  )
-
   /**
    * Realtime (Этап 4): подписка на SSE-поток изменений треда. По пингу —
    * дебаунс-рефетч комментариев и истории этапов. Возвращает функцию отписки.
@@ -433,11 +361,6 @@ export function useApplicationComments(applicationId: string) {
     watchers,
     stageEvents,
     timeline,
-    renderRows,
-    unseenCount,
-    lastSeenAt,
-    loadLastSeen,
-    markSeen,
     loading,
     error,
     total,

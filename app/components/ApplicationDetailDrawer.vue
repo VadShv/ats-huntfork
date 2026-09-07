@@ -332,7 +332,6 @@ onUnmounted(() => { document.body.style.overflow = '' })
               :current-application-id="applicationId"
               :candidate-id="application.candidate.id"
               :compact="true"
-              :can-expand="false"
             />
 
             <!-- Чат с кандидатом (Спринт 18) -->

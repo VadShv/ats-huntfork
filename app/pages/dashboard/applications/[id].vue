@@ -2,7 +2,6 @@
 import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSquare, GitBranch, Keyboard, X, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import CandidateDiscussionTabs from '~/components/Comments/CandidateDiscussionTabs.vue'
-import ApplicationDiscussionDrawer from '~/components/Comments/ApplicationDiscussionDrawer.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
 definePageMeta({
@@ -17,9 +16,6 @@ const toast = useToast()
 
 const { application, status: fetchStatus, error, refresh, updateApplication } = useApplication(applicationId)
 const { t, te } = useI18n()
-
-/** Collaboration Hub (Этап 0): режим фокуса обсуждения. */
-const discussionExpanded = ref(false)
 
 /** Reactive stage state — updated optimistically when picker emits */
 const localStageId = ref<string | null>(null)
@@ -481,17 +477,8 @@ function formatResponseValue(value: unknown): string {
         <CandidateDiscussionTabs
           :current-application-id="applicationId"
           :candidate-id="application.candidate.id"
-          @expand="discussionExpanded = true"
         />
       </div>
-
-      <!-- Режим фокуса обсуждения (полноэкранный drawer) -->
-      <ApplicationDiscussionDrawer
-        v-if="discussionExpanded"
-        :current-application-id="applicationId"
-        :candidate-id="application.candidate.id"
-        @close="discussionExpanded = false"
-      />
 
       <!-- Чат с кандидатом (Спринт 18) -->
       <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 mb-4">
