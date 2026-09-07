@@ -802,7 +802,10 @@ const localePath = useLocalePath()
           {{ interview.notes }}
         </p>
         <p v-else class="text-sm text-surface-400 italic">Заметок пока нет.</p>
-      </div>
+       </div>
+
+      <!-- Отчёт MyMeet (транскрибация интервью) -->
+      <InterviewMeetingReportCard :interview-id="interviewId" />
 
       <!-- Danger zone -->
       <div class="rounded-xl border border-danger-200/60 dark:border-danger-900/40 bg-danger-50/30 dark:bg-danger-950/20 p-5">

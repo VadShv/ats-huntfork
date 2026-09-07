@@ -13,6 +13,7 @@ import {
 } from '../utils/comms/assistantJobs'
 import { TG_WEBHOOK_QUEUE, processTelegramWebhookJob } from '../utils/comms/telegramWebhooks'
 import { RESUME_RISK_QUEUE, processResumeRiskJob } from '../utils/risk/worker'
+import { MYMEET_IMPORT_QUEUE, processMymeetImportJob } from '../utils/mymeet/worker'
 import { getBoss, stopBoss } from '../utils/queue/boss'
 
 /**
@@ -156,6 +157,26 @@ export default defineNitroPlugin(async (nitroApp) => {
     )
 
     logInfo('queue.workers_registered', { queue: RESUME_RISK_QUEUE })
+
+    // ── Этап 5 — очередь импорта отчётов MyMeet ──
+    try {
+      await boss.createQueue(MYMEET_IMPORT_QUEUE)
+    }
+    catch (err) {
+      logDebug('queue.create_queue_skipped', {
+        queue: MYMEET_IMPORT_QUEUE,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    // Импорт через внешний MCP (ждём MyMeet) — по 2 параллельно.
+    await boss.work(
+      MYMEET_IMPORT_QUEUE,
+      { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
+      processMymeetImportJob as any,
+    )
+
+    logInfo('queue.workers_registered', { queue: MYMEET_IMPORT_QUEUE })
 
     // Graceful shutdown
     nitroApp.hooks.hook('close', async () => {

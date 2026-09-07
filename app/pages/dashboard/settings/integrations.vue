@@ -887,11 +887,14 @@ async function handleDisconnect() {
               <Shield class="size-4 text-brand-500 shrink-0" />
               Токен шифруется, отключить можно в любой момент
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+           </div>
+         </div>
+       </div>
+
+      <!-- MyMeet (транскрибация интервью через MCP) -->
+      <SettingsMymeetCard />
+     </div>
+   </div>
 </template>
 
 <style scoped>
