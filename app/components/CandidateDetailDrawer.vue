@@ -197,33 +197,19 @@ async function handleDownload(docId: string) {
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
-const applicationStatusClasses: Record<string, string> = {
-  new: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400',
-  screening: 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-400',
-  interview: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
-  offer: 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-400',
-  hired: 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
-  rejected: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
-}
-
 // Локализованный лейбл пола через i18n (RU). Fallback — сырое значение.
 function genderLabel(gender: string): string {
   const key = `dashboard.candidates.gender.${gender}`
   return te(key) ? t(key) : gender
 }
 
+// Единый источник лейблов типов документов (candidate.documents.*) — как на
+// полной странице и в sidebar, чтобы не расходились между поверхностями.
 const documentTypeLabels = computed<Record<string, string>>(() => ({
-  resume: t('dashboard.candidateDrawer.docTypes.resume'),
-  cover_letter: t('dashboard.candidateDrawer.docTypes.cover_letter'),
-  other: t('dashboard.candidateDrawer.docTypes.other'),
+  resume: t('candidate.documents.resume'),
+  cover_letter: t('candidate.documents.cover_letter'),
+  other: t('candidate.documents.other'),
 }))
-
-function formatFileSize(bytes: number | null | undefined): string {
-  if (!bytes) return '—'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
 
 // ─── Body scroll lock + keyboard handling ─────────────────────────────────────
 

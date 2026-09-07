@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
         orderBy: (application, { desc }) => [desc(application.createdAt)],
       },
       documents: {
-        columns: { id: true, type: true, originalFilename: true, mimeType: true, previewStorageKey: true, parsedContent: true, createdAt: true },
+        columns: { id: true, type: true, originalFilename: true, mimeType: true, sizeBytes: true, previewStorageKey: true, parsedContent: true, createdAt: true },
         orderBy: (document, { desc }) => [desc(document.createdAt)],
       },
     },

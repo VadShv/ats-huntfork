@@ -163,16 +163,17 @@ const previewUrl = ref<string | null>(null)
 const previewFilename = ref('')
 const previewMimeType = ref('')
 const previewDocId = ref<string | null>(null)
-const isLoadingPreview = ref(false)
 const previewError = ref<string | null>(null)
 
 const isPdfPreview = computed(() => previewMimeType.value === 'application/pdf')
 
-const documentTypeLabels: Record<string, string> = {
-  resume: 'Резюме',
-  cover_letter: 'Сопроводительное письмо',
-  other: 'Другое',
-}
+// Единый источник лейблов типов документов (candidate.documents.*) — как на
+// полной странице и в drawer, вместо захардкоженных RU-строк.
+const documentTypeLabels = computed<Record<string, string>>(() => ({
+  resume: t('candidate.documents.resume'),
+  cover_letter: t('candidate.documents.cover_letter'),
+  other: t('candidate.documents.other'),
+}))
 
 function triggerFileSelect() {
   fileInput.value?.click()

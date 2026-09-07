@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
 import { isHhContactsClosed } from '~~/shared/hh-placeholders'
+import { formatFileSize } from '~~/shared/format'
 
 definePageMeta({
   layout: 'dashboard',
@@ -240,15 +241,6 @@ async function handleDelete() {
 // Display helpers
 // ─────────────────────────────────────────────
 
-const applicationStatusClasses: Record<string, string> = {
-  new: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400',
-  screening: 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-400',
-  interview: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
-  offer: 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-400',
-  hired: 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
-  rejected: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
-}
-
 // Локализованный лейбл пола через i18n (RU). Fallback — сырое значение,
 // если сервер вернул неизвестный ключ.
 function genderLabel(gender: string): string {
@@ -335,7 +327,6 @@ const previewUrl = ref<string | null>(null)
 const previewFilename = ref('')
 const previewMimeType = ref('')
 const previewDocId = ref<string | null>(null)
-const isLoadingPreview = ref(false)
 const previewError = ref<string | null>(null)
 
 /** Whether the current preview file is a PDF (renderable in iframe) */
@@ -414,14 +405,6 @@ async function handleDeleteDoc(docId: string) {
   } finally {
     isDeletingDoc.value = false
   }
-}
-
-/** Format bytes into a human-readable string */
-function formatFileSize(bytes: number | null | undefined): string {
-  if (!bytes) return '—'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 // ─────────────────────────────
@@ -1264,6 +1247,7 @@ async function openHhContacts() {
                     </p>
                     <span class="text-xs text-surface-400">
                       {{ documentTypeLabels[doc.type] ?? doc.type }}
+                      <template v-if="(doc as any).sizeBytes"> · {{ formatFileSize((doc as any).sizeBytes) }}</template>
                       · <TimelineDateLink :date="doc.createdAt">{{ new Date(doc.createdAt).toLocaleDateString() }}</TimelineDateLink>
                       <template v-if="doc.mimeType === 'application/pdf'"> · <span class="text-brand-500 dark:text-brand-400">{{ t('candidate.documents.clickToPreview') }}</span></template>
                     </span>
