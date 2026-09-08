@@ -340,17 +340,18 @@ def _extract_pdf(data: bytes) -> tuple[str, str, int]:
         else (plumber_text, "pdfplumber", plumber_score)
     )
 
-    # Engine 3: Docling fallback — only if both heuristic engines scored low.
-    if best_score < DOCLING_FALLBACK_THRESHOLD:
-        log.info("docling_fallback: best_score=%.1f < threshold=%d", best_score, DOCLING_FALLBACK_THRESHOLD)
-        try:
-            docling_text, docling_pages = _extract_docling(data)
-            docling_score = _score_text(docling_text)
-            log.info("docling_score=%.1f vs best_score=%.1f", docling_score, best_score)
-            if docling_score > best_score:
-                return docling_text, "docling", docling_pages or page_count
-        except Exception as e:  # noqa: BLE001
-            log.warning("docling_failed: %s", e)
+    # Engine 3: Docling — always run for PDFs (layout ML model gives correct
+    # reading order). Compare with heuristic engines and pick the best.
+    # This is slower (~3-5s) but produces dramatically better text for
+    # multi-column / designer PDFs that PyMuPDF/pdfplumber garble.
+    try:
+        docling_text, docling_pages = _extract_docling(data)
+        docling_score = _score_text(docling_text)
+        log.info("docling_score=%.1f vs best_score=%.1f", docling_score, best_score)
+        if docling_score > best_score:
+            return docling_text, "docling", docling_pages or page_count
+    except Exception as e:  # noqa: BLE001
+        log.warning("docling_failed: %s", e)
 
     return best_text, best_method, page_count or mupdf_pages
 
