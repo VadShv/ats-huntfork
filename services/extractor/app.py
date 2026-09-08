@@ -216,22 +216,51 @@ def _extract_pymupdf(data: bytes) -> tuple[str, int]:
 
 def _score_text(t: str) -> float:
     """
-    Heuristic quality: more clean whitespace-separated Cyrillic/Latin words and
-    fewer glued tokens (long alnum runs) = better. Used to pick the best engine.
+    Heuristic quality: detects garbled column-interleaved text.
+
+    Indicators of bad extraction (column mixing):
+      1. Glued tokens — long alnum runs (>25 chars) = columns merged mid-word.
+      2. Glued Cyrillic+Latin — words like «ЛучкинаАлла» where two words are
+         joined without space (common when columns overlap).
+      3. Fragmented lines — many very short lines (<15 chars) = column artifacts
+         where text is split into tiny visual blocks.
+
+    Score = word_count - penalties for each indicator.
+    A clean 2-page resume scores ~400-800; garbled column text scores ~50-200
+    despite having many words, because penalties accumulate.
     """
     if not t:
         return 0.0
     words = t.split()
     if not words:
         return 0.0
-    glued = sum(1 for w in words if len(w) > 25)  # suspiciously long = glued cols
-    return len(words) - glued * 5
+    import re
+
+    # 1) Long glued tokens.
+    glued_long = sum(1 for w in words if len(w) > 25)
+
+    # 2) Cyrillic+Latin glued (e.g. «ЛучкинаАлла», «пониманиепринципов»).
+    glued_mixed = sum(
+        1 for w in words
+        if len(w) > 6 and re.search(r'[а-яёА-ЯЁ][A-Za-z]|[A-Za-z][а-яёА-ЯЁ]', w)
+    )
+
+    # 3) Fragmented lines — ratio of very short lines.
+    lines = [l.strip() for l in t.split('\n') if l.strip()]
+    short_ratio = (sum(1 for l in lines if len(l) < 15) / len(lines)) if lines else 0
+
+    penalty = glued_long * 10 + glued_mixed * 5
+    # If >50% lines are tiny fragments, penalize heavily (column artifact).
+    if short_ratio > 0.5:
+        penalty += len(words) * 0.4
+
+    return max(0.0, len(words) - penalty)
 
 
 # ── Score threshold below which we fall back to Docling (layout ML model). ──
-# Tuned: a typical 2-page resume yields ~400-800 words. If both heuristic engines
-# score below this, the text is likely garbled (interleaved columns) → Docling.
-DOCLING_FALLBACK_THRESHOLD = 150
+# A clean resume scores 400+; garbled column text scores <200 due to penalties.
+# If both heuristic engines score below this → Docling.
+DOCLING_FALLBACK_THRESHOLD = 250
 
 
 def _extract_docling(data: bytes) -> tuple[str, int]:
