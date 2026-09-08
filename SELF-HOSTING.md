@@ -14,13 +14,15 @@ Everything you need to deploy, manage, and update your own Reqcore applicant tra
 6. [Step-by-Step Installation](#step-by-step-installation)
 7. [Updating Your Instance](#updating-your-instance)
 8. [Backups & Data Safety](#backups--data-safety)
-9. [Custom Domain & HTTPS](#custom-domain--https)
-10. [Email Configuration](#email-configuration)
-11. [Security Best Practices](#security-best-practices)
-12. [Feature Flags](#feature-flags)
-13. [Monitoring & Health Checks](#monitoring--health-checks)
-14. [Troubleshooting](#troubleshooting)
-15. [FAQ](#faq)
+9. [Data Location & Extra Disks](#data-location--extra-disks)
+10. [Resume Text Extractor](#resume-text-extractor)
+11. [Custom Domain & HTTPS](#custom-domain--https)
+12. [Email Configuration](#email-configuration)
+13. [Security Best Practices](#security-best-practices)
+14. [Feature Flags](#feature-flags)
+15. [Monitoring & Health Checks](#monitoring--health-checks)
+16. [Troubleshooting](#troubleshooting)
+17. [FAQ](#faq)
 
 ---
 
@@ -62,8 +64,8 @@ No analytics, no tracking, no data sharing with third parties. The only telemetr
 |-------------|---------|
 | **A computer or server** | Any modern Linux machine, Mac, or Windows PC with WSL2 |
 | **Docker Desktop** | Free software that packages Reqcore and its dependencies together |
-| **2 GB RAM** | The minimum. 4 GB is comfortable for teams with heavy usage |
-| **10 GB disk space** | For the application, database, and uploaded documents |
+| **2 GB RAM** | The minimum. 4 GB is comfortable for teams with heavy usage. Add ~1 GB if you run the resume text extractor (OCR/LibreOffice) — see [Resume Text Extractor](#resume-text-extractor) |
+| **10 GB disk space** | For the application, database, and uploaded documents. A dedicated data disk is recommended — see [Data Location & Extra Disks](#data-location--extra-disks) |
 | **Internet connection** | Only needed for initial setup and pulling updates |
 
 ### Recommended Server Providers (If You Don't Have a Server)
@@ -393,6 +395,93 @@ cp .env .env.backup
 # Restart
 docker compose up -d
 ```
+
+---
+
+## Data Location & Extra Disks
+
+By default `docker-compose.production.yml` stores all stateful data (PostgreSQL,
+MinIO object storage, DB backups) in **Docker-managed named volumes** — safe and
+zero-config for every install.
+
+If your server has a **dedicated data disk** (common on cloud VMs — e.g. Cloud.ru,
+where the extra disk is often mounted at `/mnt/data2`), you can move all data
+there by layering the **optional** `docker-compose.data-disk.yml` override. It is
+opt-in, so existing deployments keep their current volumes untouched unless you
+choose to migrate.
+
+```bash
+# 1. Mount your extra disk (confirm the mount point with: lsblk / df -h)
+#    e.g. mount it at /mnt/data2 via /etc/fstab or your cloud console
+
+# 2. Pre-create the data subdirectories (bind mounts require them to exist)
+sudo mkdir -p /mnt/data2/reqcore/{postgres,minio,backups}
+
+# 3. Point Reqcore at it — add to your .env
+echo "DATA_ROOT=/mnt/data2/reqcore" >> .env
+
+# 4. Start the stack WITH the override layered on top
+docker compose -f docker-compose.production.yml \
+               -f docker-compose.data-disk.yml up -d
+```
+
+Once layered, **always include both `-f` files** in your compose commands
+(`up`, `down`, `logs`, …) so the override stays applied.
+
+If `DATA_ROOT` is unset, the override falls back to `./data` next to the compose
+file — fine for a quick trial, **not recommended for production**.
+
+> **Migrating an existing install:** bind mounts do **not** copy your current
+> data automatically. Take a backup first (see
+> [Full Instance Backup](#full-instance-backup)), then copy the old
+> Docker-managed volumes onto the new disk before switching. The exact commands
+> are documented at the top of `docker-compose.data-disk.yml`.
+
+---
+
+## Resume Text Extractor
+
+Reqcore ships an optional **layout-aware text extractor** as a separate
+container (`extractor`). It dramatically improves resume parsing quality:
+
+| Capability | With extractor | Without (JS fallback only) |
+|------------|----------------|-----------------------------|
+| Multi-column / designer PDFs | Correct reading order (PyMuPDF + pdfplumber) | Columns interleaved, names misdetected |
+| Scanned / image PDFs | OCR via Tesseract (rus + eng) | No text extracted at all |
+| DOC/DOCX inline preview | Converted to PDF via LibreOffice | Download-only, no preview |
+
+The Node app talks to it over the internal Docker network and **falls back to
+the built-in JS parsers** (`pdf-parse` / `mammoth` / `word-extractor`) if the
+service is down — so a failed extractor never blocks uploads, it only reduces
+parsing quality.
+
+**It is enabled by default** in `docker-compose.production.yml`: the `extractor`
+service is built from `./src/services/extractor` and the `app` service points at
+it via `EXTRACTOR_URL=http://extractor:8000`. No manual configuration is needed.
+
+**Resource note:** the extractor image bundles Tesseract OCR and LibreOffice, so
+it adds ~1.5–2 GB of image size and can use up to ~500–800 MB RAM during OCR of
+large scans. Budget ~1 GB extra RAM on the VM. On low-powered VMs, LibreOffice
+conversion (first run) can be slow; the app already tolerates this with a
+fallback.
+
+**Verify it's working after deploy:**
+
+```bash
+# Health check from inside the app container
+docker compose -f docker-compose.production.yml exec app \
+  node -e "fetch('http://extractor:8000/health').then(r=>r.json()).then(console.log)"
+# → { ok: true }
+```
+
+Upload a multi-column PDF resume, then check the document's parser metadata: a
+`parserVersion` starting with `extractor:` (e.g. `extractor:pymupdf`,
+`extractor:pdfplumber+ocr`) confirms the extractor handled it. A value of `1.1`
+means the JS fallback was used (extractor unreachable).
+
+**To disable it** (e.g. very constrained VM): remove the `extractor` service and
+the `EXTRACTOR_URL` line from the `app` service in
+`docker-compose.production.yml`. Parsing then uses the JS fallback only.
 
 ---
 

@@ -582,11 +582,10 @@ export function extractResumeText(parsedContent: unknown): string | null {
     return parsedContent
   }
 
-  // Fallback: stringify object (should rarely happen)
-  if (typeof parsedContent === 'object') {
-    const str = JSON.stringify(parsedContent)
-    return str && str !== '{}' && str !== '[]' ? str : null
-  }
-
+  // Unknown object shape (no `text` field, not a legacy string): there is no
+  // meaningful resume text here. We deliberately do NOT `JSON.stringify` the
+  // object — that used to leak raw JSON (field names, braces, metadata) into
+  // the AI scoring/analysis prompt as if it were resume content, polluting the
+  // evaluation. Returning null lets callers treat it as "no resume text".
   return null
 }

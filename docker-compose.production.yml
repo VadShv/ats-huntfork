@@ -47,6 +47,25 @@ services:
       timeout: 5s
       retries: 10
 
+  # Layout-aware resume text extractor (pdfplumber + PyMuPDF + Tesseract OCR)
+  # and office→PDF conversion (LibreOffice headless). Reached only over the
+  # internal Docker network. The Node app falls back to pdf-parse/mammoth if
+  # this service is down, so a failed extractor never blocks uploads.
+  extractor:
+    build:
+      context: ./src/services/extractor
+      dockerfile: Dockerfile
+    image: reqcore-extractor:latest
+    container_name: reqcore_extractor
+    restart: unless-stopped
+    expose:
+      - "8000" # internal only — never published to the host/public network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build:
       context: ./src
@@ -61,6 +80,8 @@ services:
       # Override localhost URLs with Docker-internal hostnames
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       S3_ENDPOINT: http://minio:9000
+      # Resume text extractor (Docker-internal). Node falls back to pdf-parse if down.
+      EXTRACTOR_URL: http://extractor:8000
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
@@ -68,6 +89,12 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      # NOTE: intentionally a plain dependency (no service_healthy condition).
+      # The extractor is optional — the app falls back to its built-in JS
+      # parsers when it is unavailable, so app startup must NEVER be blocked
+      # waiting on the (heavy, slow-to-build) extractor to become healthy.
+      extractor:
+        condition: service_started
     volumes:
       - backups_data:/data/backups
 
@@ -83,6 +110,17 @@ services:
       db:
         condition: service_healthy
 
+# ─── Persistent data volumes ────────────────────────────────────────────────
+# Default: Docker-managed named volumes (safe for every install — data is never
+# silently relocated). To place data on a dedicated disk (e.g. Cloud.ru's extra
+# /mnt/data2), layer the optional override file — see "Data Location & Extra
+# Disks" in SELF-HOSTING.md:
+#
+#   docker compose -f docker-compose.production.yml \
+#                  -f docker-compose.data-disk.yml up -d
+#
+# The override binds these same volume names to ${DATA_ROOT}. It is opt-in so
+# existing deployments keep their current volumes untouched.
 volumes:
   postgres_data:
   minio_data:

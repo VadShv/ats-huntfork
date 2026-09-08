@@ -136,9 +136,11 @@ describe('resume-parser', () => {
       expect(result).toBe('This is a resume text')
     })
 
-    it('falls back to JSON.stringify for unknown object shapes', () => {
+    it('returns null for unknown object shapes (no text leaked into scoring)', () => {
+      // An object without a `text` field is not resume content. Previously this
+      // was JSON.stringify'd and leaked raw JSON into the AI scoring prompt.
       const result = extractResumeText({ foo: 'bar' })
-      expect(result).toBe('{"foo":"bar"}')
+      expect(result).toBeNull()
     })
 
     it('returns null for empty objects', () => {

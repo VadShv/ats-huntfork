@@ -1,5 +1,5 @@
-import { fileTypeFromBuffer } from 'file-type'
 import { parseDocument } from '../../utils/resume-parser'
+import { detectDocumentMime } from '../../utils/schemas/document'
 import { saveChatbotAttachment } from '../../utils/chatbotAttachments'
 import { requireChatbotAccess } from '../../utils/chatbotAccess'
 import { createRateLimiter } from '../../utils/rateLimit'
@@ -46,11 +46,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const buf = filePart.data
-  const detected = await fileTypeFromBuffer(buf)
-  let mime = detected?.mime ?? filePart.type ?? 'application/octet-stream'
+  // Detect from magic bytes with the shared detector (handles legacy .doc / OLE2).
+  const detectedMime = await detectDocumentMime(buf)
+  let mime = detectedMime ?? filePart.type ?? 'application/octet-stream'
 
   // Plain text fallback: detect by lack of magic bytes + ASCII content.
-  if (!detected) {
+  if (!detectedMime) {
     const sample = buf.subarray(0, Math.min(buf.length, 512)).toString('utf8')
     // eslint-disable-next-line no-control-regex
     const looksTextual = /^[\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]*$/.test(sample)

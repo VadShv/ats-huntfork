@@ -1,0 +1,55 @@
+# docker-compose.data-disk.yml
+#
+# OPTIONAL override — place all persistent data on a dedicated disk.
+#
+# Use this when your server has an extra data disk (common on cloud VMs, e.g.
+# Cloud.ru's second disk mounted at /mnt/data2). It bind-mounts the existing
+# named volumes (postgres_data, minio_data, backups_data) to subdirectories of
+# ${DATA_ROOT}, so the database and uploaded candidate documents live on the
+# large volume instead of the root filesystem.
+#
+# ─── Setup ───────────────────────────────────────────────────────────────────
+#   1. Mount your extra disk (confirm the mount point with: lsblk / df -h)
+#   2. Pre-create the data subdirs (bind mounts require them to exist):
+#        sudo mkdir -p /mnt/data2/reqcore/{postgres,minio,backups}
+#   3. Set DATA_ROOT in your .env:
+#        DATA_ROOT=/mnt/data2/reqcore
+#   4. Start the stack WITH this override layered on top:
+#        docker compose -f docker-compose.production.yml \
+#                       -f docker-compose.data-disk.yml up -d
+#
+# ─── Migrating an EXISTING install ───────────────────────────────────────────
+# Bind mounts do NOT copy your current data automatically. If you already have
+# data in the default Docker-managed volumes, migrate it first (take a backup —
+# see SELF-HOSTING.md → Full Instance Backup):
+#
+#   docker compose -f docker-compose.production.yml down
+#   # copy old volume contents into the new disk (names are project-prefixed):
+#   docker run --rm -v reqcore_postgres_data:/from -v /mnt/data2/reqcore/postgres:/to \
+#     alpine sh -c 'cp -a /from/. /to/'
+#   docker run --rm -v reqcore_minio_data:/from -v /mnt/data2/reqcore/minio:/to \
+#     alpine sh -c 'cp -a /from/. /to/'
+#   # then bring it up with both compose files (step 4 above)
+#
+# If DATA_ROOT is unset it falls back to ./data next to this file — fine for a
+# quick trial, NOT recommended for production.
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_ROOT:-./data}/postgres
+  minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_ROOT:-./data}/minio
+  backups_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_ROOT:-./data}/backups

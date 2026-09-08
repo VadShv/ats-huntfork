@@ -1,7 +1,7 @@
-import { fileTypeFromBuffer } from 'file-type'
 import {
-  ALLOWED_MIME_TYPES,
   MAX_FILE_SIZE,
+  detectDocumentMime,
+  isAllowedDocumentMime,
 } from '../../utils/schemas/document'
 import { parseDocument } from '../../utils/resume-parser'
 
@@ -54,22 +54,11 @@ export default defineEventHandler(async (event) => {
   }
 
   // ─────────────────────────────────────────────
-  // 4. Validate MIME type via magic bytes
+  // 4. Validate MIME type via magic bytes (shared detector — handles legacy .doc)
   // ─────────────────────────────────────────────
-  const detectedType = await fileTypeFromBuffer(fileBuffer)
-  let mimeType = detectedType?.mime
+  const mimeType = await detectDocumentMime(fileBuffer)
 
-  // file-type cannot reliably detect legacy .doc (OLE2 compound) — check magic bytes manually
-  if (!mimeType) {
-    // OLE2 compound document magic: D0 CF 11 E0 A1 B1 1A E1
-    const ole2Magic = Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])
-    const fileStart = fileBuffer.slice(0, 8)
-    if (fileStart.equals(ole2Magic)) {
-      mimeType = 'application/msword'
-    }
-  }
-
-  if (!mimeType || !(ALLOWED_MIME_TYPES as readonly string[]).includes(mimeType)) {
+  if (!isAllowedDocumentMime(mimeType)) {
     throw createError({
       statusCode: 415,
       statusMessage: 'Неподдерживаемый тип файла. Разрешены только файлы PDF, DOC и DOCX',
