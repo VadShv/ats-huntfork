@@ -28,17 +28,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download Docling layout models at build time (avoids ~1-2 min delay on
-# first runtime request). Models cached in /opt/docling-models (mounted volume
-# in docker-compose for persistence across container restarts).
-RUN mkdir -p /opt/docling-models && \
-    DOCLING_ARTIFACT_PATH=/opt/docling-models python -c "\
-from docling.document_converter import DocumentConverter; \
-from docling.datamodel.base_models import InputFormat; \
-from docling.datamodel.pipeline_options import PdfPipelineOptions; \
-opts = PdfPipelineOptions(do_table_structure=False, do_ocr=False); \
-DocumentConverter(format_options={InputFormat.PDF: {'pipeline_options': opts}}); \
-print('docling models cached')"
+# Docling models are downloaded on first runtime use and cached in
+# /opt/docling-models (mounted volume in docker-compose for persistence).
+# Pre-downloading at build time requires docling-parse (not in slim) + ~2 GB disk
+# which doesn't fit the build layer; runtime download on first request is acceptable.
 
 COPY app.py .
 
