@@ -137,6 +137,26 @@ const editExperience = ref<EditableExperience[]>([])
 const editSalaryAmount = ref<number | null>(null)
 const editSalaryCurrency = ref('RUR')
 
+interface EditableEducation {
+  organization: string
+  name: string
+  result: string
+  year: number | null
+}
+interface EditableLanguage {
+  name: string
+  level: string
+}
+const editFirstName = ref('')
+const editLastName = ref('')
+const editMiddleName = ref('')
+const editTitle = ref('')
+const editArea = ref('')
+const editEducation = ref<EditableEducation[]>([])
+const editSkills = ref<string[]>([])
+const editAbout = ref('')
+const editLanguages = ref<EditableLanguage[]>([])
+
 function enterEditMode() {
   if (!resume.value) return
   editExperience.value = resume.value.experience.map((e) => ({
@@ -148,12 +168,32 @@ function enterEditMode() {
   }))
   editSalaryAmount.value = resume.value.salary?.amount ?? null
   editSalaryCurrency.value = resume.value.salary?.currency ?? 'RUR'
+  editFirstName.value = resume.value.firstName ?? ''
+  editLastName.value = resume.value.lastName ?? ''
+  editMiddleName.value = resume.value.middleName ?? ''
+  editTitle.value = resume.value.title ?? ''
+  editArea.value = resume.value.area ?? ''
+  editEducation.value = resume.value.education.map((e) => ({
+    organization: e.organization ?? '',
+    name: e.name ?? '',
+    result: e.result ?? '',
+    year: e.year ?? null,
+  }))
+  editSkills.value = [...(resume.value.skills ?? [])]
+  editAbout.value = resume.value.about ?? ''
+  editLanguages.value = resume.value.languages.map((l) => ({
+    name: l.name ?? '',
+    level: l.level ?? '',
+  }))
   isEditing.value = true
 }
 
 function cancelEdit() {
   isEditing.value = false
   editExperience.value = []
+  editEducation.value = []
+  editSkills.value = []
+  editLanguages.value = []
 }
 
 function moveExp(i: number, dir: -1 | 1) {
@@ -171,11 +211,31 @@ function removeExp(i: number) {
   editExperience.value.splice(i, 1)
 }
 
+function addEdu() {
+  editEducation.value.push({ organization: '', name: '', result: '', year: null })
+}
+function removeEdu(i: number) {
+  editEducation.value.splice(i, 1)
+}
+
+function addSkill() {
+  editSkills.value.push('')
+}
+function removeSkill(i: number) {
+  editSkills.value.splice(i, 1)
+}
+
+function addLang() {
+  editLanguages.value.push({ name: '', level: '' })
+}
+function removeLang(i: number) {
+  editLanguages.value.splice(i, 1)
+}
+
 async function saveEdit() {
   if (isSaving.value) return
   isSaving.value = true
   try {
-    // Normalize dates: empty string → undefined for API.
     const experience = editExperience.value.map((e) => ({
       company: e.company.trim() || undefined,
       position: e.position.trim() || undefined,
@@ -183,10 +243,28 @@ async function saveEdit() {
       end: e.end.trim() || undefined,
       description: e.description.trim() || undefined,
     }))
+    const education = editEducation.value.map((e) => ({
+      organization: e.organization.trim() || undefined,
+      name: e.name.trim() || undefined,
+      result: e.result.trim() || undefined,
+      year: e.year ?? undefined,
+    }))
     await $fetch(`/api/candidates/${props.candidateId}/resume-version`, {
       method: 'PATCH',
       body: {
+        firstName: editFirstName.value.trim() || undefined,
+        lastName: editLastName.value.trim() || undefined,
+        middleName: editMiddleName.value.trim() || undefined,
+        title: editTitle.value.trim() || undefined,
+        area: editArea.value.trim() || undefined,
         experience,
+        education,
+        skills: editSkills.value.map((s) => s.trim()).filter(Boolean),
+        about: editAbout.value.trim() || undefined,
+        languages: editLanguages.value.map((l) => ({
+          name: l.name.trim() || undefined,
+          level: l.level.trim() || undefined,
+        })),
         salary: { amount: editSalaryAmount.value, currency: editSalaryCurrency.value },
       },
     })
@@ -416,10 +494,20 @@ async function structureFromDocument(forceLlm = false) {
 
       <!-- Header: title, salary, area -->
       <header class="border-b border-surface-200 dark:border-surface-700 pb-4">
-        <h2 v-if="resume.title" class="text-xl font-semibold text-surface-900 dark:text-surface-100">
+        <!-- Edit mode: name + title -->
+        <div v-if="isEditing" class="space-y-2">
+          <div class="grid grid-cols-3 gap-2">
+            <input v-model="editLastName" type="text" placeholder="Фамилия" class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
+            <input v-model="editFirstName" type="text" placeholder="Имя" class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
+            <input v-model="editMiddleName" type="text" placeholder="Отчество" class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
+          </div>
+          <input v-model="editTitle" type="text" placeholder="Желаемая должность" class="w-full rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
+        </div>
+        <!-- Read mode: title -->
+        <h2 v-if="!isEditing && resume.title" class="text-xl font-semibold text-surface-900 dark:text-surface-100">
           {{ resume.title }}
         </h2>
-        <p v-else class="text-sm italic text-surface-400">
+        <p v-if="!isEditing && !resume.title" class="text-sm italic text-surface-400">
           Желаемая должность не указана
         </p>
         <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-surface-600 dark:text-surface-400">
@@ -454,7 +542,10 @@ async function structureFromDocument(forceLlm = false) {
               <X class="size-3.5" />
             </button>
           </div>
-          <span v-if="resume.area" class="inline-flex items-center gap-1">
+          <!-- Area: edit mode -->
+          <input v-if="isEditing" v-model="editArea" type="text" placeholder="Город" class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-sm">
+          <!-- Area: read mode -->
+          <span v-if="!isEditing && resume.area" class="inline-flex items-center gap-1">
             <MapPin class="size-3.5" />{{ resume.area }}
           </span>
           <span v-if="totalExpText" class="inline-flex items-center gap-1">
@@ -577,16 +668,31 @@ async function structureFromDocument(forceLlm = false) {
       </section>
 
       <!-- Education -->
-      <section v-if="resume.education.length">
+      <section v-if="resume.education.length || isEditing">
         <h3 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-3">
           <GraduationCap class="size-4" /> Образование
         </h3>
-        <ul class="space-y-2">
-          <li
-            v-for="(ed, i) in resume.education"
-            :key="i"
-            class="text-sm"
-          >
+        <!-- Edit mode -->
+        <div v-if="isEditing" class="space-y-2">
+          <div v-for="(ed, i) in editEducation" :key="i" class="rounded-lg border border-surface-200 dark:border-surface-700 p-2 space-y-1.5">
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs text-surface-400">#{{ i + 1 }}</span>
+              <button type="button" class="ml-auto rounded p-1 text-surface-400 hover:text-danger-600" @click="removeEdu(i)"><Trash2 class="size-3.5" /></button>
+            </div>
+            <input v-model="ed.organization" type="text" placeholder="Учебное заведение" class="w-full rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
+            <input v-model="ed.name" type="text" placeholder="Факультет / специальность" class="w-full rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
+            <div class="grid grid-cols-2 gap-2">
+              <input v-model="ed.result" type="text" placeholder="Результат" class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
+              <input v-model.number="ed.year" type="number" min="1900" max="2100" placeholder="Год" class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
+            </div>
+          </div>
+          <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-500 hover:bg-surface-50 dark:hover:bg-surface-800 w-full justify-center" @click="addEdu">
+            <Plus class="size-4" /> Добавить образование
+          </button>
+        </div>
+        <!-- Read mode -->
+        <ul v-else class="space-y-2">
+          <li v-for="(ed, i) in resume.education" :key="i" class="text-sm">
             <div class="font-medium text-surface-900 dark:text-surface-100">
               {{ ed.organization || '—' }}
               <span v-if="ed.year" class="ml-1 text-xs font-normal text-surface-500">({{ ed.year }})</span>
@@ -599,27 +705,46 @@ async function structureFromDocument(forceLlm = false) {
       </section>
 
       <!-- Skills -->
-      <section v-if="resume.skills.length">
+      <section v-if="resume.skills.length || isEditing">
         <h3 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-3">
           <Sparkles class="size-4" /> Ключевые навыки
         </h3>
-        <div class="flex flex-wrap gap-1.5">
-          <span
-            v-for="skill in resume.skills"
-            :key="skill"
-            class="inline-flex items-center rounded-md bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-xs text-surface-700 dark:text-surface-300"
-          >
+        <!-- Edit mode -->
+        <div v-if="isEditing" class="space-y-1.5">
+          <div v-for="(skill, i) in editSkills" :key="i" class="flex items-center gap-1.5">
+            <input v-model="editSkills[i]" type="text" placeholder="Навык" class="flex-1 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-sm">
+            <button type="button" class="rounded p-1 text-surface-400 hover:text-danger-600" @click="removeSkill(i)"><Trash2 class="size-3.5" /></button>
+          </div>
+          <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-500 hover:bg-surface-50 dark:hover:bg-surface-800 w-full justify-center" @click="addSkill">
+            <Plus class="size-4" /> Добавить навык
+          </button>
+        </div>
+        <!-- Read mode -->
+        <div v-else class="flex flex-wrap gap-1.5">
+          <span v-for="skill in resume.skills" :key="skill" class="inline-flex items-center rounded-md bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-xs text-surface-700 dark:text-surface-300">
             {{ skill }}
           </span>
         </div>
       </section>
 
       <!-- Languages -->
-      <section v-if="resume.languages.length">
+      <section v-if="resume.languages.length || isEditing">
         <h3 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-3">
           <Languages class="size-4" /> Языки
         </h3>
-        <ul class="text-sm space-y-1">
+        <!-- Edit mode -->
+        <div v-if="isEditing" class="space-y-1.5">
+          <div v-for="(lng, i) in editLanguages" :key="i" class="flex items-center gap-1.5">
+            <input v-model="lng.name" type="text" placeholder="Язык" class="flex-1 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-sm">
+            <input v-model="lng.level" type="text" placeholder="Уровень" class="w-32 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-sm">
+            <button type="button" class="rounded p-1 text-surface-400 hover:text-danger-600" @click="removeLang(i)"><Trash2 class="size-3.5" /></button>
+          </div>
+          <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-500 hover:bg-surface-50 dark:hover:bg-surface-800 w-full justify-center" @click="addLang">
+            <Plus class="size-4" /> Добавить язык
+          </button>
+        </div>
+        <!-- Read mode -->
+        <ul v-else class="text-sm space-y-1">
           <li v-for="(lng, i) in resume.languages" :key="i">
             <span class="font-medium">{{ lng.name }}</span>
             <span v-if="lng.level" class="text-surface-500 dark:text-surface-400"> — {{ lng.level }}</span>
@@ -628,11 +753,14 @@ async function structureFromDocument(forceLlm = false) {
       </section>
 
       <!-- About -->
-      <section v-if="resume.about">
+      <section v-if="resume.about || isEditing">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-3">
           О себе
         </h3>
-        <p class="whitespace-pre-line text-sm text-surface-700 dark:text-surface-300 leading-relaxed">
+        <!-- Edit mode -->
+        <textarea v-if="isEditing" v-model="editAbout" rows="5" placeholder="О себе" class="w-full rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm" />
+        <!-- Read mode -->
+        <p v-else class="whitespace-pre-line text-sm text-surface-700 dark:text-surface-300 leading-relaxed">
           {{ resume.about }}
         </p>
       </section>

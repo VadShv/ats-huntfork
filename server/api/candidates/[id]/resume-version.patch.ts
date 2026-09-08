@@ -47,7 +47,6 @@ export default defineEventHandler(async (event) => {
   // ── Salary: set, change, or remove ──
   if (body.salary !== undefined) {
     if (body.salary === null || body.salary.amount === null) {
-      // Remove salary entirely.
       delete updatedRaw.salary
     }
     else {
@@ -56,6 +55,50 @@ export default defineEventHandler(async (event) => {
         currency: body.salary.currency || 'RUR',
       }
     }
+  }
+
+  // ── Header fields ──
+  if (body.firstName !== undefined) updatedRaw.first_name = body.firstName || undefined
+  if (body.lastName !== undefined) updatedRaw.last_name = body.lastName || undefined
+  if (body.middleName !== undefined) updatedRaw.middle_name = body.middleName || undefined
+  if (body.title !== undefined) updatedRaw.title = body.title || undefined
+  if (body.area !== undefined) {
+    if (body.area) updatedRaw.area = { name: body.area }
+    else delete updatedRaw.area
+  }
+
+  // ── Education: replace education.primary array ──
+  if (body.education !== undefined) {
+    updatedRaw.education = {
+      primary: body.education.map((e) => {
+        const item: Record<string, any> = {}
+        if (e.organization) item.organization = e.organization
+        if (e.name) item.name = e.name
+        if (e.result) item.result = e.result
+        if (e.year != null) item.year = e.year
+        return item
+      }),
+    }
+  }
+
+  // ── Skills (short tags): replace skill_set array ──
+  if (body.skills !== undefined) {
+    updatedRaw.skill_set = body.skills.filter((s) => s.trim()).map((s) => s.trim())
+  }
+
+  // ── About (long text): replace skills field (hh stores about in `skills`) ──
+  if (body.about !== undefined) {
+    updatedRaw.skills = body.about || undefined
+  }
+
+  // ── Languages: replace language array ──
+  if (body.languages !== undefined) {
+    updatedRaw.language = body.languages
+      .filter((l) => l.name?.trim())
+      .map((l) => ({
+        name: l.name!.trim(),
+        ...(l.level?.trim() ? { level: { name: l.level.trim() } } : {}),
+      }))
   }
 
   // Update candidate.hhResumeRaw (so /hh-resume reflects changes immediately).
