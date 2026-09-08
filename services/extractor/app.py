@@ -239,22 +239,19 @@ def _extract_docling(data: bytes) -> tuple[str, int]:
     Docling (IBM): layout-analysis ML model. Handles complex multi-column /
     designer PDFs that PyMuPDF and pdfplumber can't parse correctly.
 
-    Lazy-imported — simple PDFs never pay the import cost. Models are pre-downloaded
-    at Docker build time and cached in /opt/docling-models (mounted volume).
+    Lazy-imported — simple PDFs never pay the import cost. Models are downloaded
+    on first use and cached in /opt/docling-models (mounted volume).
     """
     import os
     os.environ.setdefault("DOCLING_ARTIFACT_PATH", "/opt/docling-models")
 
     from docling.document_converter import DocumentConverter
     from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import PdfPipelineOptions
 
-    pipeline_options = PdfPipelineOptions(do_table_structure=False, do_ocr=False)
-    converter = DocumentConverter(
-        format_options={
-            InputFormat.PDF: {"pipeline_options": pipeline_options},
-        }
-    )
+    # Simple init — default pipeline (layout model + OCR disabled for speed).
+    # Custom FormatOption with pipeline_options requires backend/pipeline_cls
+    # fields in Docling 2.110+, which is fragile across versions.
+    converter = DocumentConverter(allowed_formats=[InputFormat.PDF])
 
     import tempfile
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as tmp:
