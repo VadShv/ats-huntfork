@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Briefcase, GraduationCap, Languages, Sparkles, MapPin, Calendar, ExternalLink, Download, FileJson, FileText, Loader2, RefreshCcw } from 'lucide-vue-next'
+import { Briefcase, GraduationCap, Languages, Sparkles, MapPin, Calendar, ExternalLink, Download, FileJson, FileText, Loader2, RefreshCcw, Pencil, Check, X, ChevronUp, ChevronDown, Plus, Trash2 } from 'lucide-vue-next'
 
 const props = defineProps<{
   candidateId: string
@@ -116,6 +116,91 @@ const fetchedAgo = computed(() => {
   const days = Math.floor(hours / 24)
   return `${days} ${pluralRu(days, ['день', 'дня', 'дней'])} назад`
 })
+
+// ─────────────────────────────────────────────
+// Edit mode
+// ─────────────────────────────────────────────
+
+const { allowed: canEdit } = usePermission({ candidate: ['update'] })
+const isEditing = ref(false)
+const isSaving = ref(false)
+
+// Editable copies (hydrated from resume when entering edit mode).
+interface EditableExperience {
+  company: string
+  position: string
+  start: string
+  end: string
+  description: string
+}
+const editExperience = ref<EditableExperience[]>([])
+const editSalaryAmount = ref<number | null>(null)
+const editSalaryCurrency = ref('RUR')
+
+function enterEditMode() {
+  if (!resume.value) return
+  editExperience.value = resume.value.experience.map((e) => ({
+    company: e.company ?? '',
+    position: e.position ?? '',
+    start: e.start ?? '',
+    end: e.end ?? '',
+    description: e.description ?? '',
+  }))
+  editSalaryAmount.value = resume.value.salary?.amount ?? null
+  editSalaryCurrency.value = resume.value.salary?.currency ?? 'RUR'
+  isEditing.value = true
+}
+
+function cancelEdit() {
+  isEditing.value = false
+  editExperience.value = []
+}
+
+function moveExp(i: number, dir: -1 | 1) {
+  const j = i + dir
+  if (j < 0 || j >= editExperience.value.length) return
+  const arr = editExperience.value
+  ;[arr[i], arr[j]] = [arr[j]!, arr[i]!]
+}
+
+function addExp() {
+  editExperience.value.push({ company: '', position: '', start: '', end: '', description: '' })
+}
+
+function removeExp(i: number) {
+  editExperience.value.splice(i, 1)
+}
+
+async function saveEdit() {
+  if (isSaving.value) return
+  isSaving.value = true
+  try {
+    // Normalize dates: empty string → undefined for API.
+    const experience = editExperience.value.map((e) => ({
+      company: e.company.trim() || undefined,
+      position: e.position.trim() || undefined,
+      start: e.start.trim() || undefined,
+      end: e.end.trim() || undefined,
+      description: e.description.trim() || undefined,
+    }))
+    await $fetch(`/api/candidates/${props.candidateId}/resume-version`, {
+      method: 'PATCH',
+      body: {
+        experience,
+        salary: { amount: editSalaryAmount.value, currency: editSalaryCurrency.value },
+      },
+    })
+    await refresh()
+    isEditing.value = false
+    toast.success('Резюме обновлено')
+  }
+  catch {
+    toast.error('Не удалось сохранить изменения')
+  }
+  finally {
+    isSaving.value = false
+  }
+}
 
 // ─────────────────────────────────────────────
 // Действия
@@ -284,6 +369,37 @@ async function structureFromDocument(forceLlm = false) {
           <Sparkles v-else class="size-3.5" />
           {{ structuring ? 'Переструктурируем…' : 'Переструктурировать через ИИ' }}
         </button>
+        <!-- Редактировать структуру -->
+        <button
+          v-if="canEdit && !isEditing"
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-md border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 hover:bg-surface-50 dark:hover:bg-surface-800"
+          @click="enterEditMode"
+        >
+          <Pencil class="size-3.5" />
+          Редактировать
+        </button>
+        <!-- Save / Cancel (edit mode) -->
+        <template v-if="isEditing">
+          <button
+            type="button"
+            :disabled="isSaving"
+            class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-2.5 py-1.5 text-white hover:bg-brand-700 disabled:opacity-60"
+            @click="saveEdit"
+          >
+            <Loader2 v-if="isSaving" class="size-3.5 animate-spin" />
+            <Check v-else class="size-3.5" />
+            Сохранить
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 hover:bg-surface-50 dark:hover:bg-surface-800"
+            @click="cancelEdit"
+          >
+            <X class="size-3.5" />
+            Отмена
+          </button>
+        </template>
         <span class="ml-auto inline-flex items-center gap-2">
           <span
             v-if="sourceLabel"
@@ -307,9 +423,37 @@ async function structureFromDocument(forceLlm = false) {
           Желаемая должность не указана
         </p>
         <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-surface-600 dark:text-surface-400">
-          <span v-if="resume.salary?.amount" class="font-medium text-surface-900 dark:text-surface-100">
+          <!-- Salary: read mode -->
+          <span v-if="!isEditing && resume.salary?.amount" class="font-medium text-surface-900 dark:text-surface-100">
             {{ resume.salary.amount.toLocaleString('ru-RU') }} {{ resume.salary.currency }}
           </span>
+          <!-- Salary: edit mode -->
+          <div v-if="isEditing" class="flex items-center gap-1.5">
+            <input
+              v-model.number="editSalaryAmount"
+              type="number"
+              min="0"
+              placeholder="Зарплата"
+              class="w-28 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-sm"
+            >
+            <select
+              v-model="editSalaryCurrency"
+              class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-1.5 py-1 text-sm"
+            >
+              <option value="RUR">RUR</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+            <button
+              v-if="editSalaryAmount !== null"
+              type="button"
+              class="text-surface-400 hover:text-danger-600"
+              title="Убрать зарплату"
+              @click="editSalaryAmount = null"
+            >
+              <X class="size-3.5" />
+            </button>
+          </div>
           <span v-if="resume.area" class="inline-flex items-center gap-1">
             <MapPin class="size-3.5" />{{ resume.area }}
           </span>
@@ -323,11 +467,76 @@ async function structureFromDocument(forceLlm = false) {
       </header>
 
       <!-- Experience -->
-      <section v-if="resume.experience.length">
+      <section v-if="resume.experience.length || isEditing">
         <h3 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-3">
           <Briefcase class="size-4" /> Опыт работы
         </h3>
-        <ol class="space-y-4">
+
+        <!-- Edit mode -->
+        <div v-if="isEditing" class="space-y-3">
+          <div
+            v-for="(exp, i) in editExperience"
+            :key="i"
+            class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 space-y-2"
+          >
+            <div class="flex items-center gap-1.5">
+              <button type="button" class="rounded p-1 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 disabled:opacity-30" :disabled="i === 0" @click="moveExp(i, -1)">
+                <ChevronUp class="size-4" />
+              </button>
+              <button type="button" class="rounded p-1 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 disabled:opacity-30" :disabled="i === editExperience.length - 1" @click="moveExp(i, 1)">
+                <ChevronDown class="size-4" />
+              </button>
+              <span class="text-xs text-surface-400">#{{ i + 1 }}</span>
+              <button type="button" class="ml-auto rounded p-1 text-surface-400 hover:text-danger-600" @click="removeExp(i)">
+                <Trash2 class="size-4" />
+              </button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                v-model="exp.company"
+                type="text"
+                placeholder="Компания"
+                class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm"
+              >
+              <input
+                v-model="exp.position"
+                type="text"
+                placeholder="Должность"
+                class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm"
+              >
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                v-model="exp.start"
+                type="text"
+                placeholder="Начало (ГГГГ-ММ)"
+                class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm"
+              >
+              <input
+                v-model="exp.end"
+                type="text"
+                placeholder="Конец (ГГГГ-ММ или пусто)"
+                class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm"
+              >
+            </div>
+            <textarea
+              v-model="exp.description"
+              rows="4"
+              placeholder="Обязанности и достижения"
+              class="w-full rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-500 hover:bg-surface-50 dark:hover:bg-surface-800 w-full justify-center"
+            @click="addExp"
+          >
+            <Plus class="size-4" /> Добавить место работы
+          </button>
+        </div>
+
+        <!-- Read mode -->
+        <ol v-else class="space-y-4">
           <li
             v-for="(exp, i) in resume.experience"
             :key="i"
