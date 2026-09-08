@@ -9,13 +9,14 @@
  * Payload: { organizationId, candidateId, resumeVersionId, triggeredById? }
  */
 import { and, eq } from 'drizzle-orm'
-import { candidateResumeVersion, resumeRisk, riskPolicy } from '../../database/schema'
+import { candidateResumeVersion, resumeRisk, riskPolicy, document } from '../../database/schema'
 import { getBoss } from '../queue/boss'
 import { loadAiConfig } from '../ai/loadConfig'
 import type { SupportedProvider } from '../ai/provider'
 import { assessResumeRisk, aggregateRisk } from '../ai/assessRisk'
 import { computeJobHopping, type JobHoppingPolicy } from './timeline'
 import { resumeToText } from '../hh/sync'
+import { extractResumeText } from '../resume-parser'
 
 export const RESUME_RISK_QUEUE = 'resume-risk'
 
@@ -127,7 +128,17 @@ async function runResumeRiskJob(payload: ResumeRiskPayload): Promise<void> {
     )
 
     // 2) Смысловой слой — LLM.
-    const resumeText = resumeToText(snapshot as any)
+    // Источник текста: СЫРОЙ текст из документа (тот же, что скрининг) —
+    // не восстановленный из структуры, а оригинальный из Docling/extractor.
+    // Фолбэк на resumeToText(snapshot) для hh-кандидатов без документа.
+    const docs = await db.select({ parsedContent: document.parsedContent, type: document.type })
+      .from(document)
+      .where(and(eq(document.candidateId, candidateId), eq(document.organizationId, organizationId)))
+    const resumeDoc = docs.find(d => d.type === 'resume')
+    let resumeText = extractResumeText(resumeDoc?.parsedContent)
+    if (!resumeText || resumeText.trim().length < 30) {
+      resumeText = resumeToText(snapshot as any)
+    }
     const config = await loadAiConfig(organizationId, { purpose: 'analysis', preferId: null })
     const { object, usage, responseModel } = await assessResumeRisk(
       {
