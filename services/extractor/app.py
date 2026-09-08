@@ -5,10 +5,12 @@ Layout-aware text extraction for resumes that the JS pdf-parse mangles
 (two-column / designer PDFs, e.g. «ЛучкинаАлла», «Пониманиепринципов»).
 
 Pipeline:
-  1. PDF → pdfplumber with column detection (reads columns in correct visual order).
-  2. If a page yields little/no text (scanned image) → Tesseract OCR (rus+eng),
-     with grayscale + threshold preprocessing for accuracy.
-  3. DOCX → python-docx.
+  1. PDF → PyMuPDF (fast, block-based reading order).
+  2. PDF → pdfplumber (column crop) + OCR fallback for scans.
+  3. If both produce low-quality text (score below threshold) → Docling
+     (IBM layout-analysis ML model) — handles complex multi-column layouts
+     that heuristic engines can't parse correctly.
+  4. DOCX → python-docx.
 
 Returns clean text in the correct reading order. The Node app calls this over
 HTTP and falls back to its own pdf-parse if the service is unavailable.
@@ -226,10 +228,51 @@ def _score_text(t: str) -> float:
     return len(words) - glued * 5
 
 
+# ── Score threshold below which we fall back to Docling (layout ML model). ──
+# Tuned: a typical 2-page resume yields ~400-800 words. If both heuristic engines
+# score below this, the text is likely garbled (interleaved columns) → Docling.
+DOCLING_FALLBACK_THRESHOLD = 150
+
+
+def _extract_docling(data: bytes) -> tuple[str, int]:
+    """
+    Docling (IBM): layout-analysis ML model. Handles complex multi-column /
+    designer PDFs that PyMuPDF and pdfplumber can't parse correctly.
+
+    Lazy-imported — simple PDFs never pay the import cost. Models are pre-downloaded
+    at Docker build time and cached in /opt/docling-models (mounted volume).
+    """
+    import os
+    os.environ.setdefault("DOCLING_ARTIFACT_PATH", "/opt/docling-models")
+
+    from docling.document_converter import DocumentConverter
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+
+    pipeline_options = PdfPipelineOptions(do_table_structure=False, do_ocr=False)
+    converter = DocumentConverter(
+        format_options={
+            InputFormat.PDF: {"pipeline_options": pipeline_options},
+        }
+    )
+
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as tmp:
+        tmp.write(data)
+        tmp.flush()
+        result = converter.convert(tmp.name)
+        doc = result.document
+        text = doc.export_to_markdown()
+        n_pages = len(doc.pages) if hasattr(doc, "pages") and doc.pages else 0
+    return text, n_pages
+
+
 def _extract_pdf(data: bytes) -> tuple[str, str, int]:
     """
-    Returns (text, method, page_count). Runs PyMuPDF and pdfplumber, picks the
-    higher-quality result; falls back to OCR for scanned pages.
+    Returns (text, method, page_count). Pipeline:
+      1. PyMuPDF (fast) + pdfplumber (column crop) + OCR for scans.
+      2. If both score below threshold → Docling (layout ML model).
+      3. Pick the highest-scoring result across all engines.
     """
     import pdfplumber
 
@@ -263,10 +306,27 @@ def _extract_pdf(data: bytes) -> tuple[str, str, int]:
     if ocr_used:
         return plumber_text, "pdfplumber+ocr", page_count
 
-    # Otherwise pick the higher-quality engine.
-    if _score_text(mupdf_text) >= _score_text(plumber_text):
-        return mupdf_text, "pymupdf", page_count or mupdf_pages
-    return plumber_text, "pdfplumber", page_count
+    mupdf_score = _score_text(mupdf_text)
+    plumber_score = _score_text(plumber_text)
+    best_text, best_method, best_score = (
+        (mupdf_text, "pymupdf", mupdf_score)
+        if mupdf_score >= plumber_score
+        else (plumber_text, "pdfplumber", plumber_score)
+    )
+
+    # Engine 3: Docling fallback — only if both heuristic engines scored low.
+    if best_score < DOCLING_FALLBACK_THRESHOLD:
+        log.info("docling_fallback: best_score=%.1f < threshold=%d", best_score, DOCLING_FALLBACK_THRESHOLD)
+        try:
+            docling_text, docling_pages = _extract_docling(data)
+            docling_score = _score_text(docling_text)
+            log.info("docling_score=%.1f vs best_score=%.1f", docling_score, best_score)
+            if docling_score > best_score:
+                return docling_text, "docling", docling_pages or page_count
+        except Exception as e:  # noqa: BLE001
+            log.warning("docling_failed: %s", e)
+
+    return best_text, best_method, page_count or mupdf_pages
 
 
 def _ocr_page(page) -> str:
