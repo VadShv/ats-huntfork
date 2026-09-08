@@ -263,13 +263,177 @@ def _score_text(t: str) -> float:
 DOCLING_FALLBACK_THRESHOLD = 250
 
 
+# ── Docling post-processing: structured items → clean resume text ──
+
+# Labels inside experience entries (NOT section headers despite Docling tagging).
+_EXP_LABELS = ("обязанности", "достижения", "задачи", "результаты", "функционал", "проекты")
+
+# Company-name patterns — a section_header matching these starts a new job entry.
+_COMPANY_RE = re.compile(
+    r'^(ООО|ЗАО|АО|ОАО|ИП|НКО|ПАО|ФГБОУ|НИУ|МГУ|МФТИ|ГК\s|Группа\s|Компания\s)\s',
+    re.IGNORECASE,
+)
+
+# Date pattern — Month Year — Month Year (RU).
+_DATE_RE = re.compile(
+    r'(?:[А-Яа-яё]+\s+\d{4}|\d{4})\s*[—–-]\s*(?:[А-Яа-яё]+\s+\d{4}|\d{4}|настоящее\s+время|по\s+н\.?\s*в\.)',
+    re.IGNORECASE,
+)
+
+
+def _docling_to_clean_text(doc) -> str:
+    """
+    Post-process Docling's structured output into clean resume text with correct
+    reading order. Solves three problems that export_to_markdown() doesn't:
+
+    1. «Обязанности»/«Достижения» tagged as section_header → treated as labels
+       within a job entry, merged with following content.
+    2. Content from one job bleeding into the next → grouped by company header.
+    3. Name/contacts in the middle → moved to top; sections reordered into
+       standard resume structure: header → about → skills → experience → education.
+
+    Output is plain text (not markdown) optimised for the rule-based structurer
+    (hh-text-structurer.ts) which expects date-lines and «Обязанности:» prefixes.
+    """
+    items = [(item.label, item.text.strip()) for item in doc.texts if item.text.strip()]
+
+    contacts = []
+    name_parts = []
+    sections = {}  # ordered dict: header → list of lines
+    section_order = []  # track insertion order
+    exp_entries = []  # list of (company, [lines])
+    current_exp = None  # (company, [lines])
+    current_section = None  # header string
+
+    def is_exp_label(text):
+        low = text.lower().rstrip(':')
+        return any(low.startswith(lbl) for lbl in _EXP_LABELS) and len(text) < 25
+
+    def flush_exp():
+        nonlocal current_exp
+        if current_exp:
+            exp_entries.append(current_exp)
+        current_exp = None
+
+    def flush_section():
+        nonlocal current_section
+        current_section = None
+
+    for label, text in items:
+        # Skip page headers/footers, but salvage contacts.
+        if label in ('page_header', 'page_footer'):
+            if label == 'page_header' and ('@' in text or '+' in text or 'tg:' in text.lower() or 'http' in text.lower()):
+                contacts.append(text)
+            continue
+
+        # «Обязанности»/«Достижения» — label within a job, NOT a section header.
+        if is_exp_label(text):
+            # If we're in an experience entry, add as a label prefix.
+            if current_exp:
+                current_exp[1].append(f"{text}:")
+            elif current_section:
+                sections.setdefault(current_section, []).append(f"{text}:")
+            continue
+
+        # Section header that looks like a company → new experience entry.
+        if label == 'section_header' and _COMPANY_RE.match(text):
+            flush_section()
+            flush_exp()
+            current_exp = (text, [])
+            continue
+
+        # Section header — could be a real section (О себе, Навыки, Образование)
+        # or a false-positive (Обязанности already handled above).
+        if label == 'section_header':
+            low = text.lower().strip()
+            # Known resume sections → start a new section.
+            if any(k in low for k in ('о себе', 'навыки', 'образование', 'опыт', 'квалифик')):
+                flush_exp()
+                current_section = text
+                if text not in sections:
+                    sections[text] = []
+                    section_order.append(text)
+                continue
+            # Name (not a company, not a known section) → header material.
+            if not _COMPANY_RE.match(text) and len(text) < 40 and not _DATE_RE.search(text):
+                # Likely candidate name or job title.
+                if not name_parts:
+                    name_parts.append(text)
+                else:
+                    name_parts.append(text)
+                continue
+            # Otherwise treat as section header generically.
+            flush_exp()
+            current_section = text
+            if text not in sections:
+                sections[text] = []
+                section_order.append(text)
+            continue
+
+        # Regular text / list_item.
+        if current_exp:
+            # Inside a job entry.
+            current_exp[1].append(text)
+        elif current_section:
+            sections.setdefault(current_section, []).append(text)
+        elif not name_parts:
+            name_parts.append(text)
+        else:
+            # Orphan text — attach to last exp entry if exists, else skip.
+            if exp_entries:
+                exp_entries[-1][1].append(text)
+
+    flush_exp()
+
+    # ── Assemble output in standard resume order ──
+    out = []
+
+    # Name + title at top.
+    if name_parts:
+        out.append('\n'.join(name_parts[:2]))
+        out.append('')
+
+    # Contacts.
+    if contacts:
+        out.append(' '.join(contacts))
+        out.append('')
+
+    # Sections in their original order, but experience last (before education).
+    for header in section_order:
+        if any(k in header.lower() for k in ('опыт', 'experience')):
+            continue  # handle below
+        if any(k in header.lower() for k in ('образование', 'education')):
+            continue  # handle after experience
+        out.append(header)
+        out.extend(sections.get(header, []))
+        out.append('')
+
+    # Experience entries.
+    if exp_entries:
+        out.append('Опыт работы')
+        for company, lines in exp_entries:
+            out.append('')
+            out.append(company)
+            out.extend(lines)
+        out.append('')
+
+    # Education (after experience).
+    for header in section_order:
+        if any(k in header.lower() for k in ('образование', 'education')):
+            out.append(header)
+            out.extend(sections.get(header, []))
+            out.append('')
+
+    return '\n'.join(out).strip()
+
+
 def _extract_docling(data: bytes) -> tuple[str, int]:
     """
     Docling (IBM): layout-analysis ML model. Handles complex multi-column /
     designer PDFs that PyMuPDF and pdfplumber can't parse correctly.
 
-    Lazy-imported — simple PDFs never pay the import cost. Models are downloaded
-    on first use and cached in /opt/docling-models (mounted volume).
+    Uses structured doc.texts (not export_to_markdown) with post-processing to
+    fix reading order, merge label+value pairs, and group content by company.
     """
     import os
     os.environ.setdefault("DOCLING_ARTIFACT_PATH", "/opt/docling-models")
@@ -277,9 +441,6 @@ def _extract_docling(data: bytes) -> tuple[str, int]:
     from docling.document_converter import DocumentConverter
     from docling.datamodel.base_models import InputFormat
 
-    # Simple init — default pipeline (layout model + OCR disabled for speed).
-    # Custom FormatOption with pipeline_options requires backend/pipeline_cls
-    # fields in Docling 2.110+, which is fragile across versions.
     converter = DocumentConverter(allowed_formats=[InputFormat.PDF])
 
     import tempfile
@@ -288,7 +449,7 @@ def _extract_docling(data: bytes) -> tuple[str, int]:
         tmp.flush()
         result = converter.convert(tmp.name)
         doc = result.document
-        text = doc.export_to_markdown()
+        text = _docling_to_clean_text(doc)
         n_pages = len(doc.pages) if hasattr(doc, "pages") and doc.pages else 0
     return text, n_pages
 
@@ -341,14 +502,15 @@ def _extract_pdf(data: bytes) -> tuple[str, str, int]:
     )
 
     # Engine 3: Docling — always run for PDFs (layout ML model gives correct
-    # reading order). Compare with heuristic engines and pick the best.
-    # This is slower (~3-5s) but produces dramatically better text for
-    # multi-column / designer PDFs that PyMuPDF/pdfplumber garble.
+    # reading order). Docling's structured output with post-processing gives
+    # correct block ordering that score-based comparison can't detect.
+    # Strategy: prefer Docling if it produced meaningful text (>=100 chars),
+    # regardless of score — score measures word count, not reading-order quality.
     try:
         docling_text, docling_pages = _extract_docling(data)
         docling_score = _score_text(docling_text)
-        log.info("docling_score=%.1f vs best_score=%.1f", docling_score, best_score)
-        if docling_score > best_score:
+        log.info("docling_score=%.1f vs best_score=%.1f, docling_chars=%d", docling_score, best_score, len(docling_text))
+        if len(docling_text) >= 100:
             return docling_text, "docling", docling_pages or page_count
     except Exception as e:  # noqa: BLE001
         log.warning("docling_failed: %s", e)
