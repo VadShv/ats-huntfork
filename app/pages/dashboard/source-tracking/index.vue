@@ -404,9 +404,10 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
       <!-- ─── Header ─── -->
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-10">
         <div>
-          <h1 class="text-xl sm:text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">Отслеживание источников</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">Отслеживаемые ссылки</h1>
           <p class="text-sm text-surface-400 dark:text-surface-500 mt-1">
-            Отслеживайте источники откликов
+            Управление трекинг-ссылками. Полная аналитика источников —
+            <NuxtLink :to="localePath('/dashboard/analytics/sources')" class="text-primary-600 dark:text-primary-400 hover:underline">в Центре аналитики →</NuxtLink>
           </p>
         </div>
         <div class="flex items-center gap-2">

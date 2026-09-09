@@ -132,6 +132,100 @@ watch([dropoffStage, dropoffPage, funnelQuery], () => {
 const dropoffItems = computed(() => (dropoff.value as any)?.items ?? [])
 const dropoffTotal = computed(() => (dropoff.value as any)?.total ?? 0)
 const dropoffPages = computed(() => Math.max(1, Math.ceil(dropoffTotal.value / 25)))
+
+// ─────────────────────────────────────────────
+// Sankey-диаграмма переходов (Фаза 4)
+// ─────────────────────────────────────────────
+
+import { baseCartesianOption, CHART_SEMANTIC, CHART_PALETTE, formatTrendLabel } from '~/utils/analytics/chart-theme'
+
+const { isDark } = useColorMode()
+
+const hasTransitions = computed(() => transitions.value.length > 0)
+
+const sankeyOption = computed(() => {
+  if (!hasTransitions.value) return {}
+  const nodeSet = new Set<string>()
+  for (const t of transitions.value) {
+    nodeSet.add(t.fromName)
+    nodeSet.add(t.toName)
+  }
+  const nodes = [...nodeSet].map((name, i) => ({
+    name,
+    itemStyle: { color: CHART_PALETTE[i % CHART_PALETTE.length] },
+  }))
+  const links = transitions.value
+    .filter((t: any) => t.fromName !== t.toName)
+    .map((t: any) => ({
+      source: t.fromName,
+      target: t.toName,
+      value: t.count,
+      lineStyle: { color: 'gradient', opacity: 0.4 },
+    }))
+  const c = isDark.value
+    ? { text: '#e4e4e7', bg: '#18181b', border: '#3f3f46' }
+    : { text: '#3f3f46', bg: '#ffffff', border: '#e4e4e7' }
+  return {
+    tooltip: { trigger: 'item', backgroundColor: c.bg, borderColor: c.border, textStyle: { color: c.text, fontSize: 12 } },
+    series: [{
+      type: 'sankey',
+      data: nodes,
+      links,
+      emphasis: { focus: 'adjacency' },
+      nodeAlign: 'left',
+      nodeGap: 8,
+      nodeWidth: 16,
+      label: { color: c.text, fontSize: 11, formatter: (p: any) => p.name.length > 18 ? p.name.slice(0, 16) + '…' : p.name },
+      lineStyle: { curveness: 0.5 },
+    }],
+  }
+})
+
+// ─────────────────────────────────────────────
+// Тренд конверсий во времени (Фаза 4)
+// ─────────────────────────────────────────────
+
+const { data: funnelTrend, status: trendStatus } = useFetch('/api/analytics/funnel/trend', {
+  key: 'analytics-funnel-trend',
+  headers: useRequestHeaders(['cookie']),
+  query: computed(() => ({ ...funnelQuery.value, groupBy: 'week' })),
+})
+
+const trendPoints = computed<any[]>(() => (funnelTrend.value as any)?.points ?? [])
+const hasTrend = computed(() => trendPoints.value.length > 1)
+
+/** Все имена этапов в тренде (для серий). */
+const trendStageNames = computed(() => {
+  const names = new Set<string>()
+  for (const p of trendPoints.value) for (const s of p.stages ?? []) names.add(s.stageName)
+  return [...names]
+})
+
+const trendChartOption = computed(() => {
+  if (!hasTrend.value) return {}
+  const base = baseCartesianOption(isDark.value)
+  const labels = trendPoints.value.map(p => formatTrendLabel(p.bucket, 'week'))
+  return {
+    ...base,
+    legend: { ...base.legend, type: 'scroll' as const, bottom: 0, top: 'auto' },
+    grid: { ...base.grid, bottom: 40 },
+    tooltip: { ...base.tooltip, trigger: 'axis' as const, valueFormatter: (v: any) => v != null ? `${Math.round(v * 100)}%` : '—' },
+    xAxis: { type: 'category', data: labels, axisTick: { show: false } },
+    yAxis: { type: 'value', min: 0, max: 1, axisLabel: { formatter: (v: number) => `${Math.round(v * 100)}%` } },
+    series: trendStageNames.value.map((name, i) => ({
+      name,
+      type: 'line',
+      smooth: true,
+      connectNulls: true,
+      data: trendPoints.value.map(p => {
+        const s = (p.stages ?? []).find((x: any) => x.stageName === name)
+        return s?.conversionNext ?? null
+      }),
+      itemStyle: { color: CHART_PALETTE[i % CHART_PALETTE.length] },
+      lineStyle: { color: CHART_PALETTE[i % CHART_PALETTE.length], width: 2 },
+    })),
+  }
+})
 </script>
 
 <template>
@@ -149,20 +243,7 @@ const dropoffPages = computed(() => Math.max(1, Math.ceil(dropoffTotal.value / 2
           </p>
         </div>
       </div>
-      <nav class="flex items-center gap-1 rounded-xl bg-surface-100 dark:bg-surface-800 p-1">
-        <NuxtLink
-          :to="localePath('/dashboard/analytics')"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-200"
-        >
-          Обзор
-        </NuxtLink>
-        <NuxtLink
-          :to="localePath('/dashboard/analytics/funnel')"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-50 shadow-xs"
-        >
-          Воронка
-        </NuxtLink>
-      </nav>
+      <AnalyticsNav />
     </div>
 
     <!-- Фильтры (sticky) -->
@@ -335,6 +416,34 @@ const dropoffPages = computed(() => Math.max(1, Math.ceil(dropoffTotal.value / 2
             </button>
           </div>
         </template>
+      </div>
+
+      <!-- Sankey переходов -->
+      <div v-if="hasTransitions" class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 shadow-xs dark:shadow-none">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-50">Поток переходов (Sankey)</h2>
+          <span class="text-xs text-surface-400">толщина потока = число переходов</span>
+        </div>
+        <ClientOnly>
+          <AnalyticsAeChart :option="sankeyOption" :height="340" />
+          <template #fallback>
+            <div class="h-[340px] animate-pulse rounded-xl bg-surface-100 dark:bg-surface-800" />
+          </template>
+        </ClientOnly>
+      </div>
+
+      <!-- Тренд конверсий -->
+      <div v-if="hasTrend" class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 shadow-xs dark:shadow-none">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-50">Динамика конверсий по этапам</h2>
+          <span class="text-xs text-surface-400">conversionNext, по неделям</span>
+        </div>
+        <ClientOnly>
+          <AnalyticsAeChart :option="trendChartOption" :height="300" :loading="trendStatus === 'pending'" />
+          <template #fallback>
+            <div class="h-[300px] animate-pulse rounded-xl bg-surface-100 dark:bg-surface-800" />
+          </template>
+        </ClientOnly>
       </div>
 
       <!-- Матрица переходов -->

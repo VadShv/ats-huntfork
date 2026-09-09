@@ -24,12 +24,13 @@ const { formatPersonName } = useOrgSettings()
 
 import { useAnalyticsFilters } from '~/composables/useAnalyticsFilters'
 
-const { periodPreset, jobId, source, compare, query } = useAnalyticsFilters()
+const { periodPreset, customFrom, customTo, jobId, source, compare, query } = useAnalyticsFilters()
 
 const periodOptions = [
   { value: '7d' as const, label: '7 дней' },
   { value: '30d' as const, label: '30 дней' },
   { value: '90d' as const, label: '90 дней' },
+  { value: 'custom' as const, label: 'Свой' },
 ]
 
 const sourceOptions = [
@@ -133,6 +134,60 @@ const slaItems = computed(() => (sla.value as any)?.items ?? [])
 function fmtDays(days: number) {
   return `${Math.round(days * 10) / 10} дн`
 }
+
+// ─────────────────────────────────────────────
+// Тренды (Центр аналитики): динамика KPI по неделям
+// ─────────────────────────────────────────────
+
+import { baseCartesianOption, CHART_SEMANTIC, formatTrendLabel } from '~/utils/analytics/chart-theme'
+
+const { data: trends, status: trendsStatus } = useFetch('/api/analytics/trends', {
+  key: 'analytics-trends',
+  headers: useRequestHeaders(['cookie']),
+  query: computed(() => ({ ...query.value, groupBy: 'week' })),
+})
+
+const { isDark } = useColorMode()
+const trendPoints = computed<any[]>(() => (trends.value as any)?.points ?? [])
+const hasTrend = computed(() => trendPoints.value.length > 0)
+
+/** График объёмов: новые / наймы / отказы по неделям (bar+line). */
+const volumeChartOption = computed(() => {
+  const base = baseCartesianOption(isDark.value)
+  const labels = trendPoints.value.map(p => formatTrendLabel(p.bucket, 'week'))
+  return {
+    ...base,
+    tooltip: { ...base.tooltip, trigger: 'axis' },
+    xAxis: { type: 'category', data: labels, axisTick: { show: false } },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [
+      { name: 'Новые', type: 'bar', data: trendPoints.value.map(p => p.newApplications), itemStyle: { color: CHART_SEMANTIC.neutral, borderRadius: [3, 3, 0, 0] } },
+      { name: 'Наймы', type: 'bar', data: trendPoints.value.map(p => p.hires), itemStyle: { color: CHART_SEMANTIC.positive, borderRadius: [3, 3, 0, 0] } },
+      { name: 'Отказы', type: 'bar', data: trendPoints.value.map(p => p.rejections), itemStyle: { color: CHART_SEMANTIC.negative, borderRadius: [3, 3, 0, 0] } },
+    ],
+  }
+})
+
+/** График Time-to-Hire p50 (медиана, дни) по неделям (line). */
+const tthChartOption = computed(() => {
+  const base = baseCartesianOption(isDark.value)
+  const labels = trendPoints.value.map(p => formatTrendLabel(p.bucket, 'week'))
+  return {
+    ...base,
+    xAxis: { type: 'category', data: labels, axisTick: { show: false } },
+    yAxis: { type: 'value', name: 'дни', nameTextStyle: { color: base.textStyle.color, fontSize: 10 } },
+    series: [
+      {
+        name: 'Time-to-Hire (медиана)', type: 'line', smooth: true,
+        connectNulls: true,
+        data: trendPoints.value.map(p => p.timeToHireP50Days),
+        itemStyle: { color: CHART_SEMANTIC.warning },
+        lineStyle: { color: CHART_SEMANTIC.warning, width: 2 },
+        areaStyle: { color: CHART_SEMANTIC.warning, opacity: 0.08 },
+      },
+    ],
+  }
+})
 </script>
 
 <template>
@@ -150,20 +205,7 @@ function fmtDays(days: number) {
           </p>
         </div>
       </div>
-      <nav class="flex items-center gap-1 rounded-xl bg-surface-100 dark:bg-surface-800 p-1">
-        <NuxtLink
-          :to="localePath('/dashboard/analytics')"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-50 shadow-xs"
-        >
-          Обзор
-        </NuxtLink>
-        <NuxtLink
-          :to="localePath('/dashboard/analytics/funnel')"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-200"
-        >
-          Воронка
-        </NuxtLink>
-      </nav>
+      <AnalyticsNav />
     </div>
 
     <!-- Фильтры (sticky) -->
@@ -183,6 +225,11 @@ function fmtDays(days: number) {
             {{ opt.label }}
           </button>
         </div>
+        <template v-if="periodPreset === 'custom'">
+          <input v-model="customFrom" type="date" class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1.5 text-xs text-surface-700 dark:text-surface-300">
+          <span class="text-xs text-surface-400">—</span>
+          <input v-model="customTo" type="date" class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1.5 text-xs text-surface-700 dark:text-surface-300">
+        </template>
         <select
           v-model="jobId"
           class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300 max-w-56"
@@ -200,6 +247,7 @@ function fmtDays(days: number) {
           <input v-model="compare" type="checkbox" class="rounded border-surface-300 dark:border-surface-600 text-primary-600 focus:ring-primary-500">
           Сравнить с пред. периодом
         </label>
+        <div class="ml-auto"><AnalyticsPresetSelector /></div>
       </div>
     </div>
 
@@ -248,6 +296,36 @@ function fmtDays(days: number) {
           </span>
         </div>
         <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">{{ card.sub }}</p>
+      </div>
+    </div>
+
+    <!-- Тренды (динамика по неделям) -->
+    <div v-if="!isLoading" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 shadow-xs dark:shadow-none">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-50">Динамика объёмов</h2>
+          <span class="text-xs text-surface-400">по неделям</span>
+        </div>
+        <ClientOnly>
+          <AnalyticsAeChart v-if="hasTrend" :option="volumeChartOption" :height="260" :loading="trendsStatus === 'pending'" />
+          <p v-else class="text-sm text-surface-400 py-10 text-center">Недостаточно данных за период</p>
+          <template #fallback>
+            <div class="h-[260px] animate-pulse rounded-xl bg-surface-100 dark:bg-surface-800" />
+          </template>
+        </ClientOnly>
+      </div>
+      <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 shadow-xs dark:shadow-none">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-50">Time-to-Hire (медиана)</h2>
+          <span class="text-xs text-surface-400">дней до найма, по неделям</span>
+        </div>
+        <ClientOnly>
+          <AnalyticsAeChart v-if="hasTrend" :option="tthChartOption" :height="260" :loading="trendsStatus === 'pending'" />
+          <p v-else class="text-sm text-surface-400 py-10 text-center">Недостаточно данных за период</p>
+          <template #fallback>
+            <div class="h-[260px] animate-pulse rounded-xl bg-surface-100 dark:bg-surface-800" />
+          </template>
+        </ClientOnly>
       </div>
     </div>
 
