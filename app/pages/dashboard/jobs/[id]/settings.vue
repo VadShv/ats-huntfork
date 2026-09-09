@@ -45,6 +45,7 @@ const form = ref({
   experienceLevel: '' as string,
   companyId: '' as string,
   departmentId: '' as string,
+  headcount: 1 as number,
   validThrough: '',
   requireResume: false,
   requireCoverLetter: false,
@@ -77,6 +78,7 @@ watch(job, (j) => {
       experienceLevel: j.experienceLevel ?? '',
       companyId: (j as any).companyId ?? '',
       departmentId: (j as any).departmentId ?? '',
+      headcount: (j as any).headcount ?? 1,
       validThrough: j.validThrough ? new Date(j.validThrough).toISOString().split('T')[0] ?? '' : '',
       requireResume: j.requireResume ?? false,
       requireCoverLetter: j.requireCoverLetter ?? false,
@@ -388,6 +390,7 @@ async function handleSave() {
       experienceLevel: (form.value.experienceLevel as 'junior' | 'mid' | 'senior' | 'lead' | null) || null,
       companyId: form.value.companyId || null,
       departmentId: form.value.departmentId || null,
+      headcount: form.value.headcount || 1,
       // Send null when cleared so the DB column is set to NULL
       validThrough: form.value.validThrough ? new Date(form.value.validThrough) : null,
       // Only send pipelineId if it has changed (backend validates active applications)
@@ -646,6 +649,22 @@ function onSalaryMaxChange(e: Event) {
                   {{ opt.label }}
                 </option>
               </select>
+            </div>
+
+            <!-- Headcount (число позиций) -->
+            <div>
+              <label for="settings-headcount" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">
+                Число позиций
+              </label>
+              <input
+                id="settings-headcount"
+                v-model.number="form.headcount"
+                type="number"
+                min="1"
+                max="999"
+                class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              >
+              <p class="text-xs text-surface-400 mt-1">Сколько человек нужно нанять (multi-hire). «Закрыто N из M».</p>
             </div>
 
             <!-- Slug -->

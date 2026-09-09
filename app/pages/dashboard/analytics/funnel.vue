@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ChartNoAxesCombined, AlertCircle, RefreshCw, Filter as FilterIcon,
+  ChartNoAxesCombined, AlertCircle, RefreshCw,
   ChevronLeft, ChevronRight, X, UserX,
 } from 'lucide-vue-next'
 
@@ -23,27 +23,8 @@ const { formatPersonName, formatDateTime } = useOrgSettings()
 
 import { useAnalyticsFilters } from '~/composables/useAnalyticsFilters'
 
-const { periodPreset, jobId, source, query } = useAnalyticsFilters()
+const { query } = useAnalyticsFilters()
 const pipelineId = ref<string | undefined>(undefined)
-
-const periodOptions = [
-  { value: '7d' as const, label: '7 дней' },
-  { value: '30d' as const, label: '30 дней' },
-  { value: '90d' as const, label: '90 дней' },
-]
-
-const sourceOptions = [
-  { value: '', label: 'Все источники' },
-  { value: 'hh', label: 'hh.ru' },
-  { value: 'manual', label: 'Вручную' },
-]
-
-const { data: jobsData } = useFetch('/api/jobs', {
-  key: 'analytics-jobs',
-  headers: useRequestHeaders(['cookie']),
-  query: { limit: 100 },
-})
-const jobs = computed(() => (jobsData.value as any)?.data ?? [])
 
 const { data: pipelinesData } = useFetch('/api/pipelines', {
   key: 'analytics-pipelines',
@@ -247,22 +228,8 @@ const trendChartOption = computed(() => {
     </div>
 
     <!-- Фильтры (sticky) -->
-    <div class="sticky top-0 z-10 -mx-1 px-1 py-2 bg-surface-50/95 dark:bg-surface-950/95 backdrop-blur border-b border-surface-200/60 dark:border-surface-800/60">
-      <div class="flex flex-wrap items-center gap-2">
-        <FilterIcon class="w-4 h-4 text-surface-400 shrink-0" />
-        <div class="flex rounded-lg border border-surface-200 dark:border-surface-700 overflow-hidden">
-          <button
-            v-for="opt in periodOptions"
-            :key="opt.value"
-            class="px-3 py-1.5 text-xs font-medium transition-colors"
-            :class="periodPreset === opt.value
-              ? 'bg-primary-600 text-white'
-              : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            @click="periodPreset = opt.value"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
+    <AnalyticsFilterBar show-job show-source>
+      <template #extra>
         <select
           v-model="pipelineId"
           class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300 max-w-56"
@@ -270,21 +237,8 @@ const trendChartOption = computed(() => {
           <option :value="undefined">Воронка по умолчанию</option>
           <option v-for="p in pipelines" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
-        <select
-          v-model="jobId"
-          class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300 max-w-56"
-        >
-          <option :value="undefined">Все вакансии</option>
-          <option v-for="j in jobs" :key="j.id" :value="j.id">{{ j.title }}</option>
-        </select>
-        <select
-          v-model="source"
-          class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300"
-        >
-          <option v-for="opt in sourceOptions" :key="opt.value" :value="opt.value || undefined">{{ opt.label }}</option>
-        </select>
-      </div>
-    </div>
+      </template>
+    </AnalyticsFilterBar>
 
     <!-- Ошибка -->
     <div

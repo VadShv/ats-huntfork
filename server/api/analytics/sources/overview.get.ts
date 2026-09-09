@@ -1,6 +1,6 @@
 import { eq, and, sql, count, gte, lt, desc } from 'drizzle-orm'
 import { db } from '../../../utils/db'
-import { applicationSource, application, trackingLink, job, candidate, pipelineStage } from '../../../database/schema'
+import { applicationSource, application, trackingLink, job } from '../../../database/schema'
 import { getOrgStageRollup } from '../../../utils/funnel-rollup'
 import { analyticsQuerySchema, resolvePeriod } from '../../../utils/analytics/filters'
 import { resolveAnalyticsScope } from '../../../utils/analytics/scope'
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
   }
   const whereClause = and(...baseConds)
 
-  const [channelBreakdown, topLinks, stageByChannel, dailyTrend, recentAttributed, totalTracked, topReferrerDomains]: any[] = await Promise.all([
+  const [channelBreakdown, topLinks, stageByChannel, dailyTrend, totalTracked, topReferrerDomains]: any[] = await Promise.all([
     db.select({ channel: applicationSource.channel, count: count().as('count') })
       .from(applicationSource)
       .innerJoin(application, eq(application.id, applicationSource.applicationId))
@@ -70,20 +70,6 @@ export default defineEventHandler(async (event) => {
       .where(whereClause)
       .groupBy(sql`date_trunc('day', ${applicationSource.createdAt})::date`, applicationSource.channel)
       .orderBy(sql`date_trunc('day', ${applicationSource.createdAt})::date`),
-
-    db.select({
-      applicationId: applicationSource.applicationId, jobId: application.jobId, channel: applicationSource.channel,
-      utmSource: applicationSource.utmSource, referrerDomain: applicationSource.referrerDomain,
-      trackingLinkName: trackingLink.name, candidateFirstName: candidate.firstName, candidateLastName: candidate.lastName,
-      jobTitle: job.title, currentStageName: pipelineStage.name, appliedAt: applicationSource.createdAt,
-    })
-      .from(applicationSource)
-      .innerJoin(application, eq(application.id, applicationSource.applicationId))
-      .innerJoin(candidate, eq(candidate.id, application.candidateId))
-      .innerJoin(job, eq(job.id, application.jobId))
-      .leftJoin(trackingLink, eq(trackingLink.id, applicationSource.trackingLinkId))
-      .leftJoin(pipelineStage, eq(pipelineStage.id, application.currentStageId))
-      .where(whereClause).orderBy(desc(applicationSource.createdAt)).limit(50),
 
     db.select({ c: count() }).from(applicationSource)
       .innerJoin(application, eq(application.id, applicationSource.applicationId))
@@ -126,7 +112,6 @@ export default defineEventHandler(async (event) => {
     funnel,
     funnelStages: rootColumns,
     dailyTrend,
-    recentAttributed,
     topReferrerDomains,
     summary: {
       totalTracked, totalUntracked,
@@ -139,6 +124,6 @@ function emptyResult() {
   return {
     period: null, refreshedAt: analyticsRefreshState.lastRefreshAt?.toISOString() ?? null,
     channelBreakdown: [], topLinks: [], funnel: {}, funnelStages: [], dailyTrend: [],
-    recentAttributed: [], topReferrerDomains: [], summary: { totalTracked: 0, totalUntracked: 0, attributionRate: 0 },
+    topReferrerDomains: [], summary: { totalTracked: 0, totalUntracked: 0, attributionRate: 0 },
   }
 }

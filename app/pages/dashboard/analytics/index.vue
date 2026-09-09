@@ -2,7 +2,7 @@
 import {
   ChartNoAxesCombined, Users, UserPlus, BadgeCheck, UserX,
   Timer, Handshake, AlertCircle, Clock, ArrowUpRight, ArrowDownRight,
-  Minus, RefreshCw, Filter as FilterIcon,
+  Minus, RefreshCw,
 } from 'lucide-vue-next'
 
 definePageMeta({
@@ -24,27 +24,7 @@ const { formatPersonName } = useOrgSettings()
 
 import { useAnalyticsFilters } from '~/composables/useAnalyticsFilters'
 
-const { periodPreset, customFrom, customTo, jobId, source, compare, query } = useAnalyticsFilters()
-
-const periodOptions = [
-  { value: '7d' as const, label: '7 дней' },
-  { value: '30d' as const, label: '30 дней' },
-  { value: '90d' as const, label: '90 дней' },
-  { value: 'custom' as const, label: 'Свой' },
-]
-
-const sourceOptions = [
-  { value: '', label: 'Все источники' },
-  { value: 'hh', label: 'hh.ru' },
-  { value: 'manual', label: 'Вручную' },
-]
-
-const { data: jobsData } = useFetch('/api/jobs', {
-  key: 'analytics-jobs',
-  headers: useRequestHeaders(['cookie']),
-  query: { limit: 100 },
-})
-const jobs = computed(() => (jobsData.value as any)?.data ?? [])
+const { jobId, source, compare, query } = useAnalyticsFilters()
 
 // ─────────────────────────────────────────────
 // Данные
@@ -209,47 +189,14 @@ const tthChartOption = computed(() => {
     </div>
 
     <!-- Фильтры (sticky) -->
-    <div class="sticky top-0 z-10 -mx-1 px-1 py-2 bg-surface-50/95 dark:bg-surface-950/95 backdrop-blur border-b border-surface-200/60 dark:border-surface-800/60">
-      <div class="flex flex-wrap items-center gap-2">
-        <FilterIcon class="w-4 h-4 text-surface-400 shrink-0" />
-        <div class="flex rounded-lg border border-surface-200 dark:border-surface-700 overflow-hidden">
-          <button
-            v-for="opt in periodOptions"
-            :key="opt.value"
-            class="px-3 py-1.5 text-xs font-medium transition-colors"
-            :class="periodPreset === opt.value
-              ? 'bg-primary-600 text-white'
-              : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            @click="periodPreset = opt.value"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-        <template v-if="periodPreset === 'custom'">
-          <input v-model="customFrom" type="date" class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1.5 text-xs text-surface-700 dark:text-surface-300">
-          <span class="text-xs text-surface-400">—</span>
-          <input v-model="customTo" type="date" class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-2 py-1.5 text-xs text-surface-700 dark:text-surface-300">
-        </template>
-        <select
-          v-model="jobId"
-          class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300 max-w-56"
-        >
-          <option :value="undefined">Все вакансии</option>
-          <option v-for="j in jobs" :key="j.id" :value="j.id">{{ j.title }}</option>
-        </select>
-        <select
-          v-model="source"
-          class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300"
-        >
-          <option v-for="opt in sourceOptions" :key="opt.value" :value="opt.value || undefined">{{ opt.label }}</option>
-        </select>
+    <AnalyticsFilterBar show-job show-source>
+      <template #extra>
         <label class="flex items-center gap-1.5 text-xs text-surface-600 dark:text-surface-400 cursor-pointer select-none">
           <input v-model="compare" type="checkbox" class="rounded border-surface-300 dark:border-surface-600 text-primary-600 focus:ring-primary-500">
           Сравнить с пред. периодом
         </label>
-        <div class="ml-auto"><AnalyticsPresetSelector /></div>
-      </div>
-    </div>
+      </template>
+    </AnalyticsFilterBar>
 
     <!-- Ошибка -->
     <div

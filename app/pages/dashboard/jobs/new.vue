@@ -95,6 +95,7 @@ const form = ref({
   pipelineId: undefined as string | undefined,
   companyId: '' as string,
   departmentId: '' as string,
+  headcount: 1 as number,
 })
 
 // ── Компании (юрлица) и подразделения ──
@@ -770,6 +771,7 @@ async function handleSubmit(mode: 'publish' | 'draft' = publishChoice.value) {
       remoteStatus: form.value.remoteStatus || undefined,
       companyId: form.value.companyId || null,
       departmentId: form.value.departmentId || null,
+      headcount: form.value.headcount || 1,
       requireResume: applicationForm.value.requireResume,
       requireCoverLetter: applicationForm.value.requireCoverLetter,
       autoScoreOnApply: autoScoreOnApply.value,
@@ -1141,6 +1143,18 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                       <option value="senior">{{ t('dashboard.jobs.new.expSenior') }}</option>
                       <option value="lead">{{ t('dashboard.jobs.new.expLead') }}</option>
                     </select>
+                  </div>
+                  <div>
+                    <label for="headcount" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Число позиций</label>
+                    <input
+                      id="headcount"
+                      v-model.number="form.headcount"
+                      type="number"
+                      min="1"
+                      max="999"
+                      class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 border-surface-300 dark:border-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                    >
+                    <p class="text-xs text-surface-400 mt-1">Сколько человек нужно нанять на эту вакансию</p>
                   </div>
                   <div>
                     <label for="remoteStatus" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{{ t('dashboard.jobs.new.labelRemoteStatus') }}</label>

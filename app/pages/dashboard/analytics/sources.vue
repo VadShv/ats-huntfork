@@ -1,21 +1,12 @@
 <script setup lang="ts">
-import { ChartNoAxesCombined, AlertCircle, RefreshCw, Filter as FilterIcon, Link2, ExternalLink, Globe } from 'lucide-vue-next'
+import { ChartNoAxesCombined, AlertCircle, RefreshCw, Link2, ExternalLink, Globe } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'require-org'] })
 useSeoMeta({ title: 'Аналитика подбора — Источники', description: 'Конверсия по источникам привлечения, каналы, CTR, атрибуция' })
 
 const localePath = useLocalePath()
 import { useAnalyticsFilters } from '~/composables/useAnalyticsFilters'
-const { periodPreset, jobId, query } = useAnalyticsFilters()
-
-const periodOptions = [
-  { value: '7d' as const, label: '7 дней' },
-  { value: '30d' as const, label: '30 дней' },
-  { value: '90d' as const, label: '90 дней' },
-]
-
-const { data: jobsData } = useFetch('/api/jobs', { key: 'analytics-jobs', headers: useRequestHeaders(['cookie']), query: { limit: 100 } })
-const jobs = computed(() => (jobsData.value as any)?.data ?? [])
+const { query } = useAnalyticsFilters()
 
 const { data: sources, status: sStatus, error: sError, refresh: refreshS } = useFetch('/api/analytics/sources/overview', {
   key: 'analytics-sources-overview',
@@ -75,6 +66,19 @@ const drill = ref<{ url: string, query: Record<string, string>, title: string } 
 function openDrill(channel: string) {
   drill.value = { url: '/api/analytics/sources/candidates', query: { ...query.value, source: channel }, title: `Отклики — ${channelLabel(channel)}` }
 }
+
+// Последние атрибутированные отклики (пагинация)
+const { formatPersonName, formatDateTime } = useOrgSettings()
+const attrPage = ref(1)
+watch(query, () => { attrPage.value = 1 })
+const { data: attributed } = useFetch('/api/analytics/sources/attributed', {
+  key: 'analytics-sources-attributed',
+  headers: useRequestHeaders(['cookie']),
+  query: computed(() => ({ ...query.value, page: String(attrPage.value), limit: '15' })),
+})
+const attrItems = computed<any[]>(() => (attributed.value as any)?.items ?? [])
+const attrTotal = computed(() => (attributed.value as any)?.total ?? 0)
+const attrPages = computed(() => Math.max(1, Math.ceil(attrTotal.value / 15)))
 </script>
 
 <template>
@@ -94,27 +98,13 @@ function openDrill(channel: string) {
       <AnalyticsNav />
     </div>
 
-    <div class="sticky top-0 z-10 -mx-1 px-1 py-2 bg-surface-50/95 dark:bg-surface-950/95 backdrop-blur border-b border-surface-200/60 dark:border-surface-800/60">
-      <div class="flex flex-wrap items-center gap-2">
-        <FilterIcon class="w-4 h-4 text-surface-400 shrink-0" />
-        <div class="flex rounded-lg border border-surface-200 dark:border-surface-700 overflow-hidden">
-          <button v-for="opt in periodOptions" :key="opt.value"
-            class="px-3 py-1.5 text-xs font-medium transition-colors"
-            :class="periodPreset === opt.value ? 'bg-primary-600 text-white' : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            @click="periodPreset = opt.value">{{ opt.label }}</button>
-        </div>
-        <select v-model="jobId" class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300 max-w-56">
-          <option :value="undefined">Все вакансии</option>
-          <option v-for="j in jobs" :key="j.id" :value="j.id">{{ j.title }}</option>
-        </select>
-        <div class="ml-auto flex items-center gap-2">
-          <NuxtLink :to="localePath('/dashboard/source-tracking')" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800">
-            <Link2 class="w-3.5 h-3.5" /> Управление ссылками →
-          </NuxtLink>
-          <AnalyticsPresetSelector />
-        </div>
-      </div>
-    </div>
+    <AnalyticsFilterBar show-job>
+      <template #actions>
+        <NuxtLink :to="localePath('/dashboard/source-tracking')" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800">
+          <Link2 class="w-3.5 h-3.5" /> Управление ссылками →
+        </NuxtLink>
+      </template>
+    </AnalyticsFilterBar>
 
     <div v-if="sError" class="rounded-2xl border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950/60 p-5 text-sm text-danger-700 dark:text-danger-400 flex items-center gap-3">
       <AlertCircle class="w-5 h-5 shrink-0" />
@@ -216,6 +206,31 @@ function openDrill(channel: string) {
           <span v-for="r in referrers" :key="r.domain" class="inline-flex items-center gap-1.5 rounded-lg bg-surface-100 dark:bg-surface-800 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300">
             {{ r.domain }} <span class="tabular-nums font-medium text-surface-500">{{ r.count }}</span>
           </span>
+        </div>
+      </div>
+
+      <!-- Последние атрибутированные отклики -->
+      <div v-if="attrItems.length" class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none">
+        <div class="px-5 py-4 border-b border-surface-100 dark:border-surface-800 flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-50">Последние атрибутированные <span class="text-surface-400 font-normal">({{ attrTotal }})</span></h2>
+        </div>
+        <ul class="divide-y divide-surface-50 dark:divide-surface-800/60">
+          <li v-for="a in attrItems" :key="a.applicationId">
+            <NuxtLink :to="localePath(`/dashboard/applications/${a.applicationId}`)" class="flex items-center gap-3 px-5 py-3 hover:bg-surface-50 dark:hover:bg-surface-800/50">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{{ formatPersonName(a.candidateFirstName, a.candidateLastName) }}</p>
+                <p class="text-xs text-surface-500 dark:text-surface-400 truncate">
+                  {{ channelLabel(a.channel) }}<span v-if="a.source"> · {{ a.source }}</span><span v-if="a.jobTitle"> · {{ a.jobTitle }}</span>
+                </p>
+              </div>
+              <span v-if="a.changedAt" class="text-xs text-surface-400 shrink-0">{{ formatDateTime(a.changedAt) }}</span>
+            </NuxtLink>
+          </li>
+        </ul>
+        <div v-if="attrPages > 1" class="px-5 py-3 border-t border-surface-100 dark:border-surface-800 flex items-center justify-between">
+          <button class="inline-flex items-center gap-1 text-xs font-medium text-surface-600 dark:text-surface-400 disabled:opacity-40" :disabled="attrPage <= 1" @click="attrPage--">Назад</button>
+          <span class="text-xs text-surface-400 tabular-nums">{{ attrPage }} / {{ attrPages }}</span>
+          <button class="inline-flex items-center gap-1 text-xs font-medium text-surface-600 dark:text-surface-400 disabled:opacity-40" :disabled="attrPage >= attrPages" @click="attrPage++">Вперёд</button>
         </div>
       </div>
     </template>

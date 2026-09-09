@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ChartNoAxesCombined, AlertCircle, RefreshCw, Filter as FilterIcon,
+  ChartNoAxesCombined, AlertCircle, RefreshCw,
   Briefcase, Clock, Timer, Users, BadgeCheck, UserX, AlertTriangle, Download,
 } from 'lucide-vue-next'
 
@@ -17,26 +17,7 @@ useSeoMeta({
 const localePath = useLocalePath()
 
 import { useAnalyticsFilters } from '~/composables/useAnalyticsFilters'
-const { periodPreset, jobId, source, query } = useAnalyticsFilters()
-
-const periodOptions = [
-  { value: '7d' as const, label: '7 дней' },
-  { value: '30d' as const, label: '30 дней' },
-  { value: '90d' as const, label: '90 дней' },
-]
-
-const sourceOptions = [
-  { value: '', label: 'Все источники' },
-  { value: 'hh', label: 'hh.ru' },
-  { value: 'manual', label: 'Вручную' },
-]
-
-const { data: jobsData } = useFetch('/api/jobs', {
-  key: 'analytics-jobs',
-  headers: useRequestHeaders(['cookie']),
-  query: { limit: 100 },
-})
-const jobs = computed(() => (jobsData.value as any)?.data ?? [])
+const { query } = useAnalyticsFilters()
 
 const sort = ref<'daysOpen' | 'timeToFill' | 'hires' | 'stuck' | 'createdAt'>('daysOpen')
 
@@ -130,29 +111,8 @@ const agingChartOption = computed(() => {
     </div>
 
     <!-- Фильтры -->
-    <div class="sticky top-0 z-10 -mx-1 px-1 py-2 bg-surface-50/95 dark:bg-surface-950/95 backdrop-blur border-b border-surface-200/60 dark:border-surface-800/60">
-      <div class="flex flex-wrap items-center gap-2">
-        <FilterIcon class="w-4 h-4 text-surface-400 shrink-0" />
-        <div class="flex rounded-lg border border-surface-200 dark:border-surface-700 overflow-hidden">
-          <button
-            v-for="opt in periodOptions"
-            :key="opt.value"
-            class="px-3 py-1.5 text-xs font-medium transition-colors"
-            :class="periodPreset === opt.value
-              ? 'bg-primary-600 text-white'
-              : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            @click="periodPreset = opt.value"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-        <select v-model="jobId" class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300 max-w-56">
-          <option :value="undefined">Все вакансии</option>
-          <option v-for="j in jobs" :key="j.id" :value="j.id">{{ j.title }}</option>
-        </select>
-        <select v-model="source" class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300">
-          <option v-for="opt in sourceOptions" :key="opt.value" :value="opt.value || undefined">{{ opt.label }}</option>
-        </select>
+    <AnalyticsFilterBar show-job show-source>
+      <template #extra>
         <select v-model="sort" class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300">
           <option value="daysOpen">Сортировка: Дней открыта</option>
           <option value="timeToFill">Сортировка: Срок закрытия</option>
@@ -160,17 +120,16 @@ const agingChartOption = computed(() => {
           <option value="stuck">Сортировка: Застрявшие</option>
           <option value="createdAt">Сортировка: Создана</option>
         </select>
-        <div class="ml-auto flex items-center gap-2">
-          <a :href="exportUrl('xlsx')" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800">
-            <Download class="w-3.5 h-3.5" /> Excel
-          </a>
-          <a :href="exportUrl('csv')" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800">
-            CSV
-          </a>
-          <AnalyticsPresetSelector />
-        </div>
-      </div>
-    </div>
+      </template>
+      <template #actions>
+        <a :href="exportUrl('xlsx')" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800">
+          <Download class="w-3.5 h-3.5" /> Excel
+        </a>
+        <a :href="exportUrl('csv')" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800">
+          CSV
+        </a>
+      </template>
+    </AnalyticsFilterBar>
 
     <!-- Ошибка -->
     <div v-if="vacError" class="rounded-2xl border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950/60 p-5 text-sm text-danger-700 dark:text-danger-400 flex items-center gap-3">

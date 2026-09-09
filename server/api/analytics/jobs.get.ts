@@ -167,13 +167,20 @@ export default defineEventHandler(async (event) => {
   })
 
   // ── Aging matrix: распределение по бакетам дней × статус (для heatmap) ──
-  // matrix[statusRow][bucketCol] = count; статусы: 0=Открытые (daysOpen), 1=Закрытые (timeToFill)
+  // Учитывает период: строка 0 = открытые сейчас (по «дней открыта»);
+  // строка 1 = закрытые ИМЕННО в выбранном периоде (closedAt ∈ [from, to)).
+  // matrix[statusRow][bucketCol] = count
+  const periodFromMs = new Date(period.from).getTime()
+  const periodToMs = new Date(period.to).getTime()
   const agingMatrix: number[][] = [Array(5).fill(0), Array(5).fill(0)]
   for (const it of items) {
     if (it.status === 'open' && it.daysOpen != null) {
       agingMatrix[0]![agingBucketIndex(it.daysOpen)]!++
-    } else if (it.status === 'closed' && it.timeToFill != null) {
-      agingMatrix[1]![agingBucketIndex(it.timeToFill)]!++
+    } else if (it.status === 'closed' && it.timeToFill != null && it.closedAt) {
+      const closedMs = new Date(it.closedAt).getTime()
+      if (closedMs >= periodFromMs && closedMs < periodToMs) {
+        agingMatrix[1]![agingBucketIndex(it.timeToFill)]!++
+      }
     }
   }
 
@@ -181,6 +188,6 @@ export default defineEventHandler(async (event) => {
     period: { from: period.from, to: period.to },
     refreshedAt: analyticsRefreshState.lastRefreshAt?.toISOString() ?? null,
     items,
-    aging: { bucketLabels: AGING_BUCKET_LABELS, rowLabels: ['Открытые (дней открыта)', 'Закрытые (срок закрытия)'], matrix: agingMatrix },
+    aging: { bucketLabels: AGING_BUCKET_LABELS, rowLabels: ['Открытые (дней открыта)', 'Закрытые в периоде (срок закрытия)'], matrix: agingMatrix },
   }
 })

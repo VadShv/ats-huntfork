@@ -1,23 +1,12 @@
 <script setup lang="ts">
-import { ChartNoAxesCombined, AlertCircle, RefreshCw, Filter as FilterIcon, Users, BadgeCheck, UserX, Briefcase, Activity, Timer } from 'lucide-vue-next'
+import { ChartNoAxesCombined, AlertCircle, RefreshCw, Users, BadgeCheck, UserX, Briefcase, Activity, Timer } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'require-org'] })
 useSeoMeta({ title: 'Аналитика подбора — Рекрутеры', description: 'Продуктивность рекрутеров: наймы, нагрузка, время закрытия' })
 
 const localePath = useLocalePath()
 import { useAnalyticsFilters } from '~/composables/useAnalyticsFilters'
-const { periodPreset, source, query } = useAnalyticsFilters()
-
-const periodOptions = [
-  { value: '7d' as const, label: '7 дней' },
-  { value: '30d' as const, label: '30 дней' },
-  { value: '90d' as const, label: '90 дней' },
-]
-const sourceOptions = [
-  { value: '', label: 'Все источники' },
-  { value: 'hh', label: 'hh.ru' },
-  { value: 'manual', label: 'Вручную' },
-]
+const { query } = useAnalyticsFilters()
 
 const { data: recruiters, status: rStatus, error: rError, refresh: refreshR } = useFetch('/api/analytics/recruiters', {
   key: 'analytics-recruiters',
@@ -83,21 +72,7 @@ const hireChartOption = computed(() => {
       <AnalyticsNav />
     </div>
 
-    <div class="sticky top-0 z-10 -mx-1 px-1 py-2 bg-surface-50/95 dark:bg-surface-950/95 backdrop-blur border-b border-surface-200/60 dark:border-surface-800/60">
-      <div class="flex flex-wrap items-center gap-2">
-        <FilterIcon class="w-4 h-4 text-surface-400 shrink-0" />
-        <div class="flex rounded-lg border border-surface-200 dark:border-surface-700 overflow-hidden">
-          <button v-for="opt in periodOptions" :key="opt.value"
-            class="px-3 py-1.5 text-xs font-medium transition-colors"
-            :class="periodPreset === opt.value ? 'bg-primary-600 text-white' : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
-            @click="periodPreset = opt.value">{{ opt.label }}</button>
-        </div>
-        <select v-model="source" class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-300">
-          <option v-for="opt in sourceOptions" :key="opt.value" :value="opt.value || undefined">{{ opt.label }}</option>
-        </select>
-        <div class="ml-auto"><AnalyticsPresetSelector /></div>
-      </div>
-    </div>
+    <AnalyticsFilterBar show-source />
 
     <div v-if="rError" class="rounded-2xl border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950/60 p-5 text-sm text-danger-700 dark:text-danger-400 flex items-center gap-3">
       <AlertCircle class="w-5 h-5 shrink-0" />

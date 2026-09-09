@@ -37,6 +37,7 @@ export default defineEventHandler(async (event) => {
       experienceLevel: true,
       companyId: true,
       departmentId: true,
+      headcount: true,
       pipelineId: true,
       createdAt: true,
       updatedAt: true,
