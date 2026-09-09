@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { db } from '../../../utils/db'
-import { analyticsQuerySchema, resolvePeriod, mvFilterConditions, andAll } from '../../../utils/analytics/filters'
+import { analyticsQuerySchema, resolvePeriod, andAll } from '../../../utils/analytics/filters'
 
 const dropoffQuerySchema = analyticsQuerySchema.extend({
   stageId: z.string().min(1),
@@ -25,17 +25,32 @@ export default defineEventHandler(async (event) => {
   const { from, to } = resolvePeriod(q)
   const offset = (q.page - 1) * q.limit
 
-  const conds = [
-    ...mvFilterConditions('v', orgId, q),
-    sql`v.root_stage_id = ${q.stageId}`,
-    sql`next_ps.bucket = 'rejected'`,
-    sql`v.exited_at >= ${from}`,
-    sql`v.exited_at < ${to}`,
+  // Когортная семантика (согласовано с funnel.get.ts rejectedFromStage[X]):
+  // отклики когорты (created_at ∈ период), достигшие root-этапа stageId
+  // и ушедшие С него в rejected-ветку. DISTINCT по application_id (устойчиво
+  // к повторным визитам). total == rejectedFromStage[stageId] из воронки.
+  const cohortConds = [
+    sql`a.organization_id = ${orgId}`,
+    sql`a.created_at >= ${from}`,
+    sql`a.created_at < ${to}`,
   ]
+  if (q.jobId) cohortConds.push(sql`a.job_id = ${q.jobId}`)
+  if (q.source) cohortConds.push(sql`a.source = ${q.source}`)
+  if (q.pipelineId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.pipeline_id = ${q.pipelineId})`)
+  if (q.recruiterId) {
+    cohortConds.push(sql`a.job_id IN (SELECT jm.job_id FROM job_member jm WHERE jm.user_id = ${q.recruiterId} AND jm.member_role = 'recruiter')`)
+  }
+  if (q.departmentId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.department_id = ${q.departmentId})`)
+  if (q.companyId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.company_id = ${q.companyId})`)
+  const cohortSQL = sql`SELECT a.id FROM application a WHERE ${andAll(cohortConds)}`
+
+  const dropCond = sql`v.application_id IN (${cohortSQL})
+    AND v.root_stage_id = ${q.stageId}
+    AND next_ps.bucket = 'rejected'`
 
   const [rows, countRows]: any[] = await Promise.all([
     db.execute(sql`
-      SELECT
+      SELECT DISTINCT ON (v.application_id)
         v.application_id,
         v.exited_at,
         c.id AS candidate_id,
@@ -50,15 +65,15 @@ export default defineEventHandler(async (event) => {
       JOIN candidate c ON c.id = v.candidate_id
       JOIN job j ON j.id = v.job_id
       LEFT JOIN "user" u ON u.id = v.moved_by
-      WHERE ${andAll(conds)}
-      ORDER BY v.exited_at DESC
+      WHERE ${dropCond}
+      ORDER BY v.application_id, v.exited_at DESC
       LIMIT ${q.limit} OFFSET ${offset}
     `),
     db.execute(sql`
-      SELECT count(*)::int AS cnt
+      SELECT count(DISTINCT v.application_id)::int AS cnt
       FROM mv_application_stage_durations v
       JOIN pipeline_stage next_ps ON next_ps.id = v.next_stage_id
-      WHERE ${andAll(conds)}
+      WHERE ${dropCond}
     `),
   ])
 

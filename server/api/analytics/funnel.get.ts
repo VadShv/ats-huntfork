@@ -74,22 +74,64 @@ export default defineEventHandler(async (event) => {
     .orderBy(pipelineStage.displayOrder)
 
   const workingRoots = roots.filter(r => r.bucket === 'working' && !r.isHidden)
-  const orderByRootId = new Map(roots.map(r => [r.id, r.displayOrder]))
 
-  // ── Агрегаты mv по root-этапам (в границах воронки) ───────────────────────
+  // ── Когортная reached-модель ──────────────────────────────────────────────
+  // Когорта = отклики, СОЗДАННЫЕ в периоде (application.created_at ∈ [from,to)),
+  // в границах воронки + фильтров + scope. reached[X] = сколько из когорты
+  // когда-либо имели визит на root-этап X. Конверсии — по людям (DISTINCT),
+  // монотонно убывают. current — отдельный snapshot «сейчас» (вне периода).
   const mvConds = mvFilterConditions('v', orgId, { ...q, pipelineId })
   if (scopeCond) mvConds.push(scopeCond)
   const { from, to } = period
 
-  const [enteredRows, currentRows, exitRows, durationRows, transitionRows]: any[] = await Promise.all([
+  // Условия принадлежности когорте на уровне application (alias 'a').
+  // Переиспользуем те же фильтры, но по job_id/source из application.
+  const cohortConds = [
+    sql`a.organization_id = ${orgId}`,
+    sql`a.created_at >= ${from}`,
+    sql`a.created_at < ${to}`,
+  ]
+  if (q.jobId) cohortConds.push(sql`a.job_id = ${q.jobId}`)
+  if (q.source) cohortConds.push(sql`a.source = ${q.source}`)
+  if (q.recruiterId) {
+    cohortConds.push(sql`a.job_id IN (
+      SELECT jm.job_id FROM job_member jm
+      WHERE jm.user_id = ${q.recruiterId} AND jm.member_role = 'recruiter'
+    )`)
+  }
+  if (q.departmentId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.department_id = ${q.departmentId})`)
+  if (q.companyId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.company_id = ${q.companyId})`)
+  if (scope.scoped) {
+    cohortConds.push(scope.jobIds.length === 0
+      ? sql`a.job_id = '__none__'`
+      : sql`a.job_id IN (${sql.join(scope.jobIds.map(id => sql`${id}`), sql`, `)})`)
+  }
+  // Ограничиваем когорту вакансиями целевой воронки (консистентно с pipelineId).
+  cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.pipeline_id = ${pipelineId})`)
+  const cohortSQL = sql`SELECT a.id FROM application a WHERE ${andAll(cohortConds)}`
+
+  const [cohortRow, reachedRows, rejectedFromRows, currentRows, durationRows, transitionRows]: any[] = await Promise.all([
+    // Размер когорты (знаменатель conversionFromStart)
+    db.execute(sql`SELECT count(*)::int AS cnt FROM (${cohortSQL}) c`),
+
+    // reached[root] = откликов когорты, имевших визит на root-этап (working+rejected)
     db.execute(sql`
       SELECT v.root_stage_id, count(DISTINCT v.application_id)::int AS cnt
       FROM mv_application_stage_durations v
-      WHERE ${andAll([...mvConds, sql`v.entered_at >= ${from}`, sql`v.entered_at < ${to}`])}
+      WHERE v.application_id IN (${cohortSQL})
       GROUP BY v.root_stage_id
     `),
 
-    // «Сейчас на этапе» — открытые визиты, сверенные с фактическим текущим этапом
+    // rejectedFromStage[X] = когорта, достигшая X и ушедшая С X в rejected-ветку
+    db.execute(sql`
+      SELECT v.root_stage_id, count(DISTINCT v.application_id)::int AS cnt
+      FROM mv_application_stage_durations v
+      JOIN pipeline_stage next_ps ON next_ps.id = v.next_stage_id
+      WHERE v.application_id IN (${cohortSQL}) AND next_ps.bucket = 'rejected'
+      GROUP BY v.root_stage_id
+    `),
+
+    // current — snapshot «сейчас на этапе» (открытые визиты, БЕЗ периода/когорты)
     db.execute(sql`
       SELECT v.root_stage_id, count(DISTINCT v.application_id)::int AS cnt
       FROM mv_application_stage_durations v
@@ -98,22 +140,7 @@ export default defineEventHandler(async (event) => {
       GROUP BY v.root_stage_id
     `),
 
-    // Уходы с этапа за период: суммарно + вперёд + в отказ (по root целевого этапа)
-    db.execute(sql`
-      SELECT
-        v.root_stage_id,
-        next_root.id AS next_root_id,
-        next_root.bucket AS next_bucket,
-        next_root.display_order AS next_order,
-        count(*)::int AS cnt
-      FROM mv_application_stage_durations v
-      JOIN pipeline_stage next_ps ON next_ps.id = v.next_stage_id
-      JOIN pipeline_stage next_root ON next_root.id = COALESCE(next_ps.parent_stage_id, next_ps.id)
-      WHERE ${andAll([...mvConds, sql`v.exited_at >= ${from}`, sql`v.exited_at < ${to}`])}
-      GROUP BY v.root_stage_id, next_root.id, next_root.bucket, next_root.display_order
-    `),
-
-    // Длительность визитов, завершённых за период
+    // Длительность визитов когорты (по завершённым визитам на этапе)
     db.execute(sql`
       SELECT
         v.root_stage_id,
@@ -121,11 +148,11 @@ export default defineEventHandler(async (event) => {
         percentile_cont(0.5) WITHIN GROUP (ORDER BY v.duration_hours) AS median_hours,
         percentile_cont(0.9) WITHIN GROUP (ORDER BY v.duration_hours) AS p90_hours
       FROM mv_application_stage_durations v
-      WHERE ${andAll([...mvConds, sql`v.exited_at >= ${from}`, sql`v.exited_at < ${to}`, sql`v.duration_hours IS NOT NULL`])}
+      WHERE v.application_id IN (${cohortSQL}) AND v.duration_hours IS NOT NULL
       GROUP BY v.root_stage_id
     `),
 
-    // Матрица переходов from_root → to_root за период
+    // Матрица переходов from_root → to_root среди когорты (для sankey)
     db.execute(sql`
       SELECT
         v.root_stage_id AS from_root_id,
@@ -133,32 +160,25 @@ export default defineEventHandler(async (event) => {
         count(*)::int AS cnt
       FROM mv_application_stage_durations v
       JOIN pipeline_stage next_ps ON next_ps.id = v.next_stage_id
-      WHERE ${andAll([...mvConds, sql`v.exited_at >= ${from}`, sql`v.exited_at < ${to}`])}
+      WHERE v.application_id IN (${cohortSQL})
       GROUP BY v.root_stage_id, COALESCE(next_ps.parent_stage_id, next_ps.id)
     `),
   ])
 
-  const enteredByRoot = new Map<string, number>(enteredRows.map((r: any) => [r.root_stage_id, r.cnt]))
+  const cohortSize = cohortRow[0]?.cnt ?? 0
+  const reachedByRoot = new Map<string, number>(reachedRows.map((r: any) => [r.root_stage_id, r.cnt]))
+  const rejectedFromByRoot = new Map<string, number>(rejectedFromRows.map((r: any) => [r.root_stage_id, r.cnt]))
   const currentByRoot = new Map<string, number>(currentRows.map((r: any) => [r.root_stage_id, r.cnt]))
   const durationByRoot = new Map<string, any>(durationRows.map((r: any) => [r.root_stage_id, r]))
 
-  // Уходы: группируем по исходному root
-  const exitsByRoot = new Map<string, { total: number, forward: number, rejected: number, backward: number }>()
-  for (const r of exitRows) {
-    const agg = exitsByRoot.get(r.root_stage_id) ?? { total: 0, forward: 0, rejected: 0, backward: 0 }
-    agg.total += r.cnt
-    if (r.next_bucket === 'rejected') agg.rejected += r.cnt
-    else if ((orderByRootId.get(r.root_stage_id) ?? 0) < r.next_order) agg.forward += r.cnt
-    else agg.backward += r.cnt
-    exitsByRoot.set(r.root_stage_id, agg)
-  }
+  const clamp1 = (v: number) => (v > 1 ? 1 : v)
 
-  const firstEntered = workingRoots.length ? (enteredByRoot.get(workingRoots[0]!.id) ?? 0) : 0
-
-  const stages = workingRoots.map((r) => {
-    const exits = exitsByRoot.get(r.id) ?? { total: 0, forward: 0, rejected: 0, backward: 0 }
+  const stages = workingRoots.map((r, idx) => {
     const dur = durationByRoot.get(r.id)
-    const entered = enteredByRoot.get(r.id) ?? 0
+    const reached = reachedByRoot.get(r.id) ?? 0
+    // Следующий видимый working-root (по порядку) для conversionNext / drop
+    const nextRoot = workingRoots[idx + 1]
+    const nextReached = nextRoot ? (reachedByRoot.get(nextRoot.id) ?? 0) : null
     return {
       id: r.id,
       name: r.name,
@@ -167,14 +187,13 @@ export default defineEventHandler(async (event) => {
       displayOrder: r.displayOrder,
       slaDays: r.slaDays,
       slaAlertDays: r.slaAlertDays,
-      entered,
+      reached,
       current: currentByRoot.get(r.id) ?? 0,
-      exitsTotal: exits.total,
-      exitsForward: exits.forward,
-      exitsRejected: exits.rejected,
-      exitsBackward: exits.backward,
-      conversionNext: exits.total > 0 ? Math.round((exits.forward / exits.total) * 1000) / 1000 : null,
-      conversionFromStart: firstEntered > 0 ? Math.round((entered / firstEntered) * 1000) / 1000 : null,
+      // Отвал: достигли X, но не дошли до следующего working-этапа
+      drop: nextReached != null ? Math.max(0, reached - nextReached) : null,
+      rejectedFromStage: rejectedFromByRoot.get(r.id) ?? 0,
+      conversionNext: nextReached != null && reached > 0 ? Math.round(clamp1(nextReached / reached) * 1000) / 1000 : null,
+      conversionFromStart: cohortSize > 0 ? Math.round(clamp1(reached / cohortSize) * 1000) / 1000 : null,
       avgHours: dur?.avg_hours != null ? Math.round(Number(dur.avg_hours) * 10) / 10 : null,
       medianHours: dur?.median_hours != null ? Math.round(Number(dur.median_hours) * 10) / 10 : null,
       p90Hours: dur?.p90_hours != null ? Math.round(Number(dur.p90_hours) * 10) / 10 : null,
@@ -195,6 +214,8 @@ export default defineEventHandler(async (event) => {
 
   return {
     pipelineId,
+    pipelineScope: q.pipelineId ? 'explicit' : (q.jobId ? 'job' : 'default'),
+    cohortSize,
     period: { from, to },
     refreshedAt: analyticsRefreshState.lastRefreshAt?.toISOString() ?? null,
     stages,

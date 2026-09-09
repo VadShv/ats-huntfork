@@ -59,12 +59,14 @@ const refreshedAtLabel = computed(() => {
   return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 })
 
-const maxEntered = computed(() =>
-  Math.max(1, ...stages.value.map((s: any) => s.entered ?? 0)),
+const cohortSize = computed(() => (funnel.value as any)?.cohortSize ?? 0)
+
+const maxReached = computed(() =>
+  Math.max(1, ...stages.value.map((s: any) => s.reached ?? 0)),
 )
 
-function barWidth(entered: number) {
-  return `${Math.max(2, Math.round((entered / maxEntered.value) * 100))}%`
+function barWidth(reached: number) {
+  return `${Math.max(2, Math.round((reached / maxReached.value) * 100))}%`
 }
 
 function fmtHours(hours: number | null) {
@@ -265,11 +267,16 @@ const trendChartOption = computed(() => {
     <template v-else>
       <!-- Воронка -->
       <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none">
-        <div class="px-5 py-4 border-b border-surface-100 dark:border-surface-800">
-          <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-50">Воронка по этапам</h2>
-          <p class="text-xs text-surface-400 dark:text-surface-500 mt-0.5">
-            Клик по этапу — список отсеянных с него. Конверсия = ушли дальше / всего покинувших этап.
-          </p>
+        <div class="px-5 py-4 border-b border-surface-100 dark:border-surface-800 flex items-start justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-50">Воронка по этапам</h2>
+            <p class="text-xs text-surface-400 dark:text-surface-500 mt-0.5">
+              Когорта откликов периода. «Дошло» = сколько из них когда-либо достигли этапа. Конверсия = дошло дальше / дошло сюда.
+            </p>
+          </div>
+          <span class="text-xs text-surface-500 dark:text-surface-400 tabular-nums shrink-0 whitespace-nowrap">
+            когорта: {{ cohortSize }}
+          </span>
         </div>
         <div class="p-5 space-y-3">
           <button
@@ -284,19 +291,19 @@ const trendChartOption = computed(() => {
                 <span v-if="dropoffStage?.id === stage.id" class="text-primary-600 dark:text-primary-400 text-xs ml-1">— отсеянные ниже</span>
               </span>
               <span class="text-xs text-surface-400 dark:text-surface-500 tabular-nums shrink-0">
-                сейчас: {{ stage.current }} · медиана: {{ fmtHours(stage.medianHours) }}
+                сейчас: {{ stage.current }} (вне периода) · медиана: {{ fmtHours(stage.medianHours) }}
               </span>
             </div>
             <div class="relative h-9 rounded-lg bg-surface-100 dark:bg-surface-800 overflow-hidden">
               <div
                 class="absolute inset-y-0 left-0 rounded-lg transition-all group-hover:opacity-90"
-                :style="{ width: barWidth(stage.entered), backgroundColor: stage.color || '#3b82f6' }"
+                :style="{ width: barWidth(stage.reached), backgroundColor: stage.color || '#3b82f6' }"
               />
               <div class="absolute inset-0 flex items-center justify-between px-3">
-                <span class="text-xs font-semibold text-white mix-blend-difference tabular-nums">{{ stage.entered }} вошло</span>
+                <span class="text-xs font-semibold text-white mix-blend-difference tabular-nums">{{ stage.reached }} дошло</span>
                 <span class="text-xs text-surface-500 dark:text-surface-400 tabular-nums">
-                  дальше: {{ fmtPct(stage.conversionNext) }} · от входа: {{ fmtPct(stage.conversionFromStart) }}
-                  <span v-if="stage.exitsRejected" class="text-danger-500">· отказ: {{ stage.exitsRejected }}</span>
+                  дальше: {{ fmtPct(stage.conversionNext) }} · от старта: {{ fmtPct(stage.conversionFromStart) }}
+                  <span v-if="stage.rejectedFromStage" class="text-danger-500">· отказ: {{ stage.rejectedFromStage }}</span>
                 </span>
               </div>
             </div>

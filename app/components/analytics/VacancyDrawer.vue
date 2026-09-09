@@ -27,8 +27,8 @@ const stages = computed<any[]>(() => (data.value as any)?.stages ?? [])
 const transitions = computed<any[]>(() => (data.value as any)?.transitions ?? [])
 const isLoading = computed(() => status.value === 'pending' && !data.value)
 
-const maxEntered = computed(() => Math.max(1, ...stages.value.map(s => s.entered ?? 0)))
-function barWidth(e: number) { return `${Math.max(2, Math.round((e / maxEntered.value) * 100))}%` }
+const maxReached = computed(() => Math.max(1, ...stages.value.map(s => s.reached ?? 0)))
+function barWidth(e: number) { return `${Math.max(2, Math.round((e / maxReached.value) * 100))}%` }
 function fmtHours(h: number | null) {
   if (h == null) return '—'
   if (h >= 48) return `${Math.round((h / 24) * 10) / 10} дн`
@@ -120,9 +120,9 @@ const statusLabels: Record<string, string> = { draft: 'Черновик', open: 
                     <span class="text-xs text-surface-400 tabular-nums shrink-0">сейчас: {{ s.current }} · медиана: {{ fmtHours(s.medianHours) }}</span>
                   </div>
                   <div class="relative h-8 rounded-lg bg-surface-100 dark:bg-surface-800 overflow-hidden">
-                    <div class="absolute inset-y-0 left-0 rounded-lg" :style="{ width: barWidth(s.entered), backgroundColor: s.color || '#3b82f6' }" />
+                    <div class="absolute inset-y-0 left-0 rounded-lg" :style="{ width: barWidth(s.reached), backgroundColor: s.color || '#3b82f6' }" />
                     <div class="absolute inset-0 flex items-center justify-between px-3">
-                      <span class="text-xs font-semibold text-white mix-blend-difference tabular-nums">{{ s.entered }} вошло</span>
+                      <span class="text-xs font-semibold text-white mix-blend-difference tabular-nums">{{ s.reached }} дошло</span>
                       <span class="text-xs text-surface-500 dark:text-surface-400 tabular-nums">дальше: {{ fmtPct(s.conversionNext) }}</span>
                     </div>
                   </div>
