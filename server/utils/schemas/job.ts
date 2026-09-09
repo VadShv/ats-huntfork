@@ -39,6 +39,8 @@ export const createJobSchema = z.object({
   companyId: z.string().nullable().optional(),
   /** Подразделение — проверяется на принадлежность организации */
   departmentId: z.string().nullable().optional(),
+  /** Число позиций к закрытию (multi-hire). По умолчанию 1. */
+  headcount: z.coerce.number().int().min(1).max(999).optional(),
 })
 
 /** Schema for updating an existing job (all fields optional, no defaults — PATCH semantics) */
@@ -82,6 +84,10 @@ export const updateJobSchema = z.object({
   /** Подразделение; null — явно снять привязку */
   departmentId: z.string().nullable().optional(),
   status: z.enum(['draft', 'open', 'closed', 'archived']).optional(),
+  /** Опц. причина закрытия (напр. 'filled', 'cancelled', 'on_hold'). Записывается при переходе в closed. */
+  closeReason: z.string().max(200).nullable().optional(),
+  /** Число позиций к закрытию (multi-hire). */
+  headcount: z.coerce.number().int().min(1).max(999).optional(),
 })
 
 /** Schema for job list query params */

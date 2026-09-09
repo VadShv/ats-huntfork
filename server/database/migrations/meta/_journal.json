@@ -631,6 +631,27 @@
       "when": 1801000360000,
       "tag": "0090_comment_kind_payload",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1801000370000,
+      "tag": "0091_job_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1801000380000,
+      "tag": "0092_analytics_saved_view",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1801000390000,
+      "tag": "0093_job_headcount",
+      "breakpoints": true
     }
   ]
 }

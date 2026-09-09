@@ -150,6 +150,21 @@ export const job = pgTable('job', {
   autoAdvanceAboveScore: integer('auto_advance_above_score'),
   /** Опц. комментарий, попадает в applicationStageHistory.reason при авто-передвижении. */
   autoAdvanceReasonNote: text('auto_advance_reason_note'),
+  // ── Lifecycle timestamps (Центр аналитики: time-to-fill / aging) ──
+  /** Момент последнего перехода в open. NULL — вакансия ещё не открывалась. */
+  openedAt: timestamp('opened_at'),
+  /** Момент последнего перехода в closed. NULL — вакансия открыта или черновик. */
+  closedAt: timestamp('closed_at'),
+  /** Первый в истории переход в open (не сбрасывается при reopen). База для «первого TTF». */
+  firstOpenedAt: timestamp('first_opened_at'),
+  /** Сколько раз вакансию открывали повторно (reopen). 0 — открывали максимум один раз. */
+  reopenCount: integer('reopen_count').notNull().default(0),
+  /** Опц. причина закрытия (filled / cancelled / on_hold / ...). Свободный текст/ключ. */
+  closeReason: text('close_reason'),
+  /** Момент найма/заполнения позиции (closeReason='filled'). Для доли «закрыто наймом». */
+  filledAt: timestamp('filled_at'),
+  /** Число позиций к закрытию (multi-hire). 1 = обычная вакансия. «Закрыто N из M». */
+  headcount: integer('headcount').notNull().default(1),
   // ── Timestamps ──
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -157,6 +172,45 @@ export const job = pgTable('job', {
   index('job_organization_id_idx').on(t.organizationId),
   index('job_company_id_idx').on(t.companyId),
   index('job_department_id_idx').on(t.departmentId),
+  index('job_status_idx').on(t.status),
+  index('job_opened_at_idx').on(t.openedAt),
+  index('job_closed_at_idx').on(t.closedAt),
+]))
+
+/**
+ * Append-only журнал переходов статуса вакансии (draft/open/closed/archived).
+ * Единственный достоверный источник истории закрытий/переоткрытий — в отличие
+ * от activity_log (fire-and-forget) пишется транзакционно вместе с job.
+ */
+export const jobStatusHistory = pgTable('job_status_history', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  /** null — начальное создание/первый известный статус (или неизвестен при бэкфилле). */
+  fromStatus: jobStatusEnum('from_status'),
+  toStatus: jobStatusEnum('to_status').notNull(),
+  /** null — системный актор / восстановлено бэкфиллом. */
+  changedByUserId: text('changed_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+  reason: text('reason'),
+  changedAt: timestamp('changed_at').notNull().defaultNow(),
+}, (t) => ([
+  index('job_status_history_job_id_idx').on(t.jobId, t.changedAt),
+  index('job_status_history_organization_id_idx').on(t.organizationId, t.changedAt),
+]))
+
+/**
+ * Центр аналитики: сохранённые пресеты фильтров пользователя.
+ * filters — сериализованное состояние useAnalyticsFilters (period/job/source/recruiter/...).
+ */
+export const analyticsSavedView = pgTable('analytics_saved_view', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  filters: jsonb('filters').$type<Record<string, string>>().notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('analytics_saved_view_org_user_idx').on(t.organizationId, t.userId),
 ]))
 
 /**

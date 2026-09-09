@@ -1,7 +1,8 @@
 import { eq, and, isNull } from 'drizzle-orm'
-import { job, pipeline, application, company, department } from '../../database/schema'
+import { job, pipeline, application, company, department, jobStatusHistory } from '../../database/schema'
 import { idParamSchema, updateJobSchema, JOB_STATUS_TRANSITIONS } from '../../utils/schemas/job'
 import { countActiveApplicationsForJob } from '../../utils/pipeline-helpers'
+import { computeJobLifecycleUpdate } from '../../utils/job-lifecycle'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['update'] })
@@ -13,7 +14,10 @@ export default defineEventHandler(async (event) => {
   // Fetch existing job — needed for status transition check, slug regeneration, and pipeline change check
   const existing = await db.query.job.findFirst({
     where: and(eq(job.id, id), eq(job.organizationId, orgId)),
-    columns: { status: true, title: true, slug: true, pipelineId: true },
+    columns: {
+      status: true, title: true, slug: true, pipelineId: true,
+      firstOpenedAt: true, reopenCount: true,
+    },
   })
 
   if (!existing) {
@@ -106,11 +110,32 @@ export default defineEventHandler(async (event) => {
   // Regenerate slug when title or custom slug changes
   const updates: Record<string, unknown> = { ...body, updatedAt: new Date() }
   delete (updates as any).slug // remove raw slug from spread — we set it explicitly below
+  // closeReason управляется через lifecycle-логику ниже (не слепой спред):
+  // записывается только при переходе в closed, иначе сохраняется прежнее значение.
+  delete (updates as any).closeReason
   if (body.title || body.slug) {
     updates.slug = generateJobSlug(body.title ?? existing.title, id, body.slug)
   }
 
-  const [updated] = await db.update(job)
+  // ─────────────────────────────────────────────
+  // Lifecycle-таймстампы вакансии (Центр аналитики)
+  // При смене статуса заполняем opened_at/closed_at/first_opened_at/reopen_count/
+  // close_reason/filled_at и пишем строку в job_status_history — транзакционно,
+  // в отличие от fire-and-forget recordActivity.
+  // ─────────────────────────────────────────────
+  const statusChanged = !!body.status && body.status !== existing.status
+  const now = new Date()
+  if (statusChanged) {
+    Object.assign(updates, computeJobLifecycleUpdate(
+      { status: existing.status, firstOpenedAt: existing.firstOpenedAt, reopenCount: existing.reopenCount },
+      body.status,
+      now,
+      body.closeReason,
+    ))
+  }
+
+  const [updated] = await db.transaction(async (tx) => {
+    const rows = await tx.update(job)
     .set(updates)
     .where(and(eq(job.id, id), eq(job.organizationId, orgId)))
     .returning({
@@ -139,9 +164,31 @@ export default defineEventHandler(async (event) => {
       autoAdvanceReasonNote: job.autoAdvanceReasonNote,
       experienceLevel: job.experienceLevel,
       pipelineId: job.pipelineId,
+      openedAt: job.openedAt,
+      closedAt: job.closedAt,
+      firstOpenedAt: job.firstOpenedAt,
+      reopenCount: job.reopenCount,
+      closeReason: job.closeReason,
+      filledAt: job.filledAt,
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
     })
+
+    // Append-only история статусов — в той же транзакции, что и обновление job.
+    if (statusChanged && rows[0]) {
+      await tx.insert(jobStatusHistory).values({
+        organizationId: orgId,
+        jobId: id,
+        fromStatus: existing.status,
+        toStatus: body.status!,
+        changedByUserId: session.user.id,
+        reason: body.status === 'closed' ? (body.closeReason ?? null) : null,
+        changedAt: now,
+      })
+    }
+
+    return rows
+  })
 
   if (!updated) {
     throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
