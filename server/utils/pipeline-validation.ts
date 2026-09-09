@@ -15,53 +15,48 @@
  */
 
 // ─────────────────────────────────────────────────────────────
-// Type constants (соответствуют pipeline_stage_type enum в БД)
+// Type constants — C4: производны от единого источника #shared/pipeline-stage-meta
 // ─────────────────────────────────────────────────────────────
 
-export const WORKING_TYPES = [
-  'new', 'on_hold', 'contact', 'screening', 'assessment',
-  'interview', 'offer', 'hired',
-] as const
+import {
+  ALL_STAGE_TYPES as META_ALL_STAGE_TYPES,
+  STAGE_TYPE_META,
+  isTerminalStageType,
+  type PipelineStageType as MetaPipelineStageType,
+  type StageBucket as MetaStageBucket,
+} from '../../shared/pipeline-stage-meta'
 
-export const REJECTED_TYPES = [
-  'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred',
-  'rejected', // legacy
-] as const
+export type PipelineStageType = MetaPipelineStageType
+export type StageBucket = MetaStageBucket
+
+/** Все допустимые типы этапов — совпадает с pipeline_stage_type enum в БД. */
+export const ALL_STAGE_TYPES = META_ALL_STAGE_TYPES
+
+/** Рабочие типы (bucket='working', без legacy-алиасов и custom). */
+export const WORKING_TYPES = ALL_STAGE_TYPES.filter(
+  t => STAGE_TYPE_META[t].bucket === 'working' && t !== 'applied' && t !== 'custom',
+) as PipelineStageType[]
+
+/** Отказные типы (bucket='rejected', включая legacy `rejected`). */
+export const REJECTED_TYPES = ALL_STAGE_TYPES.filter(
+  t => STAGE_TYPE_META[t].bucket === 'rejected',
+) as PipelineStageType[]
 
 export const LEGACY_TYPES = ['applied', 'rejected'] as const
 export const CUSTOM_TYPES = ['custom'] as const
-
-/** Все допустимые типы этапов — совпадает с pipeline_stage_type enum в БД. */
-export const ALL_STAGE_TYPES = [
-  // working
-  'new', 'on_hold', 'contact', 'screening', 'assessment',
-  'interview', 'offer', 'hired',
-  // rejected
-  'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred',
-  // legacy retro-compat
-  'applied', 'rejected',
-  // user-defined
-  'custom',
-] as const
-
-export type PipelineStageType = typeof ALL_STAGE_TYPES[number]
-export type StageBucket = 'working' | 'rejected'
 
 /**
  * Определяет корректный bucket по type.
  * Custom — определяется на уровне записи в БД (bucket явно задан).
  */
 export function bucketForType(type: PipelineStageType): StageBucket | 'custom' {
-  if ((REJECTED_TYPES as readonly string[]).includes(type)) return 'rejected'
-  if ((WORKING_TYPES as readonly string[]).includes(type)) return 'working'
-  if (type === 'applied') return 'working'  // legacy → working
-  if (type === 'rejected') return 'rejected'
-  return 'custom'
+  if (type === 'custom') return 'custom'
+  return STAGE_TYPE_META[type]?.bucket ?? 'custom'
 }
 
 /** Является ли тип терминальным по умолчанию. */
 export function isTerminalTypeDefault(type: PipelineStageType): boolean {
-  return type === 'hired' || (REJECTED_TYPES as readonly string[]).includes(type)
+  return isTerminalStageType(type)
 }
 
 // ─────────────────────────────────────────────────────────────

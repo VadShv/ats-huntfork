@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm'
-import { job, pipeline, company, department } from '../../database/schema'
+import { job, company, department } from '../../database/schema'
 import { jobMember } from '../../database/schema/hm'
 import { createJobSchema } from '../../utils/schemas/job'
 import { getDefaultPipelineForOrg } from '../../utils/pipeline-helpers'
@@ -11,35 +11,11 @@ export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(event, createJobSchema.parse)
 
   // ─────────────────────────────────────────────
-  // Resolve pipeline
+  // Resolve pipeline — B2: всегда каноническая (org default). Выбор воронки убран.
   // ─────────────────────────────────────────────
 
-  let resolvedPipelineId: string | null = null
-
-  if (body.pipelineId) {
-    // Validate the provided pipeline exists in the same org and is not archived
-    const existingPipeline = await db.query.pipeline.findFirst({
-      where: and(
-        eq(pipeline.id, body.pipelineId),
-        eq(pipeline.organizationId, orgId),
-        eq(pipeline.isArchived, false),
-      ),
-      columns: { id: true },
-    })
-
-    if (!existingPipeline) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Указанная воронка не найдена',
-      })
-    }
-
-    resolvedPipelineId = existingPipeline.id
-  } else {
-    // Auto-resolve: use org default, fall back to system pipeline
-    const defaultPipeline = await getDefaultPipelineForOrg(db, orgId)
-    resolvedPipelineId = defaultPipeline?.id ?? null
-  }
+  const defaultPipeline = await getDefaultPipelineForOrg(db, orgId)
+  const resolvedPipelineId: string | null = defaultPipeline?.id ?? null
 
   // ─────────────────────────────────────────────
   // Resolve компания (юрлицо) и подразделение

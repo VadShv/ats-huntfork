@@ -22,10 +22,14 @@ import {
   document,
   interview,
   job,
+  pipeline,
+  pipelineStage,
   scoringCriterion,
 } from '../../database/schema'
 import { downloadFromS3 } from '../s3'
 import { parseDocument } from '../resume-parser'
+import { getDefaultPipelineForOrg } from '../pipeline-helpers'
+import { ALL_STAGE_TYPES } from '../../../shared/pipeline-stage-meta'
 import type { ChatbotScope } from '../../../shared/chatbot'
 import {
   CHATBOT_MAX_ATTACHMENT_CHARS,
@@ -208,17 +212,24 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
       description:
         'List applications (candidate ↔ job links). If `jobId` is provided, returns applications for that job only; ' +
         'otherwise returns applications across the entire organization (respecting active scope). ' +
-        'Supports optional `dateFrom`/`dateTo` ISO date filters (inclusive) and a `status` filter. ' +
-        'Returns candidate name, email, application status, score, jobId, and createdAt — ' +
-        'use get_candidate / read_resume for deeper analysis.',
+        'To find candidates on a SPECIFIC funnel stage (e.g. "Тестовое задание", "Первичный контакт", "Интервью"), ' +
+        'FIRST call list_pipeline_stages to get the real stageId, then pass `stageId` here — this filters by the ' +
+        'actual current pipeline stage (current_stage_id) and includes that stage\'s sub-stages. ' +
+        'Do NOT use the legacy `status` filter for stage questions: it only has 6 coarse buckets and collapses ' +
+        'several distinct stages (e.g. "Первичный контакт", "Подумать" and "Тестовое задание" all map to "screening"). ' +
+        'Optional `stageType` filters by canonical stage type across the pipeline. ' +
+        'Supports optional `dateFrom`/`dateTo` ISO date filters (inclusive). ' +
+        'Returns candidate name, email, current stage (name + id), legacy status, score, jobId, createdAt.',
       inputSchema: z.object({
         jobId: z.string().optional().describe('Optional. If omitted, lists across all jobs in the organization.'),
-        status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional(),
+        stageId: z.string().optional().describe('Preferred for stage questions. Exact pipeline stage id (from list_pipeline_stages). Includes the stage\'s sub-stages.'),
+        stageType: z.enum(ALL_STAGE_TYPES).optional().describe('Filter by canonical stage type (e.g. "assessment" = Тестовое задание, "contact" = Первичный контакт, "interview", "offer", "hired").'),
+        status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional().describe('DEPRECATED legacy 6-bucket status. Prefer stageId/stageType for accurate stage filtering.'),
         dateFrom: z.string().optional().describe('ISO date/datetime — include only applications created on or after this moment.'),
         dateTo: z.string().optional().describe('ISO date/datetime — include only applications created on or before this moment.'),
         limit: z.number().int().min(1).max(200).default(50),
       }),
-      execute: async ({ jobId, status, dateFrom, dateTo, limit }) => {
+      execute: async ({ jobId, stageId, stageType, status, dateFrom, dateTo, limit }) => {
         const conditions = [eq(application.organizationId, ctx.orgId)]
         if (jobId) {
           assertJobInScope(ctx.scope, jobId)
@@ -226,7 +237,35 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         } else if (ctx.scope.kind === 'job' && ctx.scope.jobId) {
           conditions.push(eq(application.jobId, ctx.scope.jobId))
         }
-        if (status) conditions.push(eq(application.status, status))
+
+        // ── Этапный фильтр (предпочтительный) — по current_stage_id, а не legacy status ──
+        if (stageId) {
+          // Захватываем сам этап + его подэтапы (например «Отказ» → все причины).
+          const children = await db
+            .select({ id: pipelineStage.id })
+            .from(pipelineStage)
+            .where(and(
+              eq(pipelineStage.organizationId, ctx.orgId),
+              eq(pipelineStage.parentStageId, stageId),
+            ))
+          const ids = [...new Set([stageId, ...children.map(c => c.id)])]
+          conditions.push(inArray(application.currentStageId, ids))
+        } else if (stageType) {
+          // Все этапы данного типа в орг → фильтр по current_stage_id.
+          const typedStages = await db
+            .select({ id: pipelineStage.id })
+            .from(pipelineStage)
+            .where(and(
+              eq(pipelineStage.organizationId, ctx.orgId),
+              eq(pipelineStage.type, stageType),
+            ))
+          const ids = typedStages.map(s => s.id)
+          // Если этапов такого типа нет — вернём пусто (не смешиваем с legacy status).
+          conditions.push(ids.length > 0 ? inArray(application.currentStageId, ids) : sql`false`)
+        } else if (status) {
+          conditions.push(eq(application.status, status))
+        }
+
         if (dateFrom) {
           const d = new Date(dateFrom)
           if (!isNaN(d.getTime())) conditions.push(gte(application.createdAt, d))
@@ -249,6 +288,9 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
               job: {
                 columns: { id: true, title: true },
               },
+              currentStage: {
+                columns: { id: true, name: true, type: true },
+              },
             },
           }),
           db.select({ cnt: count() }).from(application).where(and(...conditions)),
@@ -260,6 +302,9 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           candidateId: a.candidateId,
           candidateName: `${a.candidate.firstName} ${a.candidate.lastName}`.trim(),
           candidateEmail: a.candidate.email,
+          currentStageId: a.currentStage?.id ?? null,
+          currentStageName: a.currentStage?.name ?? null,
+          currentStageType: a.currentStage?.type ?? null,
           status: a.status,
           score: a.score,
           jobId: a.job.id,
@@ -272,17 +317,80 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           returned: applications.length,
           truncated,
           applications,
-          ...(truncated ? { hint: `${total} applications match. Showing first ${applications.length}. Increase "limit" up to 200 or narrow with status/dateFrom/dateTo if needed.` } : {}),
+          ...(truncated ? { hint: `${total} applications match. Showing first ${applications.length}. Increase "limit" up to 200 or narrow with stageId/stageType/dateFrom/dateTo if needed.` } : {}),
         }
+      },
+    }),
+
+    list_pipeline_stages: tool({
+      description:
+        'List the funnel (pipeline) stages and sub-stages, so you can map a natural-language stage name ' +
+        '(e.g. "тестовое задание", "первичный контакт", "интервью", "оффер", "отказ") to a concrete stageId. ' +
+        'Use the returned stageId with list_applications to find candidates currently on that stage. ' +
+        'Returns id, name, type, bucket (working/rejected), parentStageId (null = root stage), displayOrder.',
+      inputSchema: z.object({
+        jobId: z.string().optional().describe('Optional. Use the pipeline of this job; otherwise the org default pipeline.'),
+      }),
+      execute: async ({ jobId }) => {
+        let pipelineId: string | null = null
+        if (jobId) {
+          assertJobInScope(ctx.scope, jobId)
+          const [j] = await db
+            .select({ pipelineId: job.pipelineId })
+            .from(job)
+            .where(and(eq(job.id, jobId), eq(job.organizationId, ctx.orgId)))
+            .limit(1)
+          pipelineId = j?.pipelineId ?? null
+        } else if (ctx.scope.kind === 'job' && ctx.scope.jobId) {
+          const [j] = await db
+            .select({ pipelineId: job.pipelineId })
+            .from(job)
+            .where(and(eq(job.id, ctx.scope.jobId), eq(job.organizationId, ctx.orgId)))
+            .limit(1)
+          pipelineId = j?.pipelineId ?? null
+        }
+        if (!pipelineId) {
+          const def = await getDefaultPipelineForOrg(db, ctx.orgId)
+          pipelineId = def?.id ?? null
+        }
+        if (!pipelineId) return { pipelineId: null, stages: [] }
+
+        const [pipe] = await db
+          .select({ id: pipeline.id, name: pipeline.name })
+          .from(pipeline)
+          .where(and(eq(pipeline.id, pipelineId), eq(pipeline.organizationId, ctx.orgId)))
+          .limit(1)
+
+        const stages = await db
+          .select({
+            id: pipelineStage.id,
+            name: pipelineStage.name,
+            type: pipelineStage.type,
+            bucket: pipelineStage.bucket,
+            parentStageId: pipelineStage.parentStageId,
+            displayOrder: pipelineStage.displayOrder,
+          })
+          .from(pipelineStage)
+          .where(and(
+            eq(pipelineStage.pipelineId, pipelineId),
+            eq(pipelineStage.organizationId, ctx.orgId),
+            eq(pipelineStage.isArchived, false),
+            eq(pipelineStage.isHidden, false),
+          ))
+          .orderBy(pipelineStage.displayOrder)
+
+        return { pipelineId, pipelineName: pipe?.name ?? null, stages }
       },
     }),
 
     hiring_summary: tool({
       description:
         'Aggregated hiring metrics for the organization (or active job scope). ' +
-        'Returns total counts of jobs and applications, plus breakdowns by application status and by job. ' +
+        'Returns total counts of jobs and applications, a funnel breakdown by REAL pipeline stage ' +
+        '(`applicationsByStage` — use this for "воронка по этапам"), a legacy 6-bucket status breakdown ' +
+        '(`applicationsByLegacyStatus`, kept for back-compat), and a per-job breakdown. ' +
         'Supports optional `dateFrom`/`dateTo` ISO date filters for the application createdAt window — ' +
-        'use this for questions like "итоги найма за этот месяц", "сколько откликов на этой неделе", "воронка по статусам".',
+        'use this for questions like "итоги найма за этот месяц", "сколько откликов на этой неделе", "воронка по этапам".',
       inputSchema: z.object({
         dateFrom: z.string().optional().describe('ISO date/datetime — include only applications created on or after this moment.'),
         dateTo: z.string().optional().describe('ISO date/datetime — include only applications created on or before this moment.'),
@@ -301,12 +409,41 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           if (!isNaN(d.getTime())) appConds.push(lte(application.createdAt, d))
         }
 
-        // Status breakdown
+        // Legacy 6-bucket status breakdown (back-compat)
         const byStatus = await db
           .select({ status: application.status, count: count() })
           .from(application)
           .where(and(...appConds))
           .groupBy(application.status)
+
+        // ── Реальная воронка по этапам (root-этап: подэтап схлопывается в родителя) ──
+        const rootStage = sql<string>`coalesce(${pipelineStage.parentStageId}, ${pipelineStage.id})`
+        const byStageRows = await db
+          .select({
+            rootStageId: rootStage,
+            count: count(application.id),
+          })
+          .from(application)
+          .innerJoin(pipelineStage, eq(pipelineStage.id, application.currentStageId))
+          .where(and(...appConds))
+          .groupBy(rootStage)
+        // Имена root-этапов
+        const rootIds = byStageRows.map(r => r.rootStageId).filter(Boolean)
+        const rootNames = rootIds.length > 0
+          ? await db
+              .select({ id: pipelineStage.id, name: pipelineStage.name, displayOrder: pipelineStage.displayOrder })
+              .from(pipelineStage)
+              .where(and(eq(pipelineStage.organizationId, ctx.orgId), inArray(pipelineStage.id, rootIds)))
+          : []
+        const rootNameById = new Map(rootNames.map(r => [r.id, r]))
+        const applicationsByStage = byStageRows
+          .map(r => ({
+            stageId: r.rootStageId,
+            stageName: rootNameById.get(r.rootStageId)?.name ?? null,
+            displayOrder: rootNameById.get(r.rootStageId)?.displayOrder ?? 999,
+            count: Number(r.count),
+          }))
+          .sort((a, b) => a.displayOrder - b.displayOrder)
 
         // Job breakdown (top 20 by application volume in window)
         const byJob = await db
@@ -343,7 +480,8 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
             applications: totalApplications,
             jobs: totalJobs,
           },
-          applicationsByStatus: byStatus.map((r) => ({ status: r.status, count: Number(r.count) })),
+          applicationsByStage,
+          applicationsByLegacyStatus: byStatus.map((r) => ({ status: r.status, count: Number(r.count) })),
           jobsByStatus: totalJobsRows.map((r) => ({ status: r.status, count: Number(r.count) })),
           topJobsByApplications: byJob.map((r) => ({
             jobId: r.jobId,

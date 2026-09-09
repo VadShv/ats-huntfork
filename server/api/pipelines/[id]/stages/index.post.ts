@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
   // Verify pipeline exists and belongs to org
   const parentPipeline = await db.query.pipeline.findFirst({
     where: and(eq(pipeline.id, pipelineId), eq(pipeline.organizationId, orgId)),
-    columns: { id: true, isArchived: true },
+    columns: { id: true, isArchived: true, isSystem: true },
   })
 
   if (!parentPipeline) {
@@ -50,6 +50,17 @@ export default defineEventHandler(async (event) => {
 
   if (parentPipeline.isArchived) {
     throw createError({ statusCode: 400, statusMessage: 'Нельзя добавить этап в архивную воронку' })
+  }
+
+  // ── B1: в КАНОНИЧЕСКОЙ (системной) воронке можно добавлять ТОЛЬКО подэтапы ──
+  //    Новые корневые этапы запрещены — каркас канонической воронки зафиксирован.
+  //    Экспериментальные корневые этапы — только в пользовательских воронках (песочница).
+  if (parentPipeline.isSystem && !body.parentStageId) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'В основной воронке можно добавлять только подэтапы к существующим этапам. '
+        + 'Новые корневые этапы создавайте в экспериментальной воронке.',
+    })
   }
 
   // ── Validate parent if provided (max 1 level nesting) ────────────

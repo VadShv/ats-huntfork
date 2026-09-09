@@ -25,6 +25,7 @@ import {
 } from '../../../database/schema'
 import { apiRequest } from '../client'
 import { getValidAccessToken } from '../tokens'
+import { stageTypeToHhCollection as metaStageTypeToHhCollection } from '../../../../shared/pipeline-stage-meta'
 
 /** Окно идемпотентности в миллисекундах (60 секунд). */
 const IDEMPOTENCY_WINDOW_MS = 60_000
@@ -73,45 +74,14 @@ const RETRIABLE_HH_STATUSES = new Set([400, 403, 404])
 /**
  * Спринт 11.5: fallback-маппинг «тип этапа → коллекция hh.ru».
  * Работает, когда для этапа не настроен явный hh_stage_mapping.
- * null = не пушим (например, входные этапы — отклик и так уже в response).
+ * null = не пушим (например, входные этапы — отклик и так уже в response,
+ * `transferred` — перевод, не отказ; `custom`/неизвестное).
+ *
+ * C4: тонкая обёртка над единым источником `#shared/pipeline-stage-meta`.
+ * Реэкспорт сохранён для обратной совместимости импортов.
  */
 export function stageTypeToHhCollection(type: string): string | null {
-  switch (type) {
-    // Входные этапы — не трогаем: отклик и так лежит в response.
-    case 'new':
-    case 'applied':
-      return null
-    // Размышления / скрининг → «Подумать»
-    case 'on_hold':
-    case 'screening':
-      return 'consider'
-    // Первичный контакт → телефонное интервью
-    case 'contact':
-      return 'phone_interview'
-    case 'assessment':
-      return 'assessment'
-    case 'interview':
-      return 'interview'
-    case 'offer':
-      return 'offer'
-    case 'hired':
-      return 'hired'
-    // Все виды отказов → отказ работодателя
-    case 'rejected':
-    case 'not_fit':
-    case 'withdrawn':
-    case 'no_show':
-    case 'job_closed':
-      return 'discard_by_employer'
-    // Спринт 22: перевод на другую вакансию — НЕ отказ для кандидата:
-    // авто-discard отправил бы ему отказное сообщение на hh. Не пушим
-    // (явный hh_stage_mapping при желании переопределяет это поведение).
-    case 'transferred':
-      return null
-    // custom разбираем отдельно (по родителю), неизвестное — не пушим
-    default:
-      return null
-  }
+  return metaStageTypeToHhCollection(type)
 }
 
 /**

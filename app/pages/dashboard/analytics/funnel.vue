@@ -30,7 +30,11 @@ const { data: pipelinesData } = useFetch('/api/pipelines', {
   key: 'analytics-pipelines',
   headers: useRequestHeaders(['cookie']),
 })
-const pipelines = computed(() => (pipelinesData.value as any) ?? [])
+// B3: в аналитике показываем только каноническую (основную) воронку —
+// экспериментальные (песочница) не назначаются на вакансии и всегда пусты.
+const pipelines = computed(() =>
+  ((pipelinesData.value as any[]) ?? []).filter(p => p.isDefault || p.isSystem),
+)
 
 const funnelQuery = computed(() => {
   const q = { ...query.value }

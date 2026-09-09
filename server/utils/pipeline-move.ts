@@ -22,36 +22,20 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { application, applicationStageHistory, job, pipelineStage } from '../database/schema/app'
 import { useServerPostHog } from './posthog'
 import { notifyThreadChanged } from './comments/threadBus'
+import {
+  stageTypeToLegacyStatus as metaStageTypeToLegacyStatus,
+  type LegacyApplicationStatus,
+} from '../../shared/pipeline-stage-meta'
 
-type ApplicationStatus = 'new' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected'
+type ApplicationStatus = LegacyApplicationStatus
 
 /**
  * Маппинг pipeline_stage.type → legacy application_status для back-compat.
- * Единственная копия в кодовой базе (Спринт 22).
+ * Тонкая обёртка над единым источником `#shared/pipeline-stage-meta`
+ * (реэкспорт сохранён для обратной совместимости импортов).
  */
 export function stageTypeToLegacyStatus(type: string): ApplicationStatus | null {
-  switch (type) {
-    case 'hired': return 'hired'
-    case 'offer': return 'offer'
-    case 'interview': return 'interview'
-    case 'screening': return 'screening'
-    case 'applied':
-    case 'new':
-      return 'new'
-    case 'on_hold':
-    case 'contact':
-    case 'assessment':
-      return 'screening'
-    case 'rejected':
-    case 'not_fit':
-    case 'withdrawn':
-    case 'no_show':
-    case 'job_closed':
-    case 'transferred':
-      return 'rejected'
-    default:
-      return null
-  }
+  return metaStageTypeToLegacyStatus(type)
 }
 
 /** Источник перемещения — для PostHog-аналитики и отладки. */
@@ -303,6 +287,23 @@ export async function moveApplicationStage(opts: MoveStageOptions): Promise<Move
   if (!updated) {
     // Гонка: заявка удалена между проверкой и транзакцией
     throw createError({ statusCode: 404, statusMessage: 'Заявка не найдена' })
+  }
+
+  // ── Пост-move инвариант (C4): записанный статус согласован с проекцией типа этапа.
+  //    Ловит дрейф legacy status ↔ этап. В dev/test — throw (падение теста),
+  //    в prod — console.error + метрика, НЕ throw (чтобы не ломать легитимный ход
+  //    на корневой custom-этап, где newStatus === null «по дизайну»).
+  {
+    const expected = stageTypeToLegacyStatus(effectiveType)
+    const projected = newStatus // что реально записали (null → статус не трогали)
+    const consistent = projected === expected
+    if (!consistent) {
+      const msg = `[pipeline-move] status projection drift: effectiveType=${effectiveType} expected=${expected} projected=${projected} application=${applicationId}`
+      if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
+        throw new Error(msg)
+      }
+      console.error(msg)
+    }
   }
 
   // 7. Activity — fire-and-forget через recordActivity (никогда не роняет операцию)

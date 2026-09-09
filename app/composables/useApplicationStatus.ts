@@ -4,12 +4,15 @@
  * (см. правило: «стадия — основной индикатор; статус — если стадии нет вообще»).
  */
 export type ApplicationStatus =
-  | 'applied'
+  | 'new'
   | 'screening'
   | 'interview'
   | 'offer'
   | 'hired'
   | 'rejected'
+  // ── Legacy-алиасы (не входят в БД application_status enum, не записываемы;
+  //    оставлены как deprecated для отображения возможных внешних/исторических данных) ──
+  | 'applied'
   | 'withdrawn'
   | string
 
@@ -25,6 +28,13 @@ export interface ApplicationStatusMeta {
 }
 
 const CONFIG: Record<string, Omit<ApplicationStatusMeta, 'key' | 'label'>> = {
+  // `new` — дефолтный статус в БД (application_status.default='new').
+  new: {
+    tone: 'info',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
+    dotClass: 'bg-blue-500',
+  },
+  // legacy-алиас `applied` — тот же вид, что и `new` (deprecated).
   applied: {
     tone: 'info',
     badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
@@ -75,6 +85,7 @@ const DEFAULT_META: Omit<ApplicationStatusMeta, 'key' | 'label'> = {
 }
 
 const LABELS: Record<string, string> = {
+  new: 'Новый',
   applied: 'Откликнулся',
   screening: 'Скрининг',
   interview: 'Интервью',
@@ -85,7 +96,8 @@ const LABELS: Record<string, string> = {
 }
 
 export function getApplicationStatusMeta(status: ApplicationStatus | null | undefined): ApplicationStatusMeta {
-  const key = (status ?? 'applied') as string
+  // Дефолт — 'new' (соответствует БД application_status.default), а не legacy 'applied'.
+  const key = (status ?? 'new') as string
   const cfg = CONFIG[key] ?? DEFAULT_META
   return {
     key,

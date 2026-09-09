@@ -284,8 +284,14 @@ export const application = pgTable('application', {
   candidateId: text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
   jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
   status: applicationStatusEnum('status').notNull().default('new'),
-  /** Current pipeline stage — null until assigned to a pipeline. Old enum status field kept for back-compat. */
-  currentStageId: text('current_stage_id').references(() => pipelineStage.id, { onDelete: 'set null' }),
+  /**
+   * Current pipeline stage — null until assigned to a pipeline. Old enum status field kept for back-compat.
+   * C2: FK меняется в миграции 0094 на NO ACTION DEFERRABLE INITIALLY DEFERRED —
+   * защищает от тихого обнуления при удалении этапа с активными откликами, но не ломает
+   * каскадное удаление организации (deferred-проверка на COMMIT, когда application уже удалены).
+   * Drizzle не выражает DEFERRABLE — здесь оставлен 'restrict' как ближайшая семантика.
+   */
+  currentStageId: text('current_stage_id').references(() => pipelineStage.id, { onDelete: 'restrict' }),
   /** Timestamp of last stage transition. */
   stageChangedAt: timestamp('stage_changed_at'),
   score: integer('score'),
@@ -428,7 +434,12 @@ export const applicationStageHistory = pgTable('application_stage_history', {
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
   applicationId: text('application_id').notNull().references(() => application.id, { onDelete: 'cascade' }),
   fromStageId: text('from_stage_id').references(() => pipelineStage.id, { onDelete: 'set null' }),
-  toStageId: text('to_stage_id').notNull().references(() => pipelineStage.id, { onDelete: 'cascade' }),
+  /**
+   * C2: nullable + ON DELETE SET NULL (миграция 0094). Раньше NOT NULL + CASCADE —
+   * удаление этапа стирало строки истории, оставляя дыры в аналитике (MV). Теперь история
+   * сохраняется, ссылка на удалённый этап обнуляется. MV использует LEFT JOIN.
+   */
+  toStageId: text('to_stage_id').references(() => pipelineStage.id, { onDelete: 'set null' }),
   movedByUserId: text('moved_by_user_id').references(() => user.id, { onDelete: 'set null' }),
   comment: text('comment'),
   movedAt: timestamp('moved_at').notNull().defaultNow(),

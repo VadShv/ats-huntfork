@@ -5,6 +5,7 @@ import {
 
 const { t } = useI18n()
 import { z } from 'zod'
+import { stageTypeToHhCollection } from '~~/shared/pipeline-stage-meta'
 
 definePageMeta({
   layout: 'dashboard',
@@ -58,7 +59,6 @@ const form = ref({
   autoAdvanceEnabled: false,
   autoAdvanceAboveScore: null as number | null,
   autoAdvanceReasonNote: '',
-  pipelineId: null as string | null,
 })
 
 watch(job, (j) => {
@@ -89,14 +89,9 @@ watch(job, (j) => {
       autoAdvanceEnabled: (j as any).autoAdvanceEnabled ?? false,
       autoAdvanceAboveScore: (j as any).autoAdvanceAboveScore ?? null,
       autoAdvanceReasonNote: (j as any).autoAdvanceReasonNote ?? '',
-      pipelineId: (j as any).pipelineId ?? null,
     }
   }
 }, { immediate: true })
-
-// ─────────────────────────────────────────────
-// Pipeline selector state
-// ─────────────────────────────────────────────
 
 // ── Компании (юрлица) и подразделения ──
 const { data: companiesData } = useFetch<Array<{ id: string, name: string, isDefault: boolean, isArchived: boolean }>>('/api/companies', {
@@ -123,24 +118,14 @@ watch(() => form.value.companyId, () => {
   }
 })
 
-// Fetch all non-archived pipelines for the org
-const { data: pipelinesData } = useFetch('/api/pipelines', {
-  query: { includeArchived: false },
-  headers: useRequestHeaders(['cookie']),
-})
-const pipelines = computed(() => pipelinesData.value ?? [])
-
-// Fetch pipeline-status for this job (lightweight — tells us if change is allowed)
-const { data: pipelineStatus, refresh: refreshPipelineStatus } = useFetch(
+// Pipeline-status для read-only отображения имени основной воронки вакансии.
+const { data: pipelineStatus } = useFetch(
   () => `/api/jobs/${jobId}/pipeline-status`,
   {
     key: computed(() => `pipeline-status-${jobId}`),
     headers: useRequestHeaders(['cookie']),
   },
 )
-
-const canChangePipeline = computed(() => pipelineStatus.value?.canChangePipeline ?? true)
-const activeApplicationsCount = computed(() => pipelineStatus.value?.activeApplicationsCount ?? 0)
 
 // ─────────────────────────────────────────────
 // Спринт 12.2: синхронизация с hh.ru — тумблеры pull/push
@@ -233,25 +218,6 @@ async function loadPipelineViewStages() {
 }
 onMounted(loadPipelineViewStages)
 
-/** Зеркало серверного fallback-маппинга stageTypeToHhCollection (pushAction.ts). */
-const STAGE_TYPE_TO_HH: Record<string, string | null> = {
-  new: null,
-  applied: null,
-  on_hold: 'consider',
-  screening: 'consider',
-  contact: 'phone_interview',
-  assessment: 'assessment',
-  interview: 'interview',
-  offer: 'offer',
-  hired: 'hired',
-  rejected: 'discard_by_employer',
-  not_fit: 'discard_by_employer',
-  withdrawn: 'discard_by_employer',
-  no_show: 'discard_by_employer',
-  job_closed: 'discard_by_employer',
-  transferred: 'discard_by_employer',
-}
-
 const HH_COLLECTION_LABELS: Record<string, string> = {
   response: 'Отклики',
   consider: 'Подумать',
@@ -271,7 +237,7 @@ const hhMappingRows = computed(() => pipelineViewStages.value
   .filter(s => !s.parentStageId && !s.isHidden && !s.isArchived)
   .sort((a, b) => a.displayOrder - b.displayOrder)
   .map((s) => {
-    const coll = STAGE_TYPE_TO_HH[s.type] ?? null
+    const coll = stageTypeToHhCollection(s.type)
     return {
       id: s.id,
       name: s.name,
@@ -393,12 +359,10 @@ async function handleSave() {
       headcount: form.value.headcount || 1,
       // Send null when cleared so the DB column is set to NULL
       validThrough: form.value.validThrough ? new Date(form.value.validThrough) : null,
-      // Only send pipelineId if it has changed (backend validates active applications)
-      pipelineId: form.value.pipelineId ?? null,
+      // B2: pipelineId больше не отправляется — воронка вакансии не меняется.
     }
 
     await updateJob(payload as any)
-    await refreshPipelineStatus()
     track('job_settings_saved', { job_id: jobId })
     saved.value = true
     setTimeout(() => { saved.value = false }, 2000)
@@ -776,45 +740,20 @@ function onSalaryMaxChange(e: Event) {
         </section>
 
         <!-- ═══════════════════════════════════════ -->
-        <!-- SECTION: Hiring Pipeline                 -->
+        <!-- SECTION: Hiring Pipeline (read-only)     -->
+        <!-- B2: воронка вакансии единая (каноническая) и не выбирается. -->
         <!-- ═══════════════════════════════════════ -->
         <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
           <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100 mb-1">{{ t('dashboard.jobs.form.pipelineLabel') }}</h2>
-          <p class="text-xs text-surface-400 dark:text-surface-500 mb-5">{{ t('dashboard.jobs.form.pipelineHelp') }}</p>
+          <p class="text-xs text-surface-400 dark:text-surface-500 mb-4">{{ t('dashboard.jobs.form.pipelineHelp') }}</p>
 
-          <!-- Warning banner: pipeline locked due to active candidates -->
-          <div
-            v-if="!canChangePipeline"
-            class="mb-4 rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950/30 px-4 py-3 text-sm text-danger-700 dark:text-danger-300"
-          >
-            {{ t('dashboard.jobs.form.pipelineLocked', { count: activeApplicationsCount }) }}
-          </div>
-
-          <div>
-            <label for="settings-pipelineId" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-              {{ t('dashboard.jobs.form.pipelineLabel') }}
-            </label>
-            <select
-              id="settings-pipelineId"
-              v-model="form.pipelineId"
-              :disabled="!canChangePipeline"
-              class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 border-surface-300 dark:border-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option :value="null" disabled>{{ t('dashboard.jobs.form.pipelinePlaceholder') }}</option>
-              <option v-for="p in pipelines" :key="(p as any).id" :value="(p as any).id">
-                {{ (p as any).name }}{{ (p as any).isSystem ? ` ${t('dashboard.jobs.form.pipelineSystemSuffix')}` : (p as any).isDefault ? ` ${t('dashboard.jobs.form.pipelineDefaultSuffix')}` : '' }}
-              </option>
-            </select>
+          <div class="flex items-center gap-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50/60 dark:bg-surface-900/40 px-4 py-3">
+            <span class="text-sm font-medium text-surface-900 dark:text-surface-100">
+              {{ pipelineStatus?.pipelineName ?? '—' }}
+            </span>
+            <span class="text-xs text-surface-400 dark:text-surface-500">· основная воронка</span>
           </div>
         </section>
-
-        <!-- ═══════════════════════════════════════ -->
-        <!-- SECTION: Per-vacancy Pipeline Customize -->
-        <!-- ═══════════════════════════════════════ -->
-        <JobPipelineCustomize
-          v-if="jobId && form.pipelineId"
-          :job-id="jobId"
-        />
 
         <!-- ═══════════════════════════════════════ -->
         <!-- SECTION: Recruiters (Sprint 20)         -->

@@ -12,6 +12,7 @@ import { useLocalStorageState } from '~/composables/useLocalStorageState'
 import type { PropertyEntry, PropertyFilter } from '~~/shared/properties'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta, type ApplicationSource } from '~/composables/useApplicationSource'
+import { LEGACY_STATUS_TO_TYPES, type LegacyApplicationStatus } from '~~/shared/pipeline-stage-meta'
 import CandidateDiscussionTabs from '~/components/Comments/CandidateDiscussionTabs.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
@@ -94,11 +95,11 @@ const pipelineStages = computed<PipelineViewStage[]>(() => {
     .sort((a, b) => a.displayOrder - b.displayOrder)
 })
 
-// Есть ли новая воронка (17 этапов) или legacy (6 этапов с типами applied/screening/...)
-const hasNewPipeline = computed(() => {
-  if (!pipelineStages.value.length) return false
-  return pipelineStages.value.some(s => ['on_hold', 'contact', 'assessment', 'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred'].includes(s.type))
-})
+// C3 (R3): любая реальная воронка с этапами → используем этапный UI (по current_stage_id),
+// а не legacy 6-статусную модель. После Блока B все вакансии на канонической воронке,
+// поэтому этапный UI — основной; legacy-ветка остаётся лишь как fallback для вакансий
+// вообще без этапов (мисконфиг).
+const hasNewPipeline = computed(() => pipelineStages.value.length > 0)
 
 const PAGE_SIZE = 1000
 interface AppRow {
@@ -197,11 +198,19 @@ const focusStageId = ref<string | null>(null)
 // При загрузке pipeline-view выбираем первый root-этап
 watch(pipelineStages, (stages) => {
   if (!focusStageId.value && stages.length) {
-    // Если в URL — UUID этапа, используем его
     const q = route.query.stage as string | undefined
+    // 1) URL содержит UUID этапа — используем его напрямую
     if (q && stages.some(s => s.id === q)) {
       focusStageId.value = q
-    } else {
+    }
+    // 2) Back-compat: старые ссылки ?stage=<legacy-status> (new/screening/…) —
+    //    маппим в первый root-этап соответствующего типа.
+    else if (q && (LEGACY_STATUS_TO_TYPES as Record<string, string[]>)[q]) {
+      const types = LEGACY_STATUS_TO_TYPES[q as LegacyApplicationStatus]
+      const match = stages.find(s => types.includes(s.type))
+      focusStageId.value = match?.id ?? stages[0]?.id ?? null
+    }
+    else {
       focusStageId.value = stages[0]?.id ?? null
     }
   }

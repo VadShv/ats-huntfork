@@ -53,10 +53,9 @@ const { data: pipelinesRaw, status, refresh, error: fetchError } = useFetch<Pipe
 const pipelines = computed(() => pipelinesRaw.value ?? [])
 const isLoading = computed(() => status.value === 'pending')
 
-// ── Only-system empty hint ──
-const onlySystem = computed(() =>
-  pipelines.value.length > 0 && pipelines.value.every(p => p.isSystem),
-)
+// ── B3: разделяем на основную (каноническую) и экспериментальные (песочница) ──
+const mainPipelines = computed(() => pipelines.value.filter(p => p.isSystem || p.isDefault))
+const sandboxPipelines = computed(() => pipelines.value.filter(p => !p.isSystem && !p.isDefault))
 
 // ── Archive confirmation modal ──
 const pipelineToArchive = ref<PipelineListItem | null>(null)
@@ -231,17 +230,17 @@ async function handleSetDefault(pipeline: PipelineListItem) {
     </div>
 
     <!-- Pipelines list -->
-    <div v-else class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden">
-      <!-- Only-system hint -->
-      <div v-if="onlySystem" class="px-4 sm:px-6 py-3 border-b border-surface-100 dark:border-surface-800 bg-surface-50 dark:bg-surface-800/50">
-        <p class="text-xs text-surface-500 dark:text-surface-400">
-          {{ $t('pipelines.emptyHint') }}
-        </p>
+    <div v-else class="space-y-6">
+      <!-- ── Основная (каноническая) воронка ── -->
+      <div class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden">
+      <div class="px-4 sm:px-6 py-3 border-b border-surface-100 dark:border-surface-800 bg-surface-50 dark:bg-surface-800/50">
+        <p class="text-xs font-medium text-surface-600 dark:text-surface-300">Основная воронка</p>
+        <p class="text-xs text-surface-400 dark:text-surface-500 mt-0.5">Каноническая воронка вакансий. Базовые этапы зафиксированы — можно добавлять подэтапы.</p>
       </div>
 
       <div class="divide-y divide-surface-100 dark:divide-surface-800">
         <div
-          v-for="pipeline in pipelines"
+          v-for="pipeline in mainPipelines"
           :key="pipeline.id"
           class="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
           :class="pipeline.isArchived ? 'opacity-60' : ''"
@@ -333,9 +332,9 @@ async function handleSetDefault(pipeline: PipelineListItem) {
               {{ $t('pipelines.actions.clone') }}
             </button>
 
-            <!-- Set as default -->
+            <!-- Set as default — B3: только для канонической (системной) воронки -->
             <button
-              v-if="canUpdatePipeline && !pipeline.isDefault && !pipeline.isArchived"
+              v-if="canUpdatePipeline && pipeline.isSystem && !pipeline.isDefault && !pipeline.isArchived"
               type="button"
               :disabled="settingDefaultId === pipeline.id"
               class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -358,6 +357,63 @@ async function handleSetDefault(pipeline: PipelineListItem) {
               <Archive class="size-3" />
               {{ $t('pipelines.actions.archive') }}
             </button>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <!-- ── Экспериментальные воронки (песочница) ── -->
+      <div v-if="sandboxPipelines.length > 0" class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden">
+        <div class="px-4 sm:px-6 py-3 border-b border-surface-100 dark:border-surface-800 bg-surface-50 dark:bg-surface-800/50">
+          <p class="text-xs font-medium text-surface-600 dark:text-surface-300">Экспериментальные воронки</p>
+          <p class="text-xs text-surface-400 dark:text-surface-500 mt-0.5">Песочница для экспериментов. Их нельзя назначить на вакансии или сделать основной.</p>
+        </div>
+
+        <div class="divide-y divide-surface-100 dark:divide-surface-800">
+          <div
+            v-for="pipeline in sandboxPipelines"
+            :key="pipeline.id"
+            class="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+            :class="pipeline.isArchived ? 'opacity-60' : ''"
+          >
+            <div class="flex items-start gap-3 flex-1 min-w-0">
+              <div class="flex items-center justify-center size-9 shrink-0 rounded-lg bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400 mt-0.5">
+                <GitBranch class="size-4" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">{{ pipeline.name }}</span>
+                  <span class="inline-flex items-center rounded-full bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-700">Эксперимент</span>
+                  <span v-if="pipeline.isArchived" class="inline-flex items-center rounded-full bg-warning-50 dark:bg-warning-950/40 px-2 py-0.5 text-[10px] font-medium text-warning-700 dark:text-warning-400 border border-warning-200 dark:border-warning-800">{{ $t('pipelines.badges.archived') }}</span>
+                </div>
+                <p v-if="pipeline.description" class="text-xs text-surface-500 dark:text-surface-400 mt-0.5 truncate">{{ pipeline.description }}</p>
+                <div class="flex items-center gap-3 mt-1 text-xs text-surface-400 dark:text-surface-500">
+                  <span>{{ pipeline.stagesCount }} {{ $t('pipelines.list.stages').toLowerCase() }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 flex-shrink-0 pl-12 sm:pl-0">
+              <NuxtLink
+                v-if="canUpdatePipeline"
+                :to="localePath(`/dashboard/settings/pipelines/${pipeline.id}`)"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors no-underline"
+                :title="$t('pipelines.actions.edit')"
+              >
+                <Pencil class="size-3" />
+                {{ $t('pipelines.actions.edit') }}
+              </NuxtLink>
+              <button
+                v-if="canDeletePipeline && !pipeline.isArchived"
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors"
+                :title="$t('pipelines.actions.archive')"
+                @click="openArchiveModal(pipeline)"
+              >
+                <Archive class="size-3" />
+                {{ $t('pipelines.actions.archive') }}
+              </button>
+            </div>
           </div>
         </div>
       </div>

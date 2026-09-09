@@ -775,7 +775,7 @@ async function handleSubmit(mode: 'publish' | 'draft' = publishChoice.value) {
       requireResume: applicationForm.value.requireResume,
       requireCoverLetter: applicationForm.value.requireCoverLetter,
       autoScoreOnApply: autoScoreOnApply.value,
-      pipelineId: form.value.pipelineId || undefined,
+      // B2: pipelineId не отправляется — сервер назначает каноническую воронку.
     })
 
     track('job_created')
@@ -1172,24 +1172,14 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                 </div>
               </div>
 
-              <!-- Section: Pipeline -->
+              <!-- Section: Pipeline — B2: воронка единая (каноническая), не выбирается -->
               <div class="space-y-6">
                 <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-6 pb-2 border-b border-surface-100 dark:border-surface-800">{{ t('dashboard.jobs.form.pipelineLabel') }}</h2>
-                <div>
-                  <label for="pipelineId" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                    {{ t('dashboard.jobs.form.pipelineLabel') }}
-                  </label>
-                  <select
-                    id="pipelineId"
-                    v-model="form.pipelineId"
-                    class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 border-surface-300 dark:border-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
-                  >
-                    <option :value="undefined" disabled>{{ t('dashboard.jobs.form.pipelinePlaceholder') }}</option>
-                    <option v-for="p in pipelines" :key="(p as any).id" :value="(p as any).id">
-                      {{ (p as any).name }}{{ (p as any).isSystem ? ` ${t('dashboard.jobs.form.pipelineSystemSuffix')}` : (p as any).isDefault ? ` ${t('dashboard.jobs.form.pipelineDefaultSuffix')}` : '' }}
-                    </option>
-                  </select>
-                  <p class="mt-1.5 text-xs text-surface-500">{{ t('dashboard.jobs.form.pipelineHelp') }}</p>
+                <div class="flex items-center gap-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50/60 dark:bg-surface-900/40 px-4 py-3">
+                  <span class="text-sm font-medium text-surface-900 dark:text-surface-100">
+                    {{ (pipelines.find((p: any) => p.isDefault) ?? pipelines[0])?.name ?? '—' }}
+                  </span>
+                  <span class="text-xs text-surface-400 dark:text-surface-500">· основная воронка (назначается автоматически)</span>
                 </div>
               </div>
 

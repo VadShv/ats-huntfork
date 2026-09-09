@@ -65,6 +65,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // ── B3: дефолтной может быть ТОЛЬКО каноническая (системная) воронка ──
+  //    Экспериментальные (пользовательские) воронки — песочница: их нельзя
+  //    сделать основной и нельзя назначить на вакансии.
+  if (body.isDefault === true && !existing.isSystem) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Экспериментальную воронку нельзя сделать основной. Основной может быть только каноническая воронка.',
+    })
+  }
+
   // Name uniqueness
   if (body.name && body.name.toLowerCase() !== existing.name.toLowerCase()) {
     const nameConflict = await db.query.pipeline.findFirst({

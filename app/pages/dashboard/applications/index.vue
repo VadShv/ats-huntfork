@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { FileText, Search, X, Briefcase, Mail, Clock, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Maximize2, Minimize2, Check, ChevronDown, Loader2 } from 'lucide-vue-next'
+import { LEGACY_STATUS_TO_TYPES, type LegacyApplicationStatus } from '~~/shared/pipeline-stage-meta'
 
 definePageMeta({
   layout: 'dashboard',
@@ -73,16 +74,6 @@ watch(searchInput, (val) => {
 
 const propertyFilters = ref<import('~~/shared/properties').PropertyFilter[]>([])
 
-/** Легаси-маппинг старых URL ?status= → типы корневых этапов (back-compat старых ссылок/закладок). */
-const LEGACY_STATUS_TO_TYPES: Record<string, string[]> = {
-  new: ['new', 'applied'],
-  screening: ['on_hold', 'contact', 'assessment', 'screening'],
-  interview: ['interview'],
-  offer: ['offer'],
-  hired: ['hired'],
-  rejected: ['rejected', 'not_fit', 'withdrawn', 'no_show', 'job_closed', 'transferred'],
-}
-
 function parseStageParam(raw: unknown): string[] {
   if (typeof raw !== 'string' || !raw) return []
   return [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))]
@@ -147,7 +138,7 @@ const rootStageGroups = computed(() =>
 // Back-compat: старые ссылки ?status=screening и т.п. → выбор соответствующих корневых этапов.
 // Ждём загрузку справочника этапов, затем конвертируем и чистим URL.
 function legacyStatusToStageIds(status: string): string[] {
-  const types = LEGACY_STATUS_TO_TYPES[status]
+  const types = LEGACY_STATUS_TO_TYPES[status as LegacyApplicationStatus] as string[] | undefined
   if (!types) return []
   return rootStageGroups.value.flatMap(g => g.stages.filter(s => types.includes(s.type)).map(s => s.id))
 }

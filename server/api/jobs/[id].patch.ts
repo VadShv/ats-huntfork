@@ -1,7 +1,6 @@
 import { eq, and, isNull } from 'drizzle-orm'
-import { job, pipeline, application, company, department, jobStatusHistory } from '../../database/schema'
+import { job, company, department, jobStatusHistory } from '../../database/schema'
 import { idParamSchema, updateJobSchema, JOB_STATUS_TRANSITIONS } from '../../utils/schemas/job'
-import { countActiveApplicationsForJob } from '../../utils/pipeline-helpers'
 import { computeJobLifecycleUpdate } from '../../utils/job-lifecycle'
 
 export default defineEventHandler(async (event) => {
@@ -35,56 +34,8 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Pipeline change validation
-  // ─────────────────────────────────────────────
-
-  const pipelineIsChanging =
-    'pipelineId' in body &&
-    body.pipelineId !== undefined &&
-    body.pipelineId !== existing.pipelineId
-
-  if (pipelineIsChanging && body.pipelineId !== null) {
-    // Validate the new pipeline exists in the same org and is not archived
-    const targetPipeline = await db.query.pipeline.findFirst({
-      where: and(
-        eq(pipeline.id, body.pipelineId!),
-        eq(pipeline.organizationId, orgId),
-        eq(pipeline.isArchived, false),
-      ),
-      columns: { id: true },
-    })
-
-    if (!targetPipeline) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Указанная воронка не найдена',
-      })
-    }
-  }
-
-  if (pipelineIsChanging) {
-    // Block the change if there are active applications on this job
-    const activeCount = await countActiveApplicationsForJob(db, id)
-
-    if (activeCount > 0) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: `Нельзя сменить воронку: у вакансии ${activeCount} активных кандидатов. Закройте или перенесите их перед сменой воронки.`,
-      })
-    }
-
-    // Clear currentStageId on any closed (terminal) applications so they don't reference
-    // stages from the old pipeline. Closed apps have status hired/rejected.
-    await db.update(application)
-      .set({ currentStageId: null, updatedAt: new Date() })
-      .where(
-        and(
-          eq(application.jobId, id),
-          eq(application.organizationId, orgId),
-        ),
-      )
-  }
+  // B2: смена воронки у вакансии запрещена — pipelineId удалён из updateJobSchema
+  // и здесь не обрабатывается. Вакансия всегда на канонической воронке.
 
   // Проверка принадлежности компании и подразделения организации (null — снятие привязки, разрешено)
   if (body.companyId) {

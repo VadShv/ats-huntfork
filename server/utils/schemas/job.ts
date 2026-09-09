@@ -8,8 +8,8 @@ export { JOB_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
 
 /** Schema for creating a new job */
 export const createJobSchema = z.object({
-  /** Optional pipeline to assign to this job. If omitted, the org default is used. */
-  pipelineId: z.string().optional(),
+  // B2: воронка вакансии больше НЕ выбирается — всегда каноническая (org default).
+  // Поле pipelineId намеренно удалено из схемы (любое присланное значение игнорируется Zod).
   title: z.string().min(1, 'Title is required').max(200),
   description: z.string().optional(),
   location: z.string().optional(),
@@ -45,8 +45,8 @@ export const createJobSchema = z.object({
 
 /** Schema for updating an existing job (all fields optional, no defaults — PATCH semantics) */
 export const updateJobSchema = z.object({
-  /** Change the pipeline assigned to this job. Only allowed when there are 0 active applications. */
-  pipelineId: z.string().nullable().optional(),
+  // B2: смена воронки у вакансии запрещена (единая каноническая воронка).
+  // Поле pipelineId намеренно удалено из схемы (любое присланное значение игнорируется Zod).
   title: z.string().min(1, 'Title is required').max(200).optional(),
   description: z.string().nullable().optional(),
   location: z.string().nullable().optional(),

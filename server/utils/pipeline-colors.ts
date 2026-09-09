@@ -1,97 +1,47 @@
-import type { pipelineStageTypeEnum } from '../database/schema/app'
+import {
+  ALL_STAGE_TYPES,
+  STAGE_TYPE_META,
+  bucketForStageType as metaBucketForStageType,
+  colorForStageType as metaColorForStageType,
+  isTerminalStageType,
+  type PipelineStageType as MetaPipelineStageType,
+  type StageBucket as MetaStageBucket,
+} from '../../shared/pipeline-stage-meta'
 
 /**
- * The inferred TypeScript type for the pipeline_stage_type enum values.
- * Derived directly from the Drizzle enum so it stays in sync automatically.
- */
-export type PipelineStageType = typeof pipelineStageTypeEnum.enumValues[number]
-
-/**
- * Canonical hex colors for each pipeline stage type.
- * These are assigned automatically by the server when a stage is created
- * without an explicit color override.
+ * Цвета/bucket/терминальность типов этапов.
  *
- * Legacy types (applied/screening/rejected) остаются для retro-совместимости
- * с воронками, созданными до модели «1-в-1 с hh.ru».
+ * C4: ВСЁ здесь производно от единого источника `#shared/pipeline-stage-meta`.
+ * Публичный API файла сохранён (STAGE_COLORS, BUCKET_BY_TYPE, TERMINAL_TYPES,
+ * colorForStageType, bucketForStageType, isTerminalType) — потребители не меняются.
  */
-export const STAGE_COLORS: Record<PipelineStageType, string> = {
-  // ── Working bucket ──
-  new: '#94a3b8', // slate-400 (Неразобранные)
-  on_hold: '#a8a29e', // stone-400 (Подумать)
-  contact: '#0ea5e9', // sky-500 (Первичный контакт)
-  screening: '#3b82f6', // blue-500 (Скрининг)
-  assessment: '#6366f1', // indigo-500 (Тестовое)
-  interview: '#a855f7', // purple-500 (Интервью)
-  offer: '#eab308', // yellow-500 (Оффер)
-  // ── Terminal success ──
-  hired: '#10b981', // emerald-500 (Принят)
-  // ── Terminal reject ──
-  // Спринт 12.4: все отказные этапы — оттенки красного, чтобы визуально
-  // отделяться от рабочих этапов в воронке.
-  not_fit: '#ef4444', // red-500 (Не подходит)
-  withdrawn: '#f87171', // red-400 (Кандидат отказался)
-  no_show: '#e11d48', // rose-600 (Не выходит на связь)
-  job_closed: '#b91c1c', // red-700 (Вакансия закрыта)
-  transferred: '#9f1239', // rose-800 (Перевод на другую)
-  // ── Legacy (retro-compat) ──
-  applied: '#94a3b8', // slate-400 (alias for `new`)
-  rejected: '#ef4444', // red-500 (alias for `not_fit`)
-  // ── User-defined ──
-  custom: '#06b6d4', // cyan-500
-}
+
+export type PipelineStageType = MetaPipelineStageType
+export type StageBucket = MetaStageBucket
+
+/** Канонические hex-цвета для каждого типа этапа (из STAGE_TYPE_META). */
+export const STAGE_COLORS: Record<PipelineStageType, string> = Object.fromEntries(
+  ALL_STAGE_TYPES.map(t => [t, STAGE_TYPE_META[t].color]),
+) as Record<PipelineStageType, string>
+
+/** Каноническая принадлежность типа этапа к bucket (из STAGE_TYPE_META). */
+export const BUCKET_BY_TYPE: Record<PipelineStageType, StageBucket> = Object.fromEntries(
+  ALL_STAGE_TYPES.map(t => [t, STAGE_TYPE_META[t].bucket]),
+) as Record<PipelineStageType, StageBucket>
 
 /**
- * The two «buckets» a stage can belong to.
- * — `working` — активные этапы (кандидат в процессе)
- * — `rejected` — отказные этапы (кандидат не подошёл или ушёл)
- * `hired` — терминальный, но остаётся в bucket=`working` для аналитики воронки.
+ * Терминальные типы (hired + все reject-типы). При этих типах isTerminal=true.
  */
-export type StageBucket = 'working' | 'rejected'
-
-/**
- * Каноническая принадлежность типа этапа к bucket.
- * Используется при сидинге и как дефолт при создании этапа с известным типом.
- * Для `custom` bucket определяется пользователем.
- */
-export const BUCKET_BY_TYPE: Record<PipelineStageType, StageBucket> = {
-  new: 'working',
-  on_hold: 'working',
-  contact: 'working',
-  screening: 'working',
-  assessment: 'working',
-  interview: 'working',
-  offer: 'working',
-  hired: 'working',
-  not_fit: 'rejected',
-  withdrawn: 'rejected',
-  no_show: 'rejected',
-  job_closed: 'rejected',
-  transferred: 'rejected',
-  applied: 'working', // legacy alias
-  rejected: 'rejected', // legacy
-  custom: 'working',
-}
-
-/**
- * Терминальные типы. При этих типах isTerminal должен быть true.
- * `hired` — success terminal, остальные — reject terminals.
- */
-export const TERMINAL_TYPES: ReadonlySet<PipelineStageType> = new Set<PipelineStageType>([
-  'hired',
-  'not_fit',
-  'withdrawn',
-  'no_show',
-  'job_closed',
-  'transferred',
-  'rejected', // legacy
-])
+export const TERMINAL_TYPES: ReadonlySet<PipelineStageType> = new Set<PipelineStageType>(
+  ALL_STAGE_TYPES.filter(t => STAGE_TYPE_META[t].isTerminal),
+)
 
 /**
  * Returns the canonical hex color for a given stage type.
  * Falls back to the `custom` color if the type is unrecognized.
  */
 export function colorForStageType(type: PipelineStageType): string {
-  return STAGE_COLORS[type] ?? STAGE_COLORS.custom
+  return metaColorForStageType(type)
 }
 
 /**
@@ -99,12 +49,12 @@ export function colorForStageType(type: PipelineStageType): string {
  * реальное значение хранится в колонке `pipelineStage.bucket`.
  */
 export function bucketForStageType(type: PipelineStageType): StageBucket {
-  return BUCKET_BY_TYPE[type] ?? 'working'
+  return metaBucketForStageType(type)
 }
 
 /**
  * Терминальный ли этап данного типа.
  */
 export function isTerminalType(type: PipelineStageType): boolean {
-  return TERMINAL_TYPES.has(type)
+  return isTerminalStageType(type)
 }
