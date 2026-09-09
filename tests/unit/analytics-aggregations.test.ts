@@ -1,7 +1,35 @@
 import { describe, it, expect } from 'vitest'
 import {
-  agingBucketIndex, AGING_BUCKET_LABELS, noShowRate, linkCtr, isFullyFilled, hireRate,
+  agingBucketIndex, AGING_BUCKET_LABELS, noShowRate, linkCtr, isFullyFilled, hireRate, computeTimeToFill,
 } from '../../server/utils/analytics/aggregations'
+
+const OPENED = new Date('2026-01-01T00:00:00.000Z')
+const CLOSED = new Date('2026-01-11T00:00:00.000Z') // +10 дней
+const LAST_HIRE = new Date('2026-01-16T00:00:00.000Z') // +15 дней
+
+describe('computeTimeToFill', () => {
+  it('null when not opened', () => {
+    expect(computeTimeToFill({ openedAt: null, closedAt: CLOSED, lastHiredAt: LAST_HIRE, headcount: 1, status: 'closed', totalHires: 1 })).toBeNull()
+  })
+  it('null when open and not fully filled', () => {
+    expect(computeTimeToFill({ openedAt: OPENED, closedAt: null, lastHiredAt: null, headcount: 1, status: 'open', totalHires: 0 })).toBeNull()
+  })
+  it('headcount=1 closed: uses closedAt', () => {
+    expect(computeTimeToFill({ openedAt: OPENED, closedAt: CLOSED, lastHiredAt: LAST_HIRE, headcount: 1, status: 'closed', totalHires: 1 })).toBe(10)
+  })
+  it('headcount=1 filled-by-hires (not closed): uses closedAt if present else lastHire', () => {
+    expect(computeTimeToFill({ openedAt: OPENED, closedAt: null, lastHiredAt: LAST_HIRE, headcount: 1, status: 'open', totalHires: 1 })).toBe(15)
+  })
+  it('multi-hire fully filled: uses lastHiredAt (not closedAt)', () => {
+    expect(computeTimeToFill({ openedAt: OPENED, closedAt: CLOSED, lastHiredAt: LAST_HIRE, headcount: 3, status: 'open', totalHires: 3 })).toBe(15)
+  })
+  it('multi-hire not fully filled: null', () => {
+    expect(computeTimeToFill({ openedAt: OPENED, closedAt: null, lastHiredAt: LAST_HIRE, headcount: 3, status: 'open', totalHires: 2 })).toBeNull()
+  })
+  it('multi-hire closed but no lastHiredAt: null (endMoment missing)', () => {
+    expect(computeTimeToFill({ openedAt: OPENED, closedAt: CLOSED, lastHiredAt: null, headcount: 3, status: 'closed', totalHires: 0 })).toBeNull()
+  })
+})
 
 describe('agingBucketIndex', () => {
   it('maps days to correct bucket', () => {

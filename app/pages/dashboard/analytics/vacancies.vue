@@ -210,6 +210,6 @@ const agingChartOption = computed(() => {
     </div>
 
     <!-- Drawer с воронкой вакансии -->
-    <AnalyticsVacancyDrawer :job-id="selectedJobId" @close="selectedJobId = null" />
+    <AnalyticsVacancyDrawer :job-id="selectedJobId" :query="query" @close="selectedJobId = null" />
   </div>
 </template>

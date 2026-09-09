@@ -3,6 +3,7 @@ import { db } from '../../utils/db'
 import { job } from '../../database/schema'
 import { analyticsQuerySchema, resolvePeriod } from '../../utils/analytics/filters'
 import { resolveAnalyticsScope } from '../../utils/analytics/scope'
+import { computeTimeToFill } from '../../utils/analytics/aggregations'
 import { eq, and, sql, desc } from 'drizzle-orm'
 import { department, company } from '../../database/schema'
 
@@ -29,9 +30,10 @@ export default defineEventHandler(async (event) => {
     }
 
     const jobs = await db.select({
-      title: job.title, status: job.status,
+      id: job.id, title: job.title, status: job.status,
       departmentName: department.name, companyName: company.name,
-      openedAt: job.openedAt, closedAt: job.closedAt, reopenCount: job.reopenCount,
+      openedAt: job.openedAt, closedAt: job.closedAt, firstOpenedAt: job.firstOpenedAt,
+      headcount: job.headcount, reopenCount: job.reopenCount,
       closeReason: job.closeReason, createdAt: job.createdAt,
     })
       .from(job)
@@ -41,11 +43,27 @@ export default defineEventHandler(async (event) => {
       .orderBy(desc(job.createdAt))
       .limit(500)
 
+    // Наймы за всё время + момент последнего найма (для единого time-to-fill).
+    const hireAgg: any = jobs.length
+      ? await db.execute(sql`
+          SELECT v.job_id, count(DISTINCT v.application_id)::int AS cnt, max(v.entered_at) AS last_hired_at
+          FROM mv_application_stage_durations v
+          WHERE v.organization_id = ${orgId} AND v.stage_type = 'hired'
+            AND v.job_id IN (${sql.join(jobs.map(j => sql`${j.id}`), sql`, `)})
+          GROUP BY v.job_id
+        `)
+      : []
+    const hireByJob = new Map<string, any>(hireAgg.map((r: any) => [r.job_id, r]))
+
     const now = Date.now()
     const rows = jobs.map(j => {
-      const openedAt = j.openedAt ?? j.createdAt
+      const openedAt = j.openedAt ?? j.firstOpenedAt ?? j.createdAt
       const daysOpen = j.status === 'open' ? Math.round((now - openedAt.getTime()) / 86400000) : ''
-      const timeToFill = j.status === 'closed' && j.closedAt ? Math.round((j.closedAt.getTime() - openedAt.getTime()) / 86400000) : ''
+      const h = hireByJob.get(j.id) ?? {}
+      const timeToFill = computeTimeToFill({
+        openedAt, closedAt: j.closedAt, lastHiredAt: h.last_hired_at ? new Date(h.last_hired_at) : null,
+        headcount: j.headcount, status: j.status, totalHires: h.cnt ?? 0,
+      }) ?? ''
       return {
         Вакансия: j.title,
         Статус: j.status,

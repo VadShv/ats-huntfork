@@ -1,71 +1,41 @@
-import { sql, type SQL } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { db } from '../../utils/db'
-import { analyticsQuerySchema, resolvePeriod, mvFilterConditions, andAll, type AnalyticsQuery } from '../../utils/analytics/filters'
+import { analyticsQuerySchema, resolvePeriod, andAll, type AnalyticsQuery } from '../../utils/analytics/filters'
 import { analyticsRefreshState } from '../../utils/analytics/refresh-state'
-import { resolveAnalyticsScope } from '../../utils/analytics/scope'
+import { resolveAnalyticsScope, type AnalyticsScope } from '../../utils/analytics/scope'
+import { countActiveNow } from '../../utils/analytics/active-now'
 
 /**
- * GET /api/analytics/overview — KPI Обзора (Спринт 23, C2).
+ * GET /api/analytics/overview — KPI Обзора (когортная модель, согласовано с Funnel).
  *
- * Отдаёт: активные отклики (сейчас, напрямую из application), новые за период,
- * наймы, отказы, Time-to-Hire p50/p90 (дней), Offer Acceptance;
- * при ?compare=prev — те же метрики за предыдущий период той же длительности.
- *
- * Все периодные метрики читаются из mv_application_stage_durations (не грузим прод),
- * «активные сейчас» — прямой запрос по текущим этапам (now-виджет).
+ * Когорта = отклики, СОЗДАННЫЕ в периоде (application.created_at ∈ [from,to)).
+ * hires/rejections = сколько из когорты достигли hired / rejected-ветки (reached-DISTINCT).
+ * Time-to-Hire = hired.entered_at − created_at по когорте. offerAcceptance — тоже по когорте.
+ * «Активные сейчас» — snapshot (countActiveNow, единый хелпер, вне периода).
  */
 export default defineEventHandler(async (event) => {
-  // sourceTracking:read есть у owner/admin/member, но НЕ у hiring_manager —
-  // аналитика подбора недоступна НМ (как и весь /dashboard в UI)
   const session = await requirePermission(event, { application: ['read'], sourceTracking: ['read'] })
   const orgId = session.session.activeOrganizationId
 
   const q = await getValidatedQuery(event, analyticsQuerySchema.parse)
   const period = resolvePeriod(q)
 
-  // Скоуп: member видит только свои вакансии, owner/admin — всю орг.
   const scope = await resolveAnalyticsScope(orgId, session.user.id)
-  const scopeCond = scope.jobIdCondition('v')
-  const scopeCondA = scope.jobIdCondition('a')
 
   const [activeNow, current, prev] = await Promise.all([
-    countActiveNow(orgId, q, scopeCondA),
-    periodKpis(orgId, q, period.from, period.to, scopeCond, scopeCondA),
-    q.compare === 'prev' ? periodKpis(orgId, q, period.prevFrom, period.prevTo, scopeCond, scopeCondA) : Promise.resolve(null),
+    countActiveNow(orgId, q, scope),
+    periodKpis(orgId, q, period.from, period.to, scope),
+    q.compare === 'prev' ? periodKpis(orgId, q, period.prevFrom, period.prevTo, scope) : Promise.resolve(null),
   ])
 
   return {
     period: { from: period.from, to: period.to },
-    prevPeriod: q.compare === 'prev'
-      ? { from: period.prevFrom, to: period.prevTo }
-      : null,
+    prevPeriod: q.compare === 'prev' ? { from: period.prevFrom, to: period.prevTo } : null,
     refreshedAt: analyticsRefreshState.lastRefreshAt?.toISOString() ?? null,
     kpis: { activeNow, ...current },
     prevKpis: prev,
   }
 })
-
-/** Активные отклики сейчас: текущий этап в working-ветке. Прямой запрос (не mv). */
-async function countActiveNow(orgId: string, q: AnalyticsQuery, scopeCond: SQL | null): Promise<number> {
-  const conds = [sql`a.organization_id = ${orgId}`, sql`ps.bucket = 'working'`]
-  if (q.jobId) conds.push(sql`a.job_id = ${q.jobId}`)
-  if (q.source) conds.push(sql`a.source = ${q.source}`)
-  if (q.pipelineId) conds.push(sql`ps.pipeline_id = ${q.pipelineId}`)
-  if (q.recruiterId) {
-    conds.push(sql`a.job_id IN (
-      SELECT jm.job_id FROM job_member jm
-      WHERE jm.user_id = ${q.recruiterId} AND jm.member_role = 'recruiter'
-    )`)
-  }
-  if (scopeCond) conds.push(scopeCond)
-  const rows: any = await db.execute(sql`
-    SELECT count(*)::int AS cnt
-    FROM application a
-    JOIN pipeline_stage ps ON ps.id = a.current_stage_id
-    WHERE ${andAll(conds)}
-  `)
-  return rows[0]?.cnt ?? 0
-}
 
 interface PeriodKpis {
   newApplications: number
@@ -76,76 +46,64 @@ interface PeriodKpis {
   offerAcceptance: number | null
 }
 
-async function periodKpis(orgId: string, q: AnalyticsQuery, from: string, to: string, scopeCond: SQL | null, scopeCondA: SQL | null): Promise<PeriodKpis> {
-  const mvConds = mvFilterConditions('v', orgId, q)
-  if (scopeCond) mvConds.push(scopeCond)
-
-  // Новые отклики за период — по application.created_at (прямой запрос по индексу org)
-  const newConds = [
+async function periodKpis(orgId: string, q: AnalyticsQuery, from: string, to: string, scope: AnalyticsScope): Promise<PeriodKpis> {
+  // Когорта: отклики, созданные в периоде + фильтры + scope.
+  const cohortConds = [
     sql`a.organization_id = ${orgId}`,
     sql`a.created_at >= ${from}`,
     sql`a.created_at < ${to}`,
   ]
-  if (q.jobId) newConds.push(sql`a.job_id = ${q.jobId}`)
-  if (q.source) newConds.push(sql`a.source = ${q.source}`)
-  if (q.pipelineId) {
-    newConds.push(sql`COALESCE(
-      (SELECT ps.pipeline_id FROM pipeline_stage ps WHERE ps.id = a.current_stage_id),
-      (SELECT j.pipeline_id FROM job j WHERE j.id = a.job_id)
-    ) = ${q.pipelineId}`)
-  }
+  if (q.jobId) cohortConds.push(sql`a.job_id = ${q.jobId}`)
+  if (q.source) cohortConds.push(sql`a.source = ${q.source}`)
+  if (q.pipelineId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.pipeline_id = ${q.pipelineId})`)
   if (q.recruiterId) {
-    newConds.push(sql`a.job_id IN (
-      SELECT jm.job_id FROM job_member jm
-      WHERE jm.user_id = ${q.recruiterId} AND jm.member_role = 'recruiter'
-    )`)
+    cohortConds.push(sql`a.job_id IN (SELECT jm.job_id FROM job_member jm WHERE jm.user_id = ${q.recruiterId} AND jm.member_role = 'recruiter')`)
   }
-  if (scopeCondA) newConds.push(scopeCondA)
+  if (q.departmentId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.department_id = ${q.departmentId})`)
+  if (q.companyId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.company_id = ${q.companyId})`)
+  const scopeCond = scope.jobIdCondition('a')
+  if (scopeCond) cohortConds.push(scopeCond)
+  const cohortSQL = sql`SELECT a.id FROM application a WHERE ${andAll(cohortConds)}`
 
-  const [newRows, hireRows, rejectRows, tthRows, offerRows]: any[] = await Promise.all([
-    db.execute(sql`SELECT count(*)::int AS cnt FROM application a WHERE ${andAll(newConds)}`),
+  const [newRows, hireRows, rejectRows, tthRows, offerRejRows]: any[] = await Promise.all([
+    // Размер когорты (новые отклики за период)
+    db.execute(sql`SELECT count(*)::int AS cnt FROM (${cohortSQL}) c`),
 
-    // Наймы: входы на этап типа hired за период
+    // Наймы: из когорты, достигшие hired (reached-DISTINCT)
     db.execute(sql`
       SELECT count(DISTINCT v.application_id)::int AS cnt
       FROM mv_application_stage_durations v
-      WHERE ${andAll([...mvConds, sql`v.stage_type = 'hired'`, sql`v.entered_at >= ${from}`, sql`v.entered_at < ${to}`])}
+      WHERE v.application_id IN (${cohortSQL}) AND v.stage_type = 'hired'
     `),
 
-    // Отказы: входы в отказную ветку за период (первый вход отклика)
+    // Отказы: из когорты, достигшие rejected-ветки
     db.execute(sql`
       SELECT count(DISTINCT v.application_id)::int AS cnt
       FROM mv_application_stage_durations v
-      WHERE ${andAll([...mvConds, sql`v.bucket = 'rejected'`, sql`v.entered_at >= ${from}`, sql`v.entered_at < ${to}`])}
+      WHERE v.application_id IN (${cohortSQL}) AND v.bucket = 'rejected'
     `),
 
-    // Time-to-Hire (C2): hired.entered_at − application.created_at, p50/p90 в днях
+    // Time-to-Hire: hired.entered_at − application.created_at по когорте
     db.execute(sql`
       SELECT
         percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (v.entered_at - a.created_at)) / 86400.0) AS p50,
         percentile_cont(0.9) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (v.entered_at - a.created_at)) / 86400.0) AS p90
       FROM mv_application_stage_durations v
       JOIN application a ON a.id = v.application_id
-      WHERE ${andAll([...mvConds, sql`v.stage_type = 'hired'`, sql`v.entered_at >= ${from}`, sql`v.entered_at < ${to}`])}
+      WHERE v.application_id IN (${cohortSQL}) AND v.stage_type = 'hired'
     `),
 
-    // Offer Acceptance (C2): наймы / (наймы + уходы с оффера в отказ) за период
+    // Offer Acceptance: из когорты, ушедшие с оффера в отказ (знаменатель вместе с hires)
     db.execute(sql`
-      SELECT count(*)::int AS cnt
+      SELECT count(DISTINCT v.application_id)::int AS cnt
       FROM mv_application_stage_durations v
       JOIN pipeline_stage next_ps ON next_ps.id = v.next_stage_id
-      WHERE ${andAll([
-        ...mvConds,
-        sql`v.stage_type = 'offer'`,
-        sql`next_ps.bucket = 'rejected'`,
-        sql`v.exited_at >= ${from}`,
-        sql`v.exited_at < ${to}`,
-      ])}
+      WHERE v.application_id IN (${cohortSQL}) AND v.stage_type = 'offer' AND next_ps.bucket = 'rejected'
     `),
   ])
 
   const hires = hireRows[0]?.cnt ?? 0
-  const offerRejects = offerRows[0]?.cnt ?? 0
+  const offerRejects = offerRejRows[0]?.cnt ?? 0
   const offerDecisions = hires + offerRejects
 
   return {

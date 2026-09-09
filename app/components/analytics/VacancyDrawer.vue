@@ -6,7 +6,7 @@
 import { X, Timer, Users, BadgeCheck, UserX, RefreshCw } from 'lucide-vue-next'
 import { baseCartesianOption, CHART_PALETTE, CHART_SEMANTIC } from '~/utils/analytics/chart-theme'
 
-const props = defineProps<{ jobId: string | null }>()
+const props = defineProps<{ jobId: string | null, query?: Record<string, string> }>()
 const emit = defineEmits<{ close: [] }>()
 
 const localePath = useLocalePath()
@@ -15,11 +15,12 @@ const { isDark } = useColorMode()
 const { data, status } = useFetch(() => `/api/analytics/jobs/${props.jobId}`, {
   key: computed(() => `analytics-vacancy-${props.jobId}`),
   headers: useRequestHeaders(['cookie']),
+  query: computed(() => props.query ?? {}),
   immediate: false,
-  watch: [() => props.jobId],
+  watch: [() => props.jobId, () => props.query],
 })
 
-// Загружаем только когда есть jobId
+// Загружаем только когда появляется jobId (useFetch watch перезагрузит при смене jobId/query)
 watch(() => props.jobId, (id) => { if (id) refreshNuxtData(`analytics-vacancy-${id}`) })
 
 const job = computed(() => (data.value as any)?.job ?? null)

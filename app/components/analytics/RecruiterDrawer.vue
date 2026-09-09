@@ -93,6 +93,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               </div>
               <ClientOnly>
                 <AnalyticsAeChart v-if="iv.byType?.length" :option="typeChartOption" :height="160" />
+                <template #fallback><div class="h-[160px] animate-pulse rounded-xl bg-surface-100 dark:bg-surface-800" /></template>
               </ClientOnly>
             </section>
 

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { db } from '../../../utils/db'
 import { analyticsQuerySchema, resolvePeriod, andAll } from '../../../utils/analytics/filters'
+import { resolveAnalyticsScope } from '../../../utils/analytics/scope'
 
 const dropoffQuerySchema = analyticsQuerySchema.extend({
   stageId: z.string().min(1),
@@ -25,6 +26,9 @@ export default defineEventHandler(async (event) => {
   const { from, to } = resolvePeriod(q)
   const offset = (q.page - 1) * q.limit
 
+  // Scope: member видит только свои вакансии.
+  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+
   // Когортная семантика (согласовано с funnel.get.ts rejectedFromStage[X]):
   // отклики когорты (created_at ∈ период), достигшие root-этапа stageId
   // и ушедшие С него в rejected-ветку. DISTINCT по application_id (устойчиво
@@ -42,9 +46,15 @@ export default defineEventHandler(async (event) => {
   }
   if (q.departmentId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.department_id = ${q.departmentId})`)
   if (q.companyId) cohortConds.push(sql`a.job_id IN (SELECT j.id FROM job j WHERE j.company_id = ${q.companyId})`)
+  if (scope.scoped) {
+    cohortConds.push(scope.jobIds.length === 0
+      ? sql`a.job_id = '__none__'`
+      : sql`a.job_id IN (${sql.join(scope.jobIds.map(id => sql`${id}`), sql`, `)})`)
+  }
   const cohortSQL = sql`SELECT a.id FROM application a WHERE ${andAll(cohortConds)}`
 
-  const dropCond = sql`v.application_id IN (${cohortSQL})
+  const dropCond = sql`v.organization_id = ${orgId}
+    AND v.application_id IN (${cohortSQL})
     AND v.root_stage_id = ${q.stageId}
     AND next_ps.bucket = 'rejected'`
 

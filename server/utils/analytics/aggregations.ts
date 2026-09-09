@@ -33,3 +33,28 @@ export function isFullyFilled(totalHires: number, headcount: number): boolean {
 export function hireRate(applications: number, hires: number): number | null {
   return applications > 0 ? Math.round((hires / applications) * 1000) / 1000 : null
 }
+
+/**
+ * Единый time-to-fill вакансии (Фаза 2, #7): openedAt → полное закрытие, в днях.
+ *
+ * Полное закрытие: status='closed' ИЛИ totalHires >= headcount.
+ * endMoment: для multi-hire (headcount>1) — момент ПОСЛЕДНЕГО найма (lastHiredAt);
+ * для headcount=1 — closedAt (приоритетно), fallback lastHiredAt.
+ * null — если вакансия не закрыта или нет openedAt/endMoment.
+ */
+export function computeTimeToFill(params: {
+  openedAt: Date | null
+  closedAt: Date | null
+  lastHiredAt: Date | null
+  headcount: number
+  status: string
+  totalHires: number
+}): number | null {
+  const { openedAt, closedAt, lastHiredAt, headcount, status, totalHires } = params
+  if (!openedAt) return null
+  const fullyFilled = totalHires >= Math.max(1, headcount)
+  if (status !== 'closed' && !fullyFilled) return null
+  const endMoment = headcount > 1 ? lastHiredAt : (closedAt ?? lastHiredAt)
+  if (!endMoment) return null
+  return Math.round((endMoment.getTime() - openedAt.getTime()) / 86400000)
+}

@@ -1,7 +1,8 @@
 import { sql, eq, and } from 'drizzle-orm'
 import { db } from '../../../utils/db'
 import { job, pipeline, pipelineStage, application, candidate, department, company } from '../../../database/schema'
-import { resolvePeriod } from '../../../utils/analytics/filters'
+import { resolvePeriod, analyticsQuerySchema } from '../../../utils/analytics/filters'
+import { computeTimeToFill } from '../../../utils/analytics/aggregations'
 import { analyticsRefreshState } from '../../../utils/analytics/refresh-state'
 import { resolveAnalyticsScope } from '../../../utils/analytics/scope'
 import { idParamSchema } from '../../../utils/schemas/job'
@@ -17,6 +18,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'], sourceTracking: ['read'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
+  const q = await getValidatedQuery(event, analyticsQuerySchema.parse)
 
   const scope = await resolveAnalyticsScope(orgId, session.user.id)
   if (scope.scoped && !scope.jobIds.includes(id)) {
@@ -39,7 +41,7 @@ export default defineEventHandler(async (event) => {
 
   if (!j) throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
 
-  const period = resolvePeriod({})
+  const period = resolvePeriod(q)
   const { from, to } = period
 
   // Pipeline вакансии
@@ -160,14 +162,13 @@ export default defineEventHandler(async (event) => {
   const now = Date.now()
   const openedAt = j.openedAt ?? j.firstOpenedAt ?? j.createdAt
   const daysOpen = j.status === 'open' ? Math.round((now - openedAt.getTime()) / 86400000) : null
-  // time-to-fill по headcount: полное закрытие = последний найм (multi-hire) или closedAt.
+  // Единый time-to-fill (headcount-aware) — общий хелпер (#7).
   const totalHires = hireInfo[0]?.cnt ?? 0
   const lastHiredAt = hireInfo[0]?.last_hired_at ? new Date(hireInfo[0].last_hired_at) : null
-  let timeToFill: number | null = null
-  if (openedAt && (j.status === 'closed' || totalHires >= j.headcount)) {
-    const endMoment = j.headcount > 1 ? lastHiredAt : (j.closedAt ?? lastHiredAt)
-    if (endMoment) timeToFill = Math.round((endMoment.getTime() - openedAt.getTime()) / 86400000)
-  }
+  const timeToFill = computeTimeToFill({
+    openedAt, closedAt: j.closedAt, lastHiredAt,
+    headcount: j.headcount, status: j.status, totalHires,
+  })
 
   return {
     refreshedAt: analyticsRefreshState.lastRefreshAt?.toISOString() ?? null,

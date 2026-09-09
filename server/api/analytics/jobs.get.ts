@@ -6,7 +6,7 @@ import { analyticsQuerySchema, resolvePeriod, mvFilterConditions, andAll } from 
 import { analyticsRefreshState } from '../../utils/analytics/refresh-state'
 import { resolveAnalyticsScope } from '../../utils/analytics/scope'
 import { slaP90Cte, stuckCondition } from '../../utils/analytics/sla-threshold'
-import { agingBucketIndex, AGING_BUCKET_LABELS, isFullyFilled } from '../../utils/analytics/aggregations'
+import { agingBucketIndex, AGING_BUCKET_LABELS, isFullyFilled, computeTimeToFill } from '../../utils/analytics/aggregations'
 
 /**
  * GET /api/analytics/jobs — таблица вакансий с метриками (Центр аналитики, Фаза 5).
@@ -125,21 +125,13 @@ export default defineEventHandler(async (event) => {
     const daysOpen = j.status === 'open'
       ? Math.round((now - openedAt.getTime()) / 86400000)
       : null
-    // time-to-fill = openedAt → полное закрытие вакансии.
-    // Для multi-hire (headcount>1): момент ПОСЛЕДНЕГО найма (закрытие всех позиций).
-    // Для headcount=1: closedAt (приоритетно), fallback — момент найма.
+    // Единый time-to-fill (headcount-aware) — общий хелпер (#7).
     const totalHires = agg.totalHires ?? 0
     const lastHiredAt = agg.lastHiredAt ? new Date(agg.lastHiredAt) : null
-    const fullyFilledByHires = totalHires >= j.headcount
-    let timeToFill: number | null = null
-    if (openedAt && (j.status === 'closed' || fullyFilledByHires)) {
-      const endMoment = j.headcount > 1
-        ? lastHiredAt
-        : (j.closedAt ?? lastHiredAt)
-      if (endMoment) {
-        timeToFill = Math.round((endMoment.getTime() - openedAt.getTime()) / 86400000)
-      }
-    }
+    const timeToFill = computeTimeToFill({
+      openedAt, closedAt: j.closedAt, lastHiredAt,
+      headcount: j.headcount, status: j.status, totalHires,
+    })
     return {
       id: j.id,
       title: j.title,

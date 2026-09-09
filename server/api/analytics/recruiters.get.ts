@@ -87,12 +87,27 @@ export default defineEventHandler(async (event) => {
         AND jm.user_id IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})
       GROUP BY jm.user_id
     `),
-    // Средний time-to-fill по закрытым вакансиям, где рекрутер primary
+    // Средний time-to-fill по закрытым вакансиям рекрутёра (primary), headcount-aware (#7):
+    // endMoment = последний найм (multi-hire) или closed_at (headcount=1, fallback последний найм).
     db.execute(sql`
-      SELECT jm.user_id, avg(EXTRACT(EPOCH FROM (j.closed_at - j.opened_at)) / 86400.0) AS avg_days
+      SELECT jm.user_id, avg(
+        EXTRACT(EPOCH FROM (
+          CASE WHEN j.headcount > 1
+            THEN lh.last_hired_at
+            ELSE COALESCE(j.closed_at, lh.last_hired_at)
+          END - COALESCE(j.opened_at, j.first_opened_at)
+        )) / 86400.0
+      ) AS avg_days
       FROM job_member jm
-      JOIN job j ON j.id = jm.job_id AND j.status = 'closed' AND j.closed_at IS NOT NULL AND j.opened_at IS NOT NULL
+      JOIN job j ON j.id = jm.job_id AND j.status = 'closed'
+      LEFT JOIN LATERAL (
+        SELECT max(v.entered_at) AS last_hired_at
+        FROM mv_application_stage_durations v
+        WHERE v.job_id = j.id AND v.stage_type = 'hired'
+      ) lh ON true
       WHERE jm.organization_id = ${orgId} AND jm.member_role = 'recruiter' AND jm.is_primary = true
+        AND COALESCE(j.opened_at, j.first_opened_at) IS NOT NULL
+        AND (CASE WHEN j.headcount > 1 THEN lh.last_hired_at ELSE COALESCE(j.closed_at, lh.last_hired_at) END) IS NOT NULL
         AND jm.user_id IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})
       GROUP BY jm.user_id
     `),

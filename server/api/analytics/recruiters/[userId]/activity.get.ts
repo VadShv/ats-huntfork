@@ -82,16 +82,23 @@ export default defineEventHandler(async (event) => {
         AND created_at >= ${from} AND created_at < ${to}
     `).catch(() => [{ messages: 0, contacts: 0 }]),
     // Медиана первого ответа: от создания отклика до первого хода рекрутёра
+    // Первый ответ: медиана времени от создания отклика до ПЕРВОГО хода рекрутёра.
+    // Для каждого отклика берём самый ранний визит, сделанный этим рекрутёром.
     db.execute(sql`
+      WITH first_move AS (
+        SELECT v.application_id, min(v.entered_at) AS first_entered
+        FROM mv_application_stage_durations v
+        WHERE v.organization_id = ${orgId} AND v.moved_by = ${userId}
+          AND v.entered_at >= ${from} AND v.entered_at < ${to}
+        GROUP BY v.application_id
+      )
       SELECT percentile_cont(0.5) WITHIN GROUP (
-        ORDER BY EXTRACT(EPOCH FROM (v.entered_at - a.created_at)) / 3600.0
+        ORDER BY EXTRACT(EPOCH FROM (fm.first_entered - a.created_at)) / 3600.0
       ) AS median_hours
-      FROM mv_application_stage_durations v
-      JOIN application a ON a.id = v.application_id
-      WHERE v.organization_id = ${orgId} AND v.moved_by = ${userId}
-        AND v.entered_at >= ${from} AND v.entered_at < ${to}
-        AND v.from_stage_id IS NULL
-    `).catch(() => [{ median_hours: null }]),
+      FROM first_move fm
+      JOIN application a ON a.id = fm.application_id
+      WHERE fm.first_entered >= a.created_at
+    `),
     // Активные дни (distinct days с действиями)
     db.execute(sql`
       SELECT count(DISTINCT date_trunc('day', created_at))::int AS active_days
@@ -104,13 +111,16 @@ export default defineEventHandler(async (event) => {
   const byStatus = Object.fromEntries(interviewRows.map((r: any) => [r.status, r.cnt]))
   const completed = byStatus.completed ?? 0
   const noShow = byStatus.no_show ?? 0
+  // «Запланировано» = ВСЕ интервью за период (согласовано с recruiters.get.ts:102 count(*)),
+  // а не только status='scheduled' — иначе таблица и drawer расходятся.
+  const totalInterviews = interviewRows.reduce((s: number, r: any) => s + (r.cnt ?? 0), 0)
   const byResp = Object.fromEntries(respRows.map((r: any) => [r.candidate_response, r.cnt]))
   const mv = moveRows[0] ?? {}
 
   return {
     period: { from, to },
     interviews: {
-      scheduled: byStatus.scheduled ?? 0,
+      scheduled: totalInterviews,
       completed,
       cancelled: byStatus.cancelled ?? 0,
       noShow,
