@@ -1,7 +1,8 @@
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { db } from '../../utils/db'
 import { analyticsQuerySchema, resolvePeriod, mvFilterConditions, andAll, type AnalyticsQuery } from '../../utils/analytics/filters'
 import { analyticsRefreshState } from '../../utils/analytics/refresh-state'
+import { resolveAnalyticsScope } from '../../utils/analytics/scope'
 
 /**
  * GET /api/analytics/overview — KPI Обзора (Спринт 23, C2).
@@ -22,10 +23,15 @@ export default defineEventHandler(async (event) => {
   const q = await getValidatedQuery(event, analyticsQuerySchema.parse)
   const period = resolvePeriod(q)
 
+  // Скоуп: member видит только свои вакансии, owner/admin — всю орг.
+  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scopeCond = scope.jobIdCondition('v')
+  const scopeCondA = scope.jobIdCondition('a')
+
   const [activeNow, current, prev] = await Promise.all([
-    countActiveNow(orgId, q),
-    periodKpis(orgId, q, period.from, period.to),
-    q.compare === 'prev' ? periodKpis(orgId, q, period.prevFrom, period.prevTo) : Promise.resolve(null),
+    countActiveNow(orgId, q, scopeCondA),
+    periodKpis(orgId, q, period.from, period.to, scopeCond, scopeCondA),
+    q.compare === 'prev' ? periodKpis(orgId, q, period.prevFrom, period.prevTo, scopeCond, scopeCondA) : Promise.resolve(null),
   ])
 
   return {
@@ -40,7 +46,7 @@ export default defineEventHandler(async (event) => {
 })
 
 /** Активные отклики сейчас: текущий этап в working-ветке. Прямой запрос (не mv). */
-async function countActiveNow(orgId: string, q: AnalyticsQuery): Promise<number> {
+async function countActiveNow(orgId: string, q: AnalyticsQuery, scopeCond: SQL | null): Promise<number> {
   const conds = [sql`a.organization_id = ${orgId}`, sql`ps.bucket = 'working'`]
   if (q.jobId) conds.push(sql`a.job_id = ${q.jobId}`)
   if (q.source) conds.push(sql`a.source = ${q.source}`)
@@ -51,6 +57,7 @@ async function countActiveNow(orgId: string, q: AnalyticsQuery): Promise<number>
       WHERE jm.user_id = ${q.recruiterId} AND jm.member_role = 'recruiter'
     )`)
   }
+  if (scopeCond) conds.push(scopeCond)
   const rows: any = await db.execute(sql`
     SELECT count(*)::int AS cnt
     FROM application a
@@ -69,8 +76,9 @@ interface PeriodKpis {
   offerAcceptance: number | null
 }
 
-async function periodKpis(orgId: string, q: AnalyticsQuery, from: string, to: string): Promise<PeriodKpis> {
+async function periodKpis(orgId: string, q: AnalyticsQuery, from: string, to: string, scopeCond: SQL | null, scopeCondA: SQL | null): Promise<PeriodKpis> {
   const mvConds = mvFilterConditions('v', orgId, q)
+  if (scopeCond) mvConds.push(scopeCond)
 
   // Новые отклики за период — по application.created_at (прямой запрос по индексу org)
   const newConds = [
@@ -92,6 +100,7 @@ async function periodKpis(orgId: string, q: AnalyticsQuery, from: string, to: st
       WHERE jm.user_id = ${q.recruiterId} AND jm.member_role = 'recruiter'
     )`)
   }
+  if (scopeCondA) newConds.push(scopeCondA)
 
   const [newRows, hireRows, rejectRows, tthRows, offerRows]: any[] = await Promise.all([
     db.execute(sql`SELECT count(*)::int AS cnt FROM application a WHERE ${andAll(newConds)}`),

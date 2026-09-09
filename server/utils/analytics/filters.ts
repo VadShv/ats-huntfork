@@ -17,6 +17,12 @@ export const analyticsQuerySchema = z.object({
   pipelineId: z.string().min(1).optional(),
   recruiterId: z.string().min(1).optional(),
   source: z.string().min(1).optional(),
+  /** Подразделение (job.department_id) */
+  departmentId: z.string().min(1).optional(),
+  /** Юрлицо (job.company_id) */
+  companyId: z.string().min(1).optional(),
+  /** Гранулярность трендов (временных рядов). */
+  groupBy: z.enum(['day', 'week', 'month']).optional(),
   compare: z.enum(['prev']).optional(),
 })
 
@@ -75,7 +81,23 @@ export function mvFilterConditions(alias: string, orgId: string, q: AnalyticsQue
       WHERE jm.user_id = ${q.recruiterId} AND jm.member_role = 'recruiter'
     )`)
   }
+  if (q.departmentId) {
+    conds.push(sql`${a}.job_id IN (SELECT j.id FROM job j WHERE j.department_id = ${q.departmentId})`)
+  }
+  if (q.companyId) {
+    conds.push(sql`${a}.job_id IN (SELECT j.id FROM job j WHERE j.company_id = ${q.companyId})`)
+  }
   return conds
+}
+
+/**
+ * SQL-выражение усечения даты для трендов (временных рядов).
+ * groupBy проходит через whitelist (enum схемы), так что sql.raw безопасен.
+ * По умолчанию — 'week'. column — полное имя колонки времени (напр. 'v.entered_at').
+ */
+export function trendBucketExpr(column: string, groupBy: 'day' | 'week' | 'month' = 'week'): SQL {
+  const unit = groupBy === 'day' ? 'day' : groupBy === 'month' ? 'month' : 'week'
+  return sql`date_trunc(${unit}, ${sql.raw(column)})`
 }
 
 /** Склейка условий в единый WHERE-фрагмент. */

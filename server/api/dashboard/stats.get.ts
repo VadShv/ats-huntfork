@@ -1,6 +1,7 @@
 import { eq, and, desc, sql, count, countDistinct, inArray, asc } from 'drizzle-orm'
 import { application, candidate, job, pipelineStage } from '../../database/schema'
 import { resolveRecruiterScope, getJobRecruitersMap } from '../../utils/recruiterScope'
+import { getOrgStageRollup } from '../../utils/funnel-rollup'
 
 /**
  * GET /api/dashboard/stats
@@ -54,15 +55,15 @@ export default defineEventHandler(async (event) => {
     // 4. New (unreviewed) applications
     db.$count(application, and(appCond, eq(application.status, 'new'))),
 
-    // 5. Pipeline breakdown — application count per status
+    // 5. Pipeline breakdown — application count per currentStageId (Фаза 8: маппим на root-stages в JS)
     db
       .select({
-        status: application.status,
+        stageId: application.currentStageId,
         count: count().as('count'),
       })
       .from(application)
-      .where(appCond)
-      .groupBy(application.status),
+      .where(and(appCond, sql`${application.currentStageId} IS NOT NULL`))
+      .groupBy(application.currentStageId),
 
     // 6. Jobs by status
     db
@@ -110,12 +111,7 @@ export default defineEventHandler(async (event) => {
         pipelineId: job.pipelineId,
         createdAt: job.createdAt,
         applicationCount: count(application.id).as('application_count'),
-        newCount: sql<number>`count(case when ${application.status} = 'new' then 1 end)`.as('new_count'),
-        screeningCount: sql<number>`count(case when ${application.status} = 'screening' then 1 end)`.as('screening_count'),
-        interviewCount: sql<number>`count(case when ${application.status} = 'interview' then 1 end)`.as('interview_count'),
-        offerCount: sql<number>`count(case when ${application.status} = 'offer' then 1 end)`.as('offer_count'),
-        hiredCount: sql<number>`count(case when ${application.status} = 'hired' then 1 end)`.as('hired_count'),
-        rejectedCount: sql<number>`count(case when ${application.status} = 'rejected' then 1 end)`.as('rejected_count'),
+        // C2: легаси per-status счётчики удалены — UI использует stages[] (root-этапы из buildJobStages)
       })
       .from(job)
       .leftJoin(application, eq(application.jobId, job.id))
@@ -129,16 +125,16 @@ export default defineEventHandler(async (event) => {
   // ─────────────────────────────────────────────
   // Transform grouped rows into keyed objects
   // ─────────────────────────────────────────────
-  const pipeline: Record<string, number> = {
-    new: 0,
-    screening: 0,
-    interview: 0,
-    offer: 0,
-    hired: 0,
-    rejected: 0,
-  }
+  // Фаза 8: pipeline breakdown по root-этапам (вместо legacy application.status).
+  // Маппим currentStageId → root stage через getOrgStageRollup.
+  const rollup = await getOrgStageRollup(orgId)
+  const stageToRoot = rollup.stageToRoot
+  const rootNameById = new Map(rollup.rootColumns.map(r => [r.id, r.name]))
+  const pipeline: Record<string, number> = {}
   for (const row of pipelineRows) {
-    pipeline[row.status] = row.count
+    const rootId = stageToRoot[row.stageId ?? ''] ?? row.stageId ?? ''
+    const name = rootNameById.get(rootId) ?? 'Без этапа'
+    pipeline[name] = (pipeline[name] ?? 0) + row.count
   }
 
   const jobsByStatus: Record<string, number> = {

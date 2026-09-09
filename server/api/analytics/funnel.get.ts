@@ -3,6 +3,7 @@ import { db } from '../../utils/db'
 import { pipeline, pipelineStage, job } from '../../database/schema'
 import { analyticsQuerySchema, resolvePeriod, mvFilterConditions, andAll } from '../../utils/analytics/filters'
 import { analyticsRefreshState } from '../../utils/analytics/refresh-state'
+import { resolveAnalyticsScope } from '../../utils/analytics/scope'
 
 /**
  * GET /api/analytics/funnel — воронка по root-этапам (Спринт 23, C2).
@@ -26,6 +27,10 @@ export default defineEventHandler(async (event) => {
 
   const q = await getValidatedQuery(event, analyticsQuerySchema.parse)
   const period = resolvePeriod(q)
+
+  // Скоуп: member видит только свои вакансии.
+  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scopeCond = scope.jobIdCondition('v')
 
   // ── Целевая воронка ────────────────────────────────────────────────────────
   let pipelineId = q.pipelineId ?? null
@@ -73,6 +78,7 @@ export default defineEventHandler(async (event) => {
 
   // ── Агрегаты mv по root-этапам (в границах воронки) ───────────────────────
   const mvConds = mvFilterConditions('v', orgId, { ...q, pipelineId })
+  if (scopeCond) mvConds.push(scopeCond)
   const { from, to } = period
 
   const [enteredRows, currentRows, exitRows, durationRows, transitionRows]: any[] = await Promise.all([
