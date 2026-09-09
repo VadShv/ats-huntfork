@@ -102,9 +102,9 @@ export default defineEventHandler(async (event) => {
       WHERE ${andAll([...mvConds, stuckCondition('v')])}
       GROUP BY v.job_id
     `),
-    // Всего наймов за всё время (для «закрыто N из M»)
+    // Всего наймов за всё время (для «закрыто N из M») + момент последнего найма
     db.execute(sql`
-      SELECT v.job_id, count(DISTINCT v.application_id)::int AS cnt
+      SELECT v.job_id, count(DISTINCT v.application_id)::int AS cnt, max(v.entered_at) AS last_hired_at
       FROM mv_application_stage_durations v
       WHERE v.organization_id = ${orgId} AND v.stage_type = 'hired'
       GROUP BY v.job_id
@@ -116,7 +116,7 @@ export default defineEventHandler(async (event) => {
   for (const r of hireRows) byJob.set(r.job_id, { ...(byJob.get(r.job_id) ?? {}), hires: r.cnt })
   for (const r of rejectRows) byJob.set(r.job_id, { ...(byJob.get(r.job_id) ?? {}), rejections: r.cnt })
   for (const r of stuckRows) byJob.set(r.job_id, { ...(byJob.get(r.job_id) ?? {}), stuck: r.cnt })
-  for (const r of totalHireRows) byJob.set(r.job_id, { ...(byJob.get(r.job_id) ?? {}), totalHires: r.cnt })
+  for (const r of totalHireRows) byJob.set(r.job_id, { ...(byJob.get(r.job_id) ?? {}), totalHires: r.cnt, lastHiredAt: r.last_hired_at })
 
   const now = Date.now()
   const items = jobs.map(j => {
@@ -125,9 +125,21 @@ export default defineEventHandler(async (event) => {
     const daysOpen = j.status === 'open'
       ? Math.round((now - openedAt.getTime()) / 86400000)
       : null
-    const timeToFill = j.status === 'closed' && j.closedAt && openedAt
-      ? Math.round((j.closedAt.getTime() - openedAt.getTime()) / 86400000)
-      : null
+    // time-to-fill = openedAt → полное закрытие вакансии.
+    // Для multi-hire (headcount>1): момент ПОСЛЕДНЕГО найма (закрытие всех позиций).
+    // Для headcount=1: closedAt (приоритетно), fallback — момент найма.
+    const totalHires = agg.totalHires ?? 0
+    const lastHiredAt = agg.lastHiredAt ? new Date(agg.lastHiredAt) : null
+    const fullyFilledByHires = totalHires >= j.headcount
+    let timeToFill: number | null = null
+    if (openedAt && (j.status === 'closed' || fullyFilledByHires)) {
+      const endMoment = j.headcount > 1
+        ? lastHiredAt
+        : (j.closedAt ?? lastHiredAt)
+      if (endMoment) {
+        timeToFill = Math.round((endMoment.getTime() - openedAt.getTime()) / 86400000)
+      }
+    }
     return {
       id: j.id,
       title: j.title,

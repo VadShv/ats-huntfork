@@ -18,7 +18,7 @@
  *   - Fire-and-forget PostHog `application stage_changed` c полем `via`.
  */
 
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { application, applicationStageHistory, job, pipelineStage } from '../database/schema/app'
 import { useServerPostHog } from './posthog'
 import { notifyThreadChanged } from './comments/threadBus'
@@ -283,6 +283,19 @@ export async function moveApplicationStage(opts: MoveStageOptions): Promise<Move
       movedByUserId: actorUserId ?? undefined,
       comment: opts.comment,
     })
+
+    // Авто-filledAt: при первом найме на вакансию фиксируем момент заполнения.
+    // Идемпотентно (только если ещё NULL) — фиксирует ПЕРВЫЙ hired-переход.
+    if (effectiveType === 'hired') {
+      await tx
+        .update(job)
+        .set({ filledAt: now })
+        .where(and(
+          eq(job.id, current.jobId),
+          eq(job.organizationId, organizationId),
+          isNull(job.filledAt),
+        ))
+    }
 
     return rows
   })

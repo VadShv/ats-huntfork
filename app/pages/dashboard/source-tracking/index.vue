@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import {
-  Radio, ArrowRight, TrendingUp, Link2, Globe,
-  BarChart3, Users, ExternalLink, Plus, AlertCircle,
-  Activity, Target, Eye, MousePointerClick,
-  CheckCircle2, XCircle, Clock, Filter,
+  Link2, Users, Plus, AlertCircle,
+  CheckCircle2, XCircle,
   Copy, ToggleLeft, ToggleRight,
   Trash2, ChevronDown, ChevronUp, X,
 } from 'lucide-vue-next'
@@ -49,14 +47,7 @@ const dateFrom = computed(() => {
 // ─────────────────────────────────────────────
 
 const {
-  channelBreakdown,
-  topLinks,
-  funnel,
-  funnelStages,
-  dailyTrend,
   recentAttributed,
-  topReferrerDomains,
-  summary,
   statsStatus,
   statsError,
   refreshStats,
@@ -250,40 +241,6 @@ function getChannelLabel(channel: string) {
   return channelLabels[channel] ?? channel
 }
 
-// ─── Фаза 1 (словарь = воронка): колонки таблицы конверсии — корневые этапы ───
-const workingFunnelColumns = computed(() => funnelStages.value.filter(s => s.bucket === 'working'))
-const rejectedFunnelColumns = computed(() => funnelStages.value.filter(s => s.bucket === 'rejected'))
-
-function channelStageCount(channel: string, stageId: string): number {
-  return funnel.value[channel]?.[stageId] ?? 0
-}
-
-function channelRejectedCount(channel: string): number {
-  return rejectedFunnelColumns.value.reduce((s, col) => s + channelStageCount(channel, col.id), 0)
-}
-
-function channelHiredCount(channel: string): number {
-  return workingFunnelColumns.value
-    .filter(col => col.type === 'hired')
-    .reduce((s, col) => s + channelStageCount(channel, col.id), 0)
-}
-
-const totalApplications = computed(() =>
-  channelBreakdown.value.reduce((sum, c) => sum + c.count, 0),
-)
-
-const maxChannelCount = computed(() =>
-  Math.max(...channelBreakdown.value.map((c) => c.count), 1),
-)
-
-function conversionRate(channel: string): number {
-  const f = funnel.value[channel]
-  if (!f) return 0
-  const total = Object.values(f).reduce((s, v) => s + v, 0)
-  if (total === 0) return 0
-  return Math.round((channelHiredCount(channel) / total) * 100)
-}
-
 function formatDate(dateStr: string) {
   const d = new Date(dateStr)
   const now = new Date()
@@ -353,10 +310,10 @@ const sortedLinks = computed(() => {
   return sorted
 })
 
-const initialTab = (['overview', 'links', 'table'] as const).includes(route.query.tab as any)
-  ? (route.query.tab as 'overview' | 'links' | 'table')
-  : 'overview'
-const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
+const initialTab = (['links', 'table'] as const).includes(route.query.tab as any)
+  ? (route.query.tab as 'links' | 'table')
+  : 'links'
+const showTab = ref<'links' | 'table'>(initialTab)
 </script>
 
 <template>
@@ -454,7 +411,6 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
       <div class="flex items-center gap-1 mb-6 border-b border-surface-200 dark:border-surface-800">
         <button
           v-for="tab in [
-            { key: 'overview', label: 'Обзор', icon: BarChart3 },
             { key: 'links', label: 'Ссылки отслеживания', icon: Link2 },
             { key: 'table', label: 'Журнал атрибуции', icon: Users },
           ] as const"
@@ -479,380 +435,8 @@ const showTab = ref<'overview' | 'links' | 'table'>(initialTab)
         </button>
       </div>
 
-      <!-- ═══════════════════════════════════════ -->
-      <!-- TAB: Overview                           -->
-      <!-- ═══════════════════════════════════════ -->
-      <div v-if="showTab === 'overview'">
-        <!-- ─── Stat cards ─── -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-10">
-          <!-- Tracked Applications -->
-          <div class="group relative rounded-2xl bg-white dark:bg-surface-900 p-5 sm:p-6 overflow-hidden isolate ring-1 ring-surface-950/[0.04] dark:ring-white/[0.06] hover:ring-brand-500/25 dark:hover:ring-brand-400/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-brand-500/[0.08]">
-            <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <Target class="absolute -bottom-3 -right-3 size-24 text-brand-500/[0.03] dark:text-brand-400/[0.05] rotate-12 transition-transform duration-700 ease-out group-hover:rotate-3 group-hover:scale-110 pointer-events-none" />
-            <div class="relative">
-              <div class="flex items-baseline gap-2">
-                <span class="text-3xl sm:text-4xl font-black tracking-tight text-surface-900 dark:text-surface-50 tabular-nums leading-none transition-colors duration-300 group-hover:text-brand-600 dark:group-hover:text-brand-400">
-                  {{ summary.totalTracked }}
-                </span>
-                <span class="size-1.5 rounded-full bg-brand-500 shrink-0 mb-1" />
-              </div>
-              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">С отслеживанием</span>
-              <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">С определённым источником</p>
-            </div>
-          </div>
-
-          <!-- Attribution Rate -->
-          <div class="group relative rounded-2xl bg-white dark:bg-surface-900 p-5 sm:p-6 overflow-hidden isolate ring-1 ring-surface-950/[0.04] dark:ring-white/[0.06] hover:ring-teal-500/25 dark:hover:ring-teal-400/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-teal-500/[0.08]">
-            <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <Activity class="absolute -bottom-3 -right-3 size-24 text-teal-500/[0.03] dark:text-teal-400/[0.05] rotate-12 transition-transform duration-700 ease-out group-hover:rotate-3 group-hover:scale-110 pointer-events-none" />
-            <div class="relative">
-              <div class="flex items-baseline gap-2">
-                <span class="text-3xl sm:text-4xl font-black tracking-tight text-surface-900 dark:text-surface-50 tabular-nums leading-none transition-colors duration-300 group-hover:text-teal-600 dark:group-hover:text-teal-400">
-                  {{ summary.attributionRate }}%
-                </span>
-                <span class="size-1.5 rounded-full bg-teal-500 shrink-0 mb-1" />
-              </div>
-              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Атрибуция</span>
-              <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">От всех откликов</p>
-            </div>
-          </div>
-
-          <!-- Active Links -->
-          <div class="group relative rounded-2xl bg-white dark:bg-surface-900 p-5 sm:p-6 overflow-hidden isolate ring-1 ring-surface-950/[0.04] dark:ring-white/[0.06] hover:ring-violet-500/25 dark:hover:ring-violet-400/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-500/[0.08]">
-            <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <Link2 class="absolute -bottom-3 -right-3 size-24 text-violet-500/[0.03] dark:text-violet-400/[0.05] rotate-12 transition-transform duration-700 ease-out group-hover:rotate-3 group-hover:scale-110 pointer-events-none" />
-            <div class="relative">
-              <div class="flex items-baseline gap-2">
-                <span class="text-3xl sm:text-4xl font-black tracking-tight text-surface-900 dark:text-surface-50 tabular-nums leading-none transition-colors duration-300 group-hover:text-violet-600 dark:group-hover:text-violet-400">
-                  {{ links.filter(l => l.isActive).length }}
-                </span>
-                <span class="size-1.5 rounded-full bg-violet-500 shrink-0 mb-1" />
-              </div>
-              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Активные ссылки</span>
-              <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">{{ totalLinks }} всего создано</p>
-            </div>
-          </div>
-
-          <!-- Untracked -->
-          <div
-            class="group relative rounded-2xl bg-white dark:bg-surface-900 p-5 sm:p-6 overflow-hidden isolate transition-all duration-300 hover:-translate-y-0.5"
-            :class="summary.totalUntracked > 0
-              ? 'ring-1 ring-warning-400/30 dark:ring-warning-500/20 hover:ring-warning-500/40 dark:hover:ring-warning-400/30 shadow-sm shadow-warning-500/[0.06] hover:shadow-lg hover:shadow-warning-500/[0.12]'
-              : 'ring-1 ring-surface-950/[0.04] dark:ring-white/[0.06] hover:ring-surface-300/50 dark:hover:ring-surface-600/30 hover:shadow-lg hover:shadow-surface-500/[0.04]'"
-          >
-            <div
-              class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent transition-opacity duration-500"
-              :class="summary.totalUntracked > 0
-                ? 'via-warning-500 opacity-60 group-hover:opacity-100'
-                : 'via-surface-400 opacity-0 group-hover:opacity-40'"
-            />
-            <Eye class="absolute -bottom-3 -right-3 size-24 rotate-12 transition-transform duration-700 ease-out group-hover:rotate-3 group-hover:scale-110 pointer-events-none" :class="summary.totalUntracked > 0 ? 'text-warning-500/[0.04] dark:text-warning-400/[0.06]' : 'text-surface-400/[0.03] dark:text-surface-500/[0.05]'" />
-            <div class="relative">
-              <div class="flex items-baseline gap-2">
-                <span
-                  class="text-3xl sm:text-4xl font-black tracking-tight tabular-nums leading-none transition-colors duration-300"
-                  :class="summary.totalUntracked > 0
-                    ? 'text-warning-600 dark:text-warning-400 group-hover:text-warning-700 dark:group-hover:text-warning-300'
-                    : 'text-surface-900 dark:text-surface-50 group-hover:text-surface-600 dark:group-hover:text-surface-300'"
-                >
-                  {{ summary.totalUntracked }}
-                </span>
-                <span class="relative shrink-0 mb-1">
-                  <span class="size-1.5 rounded-full block" :class="summary.totalUntracked > 0 ? 'bg-warning-500' : 'bg-surface-300 dark:bg-surface-600'" />
-                  <span v-if="summary.totalUntracked > 0" class="absolute inset-0 size-1.5 rounded-full bg-warning-500 animate-ping" />
-                </span>
-              </div>
-              <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">Без отслеживания</span>
-              <p class="text-[11px] mt-1" :class="summary.totalUntracked > 0 ? 'text-warning-500 dark:text-warning-500 font-medium' : 'text-surface-300 dark:text-surface-600'">
-                {{ summary.totalUntracked > 0 ? 'Без атрибуции' : 'Все с атрибуцией' }}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- ─── Main layout ─── -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- ─── Left (2/3): Channel breakdown ─── -->
-          <div class="lg:col-span-2 space-y-6">
-            <!-- Channel breakdown -->
-            <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none">
-              <div class="flex items-center justify-between px-6 py-4 border-b border-surface-100 dark:border-surface-800">
-                <div class="flex items-center gap-2.5">
-                  <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
-                    <BarChart3 class="size-3.5 text-surface-500 dark:text-surface-400" />
-                  </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Отклики по источникам</h2>
-                </div>
-                <span class="text-xs text-surface-400 tabular-nums font-medium">{{ totalApplications }} всего</span>
-              </div>
-
-              <div v-if="channelBreakdown.length === 0" class="px-6 py-12 text-center">
-                <div class="mx-auto mb-4 flex items-center justify-center size-12 rounded-2xl bg-surface-100 dark:bg-surface-800">
-                  <BarChart3 class="size-5 text-surface-400 dark:text-surface-500" />
-                </div>
-                <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-1">Пока нет откликов с атрибуцией</p>
-                <p class="text-xs text-surface-400 dark:text-surface-500 max-w-xs mx-auto">
-                  Создайте ссылки отслеживания и размещайте их на джоб-бордах, чтобы собирать данные об источниках.
-                </p>
-              </div>
-
-              <div v-else class="px-6 py-5 space-y-4">
-                <button
-                  v-for="item in channelBreakdown"
-                  :key="item.channel"
-                  class="group/bar w-full text-left cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800/40 -mx-3 px-3 py-1.5 rounded-lg transition-colors"
-                  @click="selectedChannel = item.channel; showTab = 'table'"
-                >
-                  <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-2">
-                      <div class="size-2.5 rounded-full" :class="getChannelColor(item.channel)" />
-                      <span class="text-sm font-medium text-surface-700 dark:text-surface-200">
-                        {{ getChannelLabel(item.channel) }}
-                      </span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                      <span class="text-xs text-surface-400 tabular-nums">
-                        {{ totalApplications > 0 ? Math.round((item.count / totalApplications) * 100) : 0 }}%
-                      </span>
-                      <span class="text-sm font-bold text-surface-900 dark:text-surface-100 tabular-nums w-8 text-right">
-                        {{ item.count }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="h-2 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden">
-                    <div
-                      class="h-full rounded-full transition-all duration-700 ease-out"
-                      :class="getChannelColor(item.channel)"
-                      :style="{ width: `${(item.count / maxChannelCount) * 100}%` }"
-                    />
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <!-- ─── Conversion funnel by source ─── -->
-            <div
-              v-if="Object.keys(funnel).length > 0"
-              class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none"
-            >
-              <div class="flex items-center justify-between px-6 py-4 border-b border-surface-100 dark:border-surface-800">
-                <div class="flex items-center gap-2.5">
-                  <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
-                    <TrendingUp class="size-3.5 text-surface-500 dark:text-surface-400" />
-                  </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Конверсия по источникам</h2>
-                </div>
-              </div>
-
-              <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                  <thead>
-                    <tr class="border-b border-surface-100 dark:border-surface-800">
-                      <th class="px-6 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Источник</th>
-                      <!-- Фаза 1: колонки — реальные корневые этапы воронки -->
-                      <th
-                        v-for="col in workingFunnelColumns"
-                        :key="col.id"
-                        class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider whitespace-nowrap"
-                        :title="col.name"
-                      >
-                        <span class="inline-flex items-center gap-1.5">
-                          <span class="size-1.5 rounded-full shrink-0" :style="{ backgroundColor: col.color || '#9ca3af' }" />
-                          {{ col.name }}
-                        </span>
-                      </th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Отказ</th>
-                      <th class="px-3 py-3 text-center text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider">Конверсия в найм</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
-                    <tr
-                      v-for="(stages, channel) in funnel"
-                      :key="channel"
-                      class="hover:bg-surface-50 dark:hover:bg-surface-800/40 cursor-pointer"
-                      @click="selectedChannel = channel as string; showTab = 'table'"
-                    >
-                      <td class="px-6 py-3">
-                        <div class="flex items-center gap-2">
-                          <div class="size-2 rounded-full" :class="getChannelColor(channel as string)" />
-                          <span class="font-medium text-surface-800 dark:text-surface-200">{{ getChannelLabel(channel as string) }}</span>
-                        </div>
-                      </td>
-                      <td
-                        v-for="col in workingFunnelColumns"
-                        :key="col.id"
-                        class="px-3 py-3 text-center tabular-nums"
-                        :class="col.type === 'hired' && channelStageCount(channel as string, col.id) > 0
-                          ? 'font-semibold text-green-600 dark:text-green-400'
-                          : 'text-surface-600 dark:text-surface-300'"
-                      >
-                        {{ channelStageCount(channel as string, col.id) }}
-                      </td>
-                      <td class="px-3 py-3 text-center tabular-nums text-surface-500 dark:text-surface-400">{{ channelRejectedCount(channel as string) }}</td>
-                      <td class="px-3 py-3 text-center">
-                        <span
-                          class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ring-1 ring-inset"
-                          :class="conversionRate(channel as string) > 0
-                            ? 'bg-green-50 text-green-700 ring-green-200/60 dark:bg-green-950 dark:text-green-400 dark:ring-green-800/40'
-                            : 'bg-surface-100 text-surface-500 ring-surface-200 dark:bg-surface-800 dark:text-surface-400 dark:ring-surface-700'"
-                        >
-                          {{ conversionRate(channel as string) }}%
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- ─── Right (1/3): Side panels ─── -->
-          <div class="space-y-6">
-            <!-- Top tracking links -->
-            <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none">
-              <div class="flex items-center justify-between px-5 py-4 border-b border-surface-100 dark:border-surface-800">
-                <div class="flex items-center gap-2.5">
-                  <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
-                    <Link2 class="size-3.5 text-surface-500 dark:text-surface-400" />
-                  </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Популярные ссылки</h2>
-                </div>
-                <button
-                  class="text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 inline-flex items-center gap-1 group/link"
-                  @click="showTab = 'links'"
-                >
-                  Смотреть все
-                  <ArrowRight class="size-3 group-hover/link:translate-x-0.5 transition-transform" />
-                </button>
-              </div>
-
-              <div v-if="topLinks.length === 0" class="px-5 py-10 text-center">
-                <div class="mx-auto mb-3 flex items-center justify-center size-10 rounded-2xl bg-surface-100 dark:bg-surface-800">
-                  <Link2 class="size-4 text-surface-400 dark:text-surface-500" />
-                </div>
-                <p class="text-xs font-medium text-surface-500 dark:text-surface-400">Пока нет созданных ссылок</p>
-              </div>
-
-              <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
-                <NuxtLink
-                  v-for="link in topLinks.slice(0, 5)"
-                  :key="link.id"
-                  :to="localePath(`/dashboard/source-tracking/${link.id}`)"
-                  class="block px-5 py-3.5 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors cursor-pointer"
-                >
-                  <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate hover:text-brand-600 dark:hover:text-brand-400 transition-colors">{{ link.name }}</span>
-                    <span
-                      class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset shrink-0 ml-2"
-                      :class="getChannelBadge(link.channel)"
-                    >
-                      {{ getChannelLabel(link.channel) }}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-4 text-xs text-surface-400">
-                    <span class="inline-flex items-center gap-1 tabular-nums">
-                      <MousePointerClick class="size-3" />
-                      {{ link.clickCount }} переходов
-                    </span>
-                    <span class="inline-flex items-center gap-1 tabular-nums">
-                      <Users class="size-3" />
-                      {{ link.applicationCount }} откликов
-                    </span>
-                    <span v-if="link.clickCount > 0" class="tabular-nums font-medium" :class="link.applicationCount > 0 ? 'text-green-600 dark:text-green-400' : ''">
-                      {{ Math.round((link.applicationCount / link.clickCount) * 100) }}% CVR
-                    </span>
-                  </div>
-                </NuxtLink>
-              </div>
-            </div>
-
-            <!-- Top referrer domains -->
-            <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none">
-              <div class="flex items-center justify-between px-5 py-4 border-b border-surface-100 dark:border-surface-800">
-                <div class="flex items-center gap-2.5">
-                  <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
-                    <Globe class="size-3.5 text-surface-500 dark:text-surface-400" />
-                  </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Основные рефереры</h2>
-                </div>
-              </div>
-
-              <div v-if="topReferrerDomains.length === 0" class="px-5 py-10 text-center">
-                <div class="mx-auto mb-3 flex items-center justify-center size-10 rounded-2xl bg-surface-100 dark:bg-surface-800">
-                  <Globe class="size-4 text-surface-400 dark:text-surface-500" />
-                </div>
-                <p class="text-xs font-medium text-surface-500 dark:text-surface-400">Пока нет данных о реферерах</p>
-              </div>
-
-              <div v-else class="px-5 py-4 space-y-3">
-                <div
-                  v-for="ref in topReferrerDomains"
-                  :key="ref.domain ?? 'unknown'"
-                  class="flex items-center justify-between"
-                >
-                  <div class="flex items-center gap-2 min-w-0">
-                    <div class="size-5 rounded bg-surface-100 dark:bg-surface-800 flex items-center justify-center shrink-0">
-                      <Globe class="size-3 text-surface-400" />
-                    </div>
-                    <span class="text-sm text-surface-700 dark:text-surface-300 truncate">{{ ref.domain ?? 'Неизвестно' }}</span>
-                  </div>
-                  <span class="text-sm font-bold text-surface-900 dark:text-surface-100 tabular-nums shrink-0 ml-2">{{ ref.count }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Recent attributed -->
-            <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none">
-              <div class="flex items-center justify-between px-5 py-4 border-b border-surface-100 dark:border-surface-800">
-                <div class="flex items-center gap-2.5">
-                  <div class="flex items-center justify-center size-7 rounded-lg bg-surface-100 dark:bg-surface-800">
-                    <Clock class="size-3.5 text-surface-500 dark:text-surface-400" />
-                  </div>
-                  <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Недавние с атрибуцией</h2>
-                </div>
-                <button
-                  class="text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 inline-flex items-center gap-1 group/link"
-                  @click="showTab = 'table'"
-                >
-                  Смотреть все
-                  <ArrowRight class="size-3 group-hover/link:translate-x-0.5 transition-transform" />
-                </button>
-              </div>
-
-              <div v-if="recentAttributed.length === 0" class="px-5 py-10 text-center">
-                <p class="text-xs text-surface-400">Пока нет откликов с атрибуцией</p>
-              </div>
-
-              <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
-                <NuxtLink
-                  v-for="app in recentAttributed.slice(0, 5)"
-                  :key="app.applicationId"
-                  :to="localePath(`/dashboard/jobs/${app.jobId}/candidates`)"
-                  class="flex items-center gap-3 px-5 py-3 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors group"
-                >
-                  <div class="flex items-center justify-center size-8 rounded-full bg-gradient-to-br from-brand-100 to-brand-200 dark:from-brand-900/80 dark:to-brand-800/80 shrink-0 ring-1 ring-brand-200/50 dark:ring-brand-800/50">
-                    <span class="text-[10px] font-bold text-brand-700 dark:text-brand-300">
-                      {{ ((app.candidateFirstName?.[0] ?? '') + (app.candidateLastName?.[0] ?? '')).toUpperCase() }}
-                    </span>
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate">
-                      {{ formatPersonName(app.candidateFirstName, app.candidateLastName) }}
-                    </div>
-                    <div class="text-xs text-surface-400 truncate">{{ app.jobTitle }}</div>
-                  </div>
-                  <span
-                    class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset shrink-0"
-                    :class="getChannelBadge(app.channel)"
-                  >
-                    {{ getChannelLabel(app.channel) }}
-                  </span>
-                </NuxtLink>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Аналитика источников перенесена в Центр аналитики (/dashboard/analytics/sources).
+           Эта страница — управление ссылками (links) + журнал атрибуции (table). -->
 
       <!-- ═══════════════════════════════════════ -->
       <!-- TAB: Tracking Links                     -->

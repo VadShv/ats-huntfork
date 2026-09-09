@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
     WHERE a.organization_id = ${orgId} AND a.job_id = ${id}
       AND a.created_at >= ${from} AND a.created_at < ${to}`
 
-  const [cohortRow, reachedRows, rejectedFromRows, currentRows, durationRows, transitionRows, activeCount]: any[] = await Promise.all([
+  const [cohortRow, reachedRows, rejectedFromRows, currentRows, durationRows, transitionRows, activeCount, hireInfo]: any[] = await Promise.all([
     db.execute(sql`SELECT count(*)::int AS cnt FROM (${cohortSQL}) c`),
     db.execute(sql`
       SELECT v.root_stage_id, count(DISTINCT v.application_id)::int AS cnt
@@ -117,6 +117,12 @@ export default defineEventHandler(async (event) => {
       JOIN pipeline_stage ps ON ps.id = a.current_stage_id
       WHERE a.organization_id = ${orgId} AND a.job_id = ${id} AND ps.bucket = 'working'
     `),
+    // Наймы за всё время + момент последнего найма (для time-to-fill по headcount)
+    db.execute(sql`
+      SELECT count(DISTINCT v.application_id)::int AS cnt, max(v.entered_at) AS last_hired_at
+      FROM mv_application_stage_durations v
+      WHERE v.organization_id = ${orgId} AND v.job_id = ${id} AND v.stage_type = 'hired'
+    `),
   ])
 
   const cohortSize = cohortRow[0]?.cnt ?? 0
@@ -154,7 +160,14 @@ export default defineEventHandler(async (event) => {
   const now = Date.now()
   const openedAt = j.openedAt ?? j.firstOpenedAt ?? j.createdAt
   const daysOpen = j.status === 'open' ? Math.round((now - openedAt.getTime()) / 86400000) : null
-  const timeToFill = j.status === 'closed' && j.closedAt ? Math.round((j.closedAt.getTime() - openedAt.getTime()) / 86400000) : null
+  // time-to-fill по headcount: полное закрытие = последний найм (multi-hire) или closedAt.
+  const totalHires = hireInfo[0]?.cnt ?? 0
+  const lastHiredAt = hireInfo[0]?.last_hired_at ? new Date(hireInfo[0].last_hired_at) : null
+  let timeToFill: number | null = null
+  if (openedAt && (j.status === 'closed' || totalHires >= j.headcount)) {
+    const endMoment = j.headcount > 1 ? lastHiredAt : (j.closedAt ?? lastHiredAt)
+    if (endMoment) timeToFill = Math.round((endMoment.getTime() - openedAt.getTime()) / 86400000)
+  }
 
   return {
     refreshedAt: analyticsRefreshState.lastRefreshAt?.toISOString() ?? null,
