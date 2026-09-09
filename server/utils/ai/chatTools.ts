@@ -29,6 +29,7 @@ import {
 import { downloadFromS3 } from '../s3'
 import { parseDocument } from '../resume-parser'
 import { getDefaultPipelineForOrg } from '../pipeline-helpers'
+import { resolveStageFilterIds } from './stage-filter'
 import { ALL_STAGE_TYPES } from '../../../shared/pipeline-stage-meta'
 import type { ChatbotScope } from '../../../shared/chatbot'
 import {
@@ -239,29 +240,11 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         }
 
         // ── Этапный фильтр (предпочтительный) — по current_stage_id, а не legacy status ──
-        if (stageId) {
-          // Захватываем сам этап + его подэтапы (например «Отказ» → все причины).
-          const children = await db
-            .select({ id: pipelineStage.id })
-            .from(pipelineStage)
-            .where(and(
-              eq(pipelineStage.organizationId, ctx.orgId),
-              eq(pipelineStage.parentStageId, stageId),
-            ))
-          const ids = [...new Set([stageId, ...children.map(c => c.id)])]
-          conditions.push(inArray(application.currentStageId, ids))
-        } else if (stageType) {
-          // Все этапы данного типа в орг → фильтр по current_stage_id.
-          const typedStages = await db
-            .select({ id: pipelineStage.id })
-            .from(pipelineStage)
-            .where(and(
-              eq(pipelineStage.organizationId, ctx.orgId),
-              eq(pipelineStage.type, stageType),
-            ))
-          const ids = typedStages.map(s => s.id)
-          // Если этапов такого типа нет — вернём пусто (не смешиваем с legacy status).
-          conditions.push(ids.length > 0 ? inArray(application.currentStageId, ids) : sql`false`)
+        const stageIds = await resolveStageFilterIds(db, ctx.orgId, { stageId, stageType })
+        if (stageIds !== null) {
+          // Этапный фильтр задан: пустой список этапов → заведомо пустой результат
+          // (не откатываемся на legacy status).
+          conditions.push(stageIds.length > 0 ? inArray(application.currentStageId, stageIds) : sql`false`)
         } else if (status) {
           conditions.push(eq(application.status, status))
         }
@@ -503,30 +486,40 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         '"кандидаты с опытом на питоне" → query="Python"; ' +
         '"подбери React-разработчиков" → query="React"; ' +
         '"найди Иванова" → query="Иванов". ' +
-        'Дополнительно можно фильтровать по статусу отклика (new/screening/interview/offer/hired/rejected). ' +
+        'Для фильтра по ЭТАПУ воронки (например «на тестовом задании», «на первичном контакте») ' +
+        'сначала вызови list_pipeline_stages и передай сюда `stageId` — фильтр идёт по реальному ' +
+        'текущему этапу (current_stage_id, включая подэтапы). `stageType` фильтрует по каноническому ' +
+        'типу этапа. НЕ используй legacy `status` для вопросов про конкретный этап — он объединяет ' +
+        'несколько разных этапов в 6 грубых корзин. ' +
         'Результаты ранжируются по релевантности резюме (ts_rank). ' +
         'Возвращает { total, returned, truncated, candidates }. Если truncated:true — сообщи пользователю реальное число найденных.',
       inputSchema: z.object({
         query: z.string().min(1).optional().describe(
           'Поисковая фраза. ОБЯЗАТЕЛЬНА если пользователь упомянул навык/должность/имя. ' +
           'Примеры: "Python", "React Native", "DevOps Kubernetes", "Иванов". ' +
-          'Можно опустить ТОЛЬКО если задан status или ты находишься в скоупе конкретной вакансии.'
+          'Можно опустить ТОЛЬКО если задан stageId/stageType/status или ты в скоупе конкретной вакансии.'
         ),
+        stageId: z.string().optional().describe('Предпочтительно для вопросов про этап. Точный id этапа воронки (из list_pipeline_stages). Включает подэтапы.'),
+        stageType: z.enum(ALL_STAGE_TYPES).optional().describe('Фильтр по каноническому типу этапа (assessment=Тестовое задание, contact=Первичный контакт, interview, offer, hired).'),
         status: z.enum(['new', 'screening', 'interview', 'offer', 'hired', 'rejected']).optional().describe(
-          'Фильтр по стадии воронки. Оставь пустым если пользователь не уточнил стадию.'
+          'DEPRECATED legacy 6-корзинный статус. Для точного этапа используй stageId/stageType.'
         ),
         limit: z.number().int().min(1).max(20).default(5),
       }),
-      execute: async ({ query, status, limit }) => {
+      execute: async ({ query, stageId, stageType, status, limit }) => {
         // Диагностика: логируем фактический input от модели.
-        console.log('[search_candidates] input:', JSON.stringify({ query, status, limit, scope: ctx.scope }))
+        console.log('[search_candidates] input:', JSON.stringify({ query, stageId, stageType, status, limit, scope: ctx.scope }))
 
         let effectiveQuery = query?.trim() || ''
-        const hasStatus = !!status
+        // Этапный фильтр (предпочтительный) резолвим в набор current_stage_id.
+        const stageFilterIds = await resolveStageFilterIds(db, ctx.orgId, { stageId, stageType })
+        const hasStageFilter = stageFilterIds !== null
+        const hasStatus = !hasStageFilter && !!status
+        const hasAppFilter = hasStageFilter || hasStatus
         const inJobScope = ctx.scope.kind === 'job' && !!ctx.scope.jobId
 
         // Fallback для слабых моделей (Qwen через Yandex Cloud часто теряет query): извлекаем сами из реплики юзера.
-        if (!effectiveQuery && !hasStatus && !inJobScope && ctx.lastUserMessage) {
+        if (!effectiveQuery && !hasAppFilter && !inJobScope && ctx.lastUserMessage) {
           const extracted = extractQueryFromUserMessage(ctx.lastUserMessage)
           if (extracted) {
             console.log('[search_candidates] fallback extracted query="%s" from user msg', extracted)
@@ -535,7 +528,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         }
 
         const hasQuery = effectiveQuery.length > 0
-        if (!hasQuery && !hasStatus && !inJobScope) {
+        if (!hasQuery && !hasAppFilter && !inJobScope) {
           return {
             error: 'missing_query',
             message: 'Не удалось определить что искать. Укажите навык, должность или имя кандидата.',
@@ -545,13 +538,17 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         // Дальше работаем с effectiveQuery, а не с исходным query.
         query = effectiveQuery
 
-        // Собираем id-шники по статусу (если указан) — это сужает поисковую выборку.
+        // Собираем id-шники кандидатов по этапному фильтру (предпочтительно) или legacy-статусу.
         let candidateIdsByStatus: Set<string> | null = null
-        if (hasStatus) {
-          const appConds = [
-            eq(application.organizationId, ctx.orgId),
-            eq(application.status, status!),
-          ]
+        if (hasStageFilter || hasStatus) {
+          const appConds = [eq(application.organizationId, ctx.orgId)]
+          if (hasStageFilter) {
+            // Пустой список этапов → заведомо пусто.
+            if (stageFilterIds!.length === 0) return []
+            appConds.push(inArray(application.currentStageId, stageFilterIds!))
+          } else {
+            appConds.push(eq(application.status, status!))
+          }
           if (inJobScope) appConds.push(eq(application.jobId, ctx.scope.jobId!))
           const apps = await db.query.application.findMany({
             where: and(...appConds),

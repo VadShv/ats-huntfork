@@ -92,7 +92,6 @@ const form = ref({
   type: 'full_time' as 'full_time' | 'part_time' | 'contract' | 'internship',
   experienceLevel: 'mid' as 'junior' | 'mid' | 'senior' | 'lead',
   remoteStatus: undefined as 'remote' | 'hybrid' | 'onsite' | undefined,
-  pipelineId: undefined as string | undefined,
   companyId: '' as string,
   departmentId: '' as string,
   headcount: 1 as number,
@@ -129,19 +128,13 @@ watch(() => form.value.companyId, () => {
   }
 })
 
-// Pipeline selector: fetch all non-archived pipelines for this org
+// B2: воронка вакансии единая (каноническая) — грузим список только чтобы
+// показать имя основной воронки в read-only блоке. Выбор воронки убран.
 const { data: pipelinesData } = useFetch('/api/pipelines', {
   query: { includeArchived: false },
   headers: useRequestHeaders(['cookie']),
 })
 const pipelines = computed(() => pipelinesData.value ?? [])
-
-// Auto-select the default pipeline once data loads
-watch(pipelines, (list) => {
-  if (form.value.pipelineId) return // don't override a user selection
-  const defaultPipeline = list.find((p: any) => p.isDefault) ?? list[0]
-  if (defaultPipeline) form.value.pipelineId = defaultPipeline.id
-}, { immediate: true })
 
 // --- hh.ru: импорт вакансии по ссылке ---
 const hhStatus = useFetch<{ configured: boolean, connected: boolean }>('/api/hh/status', {
@@ -438,7 +431,9 @@ function resetState() {
     type: 'full_time',
     experienceLevel: 'mid',
     remoteStatus: undefined,
-    pipelineId: pipelines.value.find((p: any) => p.isDefault)?.id ?? pipelines.value[0]?.id ?? undefined,
+    companyId: '',
+    departmentId: '',
+    headcount: 1,
   }
   applicationForm.value = {
     requireResume: true,

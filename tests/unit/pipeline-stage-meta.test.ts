@@ -6,6 +6,7 @@ import {
   stageTypeToHhCollection,
   bucketForStageType,
   isTerminalStageType,
+  projectEffectiveType,
   LEGACY_STATUS_TO_TYPES,
   type PipelineStageType,
   type LegacyApplicationStatus,
@@ -108,6 +109,36 @@ describe('STAGE_TYPE_META — единый источник семантики �
       const m = STAGE_TYPE_META[type]
       if (m.bucket === 'rejected') expect(m.isTerminal, `${type} должен быть терминальным`).toBe(true)
       if (m.isSuccess) expect(type).toBe('hired')
+    }
+  })
+
+  it('projectEffectiveType: custom-подэтап наследует тип родителя, остальные — свой тип', () => {
+    // custom + родитель → тип родителя
+    expect(projectEffectiveType('custom', 'contact')).toBe('contact')
+    expect(projectEffectiveType('custom', 'not_fit')).toBe('not_fit')
+    // custom без родителя → остаётся custom (статус «замирает»)
+    expect(projectEffectiveType('custom', null)).toBe('custom')
+    expect(projectEffectiveType('custom', undefined)).toBe('custom')
+    // не-custom → всегда свой тип, даже если есть родитель
+    expect(projectEffectiveType('interview', 'contact')).toBe('interview')
+    expect(projectEffectiveType('assessment', null)).toBe('assessment')
+  })
+
+  it('projectEffectiveType в связке с legacyStatus: custom-подэтап под contact → screening', () => {
+    const eff = projectEffectiveType('custom', 'contact')
+    expect(stageTypeToLegacyStatus(eff)).toBe('screening')
+    // custom без родителя → null (не проецируется, warn-путь в moveApplicationStage)
+    expect(stageTypeToLegacyStatus(projectEffectiveType('custom', null))).toBeNull()
+  })
+
+  it('LEGACY_STATUS_TO_TYPES покрывает ровно 6 legacy-статусов', () => {
+    expect(Object.keys(LEGACY_STATUS_TO_TYPES).sort()).toEqual(
+      ['hired', 'interview', 'new', 'offer', 'rejected', 'screening'],
+    )
+    // Каждый непустой legacyStatus типа присутствует в своей корзине, и наоборот
+    const union = new Set(Object.values(LEGACY_STATUS_TO_TYPES).flat())
+    for (const type of ALL_STAGE_TYPES) {
+      if (STAGE_TYPE_META[type].legacyStatus) expect(union.has(type)).toBe(true)
     }
   })
 })

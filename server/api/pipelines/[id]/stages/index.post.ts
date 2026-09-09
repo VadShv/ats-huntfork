@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { eq, and, desc } from 'drizzle-orm'
 import { pipeline, pipelineStage } from '../../../../database/schema'
 import { colorForStageType } from '../../../../utils/pipeline-colors'
-import { validatePipelineStages, ALL_STAGE_TYPES, bucketForType } from '../../../../utils/pipeline-validation'
+import { validatePipelineStages, canAddStageToPipeline, ALL_STAGE_TYPES, bucketForType } from '../../../../utils/pipeline-validation'
 import type { PipelineStageType } from '../../../../utils/pipeline-validation'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
@@ -53,14 +53,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // ── B1: в КАНОНИЧЕСКОЙ (системной) воронке можно добавлять ТОЛЬКО подэтапы ──
-  //    Новые корневые этапы запрещены — каркас канонической воронки зафиксирован.
-  //    Экспериментальные корневые этапы — только в пользовательских воронках (песочница).
-  if (parentPipeline.isSystem && !body.parentStageId) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'В основной воронке можно добавлять только подэтапы к существующим этапам. '
-        + 'Новые корневые этапы создавайте в экспериментальной воронке.',
-    })
+  const addCheck = canAddStageToPipeline(parentPipeline.isSystem, body.parentStageId)
+  if (!addCheck.allowed) {
+    throw createError({ statusCode: 403, statusMessage: addCheck.reason })
   }
 
   // ── Validate parent if provided (max 1 level nesting) ────────────

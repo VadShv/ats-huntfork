@@ -63,6 +63,27 @@ export function isTerminalTypeDefault(type: PipelineStageType): boolean {
 // Validation
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * B1: можно ли добавить новый этап в воронку.
+ * В КАНОНИЧЕСКОЙ (системной) воронке разрешены только подэтапы (parentStageId задан) —
+ * новые корневые этапы запрещены (каркас зафиксирован). В пользовательских воронках
+ * (песочница) можно добавлять любые этапы.
+ * Чистая функция — покрыта юнит-тестом.
+ */
+export function canAddStageToPipeline(
+  isSystemPipeline: boolean,
+  parentStageId: string | null | undefined,
+): { allowed: boolean; reason?: string } {
+  if (isSystemPipeline && !parentStageId) {
+    return {
+      allowed: false,
+      reason: 'В основной воронке можно добавлять только подэтапы к существующим этапам. '
+        + 'Новые корневые этапы создавайте в экспериментальной воронке.',
+    }
+  }
+  return { allowed: true }
+}
+
 export interface StageInput {
   id?: string
   name: string

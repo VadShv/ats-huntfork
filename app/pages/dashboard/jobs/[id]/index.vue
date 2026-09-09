@@ -206,7 +206,7 @@ watch(pipelineStages, (stages) => {
     // 2) Back-compat: старые ссылки ?stage=<legacy-status> (new/screening/…) —
     //    маппим в первый root-этап соответствующего типа.
     else if (q && (LEGACY_STATUS_TO_TYPES as Record<string, string[]>)[q]) {
-      const types = LEGACY_STATUS_TO_TYPES[q as LegacyApplicationStatus]
+      const types = LEGACY_STATUS_TO_TYPES[q as LegacyApplicationStatus] as string[]
       const match = stages.find(s => types.includes(s.type))
       focusStageId.value = match?.id ?? stages[0]?.id ?? null
     }

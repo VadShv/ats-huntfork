@@ -295,28 +295,18 @@ async function handleSetDefault(pipeline: PipelineListItem) {
 
           <!-- Actions -->
           <div class="flex items-center gap-1.5 flex-shrink-0 pl-12 sm:pl-0">
-            <!-- Edit -->
-            <template v-if="canUpdatePipeline">
-              <NuxtLink
-                v-if="!pipeline.isSystem"
-                :to="localePath(`/dashboard/settings/pipelines/${pipeline.id}`)"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors no-underline"
-                :title="$t('pipelines.actions.edit')"
-              >
-                <Pencil class="size-3" />
-                {{ $t('pipelines.actions.edit') }}
-              </NuxtLink>
-              <button
-                v-else
-                type="button"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-400 dark:text-surface-500 cursor-not-allowed opacity-60"
-                :title="$t('pipelines.systemEditTooltip')"
-                disabled
-              >
-                <Pencil class="size-3" />
-                {{ $t('pipelines.actions.edit') }}
-              </button>
-            </template>
+            <!-- Edit / Configure — B1/W1: каноническую (системную) воронку тоже
+                 открываем в редакторе, чтобы ДОБАВЛЯТЬ подэтапы (базовые этапы там
+                 read-only). Доступно только admin/owner (pipeline:update). -->
+            <NuxtLink
+              v-if="canUpdatePipeline"
+              :to="localePath(`/dashboard/settings/pipelines/${pipeline.id}`)"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors no-underline"
+              :title="pipeline.isSystem ? 'Добавить подэтапы (базовые этапы зафиксированы)' : $t('pipelines.actions.edit')"
+            >
+              <Pencil class="size-3" />
+              {{ pipeline.isSystem ? 'Настроить' : $t('pipelines.actions.edit') }}
+            </NuxtLink>
 
             <!-- Clone -->
             <button

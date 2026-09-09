@@ -117,6 +117,19 @@ export function colorForStageType(type: string): string {
 }
 
 /**
+ * Эффективный тип этапа для проекции статуса/hh.
+ * custom-подэтап наследует тип корневого родителя (например custom-подэтап под
+ * «Первичный контакт» (contact) → contact). Все остальные — свой тип.
+ * Используется в moveApplicationStage и hh-push.
+ */
+export function projectEffectiveType(
+  stageType: string,
+  parentType: string | null | undefined,
+): string {
+  return stageType === 'custom' && parentType ? parentType : stageType
+}
+
+/**
  * Инверсия legacyStatus: legacy application.status → все типы этапов, проецирующиеся в него.
  * Используется для back-compat старых ссылок ?status=<legacy> → фильтр по этапам.
  * Пример: 'screening' → ['on_hold','contact','screening','assessment'].
@@ -127,7 +140,7 @@ export const LEGACY_STATUS_TO_TYPES: Record<LegacyApplicationStatus, PipelineSta
   }
   for (const type of ALL_STAGE_TYPES) {
     const ls = STAGE_TYPE_META[type].legacyStatus
-    if (ls) map[ls].push(type)
+    if (ls) (map[ls] ??= []).push(type)
   }
   return map as Record<LegacyApplicationStatus, PipelineStageType[]>
 })()

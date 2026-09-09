@@ -24,6 +24,7 @@ import { useServerPostHog } from './posthog'
 import { notifyThreadChanged } from './comments/threadBus'
 import {
   stageTypeToLegacyStatus as metaStageTypeToLegacyStatus,
+  projectEffectiveType,
   type LegacyApplicationStatus,
 } from '../../shared/pipeline-stage-meta'
 
@@ -210,9 +211,7 @@ export async function moveApplicationStage(opts: MoveStageOptions): Promise<Move
 
   // 6. Транзакция: update + history.
   //    Проекция legacy-статуса: custom-подэтап наследует тип корневого родителя.
-  const effectiveType = targetStage.type === 'custom' && targetParent
-    ? targetParent.type
-    : targetStage.type
+  const effectiveType = projectEffectiveType(targetStage.type, targetParent?.type)
   const newStatus = stageTypeToLegacyStatus(effectiveType)
   if (newStatus === null && targetStage.type === 'custom') {
     // custom-этап без родителя — статус «замирает». Не должно встречаться
