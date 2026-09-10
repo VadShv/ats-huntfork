@@ -219,10 +219,10 @@ function openRisk() {
           class="!border-0"
         />
       </div>
+      <div v-else :key="`${activeId}-loading`" class="py-8 text-center text-sm text-surface-400">
+        <span class="inline-block size-4 animate-spin rounded-full border-2 border-surface-300 border-t-brand-500 align-middle mr-2" />
+        {{ t('comments.loading') }}
+      </div>
     </Transition>
-    <div v-else class="py-8 text-center text-sm text-surface-400">
-      <span class="inline-block size-4 animate-spin rounded-full border-2 border-surface-300 border-t-brand-500 align-middle mr-2" />
-      {{ t('comments.loading') }}
-    </div>
   </section>
 </template>
