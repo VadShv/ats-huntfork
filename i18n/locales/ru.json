@@ -2461,7 +2461,8 @@
     "summarize_refresh": "Обновить резюме",
     "ai_assistant": "AI-ассистент",
     "ai_not_configured": "AI не настроен для организации",
-    "ai_error": "Не удалось сгенерировать ответ"
+    "ai_error": "Не удалось сгенерировать ответ",
+    "scroll_to_bottom": "К последним сообщениям"
   },
   "discussion_tabs": {
     "untitled_job": "Без вакансии",

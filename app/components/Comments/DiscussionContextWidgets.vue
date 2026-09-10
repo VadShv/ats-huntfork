@@ -12,6 +12,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { Bot, ShieldAlert, ChevronDown, ChevronUp, AlertTriangle, ExternalLink } from 'lucide-vue-next'
 import { useResumeRisk } from '~/composables/useResumeRisk'
+import { useScoreTone, useRiskMeta } from '~/composables/useDiscussionColors'
 
 const props = defineProps<{
   applicationId: string
@@ -64,11 +65,7 @@ const topGaps = computed(() => {
     .map(c => c.criterionName || c.criterionKey)
 })
 
-function scoreTone(v: number): string {
-  if (v >= 75) return 'text-success-600 dark:text-success-400'
-  if (v >= 40) return 'text-warning-600 dark:text-warning-600'
-  return 'text-danger-600 dark:text-danger-400'
-}
+const scoreTone = useScoreTone()
 
 // ── Риски (per-candidate) ──
 const { profile: riskProfile } = useResumeRisk(() => props.candidateId)
@@ -77,15 +74,8 @@ const riskStale = computed(() => Boolean(riskProfile.value?.stale))
 const hasRisk = computed(() => risk.value?.status === 'completed')
 const findingsCount = computed(() => risk.value?.findingsJson?.findings?.length ?? 0)
 
-const riskMeta = computed(() => {
-  const level = risk.value?.overallRisk ?? 'low'
-  const map = {
-    low: { label: t('discussion_widgets.risk_low'), cls: 'bg-success-100 text-success-800 dark:bg-success-900/40 dark:text-success-200', chip: 'bg-success-50 text-success-700 dark:bg-success-900/30 dark:text-success-300' },
-    medium: { label: t('discussion_widgets.risk_medium'), cls: 'bg-warning-100 text-warning-800 dark:bg-warning-900/40 dark:text-warning-200', chip: 'bg-warning-50 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300' },
-    high: { label: t('discussion_widgets.risk_high'), cls: 'bg-danger-100 text-danger-800 dark:bg-danger-900/40 dark:text-danger-200', chip: 'bg-danger-50 text-danger-700 dark:bg-danger-900/30 dark:text-danger-300' },
-  } as const
-  return map[level as keyof typeof map] ?? map.low
-})
+const getRiskMeta = useRiskMeta()
+const riskMeta = computed(() => getRiskMeta(risk.value?.overallRisk ?? 'low'))
 
 const anyData = computed(() => hasScreening.value || hasRisk.value)
 
@@ -144,7 +134,7 @@ onMounted(() => {
       <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50/60 dark:bg-surface-900/40 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="flex items-center gap-1.5 text-xs font-semibold text-surface-600 dark:text-surface-300">
-            <Bot class="size-3.5 text-brand-500" />
+            <Bot class="size-3.5 text-accent-500" />
             {{ t('discussion_widgets.screening') }}
           </span>
           <button
@@ -185,7 +175,7 @@ onMounted(() => {
       <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50/60 dark:bg-surface-900/40 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="flex items-center gap-1.5 text-xs font-semibold text-surface-600 dark:text-surface-300">
-            <ShieldAlert class="size-3.5 text-amber-500" />
+            <ShieldAlert class="size-3.5 text-warning-500" />
             {{ t('discussion_widgets.risk') }}
           </span>
           <button
@@ -207,7 +197,7 @@ onMounted(() => {
             v-if="findingsCount > 0"
             class="inline-flex items-center gap-0.5 text-[11px] text-surface-500 dark:text-surface-400"
           >
-            <AlertTriangle class="size-3 text-amber-500" />
+            <AlertTriangle class="size-3 text-warning-500" />
             {{ t('discussion_widgets.findings', { n: findingsCount }) }}
           </span>
           <span

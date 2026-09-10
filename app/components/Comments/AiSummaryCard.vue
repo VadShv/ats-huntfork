@@ -30,10 +30,10 @@ function fmtDate(d: string | undefined) {
 </script>
 
 <template>
-  <div class="rounded-xl border border-brand-200 dark:border-brand-800/60 bg-brand-50/60 dark:bg-brand-900/10 overflow-hidden">
+  <div class="rounded-xl border border-accent-200 dark:border-accent-800/60 bg-accent-50/60 dark:bg-accent-900/10 overflow-hidden">
     <div class="flex items-center gap-2 px-3 py-2">
-      <Bot class="size-4 text-brand-500 flex-shrink-0" />
-      <span class="text-xs font-semibold text-brand-800 dark:text-brand-200">{{ t('comments.summarize') }}</span>
+      <Bot class="size-4 text-accent-500 flex-shrink-0" />
+      <span class="text-xs font-semibold text-accent-800 dark:text-accent-200">{{ t('comments.summarize') }}</span>
       <span v-if="meta?.summarizedCount" class="text-[10px] text-surface-400">
         · {{ meta.summarizedCount }} {{ t('comments.summarize_count_suffix') }}
       </span>
@@ -43,7 +43,7 @@ function fmtDate(d: string | undefined) {
       <button
         v-if="canRefresh"
         type="button"
-        class="rounded p-1 text-surface-400 hover:text-brand-600 hover:bg-brand-100 dark:hover:bg-brand-900/30 cursor-pointer"
+        class="rounded p-1 text-surface-400 hover:text-accent-600 hover:bg-accent-100 dark:hover:bg-accent-900/30 cursor-pointer"
         :title="t('comments.summarize_refresh')"
         @click="emit('refresh')"
       >

@@ -7,6 +7,7 @@
 import { ref, computed } from 'vue'
 import { Bot, ShieldAlert, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-vue-next'
 import type { ThreadComment, ScreeningSnapshotPayload, RiskSnapshotPayload } from '~/composables/useApplicationComments'
+import { useScoreTone, useRiskMeta } from '~/composables/useDiscussionColors'
 
 const props = defineProps<{ comment: ThreadComment }>()
 
@@ -26,26 +27,15 @@ function fmtDate(d: string | Date | null | undefined) {
   })
 }
 
-function scoreTone(v: number): string {
-  if (v >= 75) return 'text-success-600 dark:text-success-400'
-  if (v >= 40) return 'text-warning-600 dark:text-warning-400'
-  return 'text-danger-600 dark:text-danger-400'
-}
+const scoreTone = useScoreTone()
 
 const topCriteria = computed(() => {
   const list = screening.value?.criteria ?? []
   return [...list].filter(c => c.maxScore > 0).slice(0, 4)
 })
 
-const riskMeta = computed(() => {
-  const level = risk.value?.overallRisk ?? 'low'
-  const map = {
-    low: { label: t('discussion_widgets.risk_low'), cls: 'bg-success-100 text-success-800 dark:bg-success-900/40 dark:text-success-200' },
-    medium: { label: t('discussion_widgets.risk_medium'), cls: 'bg-warning-100 text-warning-800 dark:bg-warning-900/40 dark:text-warning-200' },
-    high: { label: t('discussion_widgets.risk_high'), cls: 'bg-danger-100 text-danger-800 dark:bg-danger-900/40 dark:text-danger-200' },
-  } as const
-  return map[level as keyof typeof map] ?? map.low
-})
+const getRiskMeta = useRiskMeta()
+const riskMeta = computed(() => getRiskMeta(risk.value?.overallRisk ?? 'low'))
 
 /** Compact summary для свёрнутого состояния. */
 const summary = computed(() => {
@@ -61,13 +51,13 @@ const summary = computed(() => {
   <div
     class="rounded-lg border p-2.5"
     :class="isScreening
-      ? 'border-brand-200 dark:border-brand-800/60 bg-brand-50/50 dark:bg-brand-900/10'
-      : 'border-amber-200 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-900/10'"
+      ? 'border-accent-200 dark:border-accent-800/60 bg-accent-50/50 dark:bg-accent-900/10'
+      : 'border-warning-200 dark:border-warning-800/60 bg-warning-50/50 dark:bg-warning-900/10'"
   >
     <!-- Header row (всегда) -->
     <div class="flex items-center gap-1.5 text-xs font-semibold text-surface-600 dark:text-surface-300">
-      <Bot v-if="isScreening" class="size-3.5 text-brand-500" />
-      <ShieldAlert v-else class="size-3.5 text-amber-500" />
+      <Bot v-if="isScreening" class="size-3.5 text-accent-500" />
+      <ShieldAlert v-else class="size-3.5 text-warning-500" />
       <span>{{ isScreening ? t('discussion_widgets.screening') : t('discussion_widgets.risk') }}</span>
       <span class="text-[11px] font-normal text-surface-500 dark:text-surface-400">{{ summary }}</span>
       <span class="ml-auto text-[10px] font-normal text-surface-400">{{ t('comment_snapshot.pinned') }}</span>
@@ -114,7 +104,7 @@ const summary = computed(() => {
             v-if="risk.findingsCount > 0"
             class="inline-flex items-center gap-0.5 text-[11px] text-surface-500 dark:text-surface-400"
           >
-            <AlertTriangle class="size-3 text-amber-500" />
+            <AlertTriangle class="size-3 text-warning-500" />
             {{ t('discussion_widgets.findings', { n: risk.findingsCount }) }}
           </span>
           <span

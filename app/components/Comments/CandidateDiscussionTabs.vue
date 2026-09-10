@@ -110,20 +110,19 @@ function isArchived(tab: DiscussionTab) {
   return Boolean(tab.stage?.isTerminal) || tab.stage?.bucket === 'rejected'
 }
 
-/** Цветовая схема вкладки: текущий = brand, чужой активный = rose, архив = grey. */
+/** Цветовая схема вкладки: текущий = brand (ATS primary), архив = grey. */
 function tabClass(tab: DiscussionTab) {
   const active = tab.id === activeId.value
   if (isCurrent(tab)) {
     return active
-      ? 'border-success-500 bg-success-50 text-success-800 dark:bg-success-900/30 dark:text-success-200 dark:border-success-600'
-      : 'border-transparent text-surface-600 hover:bg-success-50/50 dark:text-surface-300 dark:hover:bg-success-900/10'
+      ? 'border-brand-500 bg-brand-50 text-brand-800 dark:bg-brand-900/30 dark:text-brand-200 dark:border-brand-400'
+      : 'border-transparent text-surface-600 hover:bg-brand-50/50 dark:text-surface-300 dark:hover:bg-brand-900/10'
   }
   if (isArchived(tab)) {
     return active
       ? 'border-surface-400 bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300 dark:border-surface-600'
       : 'border-transparent text-surface-400 hover:bg-surface-100/70 dark:text-surface-500 dark:hover:bg-surface-800/50'
   }
-  // Чужой активный отклик — приглушённый
   return active
     ? 'border-surface-300 bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-200 dark:border-surface-600'
     : 'border-transparent text-surface-500 hover:bg-surface-100/60 dark:text-surface-400 dark:hover:bg-surface-800/50'
@@ -146,7 +145,7 @@ function openRisk() {
     <!-- Панель вкладок (только если откликов > 1) -->
     <div
       v-if="hasMultiple"
-      class="flex items-center gap-1 overflow-x-auto border-b border-surface-200 dark:border-surface-800 px-2 pt-2"
+      class="flex items-center gap-1 overflow-x-auto scrollbar-none border-b border-surface-200 dark:border-surface-800 px-2 pt-2"
       role="tablist"
     >
       <button
@@ -155,7 +154,7 @@ function openRisk() {
         type="button"
         role="tab"
         :aria-selected="tab.id === activeId"
-        class="group flex flex-shrink-0 items-center gap-1.5 rounded-t-md border-b-2 px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+        class="group flex flex-shrink-0 items-center gap-1.5 rounded-t-md border-b-2 px-2.5 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer"
         :class="tabClass(tab)"
         @click="activeId = tab.id"
       >
@@ -194,31 +193,35 @@ function openRisk() {
     </div>
 
     <!-- Тред активной вкладки -->
-    <div v-if="!loading">
-      <!-- Контекст-шапка: AI-скрининг + оценка рисков активной вкладки -->
-      <div :class="compact ? 'px-3 pt-3' : 'px-5 pt-4'">
-        <DiscussionContextWidgets
-          :key="`ctx-${activeId}`"
+    <Transition
+      enter-active-class="transition duration-150 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      mode="default"
+    >
+      <div v-if="!loading" :key="activeId">
+        <!-- Контекст-шапка: AI-скрининг + оценка рисков активной вкладки -->
+        <div :class="compact ? 'px-3 pt-3' : 'px-4 pt-3'">
+          <DiscussionContextWidgets
+            :key="`ctx-${activeId}`"
+            :application-id="activeId"
+            :candidate-id="candidateId"
+            :compact="compact"
+            @open-screening="openScreening"
+            @open-risk="openRisk"
+          />
+        </div>
+        <ApplicationCommentThread
+          :key="activeId"
           :application-id="activeId"
-          :candidate-id="candidateId"
+          :read-only="isReadOnly"
           :compact="compact"
-          @open-screening="openScreening"
-          @open-risk="openRisk"
+          class="!border-0"
         />
       </div>
-      <!--
-        :key форсирует пересоздание треда при переключении вкладки, чтобы
-        useApplicationComments заново загрузил свой applicationId-scoped state.
-      -->
-      <ApplicationCommentThread
-        :key="activeId"
-        :application-id="activeId"
-        :read-only="isReadOnly"
-        :compact="compact"
-        class="!border-0"
-      />
-    </div>
+    </Transition>
     <div v-else class="py-8 text-center text-sm text-surface-400">
+      <span class="inline-block size-4 animate-spin rounded-full border-2 border-surface-300 border-t-brand-500 align-middle mr-2" />
       {{ t('comments.loading') }}
     </div>
   </section>

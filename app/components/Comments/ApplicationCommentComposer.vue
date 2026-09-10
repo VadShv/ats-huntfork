@@ -317,7 +317,7 @@ async function onSlashSelect(cmd: SlashCommand) {
           <span class="text-[10px] text-surface-400 flex-shrink-0">{{ prettySize(f.size) }}</span>
           <button
             type="button"
-            class="flex-shrink-0 rounded p-0.5 text-surface-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer border-0 bg-transparent"
+            class="flex-shrink-0 rounded p-0.5 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/30 cursor-pointer border-0 bg-transparent"
             :title="t('attachments.remove')"
             @click="removeFile(idx)"
           >
@@ -333,7 +333,7 @@ async function onSlashSelect(cmd: SlashCommand) {
             type="button"
             class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors"
             :class="isInternal
-              ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300'
+              ? 'bg-warning-100 text-warning-800 hover:bg-warning-200 dark:bg-warning-900/40 dark:text-warning-300'
               : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'"
             @click="isInternal = !isInternal"
           >
@@ -390,7 +390,7 @@ async function onSlashSelect(cmd: SlashCommand) {
           <button
             type="button"
             :disabled="(!body.trim() && pendingFiles.length === 0) || submitting"
-            class="flex items-center gap-1.5 rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            class="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
             @click="submit"
           >
             <Send class="size-3" />

@@ -101,10 +101,10 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
     <!-- Avatar (только первый в группе, иначе spacer) -->
     <div class="flex-shrink-0 w-7 flex justify-center">
       <template v-if="isFirstInGroup">
-        <!-- AI-ответ: bot-иконка -->
+        <!-- AI-ответ: bot-иконка (accent = AI) -->
         <div
           v-if="isAiResponse"
-          class="grid size-7 place-items-center rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 ring-1 ring-brand-200 dark:ring-brand-800/60"
+          class="grid size-7 place-items-center rounded-full bg-accent-100 dark:bg-accent-900/40 text-accent-600 dark:text-accent-400 ring-1 ring-accent-200 dark:ring-accent-800/60"
         >
           <Bot class="size-3.5" />
         </div>
@@ -113,7 +113,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           v-else
           class="grid size-7 place-items-center rounded-full text-[10px] font-semibold"
           :class="isSelf
-            ? 'bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-300 ring-1 ring-success-200 dark:ring-success-800/60'
+            ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 ring-1 ring-brand-200 dark:ring-brand-800/60'
             : 'bg-surface-200 dark:bg-surface-700 text-surface-700 dark:text-surface-200'"
         >
           <img v-if="comment.author.image" :src="comment.author.image" :alt="comment.author.name ?? ''" class="size-7 rounded-full object-cover">
@@ -129,9 +129,9 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         <span
           class="text-xs font-semibold"
           :class="isAiResponse
-            ? 'text-brand-700 dark:text-brand-300'
+            ? 'text-accent-700 dark:text-accent-300'
             : isSelf
-              ? 'text-success-700 dark:text-success-300'
+              ? 'text-brand-700 dark:text-brand-300'
               : 'text-surface-900 dark:text-surface-100'"
         >
           {{ displayName }}
@@ -184,7 +184,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           <button
             v-if="canDelete"
             type="button"
-            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/20"
             @click="menuOpen = false; onDelete()"
           >
             <Trash2 class="size-3.5" /> {{ t('comments.delete') }}
@@ -224,11 +224,11 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         class="rounded-2xl px-3 py-2 text-sm leading-relaxed"
         :class="[
           isAiResponse
-            ? 'bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/60 text-surface-800 dark:text-surface-200'
+            ? 'bg-accent-50 dark:bg-accent-900/20 border border-accent-200 dark:border-accent-800/60 text-surface-800 dark:text-surface-200'
             : comment.isInternal
               ? 'bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800/60 text-surface-800 dark:text-surface-200'
               : isSelf
-                ? 'bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800/60 text-success-950 dark:text-success-50'
+                ? 'bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/60 text-brand-950 dark:text-brand-50'
                 : 'bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700 text-surface-800 dark:text-surface-200',
         ]"
       >
