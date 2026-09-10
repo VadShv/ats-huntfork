@@ -2435,7 +2435,7 @@
   },
   "comments": {
     "thread_title": "Обсуждение",
-    "composer_placeholder": "Сообщение… / — команды, @ — упоминания, @ai — ИИ",
+    "composer_placeholder": "Сообщение… слэш — команды, собака — упоминания, ai — ИИ",
     "send": "Отправить",
     "sending": "Отправка…",
     "cancel": "Отмена",
