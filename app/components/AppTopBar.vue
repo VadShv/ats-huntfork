@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Calendar, ArrowUpCircle,
   Cloud, Server, Sparkles, Radio, History, ChartNoAxesCombined,
   MessageCircle, MoreHorizontal, GitMerge, History as HistoryIcon, Upload,
-  Inbox, Bot, ClipboardList, MessageCircleQuestion,
+  Inbox, Bot, ClipboardList, MessageCircleQuestion, BookOpen,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -155,6 +155,13 @@ const navItems = computed(() => {
     label: t('dashboard.nav.assistant'),
     to: '/dashboard/chatbot',
     icon: MessageCircle,
+    exact: false,
+  })
+  // Prompt Bank + Sandbox
+  merged.splice(insertAt + 1, 0, {
+    label: t('dashboard.nav.prompts'),
+    to: '/dashboard/prompts',
+    icon: BookOpen,
     exact: false,
   })
   return merged

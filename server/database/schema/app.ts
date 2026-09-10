@@ -3047,3 +3047,37 @@ export const commentPollVote = pgTable(
     pk: uniqueIndex('uq_comment_poll_vote').on(t.pollId, t.userId),
   }),
 )
+
+// ─────────────────────────────────────────────
+// Prompt Sandbox — пользовательские промпты для тестирования
+// ─────────────────────────────────────────────
+
+export const promptSandbox = pgTable('prompt_sandbox', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  category: text('category').notNull().default('custom'),
+  systemPrompt: text('system_prompt').notNull(),
+  userPromptTemplate: text('user_prompt_template'),
+  variables: jsonb('variables').$type<Array<{ name: string, description: string, required: boolean, example?: string }>>(),
+  aiConfigId: text('ai_config_id').references(() => aiConfig.id, { onDelete: 'set null' }),
+  temperature: numeric('temperature', { precision: 3, scale: 2 }).default('0.30'),
+  modelOverride: text('model_override'),
+  isShared: boolean('is_shared').notNull().default(false),
+  tags: text('tags').array(),
+  lastTestResult: jsonb('last_test_result'),
+  lastTestedAt: timestamp('last_tested_at', { withTimezone: true, mode: 'date' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => ([
+  index('prompt_sandbox_org_idx').on(t.organizationId),
+  index('prompt_sandbox_org_user_idx').on(t.organizationId, t.userId),
+]))
+
+export const promptSandboxRelations = relations(promptSandbox, ({ one }) => ({
+  organization: one(organization, { fields: [promptSandbox.organizationId], references: [organization.id] }),
+  user: one(user, { fields: [promptSandbox.userId], references: [user.id] }),
+  aiConfig: one(aiConfig, { fields: [promptSandbox.aiConfigId], references: [aiConfig.id] }),
+}))

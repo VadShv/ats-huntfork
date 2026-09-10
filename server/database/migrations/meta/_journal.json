@@ -666,6 +666,13 @@
       "when": 1801000410000,
       "tag": "0095_discussion_features",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1801000420000,
+      "tag": "0096_prompt_sandbox",
+      "breakpoints": true
     }
   ]
 }
