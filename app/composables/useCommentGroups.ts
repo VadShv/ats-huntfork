@@ -68,8 +68,8 @@ export function groupTimeline(
 
     const comment = item.comment
 
-    // Snapshots / AI-ответы / AI-резюме — всегда standalone
-    if (comment.kind && STANDALONE_KINDS.has(comment.kind)) {
+    // Snapshots / AI-ответы / AI-резюме / replies — всегда standalone
+    if ((comment.kind && STANDALONE_KINDS.has(comment.kind)) || comment.parentCommentId) {
       flushGroup()
       units.push({ type: 'standalone', item })
       continue

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { application } from '../../../database/schema/app'
 import { applicationIdParamSchema } from '../../../utils/schemas/application'
 import { subscribeThread } from '../../../utils/comments/threadBus'
+import { getTyping } from '../../../utils/comments/typing-store'
 
 /**
  * GET /api/applications/:id/thread-stream — SSE-поток изменений обсуждения (Этап 4).
@@ -54,6 +55,15 @@ export default defineEventHandler(async (event) => {
     if (!closed) res.write(': ping\n\n')
   }, 25000)
 
+  // Typing indicators — poll every 2s
+  const typingInterval = setInterval(() => {
+    if (closed) return
+    const typing = getTyping(id, session.user.id)
+    if (typing.length > 0) {
+      res.write(`data: ${JSON.stringify({ typing })}\n\n`)
+    }
+  }, 2000)
+
   // Начальный сигнал — клиент сразу подтянет актуальное состояние.
   res.write(`data: ${JSON.stringify({ ready: true })}\n\n`)
 
@@ -62,6 +72,7 @@ export default defineEventHandler(async (event) => {
       closed = true
       unsubscribe()
       clearInterval(heartbeat)
+      clearInterval(typingInterval)
       if (debounce) clearTimeout(debounce)
       resolve()
     })

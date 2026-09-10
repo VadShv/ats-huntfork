@@ -4,7 +4,9 @@ import { Send, Lock, Paperclip, X, File as FileIcon, Smile } from 'lucide-vue-ne
 import ApplicationMentionAutocomplete from './ApplicationMentionAutocomplete.vue'
 import StickerPicker from './StickerPicker.vue'
 import SlashCommandPalette, { type SlashCommand } from './SlashCommandPalette.vue'
+import TemplatePicker from './TemplatePicker.vue'
 import { useApplicationComments, type OrgMember } from '~/composables/useApplicationComments'
+import { useLocalStorageState } from '~/composables/useLocalStorageState'
 
 const props = defineProps<{
   applicationId: string
@@ -31,6 +33,44 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const pendingFiles = ref<File[]>([])
 const isDragOver = ref(false)
+
+// ── Draft persistence (localStorage) ──
+interface DraftState { body: string, isInternal: boolean, savedAt: number }
+const draftKey = `draft:comment:${props.applicationId}`
+const draft = useLocalStorageState<DraftState>(draftKey, { body: '', isInternal: false, savedAt: 0 })
+const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+onMounted(() => {
+  if (draft.value.body && Date.now() - draft.value.savedAt < DRAFT_MAX_AGE_MS) {
+    body.value = draft.value.body
+    isInternal.value = draft.value.isInternal
+  } else {
+    draft.value = { body: '', isInternal: false, savedAt: 0 }
+  }
+})
+
+let draftSaveTimer: ReturnType<typeof setTimeout> | null = null
+watch([body, isInternal], () => {
+  if (draftSaveTimer) clearTimeout(draftSaveTimer)
+  draftSaveTimer = setTimeout(() => {
+    draft.value = { body: body.value, isInternal: isInternal.value, savedAt: Date.now() }
+  }, 500)
+})
+
+// ── Typing indicator (debounced POST) ──
+let typingTimer: ReturnType<typeof setTimeout> | null = null
+watch(body, () => {
+  if (!body.value.trim()) return
+  if (typingTimer) clearTimeout(typingTimer)
+  typingTimer = setTimeout(() => {
+    $fetch(`/api/applications/${props.applicationId}/typing`, { method: 'POST' }).catch(() => {})
+  }, 300)
+})
+
+function clearDraft() {
+  if (draftSaveTimer) clearTimeout(draftSaveTimer)
+  draft.value = { body: '', isInternal: false, savedAt: 0 }
+}
 
 const MAX_FILES = 10
 const MAX_FILE_BYTES = 10 * 1024 * 1024
@@ -197,6 +237,7 @@ async function submit() {
     body.value = ''
     isInternal.value = false
     pendingFiles.value = []
+    clearDraft()
     emit('submitted')
   } catch {
     // toast already shown
@@ -208,7 +249,27 @@ async function submit() {
 function focus() {
   textareaRef.value?.focus()
 }
-defineExpose({ focus })
+
+function insertText(text: string) {
+  const ta = textareaRef.value
+  if (!ta) {
+    body.value = body.value ? `${body.value} ${text}` : text
+    return
+  }
+  const start = ta.selectionStart ?? body.value.length
+  const end = ta.selectionEnd ?? start
+  const before = body.value.slice(0, start)
+  const after = body.value.slice(end)
+  const needSpace = before.length > 0 && !/\s$/.test(before)
+  body.value = `${before}${needSpace ? ' ' : ''}${text} ${after}`
+  nextTick(() => {
+    const newPos = before.length + (needSpace ? 1 : 0) + text.length + 1
+    ta.focus()
+    ta.setSelectionRange(newPos, newPos)
+  })
+}
+
+defineExpose({ focus, insertText })
 
 // ── Sticker picker ──
 const showStickerPicker = ref(false)
@@ -263,6 +324,12 @@ async function onSlashSelect(cmd: SlashCommand) {
       await summarize()
     } else if (cmd.name === 'internal') {
       isInternal.value = !isInternal.value
+    } else if (cmd.name === 'poll') {
+      await $fetch(`/api/applications/${props.applicationId}/polls`, {
+        method: 'POST',
+        body: { question: t('comments.poll_create') },
+      }).then(() => emit('submitted'))
+        .catch(() => toast.error('Не удалось создать опрос'))
     }
     body.value = ''
   } else if (cmd.mode === 'ai') {
@@ -350,6 +417,9 @@ async function onSlashSelect(cmd: SlashCommand) {
             <Paperclip class="size-3" />
             <span class="hidden sm:inline">{{ t('attachments.add') }}</span>
           </button>
+          <TemplatePicker
+            @insert="(text) => insertText(text)"
+          />
           <div data-sticker-anchor class="relative">
             <button
               type="button"

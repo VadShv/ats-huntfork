@@ -16,6 +16,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Eye, MessageSquare } from 'lucide-vue-next'
 import ApplicationCommentThread from './ApplicationCommentThread.vue'
 import DiscussionContextWidgets from './DiscussionContextWidgets.vue'
+import { useUnreadComments } from '~/composables/useUnreadComments'
 
 interface DiscussionTabStage {
   id: string
@@ -100,7 +101,12 @@ async function fetchTabs() {
   }
 }
 
-onMounted(fetchTabs)
+const { unreadCount, fetchUnread } = useUnreadComments()
+
+onMounted(() => {
+  fetchTabs()
+  fetchUnread()
+})
 
 function isCurrent(tab: DiscussionTab) {
   return tab.id === props.currentApplicationId
@@ -188,6 +194,14 @@ function openRisk() {
         >
           <MessageSquare class="size-2.5" />
           {{ tab.commentCount }}
+        </span>
+
+        <!-- Unread badge -->
+        <span
+          v-if="unreadCount(tab.id) > 0"
+          class="inline-flex items-center justify-center rounded-full bg-brand-600 px-1.5 text-[10px] font-semibold text-white tabular-nums"
+        >
+          {{ unreadCount(tab.id) }}
         </span>
       </button>
     </div>

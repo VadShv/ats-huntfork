@@ -2120,6 +2120,9 @@ export const applicationComment = pgTable(
     /** Снимок данных виджета на момент прикрепления (для аудита обсуждаемой версии). */
     payloadJson:     jsonb('payload_json').$type<Record<string, unknown> | null>(),
     parentCommentId: text('parent_comment_id').references((): any => applicationComment.id, { onDelete: 'set null' }),
+    isPinned:        boolean('is_pinned').notNull().default(false),
+    pinnedById:      text('pinned_by_id').references(() => user.id, { onDelete: 'set null' }),
+    pinnedAt:        timestamp('pinned_at', { withTimezone: true, mode: 'date' }),
     editedAt:        timestamp('edited_at', { withTimezone: true, mode: 'date' }),
     createdAt:       timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt:       timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -2972,3 +2975,75 @@ export const kudosRelations = relations(kudos, ({ one }) => ({
   fromUser: one(user, { fields: [kudos.fromUserId], references: [user.id], relationName: 'kudos_from' }),
   toUser: one(user, { fields: [kudos.toUserId], references: [user.id], relationName: 'kudos_to' }),
 }))
+
+// ─────────────────────────────────────────────
+// Message templates — canned responses for discussions (P3.1)
+// ─────────────────────────────────────────────
+
+export const messageTemplate = pgTable(
+  'message_template',
+  {
+    id:              text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    organizationId:  text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    key:             text('key'),
+    title:           text('title').notNull(),
+    body:            text('body').notNull(),
+    category:        text('category').notNull().default('custom'),
+    isSystem:        boolean('is_system').notNull().default(false),
+    createdById:     text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+    createdAt:       timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt:       timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    orgIdx: index('idx_message_template_org').on(t.organizationId),
+  }),
+)
+
+// ─────────────────────────────────────────────
+// Thread read state — read receipts (P3.4)
+// ─────────────────────────────────────────────
+
+export const threadReadState = pgTable(
+  'thread_read_state',
+  {
+    applicationId:     text('application_id').notNull().references(() => application.id, { onDelete: 'cascade' }),
+    userId:            text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    lastReadCommentId: text('last_read_comment_id'),
+    lastReadAt:        timestamp('last_read_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: uniqueIndex('uq_thread_read_state').on(t.applicationId, t.userId),
+  }),
+)
+
+// ─────────────────────────────────────────────
+// Comment polls — decision voting (P3.5)
+// ─────────────────────────────────────────────
+
+export const commentPoll = pgTable(
+  'comment_poll',
+  {
+    id:          text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    commentId:   text('comment_id').notNull().references(() => applicationComment.id, { onDelete: 'cascade' }),
+    question:    text('question').notNull(),
+    options:     jsonb('options').notNull().$type<Array<{ key: string, label: string, emoji: string }>>(),
+    closesAt:    timestamp('closes_at', { withTimezone: true, mode: 'date' }),
+    createdAt:   timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    commentIdx: index('idx_comment_poll_comment').on(t.commentId),
+  }),
+)
+
+export const commentPollVote = pgTable(
+  'comment_poll_vote',
+  {
+    pollId:    text('poll_id').notNull().references(() => commentPoll.id, { onDelete: 'cascade' }),
+    userId:    text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    optionKey: text('option_key').notNull(),
+    votedAt:   timestamp('voted_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: uniqueIndex('uq_comment_poll_vote').on(t.pollId, t.userId),
+  }),
+)

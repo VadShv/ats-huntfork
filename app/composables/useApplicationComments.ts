@@ -69,6 +69,7 @@ export interface ThreadComment {
   /** Снимок данных виджета для kind !== 'text'. */
   payloadJson: ScreeningSnapshotPayload | RiskSnapshotPayload | Record<string, unknown> | null
   parentCommentId: string | null
+  isPinned: boolean
   editedAt: string | Date | null
   createdAt: string | Date
   updatedAt: string | Date
@@ -354,13 +355,22 @@ export function useApplicationComments(applicationId: string) {
   /**
    * Realtime (Этап 4): подписка на SSE-поток изменений треда. По пингу —
    * дебаунс-рефетч комментариев и истории этапов. Возвращает функцию отписки.
-   * Работает только в браузере.
+   * Работает только в браузере. Также парсит typing events.
    */
+  const typingUsers = useState<Array<{ userId: string, name: string }>>(`app-typing:${applicationId}`, () => [])
+
   function connectStream(): () => void {
     if (import.meta.server || typeof EventSource === 'undefined') return () => {}
     let debounce: ReturnType<typeof setTimeout> | null = null
     const es = new EventSource(`/api/applications/${applicationId}/thread-stream`)
-    es.onmessage = () => {
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data)
+        if (data.typing) {
+          typingUsers.value = data.typing
+          return
+        }
+      } catch {}
       if (debounce) return
       debounce = setTimeout(() => {
         debounce = null
@@ -400,5 +410,6 @@ export function useApplicationComments(applicationId: string) {
     deleteAttachment,
     searchMembers,
     summarize,
+    typingUsers,
   }
 }

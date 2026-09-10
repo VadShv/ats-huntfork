@@ -16,7 +16,7 @@ export interface SlashCommand {
  * Keyboard: ArrowUp/Down/Enter/Esc.
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { Bot, ShieldAlert, Lock, Sparkles, ArrowRightCircle } from 'lucide-vue-next'
+import { Bot, ShieldAlert, Lock, Sparkles, ArrowRightCircle, Vote } from 'lucide-vue-next'
 
 const props = defineProps<{
   query: string
@@ -33,6 +33,7 @@ const COMMANDS: SlashCommand[] = [
   { name: 'score', description: t('slash.score_desc'), icon: Bot, mode: 'action' },
   { name: 'risk', description: t('slash.risk_desc'), icon: ShieldAlert, mode: 'action' },
   { name: 'summarize', description: t('slash.summarize_desc'), icon: Sparkles, mode: 'action' },
+  { name: 'poll', description: t('slash.poll_desc'), icon: Vote, mode: 'action' },
   { name: 'ai', description: t('slash.ai_desc'), icon: Bot, mode: 'ai', insertText: '@ai ' },
   { name: 'advance', description: t('slash.advance_desc'), icon: ArrowRightCircle, mode: 'insert', insertText: '' },
   { name: 'internal', description: t('slash.internal_desc'), icon: Lock, mode: 'action' },

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { Lock, MoreVertical, Pencil, Trash2, MessageSquare, Bot } from 'lucide-vue-next'
+import { Lock, MoreVertical, Pencil, Trash2, MessageSquare, Bot, Link2, Pin } from 'lucide-vue-next'
 import type { ThreadComment } from '~/composables/useApplicationComments'
 import { useApplicationComments } from '~/composables/useApplicationComments'
 import CommentSnapshotWidget from './CommentSnapshotWidget.vue'
@@ -17,11 +17,14 @@ const props = withDefaults(defineProps<{
   isFirstInGroup?: boolean
   /** Grouping: последний в группе — отступ снизу. */
   isLastInGroup?: boolean
+  /** Deep-link / keyboard nav highlight. */
+  highlighted?: boolean
 }>(), {
   canReply: false,
   readOnly: false,
   isFirstInGroup: true,
   isLastInGroup: true,
+  highlighted: false,
 })
 
 const emit = defineEmits<{
@@ -32,11 +35,38 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 const { updateComment, deleteComment, deleteAttachment } = useApplicationComments(props.applicationId)
 const { ask } = useConfirm()
+const toast = useToast()
+const route = useRoute()
 
 const isEditing = ref(false)
 const editBody = ref(props.comment.body)
 const saving = ref(false)
 const menuOpen = ref(false)
+const pinning = ref(false)
+
+async function togglePin() {
+  if (pinning.value) return
+  pinning.value = true
+  try {
+    await $fetch(`/api/applications/${props.applicationId}/comments/${props.comment.id}/pin`, { method: 'POST' })
+  } catch {
+    toast.error('Не удалось закрепить сообщение')
+  } finally {
+    pinning.value = false
+    menuOpen.value = false
+  }
+}
+
+async function copyLink() {
+  const url = `${window.location.origin}${route.path}#comment-${props.comment.id}`
+  try {
+    await navigator.clipboard.writeText(url)
+    toast.success(t('comments.link_copied'))
+  } catch {
+    toast.error(t('comments.link_copied'))
+  }
+  menuOpen.value = false
+}
 
 const isSnapshot = computed(() =>
   props.comment.kind === 'ai_screening_snapshot' || props.comment.kind === 'risk_snapshot',
@@ -95,8 +125,12 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
 <template>
   <div
+    :id="`comment-${comment.id}`"
     class="group flex gap-2.5 transition-colors"
-    :class="isLastInGroup ? 'mb-3' : 'mb-0.5'"
+    :class="[
+      isLastInGroup ? 'mb-3' : 'mb-0.5',
+      highlighted ? 'ring-2 ring-brand-400 rounded-lg -mx-1 px-1 py-0.5' : '',
+    ]"
   >
     <!-- Avatar (только первый в группе, иначе spacer) -->
     <div class="flex-shrink-0 w-7 flex justify-center">
@@ -139,6 +173,12 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         <span class="text-[10px] text-surface-400 font-mono">{{ formatDate(comment.createdAt) }}</span>
         <span v-if="comment.editedAt" class="text-[10px] text-surface-400">· {{ t('comments.edited') }}</span>
         <span
+          v-if="comment.isPinned"
+          class="inline-flex items-center gap-0.5 rounded bg-brand-100 dark:bg-brand-900/40 px-1 py-0.5 text-[9px] font-medium text-brand-700 dark:text-brand-300"
+        >
+          <Pin class="size-2.5" /> {{ t('comments.pinned_messages') }}
+        </span>
+        <span
           v-if="comment.isInternal"
           class="inline-flex items-center gap-0.5 rounded bg-warning-100 dark:bg-warning-900/50 px-1 py-0.5 text-[9px] font-medium text-warning-800 dark:text-warning-200"
           :title="t('comments.internal_badge_hint')"
@@ -172,6 +212,21 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
             @click="menuOpen = false; emit('reply', comment.id)"
           >
             <MessageSquare class="size-3.5" /> {{ t('comments.reply') }}
+          </button>
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-100 dark:hover:bg-surface-800"
+            @click="copyLink"
+          >
+            <Link2 class="size-3.5" /> {{ t('comments.copy_link') }}
+          </button>
+          <button
+            v-if="!readOnly"
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-100 dark:hover:bg-surface-800"
+            @click="togglePin"
+          >
+            <Pin class="size-3.5" /> {{ comment.isPinned ? t('comments.unpin') : t('comments.pin') }}
           </button>
           <button
             v-if="canEdit"
