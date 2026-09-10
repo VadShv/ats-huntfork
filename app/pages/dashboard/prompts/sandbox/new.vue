@@ -182,7 +182,7 @@ async function save() {
             </button>
           </div>
         </div>
-        <p v-else class="text-xs text-surface-400 dark:text-surface-500">Используйте {{ '{{varName}}' }} в промпте для подстановки значений при тесте.</p>
+        <p v-else class="text-xs text-surface-400 dark:text-surface-500">Используйте <code class="text-brand-600">{{ '{' + '{varName}' + '}' }}</code> в промпте для подстановки значений при тесте.</p>
       </div>
 
       <!-- Tags -->
