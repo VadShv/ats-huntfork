@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
-import { application, applicationComment } from '../../../../../../database/schema/app'
-import { notifyThreadChanged } from '../../../../../../utils/comments/threadBus'
+import { application, applicationComment } from '../../../../../database/schema/app'
+import { notifyThreadChanged } from '../../../../../utils/comments/threadBus'
 
 /**
  * POST /api/applications/:id/comments/:commentId/pin
