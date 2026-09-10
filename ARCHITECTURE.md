@@ -2,7 +2,7 @@
 
 ## Overview
 
-Reqcore is a **Nuxt 4** full-stack application following a monolithic architecture with clear separation between client (`app/`) and server (`server/`) code. The system supports both **managed deployment** on Railway and **self-hosted deployment** via Docker Compose.
+Reqcore is a **Nuxt 4** full-stack application following a monolithic architecture with clear separation between client (`app/`) and server (`server/`) code. The system is deployed via **Docker Compose** on a self-hosted VM.
 
 ## Technology Stack
 
@@ -15,12 +15,12 @@ Reqcore is a **Nuxt 4** full-stack application following a monolithic architectu
 | ORM | Drizzle ORM + postgres.js | Type-safe database access |
 | Authentication | Better Auth | User management, sessions, OAuth |
 | Multi-Tenancy | Better Auth Organization plugin | Org-based data isolation |
-| Object Storage | S3-compatible (Railway Buckets / MinIO) | Resume/document storage |
+| Object Storage | S3-compatible (MinIO) | Resume/document storage |
 | Validation | Zod v4 | Schema validation (server + client) |
 | SEO | `@nuxtjs/seo` (Sitemap, Robots, Schema.org, SEO Utils, Site Config) | Search engine optimization, structured data |
 | Content | `@nuxt/content` v3 | Markdown blog engine with typed collections |
-| Infrastructure | Docker Compose (local dev) | Local Postgres, MinIO, Adminer |
-| Hosting | Railway | Managed platform (auto-build, auto-deploy) |
+| Infrastructure | Docker Compose | Postgres, MinIO, Extractor, App |
+| Hosting | Self-hosted VM | Docker Compose deployment |
 | CDN | Cloudflare (Free) | DNS, DDoS protection, edge caching |
 
 ## Directory Structure
@@ -99,7 +99,7 @@ reqcore/
 ├── content/                      # Markdown content (@nuxt/content v3)
 │   └── blog/                     # Blog articles (*.md with YAML frontmatter)
 ├── public/                       # Static assets
-├── docker-compose.yml            # Postgres + MinIO + Adminer
+├── docker-compose.yml            # Postgres + MinIO + Extractor + App
 ├── drizzle.config.ts             # Drizzle Kit configuration
 ├── content.config.ts             # Nuxt Content collection definitions
 ├── nuxt.config.ts                # Nuxt configuration
@@ -118,28 +118,22 @@ reqcore/
 │  │  • useFetch / $fetch → /api/*                │   │
 │  └──────────────────┬───────────────────────────┘   │
 └─────────────────────┼───────────────────────────────┘
-                      │ HTTPS
+                      │ HTTP (localhost:3030)
 ┌─────────────────────┼───────────────────────────────┐
-│  Cloudflare CDN     │                                │
-│  • DNS (CNAME → Railway domain)                     │
-│  • DDoS protection, edge caching                    │
-│  • AI bot blocking                                  │
-└─────────────────────┼───────────────────────────────┘
-                      │ HTTPS
-┌─────────────────────┼───────────────────────────────┐
-│  Railway Project                                     │
+│  Docker Compose (self-hosted VM)                     │
 │  ┌──────────────────▼───────────────────────────┐   │
-│  │  Nuxt Service (auto-built from GitHub)        │   │
-│  │  Build: npm run build                         │   │
+│  │  app container (Nuxt SSR)                     │   │
+│  │  Build: docker compose build app              │   │
 │  │  Start: node .output/server/index.mjs         │   │
-│  │  PORT: $PORT (Railway-provided)               │   │
-│  └──────────┬───────────────────┬───────────────┘   │
-│             │ private network   │ S3 API             │
-│  ┌──────────▼──────┐   ┌───────▼────────────────┐   │
-│  │  PostgreSQL     │   │  Storage Bucket        │   │
-│  │  (Railway DB)   │   │  (S3-compatible)       │   │
-│  │  $DATABASE_URL  │   │  $S3_ENDPOINT          │   │
-│  └─────────────────┘   └────────────────────────┘   │
+│  │  PORT: 3000 (exposed on host :3030)           │   │
+│  └──┬──────────────┬──────────────┬──────────────┘   │
+│     │ Docker net   │ S3 API       │ HTTP :8000       │
+│  ┌──▼──────────┐ ┌─▼──────────┐ ┌─▼──────────────┐  │
+│  │ PostgreSQL  │ │ MinIO      │ │ Extractor      │  │
+│  │ (pg16)      │ │ (S3-comp.) │ │ (PyMuPDF +     │  │
+│  │ :5434       │ │ :9000-9001 │ │  pdfplumber +  │  │
+│  │             │ │            │ │  Docling)      │  │
+│  └─────────────┘ └────────────┘ └────────────────┘  │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -182,12 +176,12 @@ During server-side rendering, browser cookies are not automatically forwarded to
 
 ### 6. File Storage & Document Security
 
-Documents (resumes, cover letters) are stored in an S3-compatible object store (Railway Storage Buckets in production, MinIO for local development). Each document record in Postgres stores a `storageKey` (the S3 object key) while the actual file binary lives in the bucket. This separates metadata from blob storage.
+Documents (resumes, cover letters) are stored in an S3-compatible object store (MinIO in production). Each document record in Postgres stores a `storageKey` (the S3 object key) while the actual file binary lives in the bucket. This separates metadata from blob storage.
 
 Document access is **always server-proxied** — both download and preview endpoints stream file bytes through the authenticated Nitro server. Presigned S3 URLs are never exposed to clients, preventing URL sharing or leakage of sensitive candidate data.
 
 Key security measures:
-- **Private bucket policy**: Railway Buckets are private by default. For MinIO (local dev), any public bucket policy is deleted on every startup (`server/plugins/s3-bucket.ts`)
+- **Private bucket policy**: MinIO bucket is private by default. Any public bucket policy is deleted on every startup (`server/plugins/s3-bucket.ts`)
 - **Filename sanitization**: All user-provided filenames are sanitized via `sanitizeFilename()` before storage, preventing path traversal, XSS, and filesystem exploits
 - **MIME validation**: Upload endpoints validate file types using magic bytes (`file-type` package), not just the `Content-Type` header
 - **Per-candidate document limits**: Max 20 documents per candidate, enforced on public apply endpoint
@@ -195,7 +189,7 @@ Key security measures:
 - **Preview restricted to PDF**: Only `application/pdf` files can be previewed inline; DOC/DOCX (which can contain macros) must be downloaded
 - **Cache headers**: `Cache-Control: private, no-store` on both download and preview
 - **X-Frame-Options**: Global `DENY` with `SAMEORIGIN` override for the preview endpoint only
-- **S3 path style**: Configurable via `S3_FORCE_PATH_STYLE` env var — `true` for MinIO (path-style URLs), `false` for Railway Buckets / AWS S3 (virtual-hosted-style URLs)
+- **S3 path style**: Configurable via `S3_FORCE_PATH_STYLE` env var — `true` for MinIO (path-style URLs), `false` for AWS S3 (virtual-hosted-style URLs)
 
 ## Data Model
 
@@ -272,48 +266,67 @@ Blog articles are Markdown files in `content/blog/` powered by `@nuxt/content` v
 | Environment secrets | Validated at startup, never exposed to client |
 ## Deployment Architecture
 
-Reqcore runs on **Railway** with **Cloudflare** as CDN/DNS:
+Reqcore is deployed via **Docker Compose** on a self-hosted VM:
 
 | Component | Role |
 |-----------|------|
-| Cloudflare (Free) | DNS, DDoS protection, SSL edge termination, AI bot blocking |
-| Railway Service | Nuxt SSR app (auto-built from GitHub via Nixpacks) |
-| Railway PostgreSQL | Managed Postgres database with automatic backups |
-| Railway Storage Bucket | S3-compatible object storage for documents |
+| Reverse proxy (nginx/Caddy) | TLS termination, routing to app on localhost:3030 |
+| `app` container | Nuxt SSR app (built from source, `node .output/server/index.mjs`) |
+| `db` container | PostgreSQL 16 (Alpine), persistent volume |
+| `minio` container | S3-compatible object storage for documents, persistent volume |
+| `extractor` container | Python FastAPI service: PyMuPDF + pdfplumber + Tesseract OCR + Docling (layout ML model) for resume text extraction |
 
 ### Deploy Workflow
 
 ```bash
-# Push to main branch — Railway auto-builds and deploys
-git push origin main
-
-# Build: npm run build (detected from package.json)
-# Start: node .output/server/index.mjs
+# On the VM: pull latest, rebuild, restart
+cd ~/ats-huntfork
+git stash push -m ports docker-compose.yml   # preserve local port overrides
+git fetch origin main && git reset --hard origin/main
+git stash pop
+docker builder prune -af                      # free build cache if disk is tight
+docker compose build app extractor            # rebuild changed services
+docker compose up -d app extractor            # recreate containers
 ```
 
-### Environment Variables on Railway
+Migrations run automatically on app startup (`server/plugins/migrations.ts`).
 
-Variables are configured in the Railway dashboard or via `railway variables`. Service-to-service references use Railway's template syntax:
+### docker-compose Services
 
-| Variable | Source |
-|----------|--------|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `S3_ENDPOINT` | `${{Bucket.ENDPOINT}}` |
-| `S3_ACCESS_KEY` | `${{Bucket.ACCESS_KEY_ID}}` |
-| `S3_SECRET_KEY` | `${{Bucket.SECRET_ACCESS_KEY}}` |
-| `S3_BUCKET` | `${{Bucket.BUCKET}}` |
-| `S3_REGION` | `${{Bucket.REGION}}` |
-| `S3_FORCE_PATH_STYLE` | `false` |
-| `BETTER_AUTH_SECRET` | Manual (sealed) |
-| `BETTER_AUTH_URL` | Production: `https://reqcore.com` · PR/preview: `https://${{RAILWAY_PUBLIC_DOMAIN}}` |
+| Service | Container | Port (host) | Notes |
+|---------|-----------|-------------|-------|
+| `app` | `reqcore_app` | 127.0.0.1:3030→3000 | Nuxt SSR, auto-migrations on boot |
+| `db` | `reqcore_db` | 127.0.0.1:5434→5432 | PostgreSQL 16, healthcheck |
+| `minio` | `reqcore_minio` | 9000-9001 | S3 API + console, healthcheck |
+| `extractor` | `reqcore_extractor` | 8000 (internal) | Resume text extraction, Docling models in volume, `mem_limit: 2g` |
 
-For zero manual PR setup, define `BETTER_AUTH_URL` as `https://${{RAILWAY_PUBLIC_DOMAIN}}` in your Railway preview/PR environment (or shared variables scoped to previews).
+### Environment Variables
+
+Configured in `.env` on the VM (passed to `app` via `env_file`):
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | Overridden in compose to `postgresql://...@db:5432/...` |
+| `S3_ENDPOINT` | Overridden to `http://minio:9000` |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` | MinIO credentials |
+| `S3_FORCE_PATH_STYLE` | `true` (MinIO) |
+| `BETTER_AUTH_SECRET` | Encryption key for secrets (AI keys, MyMeet key) |
+| `EXTRACTOR_URL` | `http://extractor:8000` (Docker-internal) |
+| AI provider keys | Stored in `ai_config` table (encrypted), not in env |
+
+### Extractor Service (Docling)
+
+The extractor (`services/extractor/`) is a Python FastAPI service that handles:
+- **PDF text extraction**: PyMuPDF (fast) → pdfplumber (column crop) → Docling (layout ML model, always runs, best result wins by score)
+- **DOCX/DOC → PDF conversion**: LibreOffice headless (for unified inline preview)
+- **OCR fallback**: Tesseract (rus+eng) for scanned pages
+- **Docling models**: ~11 GB image, models cached in `docling-models` volume, `mem_limit: 2g`
 ## Local Development Services
 
 | Service | URL | Purpose |
 |---------|-----|---------|
 | Nuxt App | http://localhost:3000 | Application |
-| Adminer | http://localhost:8080 | Database GUI |
 | MinIO Console | http://localhost:9001 | Storage GUI |
 | MinIO S3 API | http://localhost:9000 | S3 endpoint |
 | PostgreSQL | localhost:5432 | Database |
+| Extractor | http://localhost:8000 | Resume text extraction (run separately) |
