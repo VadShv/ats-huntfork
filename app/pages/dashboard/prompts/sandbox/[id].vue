@@ -344,7 +344,7 @@ async function deletePrompt() {
               <label class="block text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Переменные</label>
               <div v-for="v in form.variables" :key="v.name">
                 <label class="block text-xs text-surface-500 dark:text-surface-400 mb-0.5">
-                  <code class="font-mono text-brand-600 dark:text-brand-400">{{ '{{' + v.name + '}}' }}</code>
+                  <code class="font-mono text-brand-600 dark:text-brand-400">{{ '{' + '{' + v.name + '}' + '}' }}</code>
                   <span v-if="v.required" class="text-danger-500">*</span>
                   — {{ v.description }}
                 </label>

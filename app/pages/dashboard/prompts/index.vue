@@ -213,7 +213,7 @@ function copyPromptToSandbox(prompt: any) {
                   :key="v.name"
                   class="rounded-lg bg-surface-50 dark:bg-surface-950/60 px-3 py-1.5 text-xs"
                 >
-                  <code class="text-brand-600 dark:text-brand-400 font-mono">{{ '{{' + v.name + '}}' }}</code>
+                  <code class="text-brand-600 dark:text-brand-400 font-mono">{{ '{' + '{' + v.name + '}' + '}' }}</code>
                   <span class="text-surface-500 dark:text-surface-400 ml-1.5">— {{ v.description }}</span>
                   <span v-if="v.required" class="text-danger-500 ml-1">*</span>
                 </div>
