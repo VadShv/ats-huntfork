@@ -36,3 +36,6 @@ playwright/.cache/
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
 __pycache__/
+
+# Kilo AI assistant state
+.kilo/

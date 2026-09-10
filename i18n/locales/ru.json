@@ -2435,7 +2435,7 @@
   },
   "comments": {
     "thread_title": "Обсуждение",
-    "composer_placeholder": "Напиши сообщение… Используй {'@'} для упоминания",
+    "composer_placeholder": "Сообщение… / — команды, @ — упоминания, @ai — ИИ",
     "send": "Отправить",
     "sending": "Отправка…",
     "cancel": "Отмена",
@@ -2454,7 +2454,14 @@
     "hint_shortcut": "Ctrl/Cmd + Enter — отправить",
     "delete_title": "Удалить комментарий?",
     "delete_message": "Это действие нельзя отменить. Комментарий будет помечен как удалённый.",
-    "read_only_other_application": "Обсуждение другого отклика этого кандидата — только просмотр. Писать можно в текущем отклике."
+    "read_only_other_application": "Обсуждение другого отклика этого кандидата — только просмотр. Писать можно в текущем отклике.",
+    "summarize": "Резюме",
+    "summarizing": "Генерируем резюме…",
+    "summarize_count_suffix": "сообщ.",
+    "summarize_refresh": "Обновить резюме",
+    "ai_assistant": "AI-ассистент",
+    "ai_not_configured": "AI не настроен для организации",
+    "ai_error": "Не удалось сгенерировать ответ"
   },
   "discussion_tabs": {
     "untitled_job": "Без вакансии",
@@ -2464,7 +2471,18 @@
   "comment_snapshot": {
     "attach_label": "Прикрепить результат",
     "pinned": "снимок",
-    "assessed_at": "Оценено: {date}"
+    "assessed_at": "Оценено: {date}",
+    "expand": "Подробнее",
+    "collapse": "Свернуть"
+  },
+  "slash": {
+    "title": "Команды",
+    "score_desc": "прикрепить скрининг",
+    "risk_desc": "прикрепить оценку рисков",
+    "summarize_desc": "резюме обсуждения",
+    "advance_desc": "перевести этап",
+    "internal_desc": "внутренний комментарий",
+    "ai_desc": "спросить AI"
   },
   "thread_events": {
     "system": "Система",
@@ -2472,6 +2490,7 @@
   },
   "discussion_widgets": {
     "title": "Контекст ИИ",
+    "context_section": "Контекст",
     "screening": "AI-скрининг",
     "risk": "Оценка рисков",
     "details": "Подробнее",

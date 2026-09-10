@@ -19,6 +19,38 @@ const QUOTED_RE = /@"([^"]+)"/g
 // Unicode letters allowed so что @Иван тоже распознаётся как одно слово.
 const BARE_RE = /@([\p{L}\p{N}][\p{L}\p{N}._-]*)/gu
 
+/**
+ * @AI-ассистент: виртуальное упоминание бота (не реальный user).
+ * Срабатывает на @ai / @ии / @ассистент / @assistant (case-insensitive).
+ * Токен НЕ резолвится в comment_mention — обрабатывается отдельно в POST /comments.
+ */
+const AI_TOKENS = new Set(['ai', 'ии', 'ассистент', 'assistant'])
+// Границы через Unicode-lookbehind/lookahead — работают и для кириллицы
+// (@ии / @ассистент), в отличие от ASCII-only `\b`. Lookbehind отсекает
+// ложные срабатывания внутри e-mail (e@ai.com) и слов (foo@assistant).
+const AI_MENTION_RE = /(?<![\p{L}\p{N}])@(ai|ии|ассистент|assistant)(?![\p{L}\p{N}])/iu
+
+/** true если тело содержит упоминание @AI-ассистента. */
+export function containsAiMention(body: string): boolean {
+  if (!body) return false
+  return AI_MENTION_RE.test(body)
+}
+
+/** Извлечь вопрос к ИИ: тело без @ai-токена и прочих @mentions, обрезанное. */
+export function extractAiQuestion(body: string): string {
+  if (!body) return ''
+  return body
+    .replace(/@("[^"]+"|[\p{L}\p{N}][\p{L}\p{N}._-]*)/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 2000)
+}
+
+/** true если токен (lowercased) — виртуальный @AI-вызов, не реальный член. */
+function isAiToken(token: string): boolean {
+  return AI_TOKENS.has(token.toLowerCase())
+}
+
 export function parseMentionTokens(body: string): string[] {
   if (!body) return []
   const tokens = new Set<string>()
@@ -59,9 +91,15 @@ export async function resolveMentions(
 ): Promise<string[]> {
   if (tokens.length === 0) return []
 
+  // @ai / @ии / @ассистент — виртуальные токены бота, не реальные члены.
+  // Исключаем их до запроса в БД (приоритет @ai-семантики над случайным
+  // совпадением имени «AI»).
+  const realTokens = tokens.filter(t => !isAiToken(t))
+  if (realTokens.length === 0) return []
+
   // Build lowercased forms once
-  const lowered = tokens.map(t => t.toLowerCase())
-  const namesEq = tokens // exact-name match preserves casing
+  const lowered = realTokens.map(t => t.toLowerCase())
+  const namesEq = realTokens // exact-name match preserves casing
   const emailPrefixes = lowered.map(t => `${t}@%`)
 
   const members = await database

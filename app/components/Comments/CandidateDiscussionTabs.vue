@@ -115,18 +115,18 @@ function tabClass(tab: DiscussionTab) {
   const active = tab.id === activeId.value
   if (isCurrent(tab)) {
     return active
-      ? 'border-brand-500 bg-brand-50 text-brand-800 dark:bg-brand-900/30 dark:text-brand-200 dark:border-brand-600'
-      : 'border-transparent text-surface-600 hover:bg-brand-50/50 dark:text-surface-300 dark:hover:bg-brand-900/10'
+      ? 'border-success-500 bg-success-50 text-success-800 dark:bg-success-900/30 dark:text-success-200 dark:border-success-600'
+      : 'border-transparent text-surface-600 hover:bg-success-50/50 dark:text-surface-300 dark:hover:bg-success-900/10'
   }
   if (isArchived(tab)) {
     return active
       ? 'border-surface-400 bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300 dark:border-surface-600'
       : 'border-transparent text-surface-400 hover:bg-surface-100/70 dark:text-surface-500 dark:hover:bg-surface-800/50'
   }
-  // Чужой активный отклик — розоватый
+  // Чужой активный отклик — приглушённый
   return active
-    ? 'border-rose-300 bg-rose-50 text-rose-800 dark:bg-rose-900/20 dark:text-rose-200 dark:border-rose-700'
-    : 'border-transparent text-rose-600/80 hover:bg-rose-50/60 dark:text-rose-300/70 dark:hover:bg-rose-900/10'
+    ? 'border-surface-300 bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-200 dark:border-surface-600'
+    : 'border-transparent text-surface-500 hover:bg-surface-100/60 dark:text-surface-400 dark:hover:bg-surface-800/50'
 }
 
 // «Подробнее» из виджетов активной вкладки
@@ -155,7 +155,7 @@ function openRisk() {
         type="button"
         role="tab"
         :aria-selected="tab.id === activeId"
-        class="group flex flex-shrink-0 items-center gap-1.5 rounded-t-md border-b-2 px-3 py-2 text-xs font-medium transition-colors cursor-pointer"
+        class="group flex flex-shrink-0 items-center gap-1.5 rounded-t-md border-b-2 px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer"
         :class="tabClass(tab)"
         @click="activeId = tab.id"
       >

@@ -8,7 +8,7 @@ import {
 import { user } from '../../../../database/schema/auth'
 import { applicationIdParamSchema } from '../../../../utils/schemas/application'
 import { createApplicationCommentSchema } from '../../../../utils/schemas/applicationComment'
-import { parseMentionTokens, resolveMentions } from '../../../../utils/comments/mention-parser'
+import { parseMentionTokens, resolveMentions, containsAiMention, extractAiQuestion } from '../../../../utils/comments/mention-parser'
 import { ensureWatcher } from '../../../../utils/comments/ensure-watcher'
 import { renderMarkdown } from '../../../../utils/comments/sanitize'
 import {
@@ -17,6 +17,17 @@ import {
 } from '../../../../utils/comments/notifications'
 import { canSeeInternal, getMemberRole } from '../../../../utils/comments/visibility'
 import { notifyThreadChanged } from '../../../../utils/comments/threadBus'
+import { enqueueAiThreadResponse } from '../../../../utils/comments/ai-thread-worker'
+
+/** In-memory rate-limit для @AI-вызовов: 1 на (user, application) в 30с. */
+const _aiRateLimit = new Map<string, number>()
+function aiRateLimitOk(key: string): boolean {
+  const now = Date.now()
+  const last = _aiRateLimit.get(key) ?? 0
+  if (now - last < 30_000) return false
+  _aiRateLimit.set(key, now)
+  return true
+}
 
 /**
  * POST /api/applications/:id/comments
@@ -189,6 +200,20 @@ export default defineEventHandler(async (event) => {
 
   // Realtime: оповестить открытые треды (Этап 4)
   notifyThreadChanged(id)
+
+  // ── @AI-ассистент: если тело содержит @ai — поставить задачу генерации ──
+  if (containsAiMention(body.body)) {
+    const rateKey = `${userId}:${id}`
+    if (aiRateLimitOk(rateKey)) {
+      void enqueueAiThreadResponse({
+        applicationId: id,
+        commentId: created.id,
+        organizationId: orgId,
+        userId,
+        question: extractAiQuestion(body.body),
+      })
+    }
+  }
 
   // ── 9. Return enriched response ──
   const author = await db.query.user.findFirst({

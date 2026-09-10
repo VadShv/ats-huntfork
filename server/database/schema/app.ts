@@ -2112,7 +2112,9 @@ export const applicationComment = pgTable(
      * Collaboration Hub (Этап 3): тип записи ленты.
      * NULL/'text' — обычный комментарий; 'ai_screening_snapshot' | 'risk_snapshot'
      * — прикреплённый снимок результата ИИ (данные в payloadJson);
-     * 'system_event' — задел под Этап 4 (события воронки/аудита).
+     * 'system_event' — задел под Этап 4 (события воронки/аудита);
+     * 'ai_response' — ответ @AI-ассистента на упоминание в треде;
+     * 'ai_summary' — AI-резюме (TL;DR) обсуждения.
      */
     kind:            text('kind'),
     /** Снимок данных виджета на момент прикрепления (для аудита обсуждаемой версии). */

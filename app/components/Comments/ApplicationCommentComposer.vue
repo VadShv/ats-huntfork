@@ -3,6 +3,7 @@ import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { Send, Lock, Paperclip, X, File as FileIcon, Smile } from 'lucide-vue-next'
 import ApplicationMentionAutocomplete from './ApplicationMentionAutocomplete.vue'
 import StickerPicker from './StickerPicker.vue'
+import SlashCommandPalette, { type SlashCommand } from './SlashCommandPalette.vue'
 import { useApplicationComments, type OrgMember } from '~/composables/useApplicationComments'
 
 const props = defineProps<{
@@ -21,7 +22,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const toast = useToast()
-const { createComment, uploadAttachment, searchMembers } = useApplicationComments(props.applicationId)
+const { createComment, uploadAttachment, searchMembers, attachSnapshot, summarize } = useApplicationComments(props.applicationId)
 
 const body = ref('')
 const isInternal = ref(false)
@@ -244,6 +245,34 @@ function onDocClick(e: MouseEvent) {
 }
 onMounted(() => document.addEventListener('click', onDocClick))
 onUnmounted(() => document.removeEventListener('click', onDocClick))
+
+// ── Slash commands ──
+const showSlashPalette = computed(() => {
+  const trimmed = body.value.trimStart()
+  return trimmed.startsWith('/') && !trimmed.includes(' ') && trimmed.length <= 20
+})
+const slashQuery = computed(() => body.value.trimStart())
+
+async function onSlashSelect(cmd: SlashCommand) {
+  if (cmd.mode === 'action') {
+    if (cmd.name === 'score') {
+      await attachSnapshot('ai_screening_snapshot')
+    } else if (cmd.name === 'risk') {
+      await attachSnapshot('risk_snapshot')
+    } else if (cmd.name === 'summarize') {
+      await summarize()
+    } else if (cmd.name === 'internal') {
+      isInternal.value = !isInternal.value
+    }
+    body.value = ''
+  } else if (cmd.mode === 'ai') {
+    body.value = cmd.insertText ?? '@ai '
+    nextTick(() => textareaRef.value?.focus())
+  } else if (cmd.mode === 'insert') {
+    body.value = cmd.insertText ?? ''
+    nextTick(() => textareaRef.value?.focus())
+  }
+}
 </script>
 
 <template>
@@ -254,16 +283,22 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
     @dragleave="onDragLeave"
     @drop="onDrop"
   >
+    <SlashCommandPalette
+      v-if="showSlashPalette"
+      :query="slashQuery"
+      @select="onSlashSelect"
+      @close="body = ''"
+    />
     <div
-      class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-colors"
+      class="rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-colors"
       :class="isDragOver ? 'ring-2 ring-brand-500/60 border-brand-500' : ''"
     >
       <textarea
         ref="textareaRef"
         :value="body"
-        rows="3"
+        rows="1"
         :placeholder="placeholder ?? t('comments.composer_placeholder')"
-        class="w-full resize-none rounded-t-lg bg-transparent px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none"
+        class="w-full resize-none rounded-t-xl bg-transparent px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none"
         @input="onInput"
         @keydown="onKeydown"
       />
@@ -355,7 +390,7 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
           <button
             type="button"
             :disabled="(!body.trim() && pendingFiles.length === 0) || submitting"
-            class="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            class="flex items-center gap-1.5 rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
             @click="submit"
           >
             <Send class="size-3" />

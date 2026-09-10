@@ -14,6 +14,7 @@ import {
 import { TG_WEBHOOK_QUEUE, processTelegramWebhookJob } from '../utils/comms/telegramWebhooks'
 import { RESUME_RISK_QUEUE, processResumeRiskJob } from '../utils/risk/worker'
 import { MYMEET_IMPORT_QUEUE, processMymeetImportJob } from '../utils/mymeet/worker'
+import { AI_THREAD_RESP_QUEUE, handleAiThreadResponse } from '../utils/comments/ai-thread-worker'
 import { getBoss, stopBoss } from '../utils/queue/boss'
 
 /**
@@ -177,6 +178,26 @@ export default defineNitroPlugin(async (nitroApp) => {
     )
 
     logInfo('queue.workers_registered', { queue: MYMEET_IMPORT_QUEUE })
+
+    // ── @AI-ассистент в треде обсуждения — генерация ответа ──
+    try {
+      await boss.createQueue(AI_THREAD_RESP_QUEUE)
+    }
+    catch (err) {
+      logDebug('queue.create_queue_skipped', {
+        queue: AI_THREAD_RESP_QUEUE,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    // LLM-bound (ждём провайдера) — по 2 параллельно.
+    await boss.work(
+      AI_THREAD_RESP_QUEUE,
+      { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
+      handleAiThreadResponse as any,
+    )
+
+    logInfo('queue.workers_registered', { queue: AI_THREAD_RESP_QUEUE })
 
     // Graceful shutdown
     nitroApp.hooks.hook('close', async () => {

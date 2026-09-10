@@ -4,7 +4,9 @@ import { MessageSquare, Users, Plus, X, Eye, Bot, ShieldAlert } from 'lucide-vue
 import ApplicationCommentItem from './ApplicationCommentItem.vue'
 import ApplicationCommentComposer from './ApplicationCommentComposer.vue'
 import ThreadStageEvent from './ThreadStageEvent.vue'
+import AiSummaryCard from './AiSummaryCard.vue'
 import { useApplicationComments } from '~/composables/useApplicationComments'
+import { groupTimeline, type RenderUnit } from '~/composables/useCommentGroups'
 
 const props = withDefaults(
   defineProps<{
@@ -49,10 +51,13 @@ const {
   toggleReaction,
   attachSnapshot,
   searchMembers,
+  summarize,
 } = useApplicationComments(props.applicationId)
 
 const toast = useToast()
 const pinning = ref(false)
+const summarizing = ref(false)
+
 async function onAttachSnapshot(kind: 'ai_screening_snapshot' | 'risk_snapshot') {
   if (pinning.value) return
   pinning.value = true
@@ -63,6 +68,19 @@ async function onAttachSnapshot(kind: 'ai_screening_snapshot' | 'risk_snapshot')
     // toast уже показан в composable
   } finally {
     pinning.value = false
+  }
+}
+
+async function onSummarize() {
+  if (summarizing.value) return
+  summarizing.value = true
+  try {
+    await summarize()
+    void fetchComments()
+  } catch {
+    // toast уже показан в composable
+  } finally {
+    summarizing.value = false
   }
 }
 
@@ -99,6 +117,15 @@ function onReply(parentId: string) {
   replyTo.value = parentId
   setTimeout(() => composerRef.value?.focus(), 50)
 }
+
+// ── Grouping (Telegram-style) ──
+const aiSummaries = computed(() => comments.value.filter(c => c.kind === 'ai_summary'))
+const timelineForGrouping = computed(() =>
+  timeline.value.filter(item => !(item.type === 'comment' && item.comment.kind === 'ai_summary')),
+)
+const renderUnits = computed<RenderUnit[]>(() =>
+  groupTimeline(timelineForGrouping.value, currentUserId.value),
+)
 
 // Watcher panel
 const watchersOpen = ref(false)
@@ -141,15 +168,28 @@ const watcherCandidates = computed(() =>
           {{ comments.length }}
         </span>
       </div>
-      <button
-        type="button"
-        class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
-        @click="watchersOpen = !watchersOpen"
-      >
-        <Users class="size-3.5" />
-        {{ t('watchers.label') }}
-        <span class="rounded-full bg-surface-200 dark:bg-surface-700 px-1.5 text-[10px]">{{ watchers.length }}</span>
-      </button>
+      <div class="flex items-center gap-2">
+        <!-- AI-резюме -->
+        <button
+          v-if="!readOnly"
+          type="button"
+          :disabled="summarizing"
+          class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 disabled:opacity-50 cursor-pointer"
+          @click="onSummarize"
+        >
+          <Bot class="size-3.5" />
+          <span class="hidden sm:inline">{{ summarizing ? t('comments.summarizing') : t('comments.summarize') }}</span>
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+          @click="watchersOpen = !watchersOpen"
+        >
+          <Users class="size-3.5" />
+          {{ t('watchers.label') }}
+          <span class="rounded-full bg-surface-200 dark:bg-surface-700 px-1.5 text-[10px]">{{ watchers.length }}</span>
+        </button>
+      </div>
     </header>
 
     <!-- Watcher panel -->
@@ -227,22 +267,54 @@ const watcherCandidates = computed(() =>
       <div v-else-if="timeline.length === 0" class="py-6 text-center text-sm text-surface-400 italic">
         {{ t('comments.empty') }}
       </div>
-      <div v-else class="space-y-1">
-        <template v-for="item in timeline" :key="`${item.type}-${item.type === 'comment' ? item.comment.id : item.event.id}`">
+      <div v-else>
+        <!-- AI-резюме (TL;DR) — карточки сверху -->
+        <AiSummaryCard
+          v-for="s in aiSummaries"
+          :key="s.id"
+          :comment="s"
+          :can-refresh="!readOnly"
+          class="mb-3"
+          @refresh="onSummarize"
+        />
+
+        <!-- Сгруппированная лента -->
+        <template v-for="(unit, ui) in renderUnits" :key="`u-${ui}`">
+          <!-- Группа комментариев одного автора -->
+          <template v-if="unit.type === 'group'">
+            <ApplicationCommentItem
+              v-for="(comment, ci) in unit.comments"
+              :key="comment.id"
+              :application-id="applicationId"
+              :comment="comment"
+              :current-user-id="currentUserId"
+              :can-delete-any="canDeleteAny"
+              :can-reply="false"
+              :read-only="readOnly"
+              :is-first-in-group="ci === 0"
+              :is-last-in-group="ci === unit.comments.length - 1"
+              @reply="onReply"
+              @reaction-toggle="onReactionToggle"
+            />
+          </template>
+          <!-- Standalone: событие этапа -->
+          <ThreadStageEvent
+            v-else-if="unit.item.type === 'stage_event'"
+            :event="unit.item.event"
+          />
+          <!-- Standalone: снимок/AI-ответ (комментарий с особым kind) -->
           <ApplicationCommentItem
-            v-if="item.type === 'comment'"
+            v-else
             :application-id="applicationId"
-            :comment="item.comment"
+            :comment="unit.item.comment"
             :current-user-id="currentUserId"
             :can-delete-any="canDeleteAny"
             :can-reply="false"
             :read-only="readOnly"
+            :is-first-in-group="true"
+            :is-last-in-group="true"
             @reply="onReply"
             @reaction-toggle="onReactionToggle"
-          />
-          <ThreadStageEvent
-            v-else
-            :event="item.event"
           />
         </template>
       </div>

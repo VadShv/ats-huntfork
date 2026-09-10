@@ -2,15 +2,14 @@
 /**
  * Collaboration Hub (Этап 2) — контекст-шапка обсуждения.
  *
- * Две компактные карточки над тредом:
- *   • AI-скрининг  — балл отклика + топ-пробелы (gaps). Per-application.
- *   • Оценка рисков — уровень + summary + счётчик находок. Per-candidate
- *     (риск считается на версию резюме и общий для всех откликов), с флагом stale.
+ * Одна collapsible-секция «Контекст»: свёрнуто — compact chips
+ * (балл скрининга + уровень риска + пробелы); развёрнуто — detail grid.
+ * Auto-expand при high risk или низком скрининге (attention signal).
  *
- * Данные тянутся из готовых API (scores + risk-profile). Карточки сворачиваемые
- * (состояние в localStorage). «Подробнее» эмитит наверх — навигацию делает родитель.
+ * Снимки проверок (snapshots) рендерятся инлайн в треде как compact collapsible
+ * карточки (CommentSnapshotWidget) — здесь не дублируются.
  */
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Bot, ShieldAlert, ChevronDown, ChevronUp, AlertTriangle, ExternalLink } from 'lucide-vue-next'
 import { useResumeRisk } from '~/composables/useResumeRisk'
 
@@ -26,9 +25,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-
-// ── Сворачивание (общий ключ на пользователя, не на отклик) ──
-const collapsed = useState<boolean>('discussion-widgets-collapsed', () => false)
 
 // ── AI-скрининг (per-application) ──
 interface CriterionScore {
@@ -70,7 +66,7 @@ const topGaps = computed(() => {
 
 function scoreTone(v: number): string {
   if (v >= 75) return 'text-success-600 dark:text-success-400'
-  if (v >= 40) return 'text-warning-600 dark:text-warning-400'
+  if (v >= 40) return 'text-warning-600 dark:text-warning-600'
   return 'text-danger-600 dark:text-danger-400'
 }
 
@@ -84,18 +80,28 @@ const findingsCount = computed(() => risk.value?.findingsJson?.findings?.length 
 const riskMeta = computed(() => {
   const level = risk.value?.overallRisk ?? 'low'
   const map = {
-    low: { label: t('discussion_widgets.risk_low'), cls: 'bg-success-100 text-success-800 dark:bg-success-900/40 dark:text-success-200' },
-    medium: { label: t('discussion_widgets.risk_medium'), cls: 'bg-warning-100 text-warning-800 dark:bg-warning-900/40 dark:text-warning-200' },
-    high: { label: t('discussion_widgets.risk_high'), cls: 'bg-danger-100 text-danger-800 dark:bg-danger-900/40 dark:text-danger-200' },
+    low: { label: t('discussion_widgets.risk_low'), cls: 'bg-success-100 text-success-800 dark:bg-success-900/40 dark:text-success-200', chip: 'bg-success-50 text-success-700 dark:bg-success-900/30 dark:text-success-300' },
+    medium: { label: t('discussion_widgets.risk_medium'), cls: 'bg-warning-100 text-warning-800 dark:bg-warning-900/40 dark:text-warning-200', chip: 'bg-warning-50 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300' },
+    high: { label: t('discussion_widgets.risk_high'), cls: 'bg-danger-100 text-danger-800 dark:bg-danger-900/40 dark:text-danger-200', chip: 'bg-danger-50 text-danger-700 dark:bg-danger-900/30 dark:text-danger-300' },
   } as const
   return map[level as keyof typeof map] ?? map.low
 })
 
 const anyData = computed(() => hasScreening.value || hasRisk.value)
+
+// ── Collapsible ──
+const collapsed = ref(true)
+const attentionSignal = computed(() =>
+  (risk.value?.overallRisk === 'high') || (hasScreening.value && (scores.value?.compositeScore ?? 100) < 40),
+)
+onMounted(() => {
+  // Auto-expand при attention signal
+  if (attentionSignal.value) collapsed.value = false
+})
 </script>
 
 <template>
-  <div class="mb-3">
+  <div v-if="anyData" class="mb-3">
     <!-- Заголовок-переключатель -->
     <button
       type="button"
@@ -104,11 +110,35 @@ const anyData = computed(() => hasScreening.value || hasRisk.value)
     >
       <span class="flex items-center gap-1.5">
         <Bot class="size-3.5" />
-        {{ t('discussion_widgets.title') }}
+        {{ t('discussion_widgets.context_section') }}
+        <!-- Compact chips (свёрнуто) -->
+        <template v-if="collapsed">
+          <span
+            v-if="hasScreening"
+            class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+            :class="scoreTone(scores!.compositeScore!) + ' bg-surface-100 dark:bg-surface-800'"
+          >
+            {{ scores!.compositeScore }}/100
+          </span>
+          <span
+            v-if="hasRisk"
+            class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+            :class="riskMeta.chip"
+          >
+            {{ riskMeta.label }}
+          </span>
+          <span
+            v-if="riskStale"
+            class="rounded-full bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[10px] text-surface-500"
+          >
+            {{ t('discussion_widgets.stale') }}
+          </span>
+        </template>
       </span>
       <component :is="collapsed ? ChevronDown : ChevronUp" class="size-3.5" />
     </button>
 
+    <!-- Detail (развёрнуто) -->
     <div v-show="!collapsed" class="mt-1.5 grid gap-2" :class="compact ? 'grid-cols-1' : 'sm:grid-cols-2'">
       <!-- AI-скрининг -->
       <div class="rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50/60 dark:bg-surface-900/40 p-3">

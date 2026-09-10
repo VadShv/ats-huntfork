@@ -35,7 +35,13 @@ export interface CommentAttachment {
   createdAt: string | Date
 }
 
-export type CommentKind = 'text' | 'ai_screening_snapshot' | 'risk_snapshot' | 'system_event'
+export type CommentKind =
+  | 'text'
+  | 'ai_screening_snapshot'
+  | 'risk_snapshot'
+  | 'system_event'
+  | 'ai_response'
+  | 'ai_summary'
 
 export interface ScreeningSnapshotPayload {
   compositeScore: number
@@ -316,6 +322,21 @@ export function useApplicationComments(applicationId: string) {
     }
   }
 
+  async function summarize(): Promise<ThreadComment | null> {
+    try {
+      const created = await $fetch<ThreadComment>(
+        `/api/applications/${applicationId}/comments/summarize`,
+        { method: 'POST' },
+      )
+      comments.value.push(created)
+      void fetchWatchers()
+      return created
+    } catch (e: any) {
+      toast.error('Не удалось сгенерировать резюме', { message: e?.data?.statusMessage ?? e?.message })
+      return null
+    }
+  }
+
   const total = computed(() => comments.value.length)
 
   /** Единая лента: комментарии/снимки + события смены этапа, по времени (старые сверху). */
@@ -378,5 +399,6 @@ export function useApplicationComments(applicationId: string) {
     uploadAttachment,
     deleteAttachment,
     searchMembers,
+    summarize,
   }
 }
