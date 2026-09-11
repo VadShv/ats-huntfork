@@ -495,7 +495,7 @@ const sortDirOptions = computed(() => [
       class="text-sm text-danger-700 dark:text-danger-400"
     >
       {{ $t('dashboard.jobs.failedToLoad') }}
-      <button class="underline ml-1 cursor-pointer" @click="refresh()">{{ $t('dashboard.jobs.retry') }}</button>
+      <UiButton variant="link" class="ml-1" @click="refresh()">{{ $t('dashboard.jobs.retry') }}</UiButton>
     </UiCard>
 
     <!-- ─── Empty state ─── -->
@@ -593,14 +593,16 @@ const sortDirOptions = computed(() => [
         </button>
 
         <!-- Clear filters -->
-        <button
+        <UiButton
           v-if="activeFilterCount > 0"
-          class="inline-flex items-center gap-1 text-xs text-surface-400 hover:text-danger-600 transition-colors"
+          variant="ghost"
+          size="xs"
+          class="text-surface-400 hover:text-danger-600"
           @click="clearFilters"
         >
           <X class="size-3" />
           Очистить
-        </button>
+        </UiButton>
       </div>
 
       <!-- ─── Filter Drawer ─── -->

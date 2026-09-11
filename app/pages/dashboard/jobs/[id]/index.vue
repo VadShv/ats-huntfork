@@ -1902,18 +1902,20 @@ function closeDocPreview() {
                   />
                 </div>
 
-                <!-- Clear filters -->
-                <button
+               <!-- Clear filters -->
+                <UiButton
                   v-if="hasActiveFilters"
-                  class="flex w-full cursor-pointer items-center justify-center gap-1 rounded-md py-1 text-[11px] font-medium text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200 transition-colors"
+                  variant="ghost"
+                  size="xs"
+                  full-width
+                  :icon-left="X"
                   @click="clearFilters"
                 >
-                  <X class="size-3" />
                   {{ t('dashboard.jobs.detail.clearFilters') }}
-                </button>
-              </div>
-            </Transition>
-          </div>
+                </UiButton>
+             </div>
+           </Transition>
+         </div>
 
           <!-- Count bar -->
           <div class="shrink-0 px-3.5 pb-2 flex items-center justify-between">
@@ -1943,18 +1945,27 @@ function closeDocPreview() {
               </p>
               <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">
                 {{ (searchTerm.trim() || hasActiveFilters) ? t('dashboard.jobs.detail.tryAdjusting') : t('dashboard.jobs.detail.noOneInStage', { stage: focusedStageName }) }}
-              </p>
-              <button
-                v-if="hasActiveFilters"
-                class="mt-2 cursor-pointer text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
-                @click="clearFilters"
-              >
-                {{ t('dashboard.jobs.detail.clearFilters') }}
-              </button>
-            </div>
-
+             </p>
             <button
-              v-for="(app, idx) in filteredApplications"
+              v-if="hasActiveFilters"
+              class="mt-2 cursor-pointer text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+              @click="clearFilters"
+            >
+              {{ t('dashboard.jobs.detail.clearFilters') }}
+            </button>
+             <UiButton
+               v-if="hasActiveFilters"
+               variant="link"
+               size="sm"
+               class="mt-2"
+               @click="clearFilters"
+             >
+               {{ t('dashboard.jobs.detail.clearFilters') }}
+             </UiButton>
+          </div>
+
+           <button
+             v-for="(app, idx) in filteredApplications"
               :key="app.id"
               class="pipeline-candidate-card group flex w-full cursor-pointer items-start gap-3 px-3.5 py-3 text-left transition-all duration-150"
               :class="currentIndex === idx
@@ -2498,24 +2509,25 @@ function closeDocPreview() {
                           </div>
                         </div>
                         <p v-if="rescheduleError" class="mt-2 text-xs text-danger-600 dark:text-danger-400">{{ rescheduleError }}</p>
-                        <div class="flex items-center justify-end gap-2 mt-3">
-                          <button
-                            class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                       <div class="flex items-center justify-end gap-2 mt-3">
+                          <UiButton
+                            variant="secondary"
+                            size="sm"
                             @click.stop="cancelReschedule"
                           >
                             {{ t('dashboard.jobs.detail.cancel') }}
-                          </button>
-                          <button
+                          </UiButton>
+                          <UiButton
                             :disabled="isRescheduling"
-                            class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            size="sm"
                             @click.stop="handleReschedule"
                           >
                             {{ isRescheduling ? t('dashboard.jobs.detail.saving') : t('dashboard.jobs.detail.interviewReschedule') }}
-                          </button>
-                        </div>
-                      </div>
+                          </UiButton>
+                       </div>
+                     </div>
 
-                      <!-- Interview details / edit form -->
+                     <!-- Interview details / edit form -->
                       <div class="px-5 py-4">
                         <!-- View mode -->
                         <template v-if="editingInterviewId !== iv.id">
@@ -2684,46 +2696,48 @@ function closeDocPreview() {
 
                             <p v-if="interviewEditErrors.submit" class="text-xs text-danger-600 dark:text-danger-400">{{ interviewEditErrors.submit }}</p>
 
-                            <div class="flex items-center justify-end gap-2 pt-2">
-                              <button
-                                class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                           <div class="flex items-center justify-end gap-2 pt-2">
+                              <UiButton
+                                variant="secondary"
+                                size="sm"
                                 @click.stop="cancelInterviewEdit"
                               >
                                 {{ t('dashboard.jobs.detail.cancel') }}
-                              </button>
-                              <button
+                              </UiButton>
+                              <UiButton
                                 :disabled="isInterviewSaving"
-                                class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                size="sm"
                                 @click.stop="saveInterviewEdit"
                               >
                                 {{ isInterviewSaving ? t('dashboard.jobs.detail.saving') : t('dashboard.jobs.detail.saveChanges') }}
-                              </button>
-                            </div>
-                          </div>
-                        </template>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                              </UiButton>
+                           </div>
+                         </div>
+                       </template>
+                     </div>
+                   </div>
+                 </div>
+               </div>
 
-                <!-- Empty state -->
+               <!-- Empty state -->
                 <div v-else class="rounded-xl border border-surface-200/80 bg-white p-10 text-center shadow-sm shadow-surface-900/[0.03] dark:border-surface-800/60 dark:bg-surface-900 dark:shadow-none">
                   <div class="flex size-14 items-center justify-center rounded-2xl bg-surface-100 dark:bg-surface-800/60 mx-auto mb-3">
                     <Calendar class="size-6 text-surface-400 dark:text-surface-500" />
                   </div>
                   <p class="text-sm font-medium text-surface-600 dark:text-surface-300">{{ t('dashboard.jobs.detail.noInterviews') }}</p>
-                  <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">{{ t('dashboard.jobs.detail.scheduleInterviewHint') }}</p>
-                  <button
-                    class="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-700 transition-colors shadow-sm"
+                 <p class="mt-1 text-xs text-surface-400 dark:text-surface-500">{{ t('dashboard.jobs.detail.scheduleInterviewHint') }}</p>
+                  <UiButton
+                    size="sm"
+                    class="mt-4"
+                    :icon-left="Plus"
                     @click="openInterviewScheduler"
                   >
-                    <Plus class="size-3.5" />
                     {{ t('dashboard.jobs.detail.scheduleInterview') }}
-                  </button>
-                </div>
-              </div>
+                  </UiButton>
+               </div>
+             </div>
 
-              <!-- DOCUMENTS SECTION -->
+             <!-- DOCUMENTS SECTION -->
               <div v-if="showSection.documents" ref="documentsRef" class="space-y-3 max-w-4xl mx-auto" :class="detailTab === 'overview' ? 'mt-10' : ''">
                 <h2 class="text-sm font-semibold text-surface-800 dark:text-surface-200 flex items-center gap-2 mb-3">
                   <Paperclip class="size-4 text-surface-400 dark:text-surface-500" />
@@ -2852,16 +2866,18 @@ function closeDocPreview() {
                   class="rounded-xl border border-danger-200/80 dark:border-danger-800/60 bg-danger-50 dark:bg-danger-950/40 p-5 text-center"
                 >
                   <AlertTriangle class="size-6 text-danger-400 mx-auto mb-2" />
-                  <p class="text-sm text-danger-700 dark:text-danger-400">{{ timelineError }}</p>
-                  <button
-                    class="mt-3 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium cursor-pointer"
+                 <p class="text-sm text-danger-700 dark:text-danger-400">{{ timelineError }}</p>
+                  <UiButton
+                    variant="link"
+                    size="sm"
+                    class="mt-3"
                     @click="loadTimeline"
                   >
                     {{ t('dashboard.jobs.detail.retry') }}
-                  </button>
-                </div>
+                  </UiButton>
+               </div>
 
-                <!-- Empty -->
+               <!-- Empty -->
                 <div
                   v-else-if="timelineItems.length === 0"
                   class="rounded-xl border border-surface-200/80 bg-white p-10 text-center shadow-sm shadow-surface-900/[0.03] dark:border-surface-800/60 dark:bg-surface-900 dark:shadow-none"

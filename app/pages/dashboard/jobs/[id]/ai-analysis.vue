@@ -460,22 +460,23 @@ function resetCriteria() {
             {{ scoringCriteria.length }} {{ scoringCriteria.length === 1 ? t('dashboard.jobs.aiAnalysis.oneCriterion') : t('dashboard.jobs.aiAnalysis.manyCriteria') }} {{ t('dashboard.jobs.aiAnalysis.configured') }}
           </h3>
           <div class="flex items-center gap-2">
-            <button
+            <UiButton
               v-if="hasUnsavedChanges"
-              type="button"
-              class="inline-flex items-center gap-1.5 text-xs text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"
+              variant="ghost"
+              size="xs"
+              :icon-left="RotateCcw"
               @click="resetCriteria"
             >
-              <RotateCcw class="size-3" />
               {{ t('dashboard.jobs.aiAnalysis.reset') }}
-            </button>
-            <button
-              type="button"
-              class="text-xs text-danger-600 dark:text-danger-400 hover:underline"
+            </UiButton>
+            <UiButton
+              variant="ghost"
+              size="xs"
+              class="text-danger-600 dark:text-danger-400"
               @click="scoringCriteria = []"
             >
               {{ t('dashboard.jobs.aiAnalysis.clearAll') }}
-            </button>
+            </UiButton>
           </div>
         </div>
 
@@ -587,16 +588,15 @@ function resetCriteria() {
 
         <!-- Save / Reset bar -->
         <div class="flex items-center gap-3 pt-4 border-t border-surface-200 dark:border-surface-800">
-          <button
+          <UiButton
             type="button"
             :disabled="isSaving || !hasUnsavedChanges"
-            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            :loading="isSaving"
+            :icon-left="Save"
             @click="saveCriteria"
           >
-            <Loader2 v-if="isSaving" class="size-4 animate-spin" />
-            <Save v-else class="size-4" />
             {{ t('dashboard.jobs.aiAnalysis.saveCriteria') }}
-          </button>
+          </UiButton>
           <span v-if="hasUnsavedChanges" class="text-xs text-amber-600 dark:text-amber-400">{{ t('dashboard.jobs.aiAnalysis.unsavedChanges') }}</span>
         </div>
       </div>
@@ -656,21 +656,20 @@ function resetCriteria() {
           </div>
         </div>
         <div class="flex items-center gap-3 pt-2">
-          <button
+          <UiButton
             type="button"
             :disabled="!customCriterionForm.name.trim()"
-            class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             @click="addCustomCriterion"
           >
             {{ t('dashboard.jobs.aiAnalysis.addCriterion') }}
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             type="button"
-            class="px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
+            variant="ghost"
             @click="showCustomForm = false"
           >
             {{ t('dashboard.jobs.aiAnalysis.cancel') }}
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -717,32 +716,34 @@ function resetCriteria() {
             </p>
           </div>
           <div class="flex flex-col gap-2 pt-2">
-            <button
+            <UiButton
               type="button"
               :disabled="isRescoring"
-              class="w-full px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              full-width
+              :loading="isRescoring"
               @click="runRescore('rescore_all')"
             >
-              <Loader2 v-if="isRescoring" class="inline size-4 mr-1.5 animate-spin" />
               Пересчитать все отклики ({{ rescoreScoredCount }})
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               v-if="rescoreTotalCount > rescoreScoredCount"
               type="button"
               :disabled="isRescoring"
-              class="w-full px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 bg-surface-100 dark:bg-surface-800 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              variant="secondary"
+              full-width
               @click="runRescore('all')"
             >
               Скорить только новые ({{ rescoreTotalCount - rescoreScoredCount }})
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               type="button"
               :disabled="isRescoring"
-              class="w-full px-4 py-2 text-sm font-medium text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              variant="ghost"
+              full-width
               @click="showRescoreDialog = false"
             >
               Позже
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>

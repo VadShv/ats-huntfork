@@ -729,37 +729,38 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
             target="_blank"
             rel="noopener"
             class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-          >Открыть на hh.ru</a>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+         >Открыть на hh.ru</a>
+          <UiButton
+            variant="danger"
+            size="sm"
             :disabled="isSyncingHh"
+            :loading="isSyncingHh"
             @click="runHhSync"
           >
-            <Loader2 v-if="isSyncingHh" class="size-3.5 animate-spin" />
-            <span>{{ isSyncingHh ? 'Синхронизируем…' : 'Синхронизировать сейчас' }}</span>
-          </button>
-          <NuxtLink
-            :to="`/dashboard/jobs/${jobId}/sourcing`"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
-            title="Автосорсинг по базе резюме hh.ru"
-          >
-            <span>🔍 Сорсинг</span>
-          </NuxtLink>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-2.5 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-50 hover:text-danger-700 dark:hover:bg-surface-800 dark:hover:text-danger-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            {{ isSyncingHh ? 'Синхронизируем…' : 'Синхронизировать сейчас' }}
+          </UiButton>
+         <NuxtLink
+           :to="`/dashboard/jobs/${jobId}/sourcing`"
+           class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+           title="Автосорсинг по базе резюме hh.ru"
+         >
+           <span>🔍 Сорсинг</span>
+         </NuxtLink>
+          <UiButton
+            variant="secondary"
+            size="sm"
+            icon-only
             :disabled="isUnlinking"
+            :loading="isUnlinking"
+            :icon-left="Unlink2"
             title="Отвязать вакансию от hh.ru (отклики останутся)"
+            class="hover:text-danger-700 dark:hover:text-danger-400"
             @click="unlinkVacancy"
-          >
-            <Loader2 v-if="isUnlinking" class="size-3.5 animate-spin" />
-            <Unlink2 v-else class="size-3.5" />
-          </button>
-        </div>
-      </div>
+          />
+       </div>
+     </div>
 
-      <!-- Плашка «Привязать к hh.ru» — показываем, когда связи нет и OAuth подключён -->
+     <!-- Плашка «Привязать к hh.ru» — показываем, когда связи нет и OAuth подключён -->
       <div
         v-else-if="hhConnected"
         class="mb-4 flex flex-col gap-3 rounded-xl border border-dashed border-red-200/80 bg-red-50/30 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/10 sm:flex-row sm:items-center sm:justify-between"
@@ -773,19 +774,19 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
             <div class="text-xs text-surface-600 dark:text-surface-400 mt-0.5">Привяжите её к оригиналу на hh.ru, чтобы включить импорт откликов и сорсинг.</div>
           </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-medium transition-colors"
+       <div class="flex items-center gap-2 shrink-0">
+          <UiButton
+            variant="danger"
+            size="sm"
+            :icon-left="Link2"
             @click="openLinkModal"
           >
-            <Link2 class="size-3.5" />
-            <span>Привязать к hh.ru</span>
-          </button>
-        </div>
-      </div>
+            Привязать к hh.ru
+          </UiButton>
+       </div>
+     </div>
 
-      <!-- Toolbar -->
+     <!-- Toolbar -->
       <div class="flex items-center gap-3 mb-4">
         <!-- Column / filter picker -->
         <div ref="panelRef" class="relative">
@@ -877,17 +878,18 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
                     {{ stage.name }}
                   </span>
                 </label>
-                <!-- Clear stage selection -->
-                <button
+               <!-- Clear stage selection -->
+                <UiButton
                   v-if="selectedStageIds.length > 0"
-                  type="button"
-                  class="text-xs text-surface-400 hover:text-danger-600 transition-colors mt-1 cursor-pointer"
+                  variant="ghost"
+                  size="xs"
+                  class="text-surface-400 hover:text-danger-600 mt-1"
                   @click="selectedStageIds = []"
                 >
                   {{ $t('applications.filter.allStages') }}
-                </button>
-              </div>
-            </div>
+                </UiButton>
+             </div>
+           </div>
 
             <div v-if="hasPipeline && pipelineStages.length > 0" class="border-t border-surface-100 dark:border-surface-800" />
 
@@ -915,19 +917,21 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
               </div>
             </div>
 
-            <!-- Clear -->
-            <button
+           <!-- Clear -->
+            <UiButton
               v-if="activeFilterCount > 0"
-              class="inline-flex items-center gap-1.5 text-xs text-surface-400 hover:text-danger-600 transition-colors"
+              variant="ghost"
+              size="xs"
+              class="text-surface-400 hover:text-danger-600"
+              :icon-left="X"
               @click="clearFilters"
             >
-              <X class="size-3" />
               {{ $t('dashboard.jobs.candidates.clearFilters') }}
-            </button>
-          </div>
-        </div>
+            </UiButton>
+         </div>
+       </div>
 
-        <!-- Batch AI scoring «Обработать» -->
+       <!-- Batch AI scoring «Обработать» -->
         <div ref="batchMenuRef" class="relative">
           <button
             type="button"
@@ -1266,18 +1270,18 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
       <div class="w-full max-w-lg rounded-2xl bg-white dark:bg-surface-900 shadow-2xl border border-surface-200 dark:border-surface-800 overflow-hidden">
         <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-200 dark:border-surface-800">
           <div class="flex items-center gap-2.5">
-            <div class="flex size-8 items-center justify-center rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold text-xs">hh</div>
-            <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Привязать вакансию к hh.ru</h2>
-          </div>
-          <button
-            type="button"
-            class="inline-flex size-7 items-center justify-center rounded-md text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors disabled:opacity-60"
+         <div class="flex size-8 items-center justify-center rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold text-xs">hh</div>
+           <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Привязать вакансию к hh.ru</h2>
+         </div>
+          <UiButton
+            variant="ghost"
+            size="sm"
+            icon-only
             :disabled="isLinking"
+            :icon-left="X"
             @click="closeLinkModal"
-          >
-            <X class="size-4" />
-          </button>
-        </div>
+          />
+       </div>
 
         <div class="px-5 py-4 space-y-4">
           <div>
@@ -1315,38 +1319,38 @@ const isLoading = computed(() => jobFetchStatus.value === 'pending' || appFetchS
           </div>
         </div>
 
-        <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-surface-200 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-950/30">
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors disabled:opacity-60"
+       <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-surface-200 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-950/30">
+          <UiButton
+            variant="secondary"
+            size="sm"
             :disabled="isLinking"
             @click="closeLinkModal"
           >
             Отмена
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             v-if="!linkPreview"
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            variant="danger"
+            size="sm"
             :disabled="isLinking || !linkUrlInput.trim()"
+            :loading="isLinking"
             @click="previewVacancy"
           >
-            <Loader2 v-if="isLinking" class="size-3.5 animate-spin" />
-            <span>Проверить</span>
-          </button>
-          <button
+            Проверить
+          </UiButton>
+          <UiButton
             v-else
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            variant="danger"
+            size="sm"
             :disabled="isLinking"
+            :loading="isLinking"
+            :icon-left="Link2"
             @click="confirmLink"
           >
-            <Loader2 v-if="isLinking" class="size-3.5 animate-spin" />
-            <Link2 v-else class="size-3.5" />
-            <span>Привязать</span>
-          </button>
-        </div>
-      </div>
-    </div>
+            Привязать
+          </UiButton>
+       </div>
+     </div>
+   </div>
   </div>
 </template>

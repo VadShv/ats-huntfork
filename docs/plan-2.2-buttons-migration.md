@@ -13,9 +13,8 @@
 > (job settings/questions/application-form/sourcing).
 > Последний коммит миграции: `a378736`.
 >
-> **Продолжить с:** Батч 5 часть 2 → `jobs/[id]/index.vue`, `jobs/new.vue`,
-> `jobs/[id]/candidates.vue`, `jobs/index.vue`, `jobs/[id]/ai-analysis.vue`.
-> Затем Батч 6 (Интервью), Батч 7 (Отклики/коммуникации/чатбот), Батч 8 (Прочее).
+> **Продолжить с:** Батч 6 (Интервью), Батч 7 (Отклики/коммуникации/чатбот),
+> Батч 8 (Прочее).
 >
 > **Дисциплина:** помодульно, атомарный коммит на батч (или его часть),
 > проверка сборкой (`npm run build`), соблюдать §3 (что меняем / что не трогаем).
@@ -102,11 +101,20 @@
 - [x] `jobs/[id]/application-form.vue` (11)
 - [x] `jobs/[id]/sourcing.vue` (19)
 
-**Часть 2 — ⏳ ОСТАЛОСЬ:**
-- [ ] `jobs/[id]/index.vue` (43; замен ~10 — остальное вкладки/фильтр-чипы)
-- [ ] `jobs/new.vue` (37; замен ~16)
-- [ ] `jobs/[id]/candidates.vue` (21; замен ~5)
-- [ ] `jobs/index.vue` (18), `jobs/[id]/ai-analysis.vue` (14)
+**Часть 2 — ✅ ВЫПОЛНЕНО:**
+- [x] `jobs/[id]/ai-analysis.vue` (7 замен: Reset, Clear all, Save criteria,
+      Add custom criterion, Cancel, Rescore all, Score only new, Later;
+      Loader2 оставлен — используется в card-button на L407)
+- [x] `jobs/index.vue` (2 замены: Retry link, Clear filters ghost)
+- [x] `jobs/[id]/candidates.vue` (9 замен: Синхронизировать, Unlink,
+      Привязать к hh.ru, Clear stages, Clear filters, Close modal X,
+      Отмена, Проверить, Привязать confirm; Loader2 оставлен — batch trigger)
+- [x] `jobs/[id]/index.vue` (8 замен: 2× Clear filters, Cancel reschedule,
+      Save reschedule, Cancel interview edit, Save interview edit,
+      Schedule interview empty, Retry timeline; Loader2 оставлен)
+- [x] `jobs/new.vue` (11 замен: Save Draft, Save&Continue ×2, Загрузить с hh.ru,
+      Отвязать, Dismiss, Clear all, Add criterion, Cancel, Copy link, Back;
+      Loader2 оставлен — card-buttons и create link buttons)
 
 ### Батч 6 — Интервью 🟡
 - [ ] `interviews/[id].vue` (21; замен ~10), `interviews/index.vue` (17)

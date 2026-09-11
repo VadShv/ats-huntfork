@@ -921,26 +921,23 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
         </NuxtLink>
         <h1 class="text-3xl font-bold text-surface-900 dark:text-surface-100">{{ t('dashboard.jobs.new.pageTitle') }}</h1>
       </div>
-      <div v-if="!isPublished" class="flex items-center gap-3">
-        <button
-          type="button"
-          class="px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-700 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-          @click="handleSubmit('draft')"
+     <div v-if="!isPublished" class="flex items-center gap-3">
+        <UiButton
+          variant="secondary"
           :disabled="isSubmitting"
+          @click="handleSubmit('draft')"
         >
           {{ t('dashboard.jobs.new.saveDraft') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="currentStep < 4"
-          type="button"
           :disabled="!canGoNext"
           @click="nextStep"
-          class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
         >
           {{ t('dashboard.jobs.new.saveContinue') }}
-        </button>
-      </div>
-    </div>
+        </UiButton>
+     </div>
+   </div>
 
     <!-- Stepper -->
     <div class="mb-10">
@@ -1010,19 +1007,17 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                     class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                     :disabled="hhImporting"
                     @keydown.enter.prevent="importFromHh"
-                  />
-                  <button
-                    type="button"
-                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    :disabled="hhImporting || !hhUrlInput.trim()"
-                    @click="importFromHh"
-                  >
-                    <Loader2 v-if="hhImporting" class="w-4 h-4 animate-spin" />
-                    <Upload v-else class="w-4 h-4" />
-                    {{ hhImporting ? 'Загружаем…' : 'Загрузить с hh.ru' }}
-                  </button>
-                </div>
-                <div v-else class="flex items-start gap-2 rounded-lg bg-success-50 dark:bg-success-950/40 border border-success-200 dark:border-success-800 px-3 py-2.5">
+               />
+                <UiButton
+                  :disabled="hhImporting || !hhUrlInput.trim()"
+                  :loading="hhImporting"
+                  :icon-left="Upload"
+                  @click="importFromHh"
+                 >
+                   {{ hhImporting ? 'Загружаем…' : 'Загрузить с hh.ru' }}
+                 </UiButton>
+               </div>
+               <div v-else class="flex items-start gap-2 rounded-lg bg-success-50 dark:bg-success-950/40 border border-success-200 dark:border-success-800 px-3 py-2.5">
                   <Check class="w-4 h-4 text-success-600 dark:text-success-400 flex-shrink-0 mt-0.5" />
                   <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-surface-900 dark:text-surface-100">Связано с hh.ru вакансией #{{ hhImported.id }}</p>
@@ -1031,9 +1026,10 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                       <ExternalLink class="w-3 h-3" />
                     </a>
                   </div>
-                  <button type="button" class="text-xs text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 underline" @click="clearHhImport">Отвязать</button>
-                </div>
-                <p v-if="hhImportError" class="mt-2 text-xs text-danger-600 dark:text-danger-400 font-medium">{{ hhImportError }}</p>
+                 <button type="button" class="text-xs text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 underline" @click="clearHhImport">Отвязать</button>
+                 <UiButton variant="link" size="xs" @click="clearHhImport">Отвязать</UiButton>
+               </div>
+               <p v-if="hhImportError" class="mt-2 text-xs text-danger-600 dark:text-danger-400 font-medium">{{ hhImportError }}</p>
               </div>
 
               <!-- Section: Job title and department -->
@@ -1342,8 +1338,9 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                   class="rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 p-3 text-sm text-danger-700 dark:text-danger-400 mt-4"
                 >
                   {{ questionActionError }}
-                  <button class="ml-2 underline" @click="questionActionError = null">{{ t('dashboard.jobs.new.dismiss') }}</button>
-                </div>
+                <button class="ml-2 underline" @click="questionActionError = null">{{ t('dashboard.jobs.new.dismiss') }}</button>
+                 <UiButton variant="link" size="xs" class="ml-2" @click="questionActionError = null">{{ t('dashboard.jobs.new.dismiss') }}</UiButton>
+               </div>
 
                 <div v-if="applicationForm.questions.length > 0" class="divide-y divide-surface-100 dark:divide-surface-800">
                   <div
@@ -1585,14 +1582,22 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                   <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">
                     {{ scoringCriteria.length }} {{ scoringCriteria.length === 1 ? t('dashboard.jobs.new.criterionSingular') : t('dashboard.jobs.new.criterionPlural') }}
                   </h3>
-                  <button
-                    type="button"
-                    class="text-xs text-danger-600 dark:text-danger-400 hover:underline"
-                    @click="scoringCriteria = []; scoringMode = 'none'"
-                  >
-                    {{ t('dashboard.jobs.new.clearAll') }}
-                  </button>
-                </div>
+                 <button
+                   type="button"
+                   class="text-xs text-danger-600 dark:text-danger-400 hover:underline"
+                   @click="scoringCriteria = []; scoringMode = 'none'"
+                 >
+                   {{ t('dashboard.jobs.new.clearAll') }}
+                 </button>
+                 <UiButton
+                   variant="ghost"
+                   size="xs"
+                   class="text-danger-600 dark:text-danger-400"
+                   @click="scoringCriteria = []; scoringMode = 'none'"
+                 >
+                   {{ t('dashboard.jobs.new.clearAll') }}
+                 </UiButton>
+               </div>
 
                 <div class="space-y-3">
                   <div
@@ -1727,24 +1732,21 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                     />
                   </div>
                 </div>
-                <div class="flex items-center gap-3 pt-2">
-                  <button
-                    type="button"
+               <div class="flex items-center gap-3 pt-2">
+                  <UiButton
                     :disabled="!customCriterionForm.name.trim()"
-                    class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     @click="addCustomCriterion"
                   >
                     {{ t('dashboard.jobs.new.addCriterion') }}
-                  </button>
-                  <button
-                    type="button"
-                    class="px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
+                  </UiButton>
+                  <UiButton
+                    variant="ghost"
                     @click="showCustomForm = false"
                   >
                     {{ t('dashboard.jobs.new.cancel') }}
-                  </button>
-                </div>
-              </div>
+                  </UiButton>
+               </div>
+             </div>
 
               <!-- Auto-score toggle -->
               <div v-if="scoringCriteria.length > 0" class="rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/50 p-5">
@@ -1814,18 +1816,26 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                       :value="finalApplicationLink"
                       class="flex-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-600 dark:text-surface-400 select-all font-mono"
                     />
-                    <button
-                      type="button"
-                      class="inline-flex items-center gap-1.5 rounded-lg bg-surface-200 dark:bg-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-300 dark:hover:bg-surface-600 transition-colors shrink-0"
-                      @click="copyFinalLink"
-                    >
-                      <Copy class="size-3.5" />
-                      {{ linkCopiedFinal ? t('dashboard.jobs.new.copied') : t('dashboard.jobs.new.copy') }}
-                    </button>
-                  </div>
-                </div>
+                   <button
+                     type="button"
+                     class="inline-flex items-center gap-1.5 rounded-lg bg-surface-200 dark:bg-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-300 dark:hover:bg-surface-600 transition-colors shrink-0"
+                     @click="copyFinalLink"
+                   >
+                     <Copy class="size-3.5" />
+                     {{ linkCopiedFinal ? t('dashboard.jobs.new.copied') : t('dashboard.jobs.new.copy') }}
+                   </button>
+                   <UiButton
+                     variant="secondary"
+                     :icon-left="Copy"
+                     class="shrink-0"
+                     @click="copyFinalLink"
+                   >
+                     {{ linkCopiedFinal ? t('dashboard.jobs.new.copied') : t('dashboard.jobs.new.copy') }}
+                   </UiButton>
+                 </div>
+               </div>
 
-                <!-- Distribution hub -->
+               <!-- Distribution hub -->
                 <div>
                   <div class="flex items-center gap-3 mb-2">
                     <Share2 class="size-5 text-brand-600 dark:text-brand-400" />
@@ -2255,27 +2265,41 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
                 {{ t('dashboard.jobs.new.cancel') }}
               </NuxtLink>
 
-              <div class="flex items-center gap-3">
-                <button
-                  v-if="currentStep > 1"
-                  type="button"
-                  @click="prevStep"
-                  class="px-6 py-2.5 text-sm font-medium text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-700 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-                >
-                  {{ t('dashboard.jobs.new.back') }}
-                </button>
-                <button
-                  v-if="currentStep < 4"
-                  type="button"
-                  :disabled="!canGoNext"
-                  @click="nextStep"
-                  class="px-8 py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                >
-                  {{ t('dashboard.jobs.new.saveContinue') }}
-                </button>
-                <button
-                  v-else
-                  type="submit"
+             <div class="flex items-center gap-3">
+              <button
+                v-if="currentStep > 1"
+                type="button"
+                @click="prevStep"
+                class="px-6 py-2.5 text-sm font-medium text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-900 border border-surface-300 dark:border-surface-700 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+              >
+                {{ t('dashboard.jobs.new.back') }}
+              </button>
+              <button
+                v-if="currentStep < 4"
+                type="button"
+                :disabled="!canGoNext"
+                @click="nextStep"
+                class="px-8 py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                {{ t('dashboard.jobs.new.saveContinue') }}
+              </button>
+               <UiButton
+                 v-if="currentStep > 1"
+                 variant="secondary"
+                 @click="prevStep"
+               >
+                 {{ t('dashboard.jobs.new.back') }}
+               </UiButton>
+               <UiButton
+                 v-if="currentStep < 4"
+                 :disabled="!canGoNext"
+                 @click="nextStep"
+               >
+                 {{ t('dashboard.jobs.new.saveContinue') }}
+               </UiButton>
+              <button
+                 v-else
+                 type="submit"
                   :disabled="isSubmitting"
                   class="inline-flex items-center gap-2 px-8 py-2.5 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                   :class="publishChoice === 'publish' ? 'bg-brand-600 hover:bg-brand-700' : 'bg-surface-600 hover:bg-surface-700'"
