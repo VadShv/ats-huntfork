@@ -40,35 +40,37 @@
 ### Батч 0 — ✅ Пилот
 - [x] `settings/account.vue` (обкатка подхода).
 
-### Батч 1 — Настройки 🟢 (изолированно, в основном простые action-кнопки)
-- [ ] `settings/org-structure.vue` (23; замен ~18, **убрать мини-ДС** `btnPrimary/btnGhost/iconBtn`)
-- [ ] `settings/members.vue` (26; замен ~18 — много однотипных action)
-- [ ] `settings/integrations.vue` (17; замен ~7)
-- [ ] `settings/sso.vue` (10; замен ~3)
-- [ ] `settings/pipelines/[id].vue` (19), `pipelines/index.vue` (7)
-- [ ] `settings/index.vue` (4), `assistant.vue` (2), `localization.vue` (1), `league.vue` (1)
+### Батч 1 — Настройки 🟢 — ✅ ВЫПОЛНЕНО (в `main`, коммит 575566e; проверено визуально)
+- [x] `settings/org-structure.vue` (22 замены, **убрана мини-ДС** `btnPrimary/btnGhost/iconBtn`)
+- [x] `settings/members.vue` (26 замен)
+- [x] `settings/integrations.vue` (16 замен; toggle-switch оставлен)
+- [x] `settings/sso.vue` (10 замен)
+- [x] `settings/pipelines/[id].vue` (16; табы/dashed оставлены), `pipelines/index.vue` (7)
+- [x] `settings/index.vue` (4), `assistant.vue` (1), `localization.vue` (1)
+- [x] Убран разнобой: inline-`style` brand, `emerald/gray/red` хардкод; вычищены
+      мёртвые lucide-импорты. Клиентская сборка OK (3866 модулей).
+- [~] `league.vue` — единственная «кнопка» это таб-переключатель (`setTab`),
+      замене не подлежит → пропущено осознанно.
 
-### Батч 2 — Общие компоненты 🟡 (эффект максимальный: видны везде)
-- [ ] `AppTopBar.vue` (10) — тут «Новая вакансия», станет как `UiButton`-версия
-- [ ] `SavedViewsMenu.vue` (8), `JobSubNavActions.vue` (11)
-- [ ] `PropertySchemaEditor.vue` (10), `PropertyValueEditor.vue` (7)
-- [ ] `FeedbackModal.vue` (7), `AiConfigForm.vue` (7)
+### Батч 2 — Общие компоненты 🟡 — ✅ ВЫПОЛНЕНО (объединён с Батчем 3)
+- [x] `AppTopBar.vue` — 3 типовые (**«Новая вакансия»**, тема, доп.действия);
+      навигационные триггеры меню и menu-items оставлены осознанно.
+- [x] `SavedViewsMenu.vue` (5), `JobSubNavActions.vue` (4; primary job action
+      с динамическим `:class` оставлен, menu-items оставлены).
+- [x] `PropertySchemaEditor.vue` (9; dashed «добавить свойство» оставлен),
+      `PropertyValueEditor.vue` (2 footer; inline-cell контролы оставлены).
+- [x] `FeedbackModal.vue` (4), `AiConfigForm.vue` (3; карточки-селекторы
+      провайдера/модели и «показать ключ» в инпуте оставлены).
 
-### Батч 3 — `UiSegmented` + переключатели периодов 🟢 (запрос пользователя)
+### Батч 3 — `UiSegmented` + переключатели периодов 🟢 — ✅ ВЫПОЛНЕНО
 
-> Изолированный визуальный компонент. Логику НЕ трогаем — только внешний вид
-> переключателей. Это безопасная часть темы «аналитика» (без школы фильтров).
-
-- [ ] Создать `UiSegmented` (segmented control): эталон стиля — «таблетка»
-      из `source-tracking/index.vue` (`rounded-xl` контейнер + `rounded-lg`
-      активная кнопка `bg-brand-600 shadow-sm`). API: `modelValue`, `options[]`, `size`.
-- [ ] Применить в `source-tracking/index.vue` (date-range pill).
-- [ ] Применить в `analytics/DateRangePicker.vue` — заменить сырой сегмент,
-      **починить `primary-600` → `brand-600`** (цветовой баг в переключателе).
-
-> Примечание: `DateRangePicker` использует `useAnalyticsFilters` только для чтения/
-> записи значения периода (`periodPreset`). Заменяем ТОЛЬКО разметку сегмента,
-> сам composable и его логику не трогаем — риск остаётся низким.
+- [x] Создан `UiSegmented` (`app/components/ui/UiSegmented.vue`): segmented control,
+      эталон стиля — «таблетка» source-tracking. API: `modelValue` (v-model),
+      `options[]`, `size`, `ariaLabel`; generic по `string | number`.
+- [x] Применён в `source-tracking/index.vue` (date-range pill).
+- [x] Применён в `analytics/DateRangePicker.vue` — **починен `primary-600` →
+      `brand-600`** (цветовой баг переключателя). Логику `useAnalyticsFilters`
+      не трогали.
 
 ### Батч 4 — Кандидаты 🟡
 - [ ] `candidates/[id].vue` (31; замен ~20 — самый трудоёмкий)
