@@ -8,7 +8,7 @@
  * the API key panel only nudges users with the help they actually need.
  */
 import {
-  Brain, Sparkles, Eye, EyeOff, ExternalLink, Loader2, Check,
+  Brain, Sparkles, Eye, EyeOff, ExternalLink, Check,
   Save, Zap, Star, AlertTriangle, ChevronDown, KeyRound, ArrowLeft,
 } from 'lucide-vue-next'
 
@@ -468,16 +468,15 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
 
           <!-- Test connection -->
           <div v-if="isEdit" class="flex items-center gap-3 pt-1">
-            <button
-              type="button"
-              :disabled="isTesting"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :loading="isTesting"
+              :icon-left="Zap"
               @click="handleTest"
             >
-              <Loader2 v-if="isTesting" class="size-3.5 animate-spin" />
-              <Zap v-else class="size-3.5" />
               {{ isTesting ? 'Проверка…' : 'Проверить подключение' }}
-            </button>
+            </UiButton>
             <span
               v-if="testResult?.success"
               class="inline-flex items-center gap-1 text-xs text-success-600 dark:text-success-400"
@@ -642,23 +641,20 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
     <!-- Sticky save bar -->
     <div class="fixed inset-x-0 bottom-0 z-20 border-t border-surface-200 dark:border-surface-800 bg-white/90 dark:bg-surface-950/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:supports-[backdrop-filter]:bg-surface-950/70">
       <div class="mx-auto max-w-3xl px-4 sm:px-6 py-3 flex items-center justify-end gap-2">
-        <button
-          type="button"
-          class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors cursor-pointer"
+        <UiButton
+          variant="secondary"
           @click="emit('cancel')"
         >
           Отмена
-        </button>
-        <button
-          type="button"
-          :disabled="!canSave || isSaving"
-          class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        </UiButton>
+        <UiButton
+          :disabled="!canSave"
+          :loading="isSaving"
+          :icon-left="Save"
           @click="handleSave"
         >
-          <Loader2 v-if="isSaving" class="size-4 animate-spin" />
-          <Save v-else class="size-4" />
           {{ isSaving ? 'Сохранение…' : (isEdit ? 'Сохранить изменения' : 'Добавить модель') }}
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>

@@ -203,13 +203,15 @@ function openPropertyEditor(scope: 'org' | 'job') {
   <Teleport to="#job-sub-nav-actions">
     <div class="flex items-center gap-2">
       <!-- Add Candidate -->
-      <button
-        class="hidden sm:inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-surface-200 dark:border-surface-700/80 px-2.5 py-1 text-[11px] font-medium text-surface-600 dark:text-surface-300 hover:bg-white hover:border-surface-300 dark:hover:bg-surface-800 dark:hover:border-surface-600 transition-all duration-150"
+      <UiButton
+        variant="secondary"
+        size="xs"
+        :icon-left="UserPlus"
+        class="hidden sm:inline-flex"
         @click="showApplyModal = true"
       >
-        <UserPlus class="size-3" />
         {{ $t('components.jobSubNav.addCandidate') }}
-      </button>
+      </UiButton>
 
       <!-- Primary job action (e.g., Publish) -->
       <button
@@ -224,12 +226,14 @@ function openPropertyEditor(scope: 'org' | 'job') {
 
       <!-- More menu -->
       <div ref="moreMenuRef">
-        <button
-          class="inline-flex cursor-pointer items-center justify-center rounded-md border border-surface-200 dark:border-surface-700/80 p-1 text-surface-500 hover:bg-white hover:text-surface-700 dark:hover:bg-surface-800 dark:hover:text-surface-300 transition-all duration-150"
+        <UiButton
+          variant="secondary"
+          size="xs"
+          icon-only
           @click="openMoreMenu"
         >
           <MoreHorizontal class="size-3.5" />
-        </button>
+        </UiButton>
 
         <Teleport to="body">
           <Transition
@@ -328,20 +332,22 @@ function openPropertyEditor(scope: 'org' | 'job') {
           {{ $t('components.jobSubNav.deleteJobConfirm') }}
         </p>
         <div class="flex justify-end gap-2">
-          <button
+          <UiButton
+            variant="secondary"
+            size="sm"
             :disabled="isDeleting"
-            class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
             @click="showDeleteConfirm = false"
           >
             {{ $t('components.jobSubNav.cancel') }}
-          </button>
-          <button
-            :disabled="isDeleting"
-            class="cursor-pointer rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          </UiButton>
+          <UiButton
+            variant="danger"
+            size="sm"
+            :loading="isDeleting"
             @click="handleDelete"
           >
             {{ isDeleting ? $t('components.jobSubNav.deleting') : $t('components.jobSubNav.delete') }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>

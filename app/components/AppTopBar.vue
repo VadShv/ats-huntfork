@@ -400,13 +400,14 @@ onUnmounted(() => {
           </div>
 
           <!-- New Job button (desktop) -->
-          <button
-            class="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-1.5 text-[13px] font-semibold text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 hover:shadow-md hover:shadow-brand-600/25 active:bg-brand-800 transition-all duration-200 border-0 cursor-pointer"
+          <UiButton
+            size="sm"
+            :icon-left="Plus"
+            class="hidden sm:inline-flex shadow-sm shadow-brand-600/20 hover:shadow-md hover:shadow-brand-600/25"
             @click="handleNewJobClick"
           >
-            <Plus class="size-3.5" />
             {{ t('dashboard.nav.newJob') }}
-          </button>
+          </UiButton>
 
           <!-- Org Switcher -->
           <div class="hidden lg:block ml-1">
@@ -414,15 +415,17 @@ onUnmounted(() => {
           </div>
 
           <!-- Color mode toggle -->
-          <button
-            class="inline-flex items-center justify-center size-8 rounded-lg text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all duration-200 cursor-pointer border-0 bg-transparent"
+          <UiButton
+            icon-only
+            variant="ghost"
+            class="size-8"
             :title="isDark ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'"
             :aria-label="isDark ? $t('dashboard.topbar.switchToLight') : $t('dashboard.topbar.switchToDark')"
             @click="toggleColorMode"
           >
             <Sun v-if="isDark" class="size-4" />
             <Moon v-else class="size-4" />
-          </button>
+          </UiButton>
 
           <!-- More actions dropdown -->
           <div
@@ -430,12 +433,14 @@ onUnmounted(() => {
             @mouseenter="showMoreActions = true"
             @mouseleave="showMoreActions = false"
           >
-            <button
-              class="inline-flex items-center justify-center size-8 rounded-lg text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all duration-200 cursor-pointer border-0 bg-transparent"
+            <UiButton
+              icon-only
+              variant="ghost"
+              class="size-8"
               title="Дополнительные действия"
             >
               <MoreHorizontal class="size-4" />
-            </button>
+            </UiButton>
             <Transition
               enter-active-class="transition duration-150 ease-out"
               enter-from-class="opacity-0 scale-95 -translate-y-1"

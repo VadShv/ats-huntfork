@@ -318,8 +318,8 @@ const isPopoverType = computed(
             </div>
           </div>
           <div class="flex items-center justify-end gap-2 border-t border-surface-100 dark:border-surface-800 px-2 py-1.5">
-            <button type="button" class="text-xs text-surface-500 hover:text-surface-700 cursor-pointer" @click="cancel">Отмена</button>
-            <button type="button" class="rounded bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-700 cursor-pointer" @click="commit()">Готово</button>
+            <UiButton variant="ghost" size="xs" @click="cancel">Отмена</UiButton>
+            <UiButton size="xs" @click="commit()">Готово</UiButton>
           </div>
         </div>
       </Teleport>

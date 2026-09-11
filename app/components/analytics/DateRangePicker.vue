@@ -17,19 +17,11 @@ const options = [
 
 <template>
   <div class="flex flex-wrap items-center gap-2">
-    <div class="flex rounded-lg border border-surface-200 dark:border-surface-700 overflow-hidden">
-      <button
-        v-for="opt in options"
-        :key="opt.value"
-        class="px-3 py-1.5 text-xs font-medium transition-colors"
-        :class="periodPreset === opt.value
-          ? 'bg-primary-600 text-white'
-          : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'"
-        @click="periodPreset = opt.value"
-      >
-        {{ opt.label }}
-      </button>
-    </div>
+    <UiSegmented
+      v-model="periodPreset"
+      aria-label="Период"
+      :options="options"
+    />
     <template v-if="periodPreset === 'custom'">
       <input
         v-model="customFrom"

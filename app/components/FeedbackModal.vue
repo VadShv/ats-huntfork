@@ -231,12 +231,14 @@ function resetAndClose() {
               Создать задачу GitHub
             </h3>
           </div>
-          <button
-            class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 transition-colors cursor-pointer"
+          <UiButton
+            icon-only
+            variant="ghost"
+            aria-label="Закрыть"
             @click="resetAndClose"
           >
             <X class="size-5" />
-          </button>
+          </UiButton>
         </div>
 
         <!-- Success state -->
@@ -262,12 +264,9 @@ function resetAndClose() {
               <ExternalLink class="size-4" />
               Открыть на GitHub
             </a>
-            <button
-              class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition-colors cursor-pointer"
-              @click="resetAndClose"
-            >
+            <UiButton @click="resetAndClose">
               Готово
-            </button>
+            </UiButton>
           </div>
         </div>
 
@@ -520,21 +519,21 @@ function resetAndClose() {
 
           <!-- Footer -->
           <div class="flex items-center justify-end gap-3 border-t border-surface-200 dark:border-surface-800 px-5 py-4">
-            <button
+            <UiButton
               type="button"
-              class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors cursor-pointer"
+              variant="secondary"
               @click="resetAndClose"
             >
               Отмена
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               type="submit"
-              :disabled="!isValid || isSubmitting"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="!isValid"
+              :loading="isSubmitting"
+              :icon-left="Send"
             >
-              <Send class="size-4" />
               {{ isSubmitting ? 'Создание задачи…' : 'Создать задачу GitHub' }}
-            </button>
+            </UiButton>
           </div>
         </form>
       </div>

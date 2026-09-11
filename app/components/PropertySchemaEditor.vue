@@ -220,9 +220,9 @@ const overlayTitle = computed(() => {
               {{ jobId ? 'Видно только в откликах на эту вакансию.' : 'Видно во всём рабочем пространстве.' }}
             </p>
           </div>
-          <button class="rounded p-1.5 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer" @click="emit('close')">
+          <UiButton icon-only variant="ghost" size="sm" aria-label="Закрыть" @click="emit('close')">
             <X class="size-4" />
-          </button>
+          </UiButton>
         </header>
 
         <div class="flex-1 overflow-y-auto">
@@ -247,12 +247,12 @@ const overlayTitle = computed(() => {
                 </div>
                 <p v-if="def.description" class="text-xs text-surface-500 dark:text-surface-400 truncate mt-0.5">{{ def.description }}</p>
               </div>
-              <button class="rounded p-1.5 text-surface-400 hover:text-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer" @click="openEdit(def)">
+              <UiButton icon-only variant="ghost" size="sm" title="Редактировать" @click="openEdit(def)">
                 <Pencil class="size-3.5" />
-              </button>
-              <button class="rounded p-1.5 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30 cursor-pointer" @click="confirmDeleteId = def.id">
+              </UiButton>
+              <UiButton icon-only variant="ghost" size="sm" class="hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30" title="Удалить" @click="confirmDeleteId = def.id">
                 <Trash2 class="size-3.5" />
-              </button>
+              </UiButton>
             </li>
           </ul>
 
@@ -343,34 +343,35 @@ const overlayTitle = computed(() => {
                     <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" :class="PROPERTY_COLOR_CLASSES[opt.color as PropertyOptionColor].chip">
                       {{ opt.label || '—' }}
                     </span>
-                    <button class="rounded p-1 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30 cursor-pointer" @click="removeOption(opt.id)">
+                    <UiButton icon-only variant="ghost" size="xs" class="hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30" aria-label="Удалить вариант" @click="removeOption(opt.id)">
                       <X class="size-3.5" />
-                    </button>
+                    </UiButton>
                   </li>
                 </ul>
-                <button
-                  type="button"
-                  class="mt-2 inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 cursor-pointer"
+                <UiButton
+                  variant="link"
+                  size="sm"
+                  :icon-left="Plus"
+                  class="mt-2"
                   @click="addOption"
                 >
-                  <Plus class="size-3.5" /> Добавить вариант
-                </button>
+                  Добавить вариант
+                </UiButton>
               </div>
 
               <p v-if="formError" class="text-xs text-danger-600">{{ formError }}</p>
 
               <div class="flex items-center justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  class="rounded px-3 py-1.5 text-xs text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+                <UiButton
+                  variant="ghost"
+                  size="sm"
                   @click="cancelForm"
-                >Отмена</button>
-                <button
-                  type="button"
-                  :disabled="isSaving"
-                  class="rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >Отмена</UiButton>
+                <UiButton
+                  size="sm"
+                  :loading="isSaving"
                   @click="submitForm"
-                >{{ isSaving ? 'Сохранение…' : (formMode === 'create' ? 'Создать' : 'Сохранить') }}</button>
+                >{{ isSaving ? 'Сохранение…' : (formMode === 'create' ? 'Создать' : 'Сохранить') }}</UiButton>
               </div>
             </div>
           </div>
@@ -398,16 +399,18 @@ const overlayTitle = computed(() => {
             Свойство будет удалено из всех записей. Действие необратимо.
           </p>
           <div class="flex justify-end gap-2">
-            <button
-              class="rounded px-3 py-1.5 text-sm text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+            <UiButton
+              variant="ghost"
+              size="sm"
               :disabled="isDeleting"
               @click="confirmDeleteId = null"
-            >Отмена</button>
-            <button
-              class="rounded bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 cursor-pointer"
-              :disabled="isDeleting"
+            >Отмена</UiButton>
+            <UiButton
+              variant="danger"
+              size="sm"
+              :loading="isDeleting"
               @click="confirmDelete"
-            >{{ isDeleting ? 'Удаление…' : 'Удалить' }}</button>
+            >{{ isDeleting ? 'Удаление…' : 'Удалить' }}</UiButton>
           </div>
         </div>
       </div>

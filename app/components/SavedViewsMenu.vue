@@ -163,34 +163,40 @@ function onDelete(id: string, e: Event) {
           </button>
 
           <!-- Save changes -->
-          <button
+          <UiButton
             v-if="activeViewId === v.id && isDirty"
-            type="button"
-            class="rounded p-1 text-surface-400 hover:text-success-600 hover:bg-success-50 dark:hover:bg-success-950 transition-colors"
+            icon-only
+            variant="ghost"
+            size="xs"
+            class="text-surface-400 hover:text-success-600 hover:bg-success-50 dark:hover:bg-success-950"
             title="Сохранить текущие изменения в этом виде"
             @click="(e) => onUpdate(v.id, e)"
           >
             <Check class="size-3.5" />
-          </button>
+          </UiButton>
           <!-- Set default -->
-          <button
-            type="button"
-            class="rounded p-1 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+          <UiButton
+            icon-only
+            variant="ghost"
+            size="xs"
+            class="text-surface-400"
             :class="v.isDefault ? 'text-amber-500' : 'opacity-0 group-hover:opacity-100 hover:text-amber-500'"
             :title="v.isDefault ? 'Убрать статус по умолчанию' : 'Использовать по умолчанию'"
             @click="(e) => onSetDefault(v.id, v.isDefault, e)"
           >
             <Star class="size-3.5" :class="v.isDefault ? 'fill-current' : ''" />
-          </button>
+          </UiButton>
           <!-- Delete -->
-          <button
-            type="button"
-            class="rounded p-1 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors opacity-0 group-hover:opacity-100"
+          <UiButton
+            icon-only
+            variant="ghost"
+            size="xs"
+            class="text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950 opacity-0 group-hover:opacity-100"
             title="Удалить сохранённый вид"
             @click="(e) => onDelete(v.id, e)"
           >
             <Trash2 class="size-3.5" />
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -206,21 +212,23 @@ function onDelete(id: string, e: Event) {
             class="flex-1 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-2.5 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             @keydown.escape.prevent="showSaveForm = false; newName = ''"
           />
-          <button
+          <UiButton
             type="submit"
+            size="sm"
             :disabled="!newName.trim()"
-            class="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >Сохранить</button>
+          >Сохранить</UiButton>
         </form>
-        <button
+        <UiButton
           v-else
-          type="button"
-          class="w-full flex items-center justify-center gap-1.5 rounded-md py-1.5 text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950 transition-colors"
+          variant="ghost"
+          size="sm"
+          block
+          :icon-left="Plus"
+          class="text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950"
           @click="openSaveForm"
         >
-          <Plus class="size-3.5" />
           {{ activeViewId && isDirty ? 'Сохранить как новый вид' : 'Сохранить текущий вид' }}
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>

@@ -369,19 +369,16 @@ const showTab = ref<'links' | 'table'>(initialTab)
         </div>
         <div class="flex items-center gap-2">
           <!-- Date range pill -->
-          <div class="inline-flex rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-0.5">
-            <button
-              v-for="range in (['7d', '30d', '90d', 'all'] as const)"
-              :key="range"
-              class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
-              :class="dateRange === range
-                ? 'bg-brand-600 text-white shadow-sm'
-                : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'"
-              @click="dateRange = range"
-            >
-              {{ range === 'all' ? 'За всё время' : range.toUpperCase() }}
-            </button>
-          </div>
+          <UiSegmented
+            v-model="dateRange"
+            aria-label="Период"
+            :options="[
+              { value: '7d', label: '7D' },
+              { value: '30d', label: '30D' },
+              { value: '90d', label: '90D' },
+              { value: 'all', label: 'За всё время' },
+            ]"
+          />
 
           <!-- Job filter -->
           <div class="relative">
