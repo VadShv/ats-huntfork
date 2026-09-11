@@ -145,16 +145,14 @@ function sourceLabel(s: InterviewQuestion['source']) {
       <div class="mt-3 flex items-center gap-3">
         <label class="text-xs text-surface-500">{{ t('dashboard.jobs.questions.countLabel') }}</label>
         <input v-model.number="count" type="number" min="1" max="30" class="w-16 rounded-md border border-surface-200 bg-white px-2 py-1 text-sm dark:border-surface-700 dark:bg-surface-800">
-        <button
-          type="button"
-          :disabled="isGenerating"
-          class="ml-auto inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+        <UiButton
+          class="ml-auto"
+          :loading="isGenerating"
+          :icon-left="Sparkles"
           @click="onGenerate"
         >
-          <Loader2 v-if="isGenerating" class="size-4 animate-spin" />
-          <Sparkles v-else class="size-4" />
           {{ isGenerating ? t('dashboard.jobs.questions.generating') : (questions?.length ? t('dashboard.jobs.questions.regenerate') : t('dashboard.jobs.questions.generate')) }}
-        </button>
+        </UiButton>
       </div>
     </section>
 
@@ -187,8 +185,8 @@ function sourceLabel(s: InterviewQuestion['source']) {
                     class="w-full rounded-md border border-surface-200 bg-white px-2 py-1 text-sm dark:border-surface-700 dark:bg-surface-800"
                   />
                   <div class="mt-1 flex gap-2">
-                    <button type="button" class="inline-flex items-center gap-1 text-xs text-success-600" @click="saveEdit(q)"><Check class="size-3" /> OK</button>
-                    <button type="button" class="inline-flex items-center gap-1 text-xs text-surface-400" @click="editingId = null"><X class="size-3" /></button>
+                    <UiButton variant="ghost" size="xs" :icon-left="Check" class="text-success-600" @click="saveEdit(q)">OK</UiButton>
+                    <UiButton icon-only variant="ghost" size="xs" aria-label="Отмена" @click="editingId = null"><X class="size-3" /></UiButton>
                   </div>
                 </template>
                 <template v-else>
@@ -199,12 +197,12 @@ function sourceLabel(s: InterviewQuestion['source']) {
               <div class="flex shrink-0 items-center gap-1.5">
                 <span class="rounded bg-surface-100 px-1.5 py-0.5 text-[10px] text-surface-500 dark:bg-surface-800">{{ sourceLabel(q.source) }}</span>
                 <template v-if="canEdit && editingId !== q.id">
-                  <button type="button" class="text-surface-400 hover:text-surface-700" :title="t('dashboard.jobs.questions.archive')" @click="startEdit(q)"><Pencil class="size-3.5" /></button>
-                  <button type="button" class="text-surface-400 hover:text-surface-700" @click="toggleArchive(q)">
+                  <UiButton icon-only variant="ghost" size="xs" :title="t('dashboard.jobs.questions.archive')" @click="startEdit(q)"><Pencil class="size-3.5" /></UiButton>
+                  <UiButton icon-only variant="ghost" size="xs" aria-label="Архив" @click="toggleArchive(q)">
                     <ArchiveRestore v-if="q.isArchived" class="size-3.5" />
                     <Archive v-else class="size-3.5" />
-                  </button>
-                  <button type="button" class="text-surface-400 hover:text-danger-600" @click="onDelete(q)"><Trash2 class="size-3.5" /></button>
+                  </UiButton>
+                  <UiButton icon-only variant="ghost" size="xs" class="hover:text-danger-600" aria-label="Удалить" @click="onDelete(q)"><Trash2 class="size-3.5" /></UiButton>
                 </template>
               </div>
             </div>
@@ -223,18 +221,19 @@ function sourceLabel(s: InterviewQuestion['source']) {
           class="flex-1 rounded-md border border-surface-200 bg-white px-3 py-2 text-sm dark:border-surface-700 dark:bg-surface-800"
           @keydown.enter.prevent="onAdd"
         >
-        <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-surface-200 px-3 text-sm text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:hover:bg-surface-800" @click="onAdd">
-          <Plus class="size-4" /> {{ t('dashboard.jobs.questions.addManual') }}
-        </button>
+        <UiButton variant="secondary" :icon-left="Plus" @click="onAdd">
+          {{ t('dashboard.jobs.questions.addManual') }}
+        </UiButton>
       </div>
-      <button
+      <UiButton
         v-if="hasArchived"
-        type="button"
-        class="text-xs text-surface-400 hover:text-surface-600"
+        variant="link"
+        size="xs"
+        class="text-surface-400"
         @click="showArchived = !showArchived"
       >
         {{ showArchived ? t('dashboard.jobs.questions.hideArchived') : t('dashboard.jobs.questions.showArchived') }}
-      </button>
+      </UiButton>
     </div>
   </div>
 </template>

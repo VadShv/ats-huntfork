@@ -1028,13 +1028,13 @@ function onSalaryMaxChange(e: Event) {
 
             <!-- Спринт 13.5: таблица «этап → коллекция hh.ru» -->
             <div>
-              <button
-                type="button"
-                class="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
+              <UiButton
+                variant="link"
+                size="xs"
                 @click="showHhMapping = !showHhMapping"
               >
                 {{ showHhMapping ? 'Скрыть' : 'Показать' }} соответствие этапов и коллекций hh.ru
-              </button>
+              </UiButton>
               <div v-if="showHhMapping" class="mt-2 overflow-hidden rounded-md border border-surface-200 dark:border-surface-800">
                 <table class="w-full text-xs">
                   <thead>
@@ -1126,14 +1126,15 @@ function onSalaryMaxChange(e: Event) {
                 type="date"
                 class="w-full sm:w-64 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
               />
-              <button
+              <UiButton
                 v-if="form.validThrough"
-                type="button"
-                class="text-xs text-surface-400 hover:text-danger-500 dark:hover:text-danger-400 transition-colors underline shrink-0"
+                variant="link"
+                size="xs"
+                class="text-surface-400 hover:text-danger-500 shrink-0"
                 @click="form.validThrough = ''"
               >
                 {{ $t('dashboard.jobs.settings.clear') }}
-              </button>
+              </UiButton>
             </div>
             <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">Оставьте пустым, если фиксированной даты окончания нет.</p>
           </div>
@@ -1157,14 +1158,13 @@ function onSalaryMaxChange(e: Event) {
               :value="applicationUrl"
               class="flex-1 rounded-lg border border-brand-200 dark:border-brand-800 bg-white dark:bg-surface-900 px-3 py-1.5 text-sm text-surface-700 dark:text-surface-300 select-all"
             />
-            <button
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+            <UiButton
+              size="sm"
+              :icon-left="ClipboardCopy"
               @click="copyApplicationLink"
             >
-              <ClipboardCopy class="size-3.5" />
               {{ linkCopied ? $t('dashboard.jobs.settings.copied') : $t('dashboard.jobs.settings.copy') }}
-            </button>
+            </UiButton>
           </div>
         </section>
 
@@ -1172,14 +1172,14 @@ function onSalaryMaxChange(e: Event) {
         <!-- Save button                              -->
         <!-- ═══════════════════════════════════════ -->
         <div class="flex items-center justify-between pt-2 pb-8">
-          <button
+          <UiButton
             type="submit"
-            :disabled="isSaving"
-            class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            size="lg"
+            :loading="isSaving"
+            :icon-left="Save"
           >
-            <Save class="size-4" />
             {{ saved ? $t('dashboard.jobs.settings.saved') : isSaving ? $t('dashboard.jobs.settings.saving') : $t('dashboard.jobs.settings.saveChanges') }}
-          </button>
+          </UiButton>
         </div>
       </form>
 
@@ -1193,14 +1193,14 @@ function onSalaryMaxChange(e: Event) {
         </p>
 
         <div v-if="!showDeleteConfirm">
-          <button
-            type="button"
-            class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-danger-300 dark:border-danger-700 px-4 py-2 text-sm font-medium text-danger-700 dark:text-danger-400 hover:bg-danger-100 dark:hover:bg-danger-950/40 transition-colors"
+          <UiButton
+            variant="outline"
+            :icon-left="Trash2"
+            class="border-danger-300 dark:border-danger-700 text-danger-700 dark:text-danger-400 hover:bg-danger-100 dark:hover:bg-danger-950/40"
             @click="showDeleteConfirm = true"
           >
-            <Trash2 class="size-4" />
             {{ $t('dashboard.jobs.settings.deleteThisJob') }}
-          </button>
+          </UiButton>
         </div>
 
         <div v-else class="rounded-lg border border-danger-300 dark:border-danger-700 bg-white dark:bg-surface-900 p-4">
@@ -1208,22 +1208,20 @@ function onSalaryMaxChange(e: Event) {
             {{ $t('dashboard.jobs.settings.deleteConfirm') }}
           </p>
           <div class="flex items-center gap-2">
-            <button
-              type="button"
-              :disabled="isDeleting"
-              class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-danger-600 px-4 py-2 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            <UiButton
+              variant="danger"
+              :loading="isDeleting"
               @click="handleDelete"
             >
               {{ isDeleting ? $t('dashboard.jobs.settings.deleting') : $t('dashboard.jobs.settings.confirmDelete') }}
-            </button>
-            <button
-              type="button"
+            </UiButton>
+            <UiButton
+              variant="secondary"
               :disabled="isDeleting"
-              class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
               @click="showDeleteConfirm = false"
             >
               {{ $t('dashboard.jobs.settings.cancel') }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </section>

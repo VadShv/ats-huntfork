@@ -610,13 +610,16 @@ const stateFilters = [
           <div class="text-xs uppercase font-semibold text-surface-500 dark:text-surface-400 tracking-wide">
             Сохранённые поиски
           </div>
-          <button
+          <UiButton
             v-if="searches.length > 0"
-            class="text-xs text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 inline-flex items-center gap-1"
+            icon-only
+            variant="ghost"
+            size="xs"
+            aria-label="Обновить"
             @click="refreshSearches()"
           >
             <RefreshCw class="size-3" :class="searchesPending ? 'animate-spin' : ''" />
-          </button>
+          </UiButton>
         </div>
 
         <div v-if="searchesPending" class="text-sm text-surface-500 px-1">Загрузка...</div>
@@ -691,34 +694,43 @@ const stateFilters = [
                 · {{ formatRelative(s.lastRunAt) }}
               </span>
               <div class="ml-auto flex items-center gap-0.5">
-                <button
-                  class="p-1 rounded text-surface-400 hover:text-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800"
+                <UiButton
+                  icon-only
+                  variant="ghost"
+                  size="xs"
                   title="Запустить сейчас"
                   @click.stop="runNow(s.id)"
                 >
                   <Play class="size-3.5" />
-                </button>
-                <button
-                  class="p-1 rounded text-surface-400 hover:text-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800"
+                </UiButton>
+                <UiButton
+                  icon-only
+                  variant="ghost"
+                  size="xs"
                   :title="s.autoRunEnabled ? 'Поставить на паузу' : 'Включить автозапуск'"
                   @click.stop="toggleAutoRun(s)"
                 >
                   <component :is="s.autoRunEnabled ? Pause : Play" class="size-3.5" />
-                </button>
-                <button
-                  class="p-1 rounded text-surface-400 hover:text-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800"
+                </UiButton>
+                <UiButton
+                  icon-only
+                  variant="ghost"
+                  size="xs"
                   title="Детали / редактировать"
                   @click.stop="openDetails(s)"
                 >
                   <Pencil class="size-3.5" />
-                </button>
-                <button
-                  class="p-1 rounded text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950"
+                </UiButton>
+                <UiButton
+                  icon-only
+                  variant="ghost"
+                  size="xs"
+                  class="hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950"
                   title="Архивировать"
                   @click.stop="archiveSearch(s.id)"
                 >
                   <Trash2 class="size-3.5" />
-                </button>
+                </UiButton>
               </div>
             </div>
 
@@ -734,14 +746,16 @@ const stateFilters = [
       <section>
         <!-- Тулбар: фильтр статуса + bulk-счётчик + обновить -->
         <div class="flex items-center gap-2 mb-4 flex-wrap">
-          <button
+          <UiButton
             v-if="candidates.length > 0"
-            class="flex items-center justify-center size-7 rounded-md border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-900"
+            icon-only
+            variant="secondary"
+            size="sm"
             :title="allVisibleSelected ? 'Снять выделение' : 'Выделить все'"
             @click="toggleSelectAll"
           >
             <Check v-if="allVisibleSelected" class="size-4 text-brand-600" />
-          </button>
+          </UiButton>
           <div class="text-sm text-surface-600 dark:text-surface-400">Статус:</div>
           <div class="flex gap-1 flex-wrap">
             <button
@@ -869,12 +883,15 @@ const stateFilters = [
             <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100">
               Новый сорсинг-поиск hh.ru
             </h2>
-            <button
-              class="text-surface-400 hover:text-surface-700 dark:hover:text-surface-200"
+            <UiButton
+              icon-only
+              variant="ghost"
+              size="sm"
+              aria-label="Закрыть"
               @click="showCreateModal = false"
             >
               <X class="size-5" />
-            </button>
+            </UiButton>
           </div>
 
           <!-- Режим -->
@@ -1008,12 +1025,15 @@ const stateFilters = [
           <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-100">
             {{ editMode ? 'Редактирование поиска' : detailsSearch.name }}
           </h2>
-          <button
-            class="text-surface-400 hover:text-surface-700 dark:hover:text-surface-200"
+          <UiButton
+            icon-only
+            variant="ghost"
+            size="sm"
+            aria-label="Закрыть"
             @click="showDetailsModal = false"
           >
             <X class="size-5" />
-          </button>
+          </UiButton>
         </div>
 
         <!-- Название -->
