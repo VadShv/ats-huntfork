@@ -61,7 +61,7 @@ const settingsNav = [
     description: 'Модели и API-ключи',
     to: '/dashboard/settings/ai',
     icon: Brain,
-    exact: true,
+    exact: false,
   },
   {
     label: 'Суфлёр переписки',
