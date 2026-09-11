@@ -479,13 +479,15 @@ function formatInterviewDate(dateStr: string) {
           <h2 class="text-lg font-semibold text-surface-400">Загрузка…</h2>
         </div>
         <div class="flex items-center gap-1 shrink-0 ml-3">
-          <button
-            class="rounded-md p-1.5 text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:text-surface-300 dark:hover:bg-surface-800 transition-colors"
+          <UiButton
+            icon-only
+            variant="ghost"
+            size="sm"
             title="Закрыть (Esc)"
             @click="emit('close')"
           >
             <X class="size-5" />
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -642,13 +644,14 @@ function formatInterviewDate(dateStr: string) {
                   </div>
                   <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ t('applications.notes') }}</h3>
                 </div>
-                <button
+                <UiButton
                   v-if="!isEditingNotes"
-                  class="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
+                  variant="link"
+                  size="xs"
                   @click="startEditNotes"
                 >
                   {{ application.notes ? t('applications.edit_notes') : t('applications.add_notes') }}
-                </button>
+                </UiButton>
               </div>
 
               <div v-if="isEditingNotes">
@@ -659,19 +662,20 @@ function formatInterviewDate(dateStr: string) {
                   class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                 />
                 <div class="flex items-center gap-2 mt-2">
-                  <button
-                    :disabled="isSavingNotes"
-                    class="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+                  <UiButton
+                    size="sm"
+                    :loading="isSavingNotes"
                     @click="saveNotes"
                   >
                     {{ isSavingNotes ? t('applications.saving') : t('applications.save') }}
-                  </button>
-                  <button
-                    class="rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                  </UiButton>
+                  <UiButton
+                    variant="secondary"
+                    size="sm"
                     @click="isEditingNotes = false"
                   >
                     {{ t('applications.cancel') }}
-                  </button>
+                  </UiButton>
                 </div>
               </div>
 
@@ -776,22 +780,26 @@ function formatInterviewDate(dateStr: string) {
             <template v-if="showPreview">
               <!-- Preview toolbar -->
               <div class="flex items-center justify-between">
-                <button
-                  class="inline-flex items-center gap-1.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                <UiButton
+                  variant="ghost"
+                  size="sm"
+                  :icon-left="ArrowLeft"
                   @click="closePreview"
                 >
-                  <ArrowLeft class="size-3.5" />
                   Назад к документам
-                </button>
+                </UiButton>
                 <div class="flex items-center gap-1">
-                  <button
+                  <UiButton
                     v-if="previewDocId"
-                    class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                    icon-only
+                    variant="ghost"
+                    size="sm"
+                    class="hover:text-brand-600"
                     title="Скачать"
                     @click="handleDownload(previewDocId!)"
                   >
                     <Download class="size-4" />
-                  </button>
+                  </UiButton>
                 </div>
               </div>
 
@@ -810,12 +818,14 @@ function formatInterviewDate(dateStr: string) {
               >
                 <AlertTriangle class="size-8 text-danger-400 mx-auto mb-2" />
                 <p class="text-sm text-danger-700 dark:text-danger-400">{{ previewError }}</p>
-                <button
-                  class="mt-3 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium"
+                <UiButton
+                  variant="link"
+                  size="sm"
+                  class="mt-3"
                   @click="closePreview"
                 >
                   Назад
-                </button>
+                </UiButton>
               </div>
 
               <!-- PDF iframe — same-origin, server streams the bytes -->
@@ -842,14 +852,15 @@ function formatInterviewDate(dateStr: string) {
                     <option value="other">Другое</option>
                   </select>
                 </div>
-                <button
-                  :disabled="isUploading"
-                  class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                <UiButton
+                  variant="secondary"
+                  size="sm"
+                  :loading="isUploading"
+                  :icon-left="Upload"
                   @click="triggerFileSelect"
                 >
-                  <Upload class="size-3.5" />
                   {{ isUploading ? 'Загрузка…' : 'Загрузить документ' }}
-                </button>
+                </UiButton>
               </div>
 
               <!-- Upload error -->
@@ -858,7 +869,7 @@ function formatInterviewDate(dateStr: string) {
                 class="rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 p-3 text-sm text-danger-700 dark:text-danger-400"
               >
                 {{ uploadError }}
-                <button class="underline ml-1" @click="uploadError = null">Закрыть</button>
+                <UiButton variant="link" size="xs" class="ml-1" @click="uploadError = null">Закрыть</UiButton>
               </div>
 
               <!-- Empty state -->
@@ -901,37 +912,49 @@ function formatInterviewDate(dateStr: string) {
                     </div>
                   </div>
                   <div class="flex items-center gap-1 shrink-0" @click.stop>
-                    <button
+                    <UiButton
                       v-if="doc.parsed === false"
+                      icon-only
+                      variant="ghost"
+                      size="sm"
                       :disabled="reparsingDocId === doc.id"
-                      class="rounded-lg p-1.5 text-warning-500 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors disabled:opacity-50"
+                      class="text-warning-500 hover:text-brand-600"
                       title="Повторить распознавание текста"
                       @click="handleReparse(doc.id)"
                     >
                       <RefreshCw class="size-4" :class="{ 'animate-spin': reparsingDocId === doc.id }" />
-                    </button>
-                    <button
+                    </UiButton>
+                    <UiButton
                       v-if="doc.mimeType === 'application/pdf'"
-                      class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                      icon-only
+                      variant="ghost"
+                      size="sm"
+                      class="hover:text-brand-600"
                       title="Просмотреть PDF"
                       @click="handlePreview(doc.id, doc.mimeType)"
                     >
                       <Eye class="size-4" />
-                    </button>
-                    <button
-                      class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                    </UiButton>
+                    <UiButton
+                      icon-only
+                      variant="ghost"
+                      size="sm"
+                      class="hover:text-brand-600"
                       title="Скачать"
                       @click="handleDownload(doc.id)"
                     >
                       <Download class="size-4" />
-                    </button>
-                    <button
-                      class="rounded-lg p-1.5 text-surface-400 hover:text-danger-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                    </UiButton>
+                    <UiButton
+                      icon-only
+                      variant="ghost"
+                      size="sm"
+                      class="hover:text-danger-600"
                       title="Удалить"
                       @click="showDocDeleteConfirm = doc.id"
                     >
                       <Trash2 class="size-4" />
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
               </div>
@@ -998,12 +1021,14 @@ function formatInterviewDate(dateStr: string) {
             >
               <AlertTriangle class="size-6 text-danger-400 mx-auto mb-2" />
               <p class="text-sm text-danger-700 dark:text-danger-400">{{ timelineError }}</p>
-              <button
-                class="mt-3 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium"
+              <UiButton
+                variant="link"
+                size="sm"
+                class="mt-3"
                 @click="loadTimeline"
               >
                 Повторить
-              </button>
+              </UiButton>
             </div>
 
             <!-- Empty -->
@@ -1085,20 +1110,22 @@ function formatInterviewDate(dateStr: string) {
           Удалить документ? Действие нельзя отменить.
         </p>
         <div class="flex justify-end gap-2">
-          <button
+          <UiButton
+            variant="secondary"
+            size="sm"
             :disabled="isDeletingDoc"
-            class="rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
             @click="showDocDeleteConfirm = null"
           >
             Отмена
-          </button>
-          <button
-            :disabled="isDeletingDoc"
-            class="rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
+          </UiButton>
+          <UiButton
+            variant="danger"
+            size="sm"
+            :loading="isDeletingDoc"
             @click="handleDeleteDoc(showDocDeleteConfirm!)"
           >
             {{ isDeletingDoc ? 'Deleting…' : 'Delete' }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>

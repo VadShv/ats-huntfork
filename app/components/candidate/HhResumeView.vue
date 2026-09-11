@@ -366,16 +366,15 @@ async function structureFromDocument(forceLlm = false) {
         Структурированное резюме пока не создано.
       </p>
       <template v-if="resumeDocumentId">
-        <button
-          type="button"
-          class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white px-3 py-1.5 text-xs font-medium"
-          :disabled="structuring"
+        <UiButton
+          size="sm"
+          class="mt-3"
+          :loading="structuring"
+          :icon-left="Sparkles"
           @click="structureFromDocument"
         >
-          <Loader2 v-if="structuring" class="size-3.5 animate-spin" />
-          <Sparkles v-else class="size-3.5" />
           {{ structuring ? 'Структурируем…' : 'Структурировать из файла (ИИ)' }}
-        </button>
+        </UiButton>
         <p class="mt-2 text-xs text-surface-400 dark:text-surface-500">
           Разберём загруженный файл резюме в такую же карточку, как у кандидатов с hh.ru.
         </p>
@@ -396,87 +395,87 @@ async function structureFromDocument(forceLlm = false) {
       <p class="text-sm text-rose-700 dark:text-rose-300">
         Не удалось загрузить резюме: {{ (error as any)?.statusMessage ?? 'неизвестная ошибка' }}
       </p>
-      <button
-        class="mt-2 inline-flex items-center gap-1 text-xs text-rose-600 hover:underline"
+      <UiButton
+        variant="link"
+        size="sm"
+        :icon-left="RefreshCcw"
+        class="mt-2 text-rose-600"
         @click="refresh()"
       >
-        <RefreshCcw class="size-3" /> Повторить
-      </button>
+        Повторить
+      </UiButton>
     </div>
 
     <!-- Resume view -->
     <article v-else-if="resume" class="resume-print space-y-6">
       <!-- Action toolbar — не печатаем -->
       <div class="no-print flex flex-wrap items-center gap-2 text-xs">
-        <button
+        <UiButton
           v-if="resume.alternateUrl"
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-md border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 hover:bg-surface-50 dark:hover:bg-surface-800"
+          variant="secondary"
+          size="sm"
+          :icon-left="ExternalLink"
           @click="openOnHh"
         >
-          <ExternalLink class="size-3.5" />
           Открыть на hh.ru
-        </button>
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-md border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 hover:bg-surface-50 dark:hover:bg-surface-800"
+        </UiButton>
+        <UiButton
+          variant="secondary"
+          size="sm"
+          :icon-left="Download"
           @click="printResume"
         >
-          <Download class="size-3.5" />
           Сохранить в PDF
-        </button>
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-md border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 hover:bg-surface-50 dark:hover:bg-surface-800"
+        </UiButton>
+        <UiButton
+          variant="secondary"
+          size="sm"
+          :icon-left="FileJson"
           @click="downloadRaw"
         >
-          <FileJson class="size-3.5" />
           Скачать JSON
-        </button>
+        </UiButton>
         <!-- Переструктурировать через ИИ — только для файловых резюме (не hh.ru),
              если авто-структура вышла кривой на сложном макете -->
-        <button
+        <UiButton
           v-if="resumeDocumentId && data?.source === 'document'"
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-md border border-brand-300 dark:border-brand-700 text-brand-700 dark:text-brand-300 px-2.5 py-1.5 hover:bg-brand-50 dark:hover:bg-brand-950/30 disabled:opacity-60"
-          :disabled="structuring"
+          variant="outline"
+          size="sm"
+          :loading="structuring"
+          :icon-left="Sparkles"
           :title="'Разобрать заново сильным ИИ — точнее для сложных/нестандартных макетов'"
           @click="structureFromDocument(true)"
         >
-          <Loader2 v-if="structuring" class="size-3.5 animate-spin" />
-          <Sparkles v-else class="size-3.5" />
           {{ structuring ? 'Переструктурируем…' : 'Переструктурировать через ИИ' }}
-        </button>
+        </UiButton>
         <!-- Редактировать структуру -->
-        <button
+        <UiButton
           v-if="canEdit && !isEditing"
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-md border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 hover:bg-surface-50 dark:hover:bg-surface-800"
+          variant="secondary"
+          size="sm"
+          :icon-left="Pencil"
           @click="enterEditMode"
         >
-          <Pencil class="size-3.5" />
           Редактировать
-        </button>
+        </UiButton>
         <!-- Save / Cancel (edit mode) -->
         <template v-if="isEditing">
-          <button
-            type="button"
-            :disabled="isSaving"
-            class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-2.5 py-1.5 text-white hover:bg-brand-700 disabled:opacity-60"
+          <UiButton
+            size="sm"
+            :loading="isSaving"
+            :icon-left="Check"
             @click="saveEdit"
           >
-            <Loader2 v-if="isSaving" class="size-3.5 animate-spin" />
-            <Check v-else class="size-3.5" />
             Сохранить
-          </button>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-md border border-surface-300 dark:border-surface-700 px-2.5 py-1.5 hover:bg-surface-50 dark:hover:bg-surface-800"
+          </UiButton>
+          <UiButton
+            variant="secondary"
+            size="sm"
+            :icon-left="X"
             @click="cancelEdit"
           >
-            <X class="size-3.5" />
             Отмена
-          </button>
+          </UiButton>
         </template>
         <span class="ml-auto inline-flex items-center gap-2">
           <span
@@ -532,15 +531,17 @@ async function structureFromDocument(forceLlm = false) {
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
             </select>
-            <button
+            <UiButton
               v-if="editSalaryAmount !== null"
-              type="button"
-              class="text-surface-400 hover:text-danger-600"
+              icon-only
+              variant="ghost"
+              size="xs"
+              class="hover:text-danger-600"
               title="Убрать зарплату"
               @click="editSalaryAmount = null"
             >
               <X class="size-3.5" />
-            </button>
+            </UiButton>
           </div>
           <!-- Area: edit mode -->
           <input v-if="isEditing" v-model="editArea" type="text" placeholder="Город" class="rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-sm">
@@ -571,16 +572,16 @@ async function structureFromDocument(forceLlm = false) {
             class="rounded-lg border border-surface-200 dark:border-surface-700 p-3 space-y-2"
           >
             <div class="flex items-center gap-1.5">
-              <button type="button" class="rounded p-1 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 disabled:opacity-30" :disabled="i === 0" @click="moveExp(i, -1)">
+              <UiButton icon-only variant="ghost" size="xs" :disabled="i === 0" @click="moveExp(i, -1)">
                 <ChevronUp class="size-4" />
-              </button>
-              <button type="button" class="rounded p-1 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 disabled:opacity-30" :disabled="i === editExperience.length - 1" @click="moveExp(i, 1)">
+              </UiButton>
+              <UiButton icon-only variant="ghost" size="xs" :disabled="i === editExperience.length - 1" @click="moveExp(i, 1)">
                 <ChevronDown class="size-4" />
-              </button>
+              </UiButton>
               <span class="text-xs text-surface-400">#{{ i + 1 }}</span>
-              <button type="button" class="ml-auto rounded p-1 text-surface-400 hover:text-danger-600" @click="removeExp(i)">
+              <UiButton icon-only variant="ghost" size="xs" class="ml-auto hover:text-danger-600" @click="removeExp(i)">
                 <Trash2 class="size-4" />
-              </button>
+              </UiButton>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <input
@@ -677,7 +678,7 @@ async function structureFromDocument(forceLlm = false) {
           <div v-for="(ed, i) in editEducation" :key="i" class="rounded-lg border border-surface-200 dark:border-surface-700 p-2 space-y-1.5">
             <div class="flex items-center gap-1.5">
               <span class="text-xs text-surface-400">#{{ i + 1 }}</span>
-              <button type="button" class="ml-auto rounded p-1 text-surface-400 hover:text-danger-600" @click="removeEdu(i)"><Trash2 class="size-3.5" /></button>
+              <UiButton icon-only variant="ghost" size="xs" class="ml-auto hover:text-danger-600" aria-label="Удалить" @click="removeEdu(i)"><Trash2 class="size-3.5" /></UiButton>
             </div>
             <input v-model="ed.organization" type="text" placeholder="Учебное заведение" class="w-full rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
             <input v-model="ed.name" type="text" placeholder="Факультет / специальность" class="w-full rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm">
@@ -713,7 +714,7 @@ async function structureFromDocument(forceLlm = false) {
         <div v-if="isEditing" class="space-y-1.5">
           <div v-for="(skill, i) in editSkills" :key="i" class="flex items-center gap-1.5">
             <input v-model="editSkills[i]" type="text" placeholder="Навык" class="flex-1 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-sm">
-            <button type="button" class="rounded p-1 text-surface-400 hover:text-danger-600" @click="removeSkill(i)"><Trash2 class="size-3.5" /></button>
+            <UiButton icon-only variant="ghost" size="xs" class="hover:text-danger-600" aria-label="Удалить" @click="removeSkill(i)"><Trash2 class="size-3.5" /></UiButton>
           </div>
           <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-500 hover:bg-surface-50 dark:hover:bg-surface-800 w-full justify-center" @click="addSkill">
             <Plus class="size-4" /> Добавить навык
@@ -737,7 +738,7 @@ async function structureFromDocument(forceLlm = false) {
           <div v-for="(lng, i) in editLanguages" :key="i" class="flex items-center gap-1.5">
             <input v-model="lng.name" type="text" placeholder="Язык" class="flex-1 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-sm">
             <input v-model="lng.level" type="text" placeholder="Уровень" class="w-32 rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1 text-sm">
-            <button type="button" class="rounded p-1 text-surface-400 hover:text-danger-600" @click="removeLang(i)"><Trash2 class="size-3.5" /></button>
+            <UiButton icon-only variant="ghost" size="xs" class="hover:text-danger-600" aria-label="Удалить" @click="removeLang(i)"><Trash2 class="size-3.5" /></UiButton>
           </div>
           <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-500 hover:bg-surface-50 dark:hover:bg-surface-800 w-full justify-center" @click="addLang">
             <Plus class="size-4" /> Добавить язык

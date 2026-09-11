@@ -301,26 +301,26 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
       </div>
       <!-- Экспорт -->
       <div class="flex items-center gap-2">
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 hover:bg-surface-50 dark:hover:bg-surface-800 disabled:opacity-50"
+        <UiButton
+          variant="secondary"
+          size="sm"
           :disabled="isExporting"
+          :icon-left="FileText"
           title="Скачать журнал в CSV (с учётом текущих фильтров)"
           @click="exportMerges('csv')"
         >
-          <FileText class="size-3.5" />
           CSV
-        </button>
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 hover:bg-surface-50 dark:hover:bg-surface-800 disabled:opacity-50"
+        </UiButton>
+        <UiButton
+          variant="secondary"
+          size="sm"
           :disabled="isExporting"
+          :icon-left="FileSpreadsheet"
           title="Скачать журнал в Excel (.xlsx)"
           @click="exportMerges('xlsx')"
         >
-          <FileSpreadsheet class="size-3.5" />
           XLSX
-        </button>
+        </UiButton>
       </div>
     </div>
 
@@ -377,17 +377,19 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
       <div class="ml-auto flex items-center gap-3 text-sm text-surface-500 dark:text-surface-400">
         <div>Всего: <span class="font-semibold text-surface-900 dark:text-surface-50">{{ data?.total ?? 0 }}</span></div>
         <div v-if="totalPages > 1" class="flex items-center gap-1">
-          <button
-            class="px-2 py-1 text-xs rounded border border-surface-300 dark:border-surface-700 disabled:opacity-40"
+          <UiButton
+            variant="secondary"
+            size="xs"
             :disabled="page <= 1"
             @click="page--"
-          >‹</button>
+          >‹</UiButton>
           <span class="text-xs">{{ page }} / {{ totalPages }}</span>
-          <button
-            class="px-2 py-1 text-xs rounded border border-surface-300 dark:border-surface-700 disabled:opacity-40"
+          <UiButton
+            variant="secondary"
+            size="xs"
             :disabled="page >= totalPages"
             @click="page++"
-          >›</button>
+          >›</UiButton>
         </div>
       </div>
     </div>
@@ -485,22 +487,25 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
 
           <!-- Actions -->
           <div class="shrink-0 flex flex-col gap-1.5">
-            <button
-              class="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200"
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :icon-left="Eye"
               @click="openDetails(item.id)"
             >
-              <Eye class="size-3.5" />
               Подробнее
-            </button>
-            <button
+            </UiButton>
+            <UiButton
+              variant="outline"
+              size="sm"
               :disabled="!item.canRollback"
+              :icon-left="RotateCcw"
               :title="item.canRollback ? 'Откатить слияние' : (item.isRolledBack ? 'Уже откачено' : 'Окно отката закрыто')"
-              class="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              class="border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
               @click="openRollback(item)"
             >
-              <RotateCcw class="size-3.5" />
               Откатить
-            </button>
+            </UiButton>
           </div>
         </div>
 
@@ -527,9 +532,9 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
                 Детали слияния
               </h2>
             </div>
-            <button class="rounded-md p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200" @click="closeDetails">
+            <UiButton icon-only variant="ghost" size="sm" aria-label="Закрыть" @click="closeDetails">
               <X class="size-5" />
-            </button>
+            </UiButton>
           </div>
 
           <div v-if="isLoadingDetails" class="p-8 text-center text-sm text-surface-500">
@@ -635,20 +640,21 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
           </div>
 
           <div class="px-6 py-3 border-t border-surface-200 dark:border-surface-800 flex justify-end gap-2 shrink-0">
-            <button
+            <UiButton
               v-if="detailsData?.canRollback"
-              class="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
+              variant="outline"
+              :icon-left="RotateCcw"
+              class="border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
               @click="() => { if (detailsData) { const item = data?.items.find(i => i.id === detailsData!.id); if (item) openRollback(item) } }"
             >
-              <RotateCcw class="size-4" />
               Откатить слияние
-            </button>
-            <button
-              class="rounded-md px-4 py-2 text-sm font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200"
+            </UiButton>
+            <UiButton
+              variant="secondary"
               @click="closeDetails"
             >
               Закрыть
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -667,13 +673,16 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
               <RotateCcw class="size-5 text-amber-600" />
               <h2 class="text-base font-semibold text-surface-900 dark:text-surface-50">Откатить слияние?</h2>
             </div>
-            <button
-              class="rounded-md p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 disabled:opacity-40"
+            <UiButton
+              icon-only
+              variant="ghost"
+              size="sm"
               :disabled="isRollingBack"
+              aria-label="Закрыть"
               @click="closeRollback"
             >
               <X class="size-5" />
-            </button>
+            </UiButton>
           </div>
 
           <div class="p-6 space-y-4 text-sm">
@@ -707,25 +716,21 @@ function statusBadge(item: MergeItem): { text: string; cls: string } {
           </div>
 
           <div class="px-6 py-3 border-t border-surface-200 dark:border-surface-800 flex justify-end gap-2">
-            <button
-              class="rounded-md px-4 py-2 text-sm font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200 disabled:opacity-40"
+            <UiButton
+              variant="secondary"
               :disabled="isRollingBack"
               @click="closeRollback"
             >
               Отмена
-            </button>
-            <button
-              class="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              :disabled="isRollingBack"
+            </UiButton>
+            <UiButton
+              :loading="isRollingBack"
+              :icon-left="RotateCcw"
+              class="bg-amber-600 border-amber-600 hover:bg-amber-700 text-white"
               @click="confirmRollback"
             >
-              <RotateCcw v-if="!isRollingBack" class="size-4" />
-              <svg v-else class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
               {{ isRollingBack ? 'Откатываем…' : 'Откатить' }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>

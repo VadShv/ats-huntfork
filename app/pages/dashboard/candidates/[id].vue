@@ -681,16 +681,17 @@ async function openHhContacts() {
             </div>
 
             <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-              <button
+              <UiButton
                 v-if="canOpenHhContacts"
-                :disabled="isOpeningHhContacts"
-                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-950 px-3 py-1.5 text-sm font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900 transition-colors disabled:opacity-50"
+                variant="outline"
+                size="sm"
+                :loading="isOpeningHhContacts"
+                :icon-left="PhoneCall"
                 title="Раскрыть ФИО, email и телефон с hh.ru — списывает 1 платный просмотр"
                 @click="openHhContacts"
               >
-                <PhoneCall class="size-3.5" />
                 {{ isOpeningHhContacts ? 'Открываем…' : 'Открыть контакты hh.ru' }}
-              </button>
+              </UiButton>
               <!-- Меню «Другое»: Слить / Фрод / Ручная проверка -->
               <div ref="moreMenuRoot" class="relative">
                 <button
@@ -763,20 +764,23 @@ async function openHhContacts() {
                   </button>
                 </div>
               </div>
-              <button
-                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+              <UiButton
+                variant="secondary"
+                size="sm"
+                :icon-left="Pencil"
                 @click="startEdit"
               >
-                <Pencil class="size-3.5" />
                 {{ t('candidate.detail.edit') }}
-              </button>
-              <button
-                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-danger-300 dark:border-danger-700 px-3 py-1.5 text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors"
+              </UiButton>
+              <UiButton
+                variant="secondary"
+                size="sm"
+                :icon-left="Trash2"
+                class="border-danger-300 dark:border-danger-700 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950"
                 @click="showDeleteConfirm = true"
               >
-                <Trash2 class="size-3.5" />
                 {{ t('candidate.detail.delete') }}
-              </button>
+              </UiButton>
             </div>
           </div>
         </header>
@@ -927,13 +931,14 @@ async function openHhContacts() {
         <div v-if="activeTab === 'applications'">
           <!-- Apply to Job button -->
           <div class="flex justify-end mb-3">
-            <button
-              class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :icon-left="Plus"
               @click="showApplyModal = true"
             >
-              <Plus class="size-3.5" />
               {{ t('candidate.applications.applyToJob') }}
-            </button>
+            </UiButton>
           </div>
 
           <div
@@ -982,14 +987,15 @@ async function openHhContacts() {
 
               <!-- 3. Кнопка «Запланировать» -->
               <div class="mt-2">
-                <button
-                  class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-400 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all cursor-pointer"
+                <UiButton
+                  variant="secondary"
+                  size="xs"
+                  :icon-left="Calendar"
                   :title="t('candidate.applications.scheduleInterview')"
                   @click="openScheduleInterview(app)"
                 >
-                  <Calendar class="size-3" />
                   {{ t('candidate.applications.schedule') }}
-                </button>
+                </UiButton>
               </div>
 
               <!-- 4. Источник + дата -->
@@ -1048,9 +1054,9 @@ async function openHhContacts() {
                   <AlertTriangle class="size-5 text-amber-500" />
                   <h3 class="text-lg font-semibold text-slate-900">Найдены возможные дубли</h3>
                 </div>
-                <button class="text-slate-400 hover:text-slate-800" @click="showDuplicatesModal = false">
+                <UiButton icon-only variant="ghost" aria-label="Закрыть" @click="showDuplicatesModal = false">
                   <X class="size-5" />
-                </button>
+                </UiButton>
               </div>
               <div class="p-5 overflow-y-auto">
                 <p class="text-sm text-slate-600 mb-4">
@@ -1091,18 +1097,17 @@ async function openHhContacts() {
                 </ul>
               </div>
               <div class="flex items-center justify-end gap-2 p-5 border-t border-slate-200 bg-slate-50">
-                <button
-                  class="px-4 py-2 rounded text-sm text-slate-700 hover:bg-slate-200"
+                <UiButton
+                  variant="ghost"
                   @click="showDuplicatesModal = false"
                 >
                   Скрыть
-                </button>
-                <button
-                  class="px-4 py-2 rounded text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
+                </UiButton>
+                <UiButton
                   @click="openMergeFromDuplicates"
                 >
                   Открыть слияние
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -1133,22 +1138,26 @@ async function openHhContacts() {
           <template v-if="showPreview">
             <!-- Preview toolbar -->
             <div class="flex items-center justify-between mb-3">
-              <button
-                class="inline-flex items-center gap-1.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+              <UiButton
+                variant="ghost"
+                size="sm"
+                :icon-left="ArrowLeft"
                 @click="closePreview"
               >
-                <ArrowLeft class="size-3.5" />
                 {{ t('candidate.documents.backToDocuments') }}
-              </button>
+              </UiButton>
               <div class="flex items-center gap-1">
-                <button
+                <UiButton
                   v-if="previewDocId"
-                  class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                  icon-only
+                  variant="ghost"
+                  size="sm"
+                  class="hover:text-brand-600"
                   :title="t('candidate.documents.download')"
                   @click="handleDownload(previewDocId!)"
                 >
                   <Download class="size-4" />
-                </button>
+                </UiButton>
               </div>
             </div>
 
@@ -1167,12 +1176,14 @@ async function openHhContacts() {
             >
               <AlertTriangle class="size-8 text-danger-400 mx-auto mb-2" />
               <p class="text-sm text-danger-700 dark:text-danger-400">{{ previewError }}</p>
-              <button
-                class="mt-3 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium"
+              <UiButton
+                variant="link"
+                size="sm"
+                class="mt-3"
                 @click="closePreview"
               >
                 {{ t('candidate.documents.goBack') }}
-              </button>
+              </UiButton>
             </div>
 
             <!-- PDF iframe — same-origin, server streams the bytes -->
@@ -1199,14 +1210,15 @@ async function openHhContacts() {
                   <option value="other">{{ t('candidate.documents.other') }}</option>
                 </select>
               </div>
-              <button
-                :disabled="isUploading"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              <UiButton
+                variant="secondary"
+                size="sm"
+                :loading="isUploading"
+                :icon-left="Upload"
                 @click="triggerFileSelect"
               >
-                <Upload class="size-3.5" />
                 {{ isUploading ? t('candidate.documents.uploading') : t('candidate.documents.uploadButton') }}
-              </button>
+              </UiButton>
             </div>
 
             <!-- Upload error -->
@@ -1215,7 +1227,7 @@ async function openHhContacts() {
               class="rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 p-3 text-sm text-danger-700 dark:text-danger-400 mb-3"
             >
               {{ uploadError }}
-              <button class="underline ml-1" @click="uploadError = null">{{ t('candidate.documents.dismiss') }}</button>
+              <UiButton variant="link" size="xs" class="ml-1" @click="uploadError = null">{{ t('candidate.documents.dismiss') }}</UiButton>
             </div>
 
             <!-- Empty state -->
@@ -1254,28 +1266,37 @@ async function openHhContacts() {
                   </div>
                 </div>
                 <div class="flex items-center gap-1 shrink-0" @click.stop>
-                  <button
+                  <UiButton
                     v-if="doc.mimeType === 'application/pdf'"
-                    class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                    icon-only
+                    variant="ghost"
+                    size="sm"
+                    class="hover:text-brand-600"
                     :title="t('candidate.documents.preview')"
                     @click="handlePreview(doc.id, doc.mimeType)"
                   >
                     <Eye class="size-4" />
-                  </button>
-                  <button
-                    class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                  </UiButton>
+                  <UiButton
+                    icon-only
+                    variant="ghost"
+                    size="sm"
+                    class="hover:text-brand-600"
                     :title="t('candidate.documents.download')"
                     @click="handleDownload(doc.id)"
                   >
                     <Download class="size-4" />
-                  </button>
-                  <button
-                    class="rounded-lg p-1.5 text-surface-400 hover:text-danger-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                  </UiButton>
+                  <UiButton
+                    icon-only
+                    variant="ghost"
+                    size="sm"
+                    class="hover:text-danger-600"
                     :title="t('candidate.documents.delete')"
                     @click="showDocDeleteConfirm = doc.id"
                   >
                     <Trash2 class="size-4" />
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </div>
@@ -1291,20 +1312,22 @@ async function openHhContacts() {
                   {{ t('candidate.documents.deleteConfirmBody') }}
                 </p>
                 <div class="flex justify-end gap-2">
-                  <button
+                  <UiButton
+                    variant="secondary"
+                    size="sm"
                     :disabled="isDeletingDoc"
-                    class="rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                     @click="showDocDeleteConfirm = null"
                   >
                     {{ t('dashboard.common.cancel') }}
-                  </button>
-                  <button
-                    :disabled="isDeletingDoc"
-                    class="rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
+                  </UiButton>
+                  <UiButton
+                    variant="danger"
+                    size="sm"
+                    :loading="isDeletingDoc"
                     @click="handleDeleteDoc(showDocDeleteConfirm!)"
                   >
                     {{ isDeletingDoc ? t('candidate.documents.deleting') : t('candidate.documents.delete') }}
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </div>
@@ -1439,20 +1462,19 @@ async function openHhContacts() {
 
           <!-- Actions -->
           <div class="flex items-center gap-3 pt-2">
-            <button
+            <UiButton
               type="submit"
-              :disabled="isSaving"
-              class="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              :loading="isSaving"
             >
               {{ isSaving ? t('candidate.detail.saving') : t('candidate.detail.saveChanges') }}
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               type="button"
-              class="rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+              variant="secondary"
               @click="cancelEdit"
             >
               {{ t('candidate.detail.cancel') }}
-            </button>
+            </UiButton>
           </div>
         </form>
       </div>
@@ -1467,20 +1489,22 @@ async function openHhContacts() {
               {{ t('candidate.detail.deleteBody') }} <strong>{{ formatCandidateName(candidate) }}</strong>
             </p>
             <div class="flex justify-end gap-2">
-              <button
+              <UiButton
+                variant="secondary"
+                size="sm"
                 :disabled="isDeleting"
-                class="rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 @click="showDeleteConfirm = false"
               >
                 {{ t('candidate.detail.cancel') }}
-              </button>
-              <button
-                :disabled="isDeleting"
-                class="rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
+              </UiButton>
+              <UiButton
+                variant="danger"
+                size="sm"
+                :loading="isDeleting"
                 @click="handleDelete"
               >
                 {{ isDeleting ? t('candidate.detail.deleting') : t('candidate.detail.delete') }}
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -1522,20 +1546,22 @@ async function openHhContacts() {
               </div>
             </div>
             <div class="flex justify-end gap-2 mt-5">
-              <button
+              <UiButton
+                variant="secondary"
+                size="sm"
                 :disabled="isUpdatingFraud"
-                class="rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
                 @click="showFraudDialog = false"
               >
                 Отмена
-              </button>
-              <button
-                :disabled="isUpdatingFraud"
-                class="rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
+              </UiButton>
+              <UiButton
+                variant="danger"
+                size="sm"
+                :loading="isUpdatingFraud"
                 @click="submitFraudFlag"
               >
                 {{ isUpdatingFraud ? 'Сохранение…' : 'Пометить фрод' }}
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -1546,7 +1572,7 @@ async function openHhContacts() {
           <div class="w-full max-w-md rounded-xl bg-white dark:bg-surface-900 p-5 shadow-xl">
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-100">{{ t('candidate.detail.referralModal') }}</h3>
-              <button type="button" class="rounded-lg p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200" @click="referralOpen = false"><X class="size-4" /></button>
+              <UiButton icon-only variant="ghost" size="sm" aria-label="Закрыть" @click="referralOpen = false"><X class="size-4" /></UiButton>
             </div>
             <ReferralButton :candidate-id="candidateId" />
           </div>

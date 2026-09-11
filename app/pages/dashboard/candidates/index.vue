@@ -434,23 +434,26 @@ const selectedCandidateId = ref<string | null>(null)
           class="inline-flex items-center justify-center size-4 rounded-full bg-surface-700 dark:bg-surface-300 text-white dark:text-surface-900 text-xs font-semibold"
         >{{ activeFilterCount }}</span>
       </button>
-      <button
+      <UiButton
         v-if="activeFilterCount > 0"
-        class="inline-flex items-center gap-1 text-xs text-surface-400 hover:text-danger-600 transition-colors"
+        variant="ghost"
+        size="xs"
+        :icon-left="X"
+        class="text-surface-400 hover:text-danger-600"
         @click="clearFilters"
       >
-        <X class="size-3" />
         Очистить
-      </button>
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-2.5 py-2 text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200 transition-colors"
+      </UiButton>
+      <UiButton
+        variant="secondary"
+        icon-only
+        class="px-2.5 py-2 text-surface-500 dark:text-surface-400"
         :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Развернуть таблицу'"
         @click="isFullscreen = !isFullscreen"
       >
         <Maximize2 v-if="!isFullscreen" class="size-4" />
         <Minimize2 v-else class="size-4" />
-      </button>
+      </UiButton>
     </div>
 
     <!-- Filter drawer -->
@@ -579,7 +582,7 @@ const selectedCandidateId = ref<string | null>(null)
       class="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700"
     >
       {{ $t('dashboard.candidates.failedToLoad') }}
-      <button class="underline ml-1" @click="refresh()">{{ $t('dashboard.candidates.retry') }}</button>
+      <UiButton variant="link" size="xs" class="ml-1" @click="refresh()">{{ $t('dashboard.candidates.retry') }}</UiButton>
     </div>
 
     <!-- Empty state -->
@@ -616,14 +619,14 @@ const selectedCandidateId = ref<string | null>(null)
             <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">
               Candidates — {{ sortedCandidates.length }} result{{ sortedCandidates.length === 1 ? '' : 's' }}
             </span>
-            <button
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-800 px-2.5 py-1.5 text-sm text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200 transition-colors"
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :icon-left="Minimize2"
               @click="isFullscreen = false"
             >
-              <Minimize2 class="size-4" />
               Выйти из полноэкранного режима
-            </button>
+            </UiButton>
           </div>
           <div :class="isFullscreen ? 'flex-1 overflow-auto p-4' : ''">
             <div class="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-800">
@@ -761,17 +764,16 @@ const selectedCandidateId = ref<string | null>(null)
                     @keydown.escape="cancelEditNotes"
                   />
                   <div class="flex flex-col gap-1 shrink-0">
-                    <button
-                      type="button"
-                      :disabled="isSavingNotes"
-                      class="rounded bg-brand-600 px-2 py-0.5 text-xs text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+                    <UiButton
+                      size="xs"
+                      :loading="isSavingNotes"
                       @click="saveNotes(c.id)"
-                    >Сохранить</button>
-                    <button
-                      type="button"
-                      class="rounded border border-surface-300 dark:border-surface-700 px-2 py-0.5 text-xs text-surface-500 hover:text-surface-700 transition-colors"
+                    >Сохранить</UiButton>
+                    <UiButton
+                      variant="secondary"
+                      size="xs"
                       @click="cancelEditNotes"
-                    >Отмена</button>
+                    >Отмена</UiButton>
                   </div>
                 </div>
                 <button

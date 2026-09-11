@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Users, AlertTriangle, ChevronRight, X, Check, ShieldAlert, Briefcase, Sparkles, Loader2 } from 'lucide-vue-next'
+import { Users, AlertTriangle, ChevronRight, X, Check, ShieldAlert, Briefcase, Sparkles } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard',
@@ -331,16 +331,16 @@ function signalsList(signals: Record<string, number>): string {
       </div>
       <div v-if="status === 'pending'" class="flex items-center gap-2">
         <!-- Sprint 5.2: AI-арбитраж всех непроверенных -->
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border border-purple-300 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-purple-700 dark:text-purple-300 disabled:opacity-50"
-          :disabled="isBatchArbitrating"
+        <UiButton
+          variant="outline"
+          size="sm"
+          :loading="isBatchArbitrating"
+          :icon-left="Sparkles"
+          class="border-purple-300 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-purple-700 dark:text-purple-300"
           @click="arbitrateBatch"
         >
-          <Loader2 v-if="isBatchArbitrating" class="size-3.5 animate-spin" />
-          <Sparkles v-else class="size-3.5" />
           {{ isBatchArbitrating ? 'Проверяем…' : 'AI-арбитр для всех' }}
-        </button>
+        </UiButton>
         <!-- Sprint 5.1: переключатель режима батч-слияния -->
         <button
           type="button"
@@ -509,20 +509,21 @@ function signalsList(signals: Record<string, number>): string {
 
           <!-- Actions -->
           <div v-if="pair.status === 'pending'" class="flex items-center gap-2 shrink-0">
-            <button
-              class="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200"
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :icon-left="X"
               @click="dismissPair(pair)"
             >
-              <X class="size-3.5" />
               Не дубль
-            </button>
-            <button
-              class="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white"
+            </UiButton>
+            <UiButton
+              size="sm"
+              :icon-left="Check"
               @click="openMerge(pair)"
             >
-              <Check class="size-3.5" />
               Слить
-            </button>
+            </UiButton>
           </div>
           <div v-else class="text-xs text-surface-400 dark:text-surface-500 shrink-0">
             {{ pair.status === 'merged' ? 'Слито' : 'Отклонено' }}
@@ -543,17 +544,17 @@ function signalsList(signals: Record<string, number>): string {
               {{ verdictBadge(pair.aiVerdict)!.text }}
               <span v-if="pair.aiConfidence !== null" class="opacity-70">· {{ pair.aiConfidence }}%</span>
             </span>
-            <button
-              type="button"
-              class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 disabled:opacity-50"
-              :disabled="arbitratingPairId === pair.id"
+            <UiButton
+              variant="ghost"
+              size="xs"
+              :loading="arbitratingPairId === pair.id"
+              :icon-left="Sparkles"
+              class="text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40"
               :title="pair.aiVerdict ? 'Переспросить AI' : 'Спросить AI'"
               @click="arbitratePair(pair)"
             >
-              <Loader2 v-if="arbitratingPairId === pair.id" class="size-3 animate-spin" />
-              <Sparkles v-else class="size-3" />
               {{ pair.aiVerdict ? 'Переспросить AI' : 'Спросить AI' }}
-            </button>
+            </UiButton>
           </template>
         </div>
         <!-- Sprint 5.2: reasoning AI под парой -->
@@ -575,14 +576,14 @@ function signalsList(signals: Record<string, number>): string {
         Выбрано пар: <span class="font-semibold">{{ selectedPairIds.size }}</span>
         · уникальных кандидатов: <span class="font-semibold">{{ selectedCandidates.length }}</span>
       </div>
-      <button
-        type="button"
-        class="rounded-md bg-white text-brand-700 hover:bg-surface-50 px-4 py-1.5 text-sm font-medium disabled:opacity-50"
+      <UiButton
+        size="sm"
         :disabled="selectedCandidates.length < 3"
+        class="bg-white text-brand-700 border-white hover:bg-surface-50"
         @click="openBatchModal"
       >
         Слить в одного
-      </button>
+      </UiButton>
     </div>
 
     <!-- Sprint 5.1: Batch-merge modal -->
@@ -664,20 +665,20 @@ function signalsList(signals: Record<string, number>): string {
           </div>
 
           <div class="px-6 py-3 border-t border-surface-200 dark:border-surface-800 flex justify-end gap-2">
-            <button
-              class="rounded-md px-4 py-2 text-sm font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200"
+            <UiButton
+              variant="secondary"
               :disabled="isBatchMerging"
               @click="closeBatchModal"
             >
               Отмена
-            </button>
-            <button
-              class="rounded-md px-4 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50"
-              :disabled="isBatchMerging || !batchPrimaryId"
+            </UiButton>
+            <UiButton
+              :loading="isBatchMerging"
+              :disabled="!batchPrimaryId"
               @click="submitBatchMerge"
             >
               {{ isBatchMerging ? 'Сливаем…' : `Подтвердить слияние ${selectedCandidates.length}→1` }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -798,20 +799,20 @@ function signalsList(signals: Record<string, number>): string {
           </div>
 
           <div class="px-6 py-3 border-t border-surface-200 dark:border-surface-800 flex justify-end gap-2">
-            <button
-              class="rounded-md px-4 py-2 text-sm font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200"
+            <UiButton
+              variant="secondary"
               :disabled="isMerging"
               @click="closeMerge"
             >
               Отмена
-            </button>
-            <button
-              class="rounded-md px-4 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50"
-              :disabled="isMerging || !selectedPrimaryId"
+            </UiButton>
+            <UiButton
+              :loading="isMerging"
+              :disabled="!selectedPrimaryId"
               @click="submitMerge"
             >
               {{ isMerging ? 'Сливаем…' : 'Подтвердить слияние' }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>

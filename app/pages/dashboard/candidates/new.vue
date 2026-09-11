@@ -579,14 +579,17 @@ function candidateLink(id: string) {
             <span v-if="isParsing" class="text-xs text-brand-600 dark:text-brand-400 shrink-0">
               {{ t('candidate.new.parsing') }}
             </span>
-            <button
+            <UiButton
               v-if="!isParsing"
-              class="rounded p-0.5 text-surface-400 hover:text-danger-600 transition-colors shrink-0"
+              icon-only
+              variant="ghost"
+              size="xs"
+              class="hover:text-danger-600 shrink-0"
               :title="t('dashboard.common.delete')"
               @click="removeResume"
             >
               <X class="size-4" />
-            </button>
+            </UiButton>
           </div>
 
           <div
@@ -840,18 +843,17 @@ function candidateLink(id: string) {
 
           <!-- Actions -->
           <div class="flex items-center gap-3 pt-2">
-            <button
+            <UiButton
               type="submit"
               :disabled="isSubmitDisabled"
-              class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              :loading="isSubmitting || isParsing"
             >
-              <Loader2 v-if="isSubmitting || isParsing" class="size-4 animate-spin" />
               {{ isSubmitting
                 ? t('candidate.new.submitting')
                 : isParsing
                   ? t('candidate.new.parsing')
                   : t('candidate.new.submit') }}
-            </button>
+            </UiButton>
             <NuxtLink
               :to="$localePath('/dashboard/candidates')"
               class="rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
@@ -992,36 +994,28 @@ function candidateLink(id: string) {
             {{ t('candidate.new.dedup.enrichHint') }}
           </div>
           <div class="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              class="rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors disabled:opacity-50"
+            <UiButton
+              variant="secondary"
               :disabled="isEnriching"
               @click="showExactDupModal = false"
             >
               {{ t('candidate.new.dedup.editData') }}
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               v-if="canEnrichExisting"
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 dark:border-brand-800 text-brand-700 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950 px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              :disabled="isEnriching"
+              variant="outline"
+              :loading="isEnriching"
               @click="enrichExistingDup"
             >
-              <svg v-if="isEnriching" class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
               {{ t('candidate.new.dedup.enrichExisting') }}
-            </button>
-            <button
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
+            </UiButton>
+            <UiButton
               :disabled="isEnriching"
+              :icon-left="ExternalLink"
               @click="openExistingDup"
             >
-              <ExternalLink class="size-4" />
               {{ t('candidate.new.dedup.openExisting') }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -1066,20 +1060,18 @@ function candidateLink(id: string) {
             </li>
           </ul>
           <div class="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              class="rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              variant="secondary"
               @click="showConfirmModal = false"
             >
               {{ t('candidate.new.dedup.confirmCancel') }}
-            </button>
-            <button
-              type="button"
-              class="rounded-lg bg-warning-600 hover:bg-warning-700 px-4 py-2 text-sm font-medium text-white transition-colors"
+            </UiButton>
+            <UiButton
+              class="bg-warning-600 border-warning-600 hover:bg-warning-700 text-white"
               @click="confirmAndCreate"
             >
               {{ t('candidate.new.dedup.confirmCreateAnyway') }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>

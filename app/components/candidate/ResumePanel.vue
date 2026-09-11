@@ -581,16 +581,18 @@ async function toggleTransition(baseId: string, compareId: string) {
           class="text-[11px] text-surface-400 dark:text-surface-500"
         >{{ t('candidate.resumeText.extractedVia', { source: extractionSourceLabel }) }}</span>
         <span v-else />
-        <button
+        <UiButton
           v-if="(parsedSections.length || parsedText) && !isLoadingText"
-          type="button"
-          class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-surface-500 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+          variant="ghost"
+          size="sm"
           @click="copyResumeText"
         >
-          <Check v-if="textCopied" class="size-3.5 text-success-600" />
-          <Copy v-else class="size-3.5" />
+          <template #icon-before>
+            <Check v-if="textCopied" class="size-3.5 text-success-600" />
+            <Copy v-else class="size-3.5" />
+          </template>
           {{ textCopied ? t('candidate.resumeText.copied') : t('candidate.resumeText.copy') }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- Loading -->
@@ -605,13 +607,13 @@ async function toggleTransition(baseId: string, compareId: string) {
       >
         <AlignLeft class="size-8 mx-auto text-surface-400" />
         <p class="mt-2 text-sm text-surface-600 dark:text-surface-300">{{ t('candidate.resumeText.error') }}</p>
-        <button
-          type="button"
-          class="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm px-3 py-2"
+        <UiButton
+          size="sm"
+          class="mt-3"
           @click="loadParsedText(true)"
         >
           {{ t('candidate.resumeText.retry') }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- Content -->
@@ -660,13 +662,14 @@ async function toggleTransition(baseId: string, compareId: string) {
         <p class="mt-2 text-sm text-surface-600 dark:text-surface-300">
           {{ t('candidate.resumePreview.noFileForVersion') }}
         </p>
-        <button
-          type="button"
-          class="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm px-3 py-2"
+        <UiButton
+          size="sm"
+          :icon-left="LayoutList"
+          class="mt-3"
           @click="setView('structure')"
         >
-          <LayoutList class="size-4" /> {{ t('candidate.resumePreview.showStructure') }}
-        </button>
+          {{ t('candidate.resumePreview.showStructure') }}
+        </UiButton>
       </div>
       <div
         v-else
@@ -676,14 +679,15 @@ async function toggleTransition(baseId: string, compareId: string) {
         <p class="mt-2 text-sm text-surface-600 dark:text-surface-300">
           Предпросмотр недоступен для этого файла.
         </p>
-        <button
+        <UiButton
           v-if="resumeDocumentId"
-          type="button"
-          class="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm px-3 py-2"
+          size="sm"
+          :icon-left="FileText"
+          class="mt-3"
           @click="downloadDocument(resumeDocumentId, resumeDocumentName ?? undefined).catch(() => {})"
         >
-          <FileText class="size-4" /> Скачать оригинал
-        </button>
+          Скачать оригинал
+        </UiButton>
       </div>
     </template>
   </div>

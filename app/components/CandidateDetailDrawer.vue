@@ -321,12 +321,15 @@ onUnmounted(() => { document.body.style.overflow = '' })
                 </button>
               </div>
             </div>
-            <button
-              class="rounded-lg p-1.5 text-surface-500 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              icon-only
+              variant="ghost"
+              size="sm"
+              aria-label="Закрыть"
               @click="emit('close')"
             >
               <X class="size-4" />
-            </button>
+            </UiButton>
           </div>
         </header>
 
@@ -500,13 +503,14 @@ onUnmounted(() => { document.body.style.overflow = '' })
             <!-- Applications tab -->
             <div v-if="activeTab === 'applications'">
               <div class="flex justify-end mb-3">
-                <button
-                  class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                <UiButton
+                  variant="secondary"
+                  size="sm"
+                  :icon-left="Plus"
                   @click="showApplyModal = true"
                 >
-                  <Plus class="size-3.5" />
                   {{ t('dashboard.candidateDrawer.applyToJob') }}
-                </button>
+                </UiButton>
               </div>
 
               <div
@@ -540,14 +544,15 @@ onUnmounted(() => { document.body.style.overflow = '' })
                       class="rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400"
                       :title="t('candidate.applications.resumeVersion')"
                     >v{{ (app as any).resumeVersion.versionNumber }}</span>
-                    <button
-                      class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-400 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all cursor-pointer"
+                    <UiButton
+                      variant="secondary"
+                      size="xs"
+                      :icon-left="Calendar"
                       :title="$t('dashboard.interviews.schedule')"
                       @click="openScheduleInterview(app)"
                     >
-                      <Calendar class="size-3" />
                       {{ $t('dashboard.interviews.schedule') }}
-                    </button>
+                    </UiButton>
                     <StatusBadge :status="app.status as any" size="xs" />
                   </div>
                 </div>
@@ -559,21 +564,25 @@ onUnmounted(() => { document.body.style.overflow = '' })
               <!-- Inline PDF preview -->
               <template v-if="showPreview">
                 <div class="flex items-center justify-between mb-3">
-                  <button
-                    class="inline-flex items-center gap-1.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                  <UiButton
+                    variant="ghost"
+                    size="sm"
                     @click="closePreview"
                   >
                     ← {{ $t('dashboard.common.back') }}
-                  </button>
+                  </UiButton>
                   <div class="flex items-center gap-1">
-                    <button
+                    <UiButton
                       v-if="previewDocId"
-                      class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                      icon-only
+                      variant="ghost"
+                      size="sm"
+                      class="hover:text-brand-600"
                       :title="t('dashboard.candidateDrawer.download')"
                       @click="handleDownload(previewDocId!)"
                     >
                       <Download class="size-4" />
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
 
@@ -596,12 +605,13 @@ onUnmounted(() => { document.body.style.overflow = '' })
               <!-- Parsed text preview -->
               <template v-else-if="showTextPreview">
                 <div class="flex items-center justify-between mb-3">
-                  <button
-                    class="inline-flex items-center gap-1.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                  <UiButton
+                    variant="ghost"
+                    size="sm"
                     @click="closeTextPreview"
                   >
                     ← {{ t('dashboard.common.back') }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div class="flex items-center gap-2 mb-3">
@@ -659,29 +669,38 @@ onUnmounted(() => { document.body.style.overflow = '' })
                       </div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0" @click.stop>
-                      <button
+                      <UiButton
                         v-if="doc.parsed"
-                        class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                        icon-only
+                        variant="ghost"
+                        size="sm"
+                        class="hover:text-brand-600"
                         title="Показать распарсенный текст"
                         @click="handleShowText(doc.id)"
                       >
                         <FileText class="size-4" />
-                      </button>
-                      <button
+                      </UiButton>
+                      <UiButton
                         v-if="doc.mimeType === 'application/pdf'"
-                        class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                        icon-only
+                        variant="ghost"
+                        size="sm"
+                        class="hover:text-brand-600"
                         :title="t('dashboard.candidateDrawer.previewPdf')"
                         @click="handlePreview(doc.id, doc.mimeType)"
                       >
                         <Eye class="size-4" />
-                      </button>
-                      <button
-                        class="rounded-lg p-1.5 text-surface-400 hover:text-brand-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                      </UiButton>
+                      <UiButton
+                        icon-only
+                        variant="ghost"
+                        size="sm"
+                        class="hover:text-brand-600"
                         :title="t('dashboard.candidateDrawer.download')"
                         @click="handleDownload(doc.id)"
                       >
                         <Download class="size-4" />
-                      </button>
+                      </UiButton>
                     </div>
                   </div>
                 </div>
@@ -716,7 +735,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
       <div class="w-full max-w-md rounded-xl bg-white dark:bg-surface-900 p-5 shadow-xl">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-100">{{ t('candidate.detail.referralModal') }}</h3>
-          <button type="button" class="rounded-lg p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200" @click="drawerReferralOpen = false"><X class="size-4" /></button>
+          <UiButton icon-only variant="ghost" size="sm" aria-label="Закрыть" @click="drawerReferralOpen = false"><X class="size-4" /></UiButton>
         </div>
         <ReferralButton :candidate-id="candidateId" />
       </div>
@@ -729,7 +748,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
       <div class="w-full max-w-md rounded-xl bg-white dark:bg-surface-900 p-5 shadow-xl">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-100">{{ t('candidate.detail.fraudAction') }}</h3>
-          <button type="button" class="rounded-lg p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200" @click="drawerFraudOpen = false"><X class="size-4" /></button>
+          <UiButton icon-only variant="ghost" size="sm" aria-label="Закрыть" @click="drawerFraudOpen = false"><X class="size-4" /></UiButton>
         </div>
         <select v-model="drawerFraudForm.reason" class="w-full mb-2 rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1.5 text-sm bg-white dark:bg-surface-900">
           <option value="blacklist">Чёрный список</option>
@@ -739,8 +758,8 @@ onUnmounted(() => { document.body.style.overflow = '' })
         </select>
         <textarea v-model="drawerFraudForm.notes" rows="2" placeholder="Заметки (необязательно)" class="w-full mb-3 rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1.5 text-sm bg-white dark:bg-surface-900" />
         <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-lg px-3 py-1.5 text-sm text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800" @click="drawerFraudOpen = false">Отмена</button>
-          <button type="button" :disabled="drawerIsUpdatingFraud" class="rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50" @click="drawerSubmitFraud()">{{ drawerIsUpdatingFraud ? 'Сохранение…' : 'Пометить фрод' }}</button>
+          <UiButton variant="ghost" size="sm" @click="drawerFraudOpen = false">Отмена</UiButton>
+          <UiButton variant="danger" size="sm" :loading="drawerIsUpdatingFraud" @click="drawerSubmitFraud()">{{ drawerIsUpdatingFraud ? 'Сохранение…' : 'Пометить фрод' }}</UiButton>
         </div>
       </div>
     </div>
@@ -753,7 +772,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
         <GitMerge class="size-8 mx-auto text-surface-400 mb-3" />
         <p class="text-sm text-surface-600 dark:text-surface-300 mb-4">Слияние кандидатов доступно на полной странице карточки.</p>
         <div class="flex justify-center gap-2">
-          <button type="button" class="rounded-lg px-3 py-1.5 text-sm text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800" @click="drawerMergeOpen = false">Отмена</button>
+          <UiButton variant="ghost" size="sm" @click="drawerMergeOpen = false">Отмена</UiButton>
           <NuxtLink :to="localePath(`/dashboard/candidates/${candidateId}`)" class="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700" @click="drawerMergeOpen = false">Открыть страницу</NuxtLink>
         </div>
       </div>
