@@ -5,7 +5,20 @@
 > **Цель:** заменить типовые сырые `<button>` на `<UiButton>` во всём `app/`,
 > чтобы единый стиль распространился на старое ядро + появилась одна точка
 > правки стиля кнопок (важно для переключателя тем).
-> **Не трогаем:** карточки откликов/резенных (эталон); нетиповые кнопки (см. §3).
+> **Не трогаем:** карточки откликов/резюме (эталон); нетиповые кнопки (см. §3).
+
+> ## 📍 ТЕКУЩИЙ СТАТУС (точка продолжения)
+> **Готово и в `main`:** Батчи 0 (пилот), 1 (Настройки), 2 (общие компоненты),
+> 3 (UiSegmented + переключатели периодов), 4 (Кандидаты), **5 часть 1**
+> (job settings/questions/application-form/sourcing).
+> Последний коммит миграции: `a378736`.
+>
+> **Продолжить с:** Батч 5 часть 2 → `jobs/[id]/index.vue`, `jobs/new.vue`,
+> `jobs/[id]/candidates.vue`, `jobs/index.vue`, `jobs/[id]/ai-analysis.vue`.
+> Затем Батч 6 (Интервью), Батч 7 (Отклики/коммуникации/чатбот), Батч 8 (Прочее).
+>
+> **Дисциплина:** помодульно, атомарный коммит на батч (или его часть),
+> проверка сборкой (`npm run build`), соблюдать §3 (что меняем / что не трогаем).
 
 ---
 
@@ -72,21 +85,28 @@
       `brand-600`** (цветовой баг переключателя). Логику `useAnalyticsFilters`
       не трогали.
 
-### Батч 4 — Кандидаты 🟡
-- [ ] `candidates/[id].vue` (31; замен ~20 — самый трудоёмкий)
-- [ ] `candidates/index.vue` (16), `CandidateDetailSidebar.vue` (16),
-      `CandidateDetailDrawer.vue` (20)
-- [ ] `candidate/HhResumeView.vue` (20), `ResumePanel.vue` (14)
-- [ ] `candidates/merges.vue` (12), `duplicates.vue` (10), `new.vue` (7)
+### Батч 4 — Кандидаты 🟡 — ✅ ВЫПОЛНЕНО (в `main`, коммит 04eb736)
+- [x] `candidates/[id].vue` (25 замен — самый трудоёмкий)
+- [x] `candidates/index.vue` (6), `CandidateDetailSidebar.vue` (16),
+      `CandidateDetailDrawer.vue` (14)
+- [x] `candidate/HhResumeView.vue` (16), `ResumePanel.vue` (4)
+- [x] `candidates/merges.vue` (12), `duplicates.vue` (9), `new.vue` (7)
+- Итого ~109 замен. Полная сборка (клиент+сервер) OK.
 
 ### Батч 5 — Вакансии 🟡 (крупнейшие очаги по числу `<button>`)
 > Много `<button>`, но реальных замен меньше — большинство это вкладки/чипы.
+
+**Часть 1 — ✅ ВЫПОЛНЕНО (в `main`, коммит a378736):**
+- [x] `jobs/[id]/settings.vue` (7)
+- [x] `jobs/[id]/questions.vue` (8)
+- [x] `jobs/[id]/application-form.vue` (11)
+- [x] `jobs/[id]/sourcing.vue` (19)
+
+**Часть 2 — ⏳ ОСТАЛОСЬ:**
 - [ ] `jobs/[id]/index.vue` (43; замен ~10 — остальное вкладки/фильтр-чипы)
 - [ ] `jobs/new.vue` (37; замен ~16)
 - [ ] `jobs/[id]/candidates.vue` (21; замен ~5)
-- [ ] `jobs/index.vue` (18), `jobs/[id]/ai-analysis.vue` (14),
-      `application-form.vue` (13), `sourcing.vue` (12), `questions.vue` (8),
-      `settings.vue` (7)
+- [ ] `jobs/index.vue` (18), `jobs/[id]/ai-analysis.vue` (14)
 
 ### Батч 6 — Интервью 🟡
 - [ ] `interviews/[id].vue` (21; замен ~10), `interviews/index.vue` (17)
