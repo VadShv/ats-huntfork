@@ -85,6 +85,7 @@ const fruitOptions = [
             <UiButton variant="ghost">Прозрачная</UiButton>
             <UiButton variant="danger">Опасная</UiButton>
             <UiButton variant="success">Успех</UiButton>
+            <UiButton variant="link">Ссылка</UiButton>
           </div>
         </div>
 
@@ -101,7 +102,9 @@ const fruitOptions = [
         <div>
           <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-2">Состояния</p>
           <div class="flex flex-wrap gap-2">
-            <UiButton :icon-left="Mail">С иконкой</UiButton>
+            <UiButton :icon-left="Mail">Иконка слева</UiButton>
+            <UiButton :icon-right="Search">Иконка справа</UiButton>
+            <UiButton variant="secondary" icon-only aria-label="Поиск"><Search class="size-4" /></UiButton>
             <UiButton loading>Загрузка</UiButton>
             <UiButton disabled>Заблокировано</UiButton>
             <UiButton block>На всю ширину</UiButton>
