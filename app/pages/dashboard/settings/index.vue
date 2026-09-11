@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Building2, Save, AlertTriangle, Trash2, Loader2 } from 'lucide-vue-next'
+import { Building2, Save, AlertTriangle, Trash2 } from 'lucide-vue-next'
 
 definePageMeta({})
 
@@ -183,15 +183,14 @@ async function handleDeleteOrg() {
 
         <!-- Save button & feedback -->
         <div class="flex items-center gap-3 pt-2">
-          <button
-            :disabled="!canUpdateOrg || isSaving"
-            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          <UiButton
+            :disabled="!canUpdateOrg"
+            :loading="isSaving"
+            :icon-left="Save"
             @click="handleSaveOrg"
           >
-            <Loader2 v-if="isSaving" class="size-4 animate-spin" />
-            <Save v-else class="size-4" />
             {{ isSaving ? 'Сохранение…' : 'Сохранить изменения' }}
-          </button>
+          </UiButton>
 
           <Transition
             enter-active-class="transition-opacity duration-300"
@@ -233,13 +232,14 @@ async function handleDeleteOrg() {
               Безвозвратно удалить организацию и все её данные. Это действие нельзя отменить.
             </p>
           </div>
-          <button
-            class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-danger-300 dark:border-danger-800 bg-white dark:bg-surface-900 px-3.5 py-2 text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors"
+          <UiButton
+            variant="secondary"
+            :icon-left="Trash2"
+            class="shrink-0 border-danger-300 dark:border-danger-800 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40"
             @click="showDeleteConfirm = true"
           >
-            <Trash2 class="size-4" />
             Удалить
-          </button>
+          </UiButton>
         </div>
 
         <!-- Delete confirmation -->
@@ -260,21 +260,21 @@ async function handleDeleteOrg() {
               :placeholder="activeOrg?.name"
             />
             <div class="flex items-center gap-2">
-              <button
-                :disabled="!canConfirmDelete || isDeleting"
-                class="inline-flex items-center gap-2 rounded-lg bg-danger-600 px-4 py-2 text-sm font-medium text-white hover:bg-danger-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              <UiButton
+                variant="danger"
+                :disabled="!canConfirmDelete"
+                :loading="isDeleting"
+                :icon-left="Trash2"
                 @click="handleDeleteOrg"
               >
-                <Loader2 v-if="isDeleting" class="size-4 animate-spin" />
-                <Trash2 v-else class="size-4" />
                 {{ isDeleting ? 'Удаление…' : 'Удалить безвозвратно' }}
-              </button>
-              <button
-                class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 transition-colors"
+              </UiButton>
+              <UiButton
+                variant="ghost"
                 @click="showDeleteConfirm = false; deleteConfirmText = ''"
               >
                 Отмена
-              </button>
+              </UiButton>
             </div>
             <div v-if="deleteError" class="text-sm text-danger-600 dark:text-danger-400">
               {{ deleteError }}

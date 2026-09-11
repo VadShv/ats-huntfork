@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
-  Plus, Loader2, AlertTriangle, GitBranch,
-  Pencil, Copy, Archive, Star, RefreshCw,
+  Plus, AlertTriangle, GitBranch,
+  Pencil, Copy, Archive, Star,
 } from 'lucide-vue-next'
 
 definePageMeta({})
@@ -205,12 +205,9 @@ async function handleSetDefault(pipeline: PipelineListItem) {
       <p class="text-sm text-danger-700 dark:text-danger-400">
         Не удалось загрузить воронки.
       </p>
-      <button
-        class="mt-2 text-sm text-brand-600 hover:text-brand-700 underline"
-        @click="refresh"
-      >
+      <UiButton variant="link" size="sm" class="mt-2" @click="refresh">
         Повторить
-      </button>
+      </UiButton>
     </div>
 
     <!-- Empty state (no pipelines at all) -->
@@ -309,44 +306,43 @@ async function handleSetDefault(pipeline: PipelineListItem) {
             </NuxtLink>
 
             <!-- Clone -->
-            <button
+            <UiButton
               v-if="canCreatePipeline"
-              type="button"
-              :disabled="cloningId === pipeline.id"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="secondary"
+              size="sm"
+              :loading="cloningId === pipeline.id"
+              :icon-left="Copy"
               :title="$t('pipelines.actions.clone')"
               @click="handleClone(pipeline)"
             >
-              <Loader2 v-if="cloningId === pipeline.id" class="size-3 animate-spin" />
-              <Copy v-else class="size-3" />
               {{ $t('pipelines.actions.clone') }}
-            </button>
+            </UiButton>
 
             <!-- Set as default — B3: только для канонической (системной) воронки -->
-            <button
+            <UiButton
               v-if="canUpdatePipeline && pipeline.isSystem && !pipeline.isDefault && !pipeline.isArchived"
-              type="button"
-              :disabled="settingDefaultId === pipeline.id"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="secondary"
+              size="sm"
+              :loading="settingDefaultId === pipeline.id"
+              :icon-left="Star"
               :title="$t('pipelines.actions.setDefault')"
               @click="handleSetDefault(pipeline)"
             >
-              <Loader2 v-if="settingDefaultId === pipeline.id" class="size-3 animate-spin" />
-              <Star v-else class="size-3" />
               {{ $t('pipelines.actions.setDefault') }}
-            </button>
+            </UiButton>
 
             <!-- Archive (non-system, non-archived only) -->
-            <button
+            <UiButton
               v-if="canDeletePipeline && !pipeline.isSystem && !pipeline.isArchived"
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors"
+              variant="secondary"
+              size="sm"
+              :icon-left="Archive"
+              class="border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40"
               :title="$t('pipelines.actions.archive')"
               @click="openArchiveModal(pipeline)"
             >
-              <Archive class="size-3" />
               {{ $t('pipelines.actions.archive') }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -393,16 +389,17 @@ async function handleSetDefault(pipeline: PipelineListItem) {
                 <Pencil class="size-3" />
                 {{ $t('pipelines.actions.edit') }}
               </NuxtLink>
-              <button
+              <UiButton
                 v-if="canDeletePipeline && !pipeline.isArchived"
-                type="button"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors"
+                variant="secondary"
+                size="sm"
+                :icon-left="Archive"
+                class="border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40"
                 :title="$t('pipelines.actions.archive')"
                 @click="openArchiveModal(pipeline)"
               >
-                <Archive class="size-3" />
                 {{ $t('pipelines.actions.archive') }}
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -448,21 +445,20 @@ async function handleSetDefault(pipeline: PipelineListItem) {
               </p>
 
               <div class="flex items-center gap-3 justify-end">
-                <button
-                  class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                <UiButton
+                  variant="ghost"
                   @click="closeArchiveModal"
                 >
                   {{ $t('common.cancel') }}
-                </button>
-                <button
-                  :disabled="isArchiving"
-                  class="inline-flex items-center gap-2 rounded-lg bg-warning-600 px-4 py-2 text-sm font-medium text-white hover:bg-warning-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                </UiButton>
+                <UiButton
+                  :loading="isArchiving"
+                  :icon-left="Archive"
+                  class="bg-warning-600 border-warning-600 hover:bg-warning-700 text-white"
                   @click="handleArchive"
                 >
-                  <Loader2 v-if="isArchiving" class="size-4 animate-spin" />
-                  <Archive v-else class="size-4" />
                   {{ isArchiving ? 'Архивирование…' : $t('pipelines.actions.archive') }}
-                </button>
+                </UiButton>
               </div>
             </div>
           </Transition>

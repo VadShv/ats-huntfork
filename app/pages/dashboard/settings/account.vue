@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  User, Lock, Save, Loader2, Eye, EyeOff, Check,
+  User, Lock, Save, Eye, EyeOff, Check,
   KeyRound, Mail, Calendar,
 } from 'lucide-vue-next'
 
@@ -202,15 +202,13 @@ function getInitials(name: string | undefined): string {
 
         <!-- Save button -->
         <div class="flex items-center gap-3 pt-2">
-          <button
-            :disabled="isSavingProfile"
-            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          <UiButton
+            :loading="isSavingProfile"
+            :icon-left="Save"
             @click="handleSaveProfile"
           >
-            <Loader2 v-if="isSavingProfile" class="size-4 animate-spin" />
-            <Save v-else class="size-4" />
             {{ isSavingProfile ? 'Сохранение…' : 'Сохранить профиль' }}
-          </button>
+          </UiButton>
 
           <Transition
             enter-active-class="transition-opacity duration-300"
@@ -343,15 +341,14 @@ function getInitials(name: string | undefined): string {
 
         <!-- Save button -->
         <div class="flex items-center gap-3 pt-2">
-          <button
-            :disabled="isChangingPassword || !passwordsMatch || !currentPassword"
-            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          <UiButton
+            :loading="isChangingPassword"
+            :disabled="!passwordsMatch || !currentPassword"
+            :icon-left="Lock"
             @click="handleChangePassword"
           >
-            <Loader2 v-if="isChangingPassword" class="size-4 animate-spin" />
-            <Lock v-else class="size-4" />
             {{ isChangingPassword ? 'Изменение…' : 'Изменить пароль' }}
-          </button>
+          </UiButton>
 
           <Transition
             enter-active-class="transition-opacity duration-300"

@@ -2,9 +2,9 @@
 import type { Component } from 'vue'
 import {
   Users, UserPlus, Shield, ShieldCheck, Crown,
-  MoreHorizontal, Trash2, ChevronDown, Loader2,
+  Trash2, ChevronDown, Loader2,
   Mail, Clock, X, Check, AlertTriangle, RefreshCw,
-  Link2, Copy, Eye, EyeOff, UserCheck, UserX, MessageSquare, Search,
+  Link2, Copy, UserCheck, UserX, MessageSquare, Search,
   ClipboardList,
 } from 'lucide-vue-next'
 
@@ -675,14 +675,13 @@ onUnmounted(() => {
 
     <!-- Invite member section -->
     <section v-if="canInvite" class="mb-6">
-      <button
+      <UiButton
         v-if="!showInviteForm"
-        class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+        :icon-left="UserPlus"
         @click="showInviteForm = true"
       >
-        <UserPlus class="size-4" />
         Пригласить участника
-      </button>
+      </UiButton>
 
       <Transition
         enter-active-class="transition-all duration-200"
@@ -696,12 +695,15 @@ onUnmounted(() => {
               <UserPlus class="size-5 text-brand-600 dark:text-brand-400" />
               <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Пригласить участника</h3>
             </div>
-            <button
-              class="p-1 rounded-md text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              icon-only
+              variant="ghost"
+              size="sm"
+              aria-label="Закрыть"
               @click="showInviteForm = false; resetInviteForm()"
             >
               <X class="size-4" />
-            </button>
+            </UiButton>
           </div>
 
           <div class="flex flex-col sm:flex-row gap-3">
@@ -728,15 +730,15 @@ onUnmounted(() => {
               <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-surface-400 pointer-events-none" />
             </div>
 
-            <button
-              :disabled="isInviting || !inviteEmail.trim()"
-              class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            <UiButton
+              :loading="isInviting"
+              :disabled="!inviteEmail.trim()"
+              :icon-left="Mail"
+              class="whitespace-nowrap"
               @click="handleInvite"
             >
-              <Loader2 v-if="isInviting" class="size-4 animate-spin" />
-              <Mail v-else class="size-4" />
               {{ isInviting ? 'Отправка…' : 'Пригласить' }}
-            </button>
+            </UiButton>
           </div>
 
           <Transition
@@ -761,9 +763,9 @@ onUnmounted(() => {
     <!-- Role update error banner -->
     <div v-if="roleUpdateError" class="mb-4 rounded-lg bg-danger-50 dark:bg-danger-950/40 border border-danger-200 dark:border-danger-900 px-4 py-3 text-sm text-danger-700 dark:text-danger-400 flex items-center justify-between">
       <span>{{ roleUpdateError }}</span>
-      <button class="text-danger-500 hover:text-danger-700 transition-colors" @click="roleUpdateError = ''">
+      <UiButton icon-only variant="ghost" size="sm" class="text-danger-500 hover:text-danger-700" aria-label="Закрыть" @click="roleUpdateError = ''">
         <X class="size-4" />
-      </button>
+      </UiButton>
     </div>
 
     <!-- Resend success banner -->
@@ -805,9 +807,9 @@ onUnmounted(() => {
       <div v-else-if="invitationsError" class="px-4 sm:px-6 py-6 text-center">
         <AlertTriangle class="size-5 text-danger-400 mx-auto mb-1.5" />
         <p class="text-sm text-danger-600 dark:text-danger-400">{{ invitationsError }}</p>
-        <button class="mt-1.5 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchInvitations">
+        <UiButton variant="link" size="sm" class="mt-1.5" @click="fetchInvitations">
           Повторить
-        </button>
+        </UiButton>
       </div>
 
       <!-- Invitations list -->
@@ -849,26 +851,27 @@ onUnmounted(() => {
 
           <!-- Actions -->
           <div v-if="canCancelInvite" class="flex items-center gap-1.5 flex-shrink-0 pl-12 sm:pl-0">
-            <button
-              :disabled="resendingInvitation === inv.id"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :loading="resendingInvitation === inv.id"
+              :icon-left="RefreshCw"
               title="Отправить приглашение повторно"
               @click="handleResendInvitation(inv)"
             >
-              <Loader2 v-if="resendingInvitation === inv.id" class="size-3 animate-spin" />
-              <RefreshCw v-else class="size-3" />
               Отправить повторно
-            </button>
-            <button
-              :disabled="cancellingInvitation === inv.id"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            </UiButton>
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :loading="cancellingInvitation === inv.id"
+              :icon-left="X"
+              class="border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40"
               title="Отменить приглашение"
               @click="handleCancelInvitation(inv.id)"
             >
-              <Loader2 v-if="cancellingInvitation === inv.id" class="size-3 animate-spin" />
-              <X v-else class="size-3" />
               Отменить
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -889,14 +892,14 @@ onUnmounted(() => {
               </p>
             </div>
           </div>
-          <button
+          <UiButton
             v-if="!showCreateLinkForm"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 transition-colors"
+            size="sm"
+            :icon-left="Link2"
             @click="showCreateLinkForm = true"
           >
-            <Link2 class="size-3.5" />
             Создать ссылку
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -910,12 +913,15 @@ onUnmounted(() => {
         <div v-if="showCreateLinkForm" class="px-4 sm:px-6 py-4 border-b border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-800/50">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-medium text-surface-900 dark:text-surface-100">Новая ссылка-приглашение</h3>
-            <button
-              class="p-1 rounded-md text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors"
+            <UiButton
+              icon-only
+              variant="ghost"
+              size="sm"
+              aria-label="Закрыть"
               @click="showCreateLinkForm = false; createLinkError = ''"
             >
               <X class="size-4" />
-            </button>
+            </UiButton>
           </div>
 
           <div class="flex flex-wrap gap-3 items-end">
@@ -960,14 +966,13 @@ onUnmounted(() => {
               />
             </div>
 
-            <button
-              :disabled="isCreatingLink"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            <UiButton
+              size="sm"
+              :loading="isCreatingLink"
               @click="handleCreateLink"
             >
-              <Loader2 v-if="isCreatingLink" class="size-3.5 animate-spin" />
               Создать
-            </button>
+            </UiButton>
           </div>
 
           <div v-if="createLinkError" class="mt-2 text-xs text-danger-600 dark:text-danger-400">
@@ -999,9 +1004,9 @@ onUnmounted(() => {
       <div v-else-if="linksError" class="px-4 sm:px-6 py-6 text-center">
         <AlertTriangle class="size-5 text-danger-400 mx-auto mb-1.5" />
         <p class="text-sm text-danger-600 dark:text-danger-400">{{ linksError }}</p>
-        <button class="mt-1.5 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchInviteLinks">
+        <UiButton variant="link" size="sm" class="mt-1.5" @click="fetchInviteLinks">
           Повторить
-        </button>
+        </UiButton>
       </div>
 
       <!-- Empty state -->
@@ -1048,26 +1053,30 @@ onUnmounted(() => {
           </div>
 
           <div class="flex items-center gap-1.5 flex-shrink-0 pl-12 sm:pl-0">
-            <button
+            <UiButton
               v-if="isLinkActive(link)"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
+              variant="secondary"
+              size="sm"
               :title="copiedLinkId === link.id ? 'Скопировано' : 'Копировать ссылку-приглашение'"
               @click="copyLinkToClipboard(link)"
             >
-              <Check v-if="copiedLinkId === link.id" class="size-3 text-success-500" />
-              <Copy v-else class="size-3" />
+              <template #icon-before>
+                <Check v-if="copiedLinkId === link.id" class="size-3 text-success-500" />
+                <Copy v-else class="size-3" />
+              </template>
               {{ copiedLinkId === link.id ? 'Скопировано' : 'Копировать' }}
-            </button>
-            <button
-              :disabled="revokingLinkId === link.id"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            </UiButton>
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :loading="revokingLinkId === link.id"
+              :icon-left="Trash2"
+              class="border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40"
               title="Отозвать ссылку-приглашение"
               @click="handleRevokeLink(link.id)"
             >
-              <Loader2 v-if="revokingLinkId === link.id" class="size-3 animate-spin" />
-              <Trash2 v-else class="size-3" />
               Отозвать
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -1097,9 +1106,9 @@ onUnmounted(() => {
       <!-- Action error -->
       <div v-if="pendingMemberActionError" class="px-4 sm:px-6 py-2 flex items-center justify-between text-sm text-danger-700 dark:text-danger-400 bg-danger-50 dark:bg-danger-950/40 border-b border-danger-200 dark:border-danger-900">
         <span>{{ pendingMemberActionError }}</span>
-        <button class="text-danger-500 hover:text-danger-700 transition-colors" @click="pendingMemberActionError = ''">
+        <UiButton icon-only variant="ghost" size="sm" class="text-danger-500 hover:text-danger-700" aria-label="Закрыть" @click="pendingMemberActionError = ''">
           <X class="size-4" />
-        </button>
+        </UiButton>
       </div>
 
       <!-- Loading state -->
@@ -1112,9 +1121,9 @@ onUnmounted(() => {
       <div v-else-if="pendingMembersError" class="px-4 sm:px-6 py-6 text-center">
         <AlertTriangle class="size-5 text-danger-400 mx-auto mb-1.5" />
         <p class="text-sm text-danger-600 dark:text-danger-400">{{ pendingMembersError }}</p>
-        <button class="mt-1.5 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchPendingMembers">
+        <UiButton variant="link" size="sm" class="mt-1.5" @click="fetchPendingMembers">
           Повторить
-        </button>
+        </UiButton>
       </div>
 
       <!-- Pending members list -->
@@ -1152,26 +1161,27 @@ onUnmounted(() => {
 
           <!-- Actions -->
           <div class="flex items-center gap-1.5 flex-shrink-0 pl-12 sm:pl-0">
-            <button
-              :disabled="approvingMemberId === pm.id"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            <UiButton
+              variant="success"
+              size="sm"
+              :loading="approvingMemberId === pm.id"
+              :icon-left="UserCheck"
               :title="$t('members.pending.approve')"
               @click="handleApproveMember(pm.id)"
             >
-              <Loader2 v-if="approvingMemberId === pm.id" class="size-3 animate-spin" />
-              <UserCheck v-else class="size-3" />
               {{ $t('members.pending.approve') }}
-            </button>
-            <button
-              :disabled="rejectingMemberId === pm.id"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            </UiButton>
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :loading="rejectingMemberId === pm.id"
+              :icon-left="UserX"
+              class="border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40"
               :title="$t('members.pending.reject')"
               @click="handleRejectMember(pm.id)"
             >
-              <Loader2 v-if="rejectingMemberId === pm.id" class="size-3 animate-spin" />
-              <UserX v-else class="size-3" />
               {{ $t('members.pending.reject') }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -1196,9 +1206,9 @@ onUnmounted(() => {
       <!-- Join request action error -->
       <div v-if="joinRequestActionError" class="px-4 sm:px-6 py-2 flex items-center justify-between text-sm text-danger-700 dark:text-danger-400 bg-danger-50 dark:bg-danger-950/40 border-b border-danger-200 dark:border-danger-900">
         <span>{{ joinRequestActionError }}</span>
-        <button class="text-danger-500 hover:text-danger-700 transition-colors" @click="joinRequestActionError = ''">
+        <UiButton icon-only variant="ghost" size="sm" class="text-danger-500 hover:text-danger-700" aria-label="Закрыть" @click="joinRequestActionError = ''">
           <X class="size-4" />
-        </button>
+        </UiButton>
       </div>
 
       <!-- Loading state -->
@@ -1211,9 +1221,9 @@ onUnmounted(() => {
       <div v-else-if="joinRequestsError" class="px-4 sm:px-6 py-6 text-center">
         <AlertTriangle class="size-5 text-danger-400 mx-auto mb-1.5" />
         <p class="text-sm text-danger-600 dark:text-danger-400">{{ joinRequestsError }}</p>
-        <button class="mt-1.5 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchJoinRequests">
+        <UiButton variant="link" size="sm" class="mt-1.5" @click="fetchJoinRequests">
           Повторить
-        </button>
+        </UiButton>
       </div>
 
       <!-- Requests list -->
@@ -1253,26 +1263,27 @@ onUnmounted(() => {
 
           <!-- Actions -->
           <div class="flex items-center gap-1.5 flex-shrink-0 pl-12 sm:pl-0">
-            <button
-              :disabled="approvingRequestId === req.id"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            <UiButton
+              variant="success"
+              size="sm"
+              :loading="approvingRequestId === req.id"
+              :icon-left="UserCheck"
               title="Одобрить — добавить как участника"
               @click="handleApproveRequest(req.id)"
             >
-              <Loader2 v-if="approvingRequestId === req.id" class="size-3 animate-spin" />
-              <UserCheck v-else class="size-3" />
               Одобрить
-            </button>
-            <button
-              :disabled="rejectingRequestId === req.id"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-white dark:bg-surface-800 px-3 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            </UiButton>
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :loading="rejectingRequestId === req.id"
+              :icon-left="UserX"
+              class="border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40"
               title="Отклонить заявку на вступление"
               @click="handleRejectRequest(req.id)"
             >
-              <Loader2 v-if="rejectingRequestId === req.id" class="size-3 animate-spin" />
-              <UserX v-else class="size-3" />
               Отклонить
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -1317,9 +1328,9 @@ onUnmounted(() => {
       <div v-else-if="membersError" class="px-4 sm:px-6 py-8 text-center">
         <AlertTriangle class="size-6 text-danger-400 mx-auto mb-2" />
         <p class="text-sm text-danger-600 dark:text-danger-400">{{ membersError }}</p>
-        <button class="mt-2 text-sm text-brand-600 hover:text-brand-700 underline" @click="fetchMembers">
+        <UiButton variant="link" size="sm" class="mt-2" @click="fetchMembers">
           Повторить
-        </button>
+        </UiButton>
       </div>
 
       <!-- Members list -->
@@ -1340,13 +1351,13 @@ onUnmounted(() => {
 
         <!-- Show more button -->
         <div v-if="hasMoreMembers" class="px-4 sm:px-6 py-3 text-center border-t border-surface-100 dark:border-surface-800">
-          <button
-            class="text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
+          <UiButton
+            variant="link"
             @click="showMoreMembers"
           >
             Показать ещё {{ Math.min(membersPerPage, filteredMembers.length - visibleCount) }}
             (осталось {{ filteredMembers.length - visibleCount }})
-          </button>
+          </UiButton>
         </div>
       </div>
     </section>
@@ -1408,13 +1419,13 @@ onUnmounted(() => {
         />
 
         <div v-if="hasMoreHms" class="px-4 sm:px-6 py-3 text-center border-t border-surface-100 dark:border-surface-800">
-          <button
-            class="text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
+          <UiButton
+            variant="link"
             @click="showMoreHms"
           >
             Показать ещё {{ Math.min(membersPerPage, filteredHms.length - hmVisibleCount) }}
             (осталось {{ filteredHms.length - hmVisibleCount }})
-          </button>
+          </UiButton>
         </div>
       </div>
     </section>
@@ -1459,21 +1470,20 @@ onUnmounted(() => {
               </div>
 
               <div class="flex items-center gap-3 justify-end">
-                <button
-                  class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                <UiButton
+                  variant="ghost"
                   @click="memberToRemove = null; removeError = ''"
                 >
                   Отмена
-                </button>
-                <button
-                  :disabled="isRemoving"
-                  class="inline-flex items-center gap-2 rounded-lg bg-danger-600 px-4 py-2 text-sm font-medium text-white hover:bg-danger-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                </UiButton>
+                <UiButton
+                  variant="danger"
+                  :loading="isRemoving"
+                  :icon-left="Trash2"
                   @click="handleRemoveMember"
                 >
-                  <Loader2 v-if="isRemoving" class="size-4 animate-spin" />
-                  <Trash2 v-else class="size-4" />
                   {{ isRemoving ? 'Удаление…' : 'Удалить' }}
-                </button>
+                </UiButton>
               </div>
             </div>
           </Transition>

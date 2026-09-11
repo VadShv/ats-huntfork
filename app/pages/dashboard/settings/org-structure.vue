@@ -288,10 +288,9 @@ async function handleDeleteDept(d: DepartmentRow) {
   }
 }
 
+// inputCls остаётся для полей ввода (миграция полей — Этап 3).
+// Кнопочные константы (btnPrimary/btnGhost/iconBtn) удалены — заменены на UiButton.
 const inputCls = 'w-full rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-900 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors'
-const btnPrimary = 'inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium px-3 py-2 transition-colors'
-const btnGhost = 'inline-flex items-center gap-1.5 rounded-lg text-sm font-medium px-3 py-2 text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors'
-const iconBtn = 'p-2 rounded-lg text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors'
 </script>
 
 <template>
@@ -303,9 +302,9 @@ const iconBtn = 'p-2 rounded-lg text-surface-400 hover:text-surface-700 dark:hov
           Компании (юрлица) и их подразделения. Вакансия привязывается к компании и подразделению.
         </p>
       </div>
-      <button v-if="canManage" type="button" :class="btnPrimary" class="shrink-0" @click="showCreateCompany = !showCreateCompany">
-        <Plus class="size-4" /> Компания
-      </button>
+      <UiButton v-if="canManage" :icon-left="Plus" class="shrink-0" @click="showCreateCompany = !showCreateCompany">
+        Компания
+      </UiButton>
     </div>
 
     <!-- Create company form -->
@@ -326,10 +325,10 @@ const iconBtn = 'p-2 rounded-lg text-surface-400 hover:text-surface-700 dark:hov
         </div>
       </div>
       <div class="mt-4 flex items-center gap-2">
-        <button type="button" :disabled="isCreatingCompany || !companyForm.name.trim()" :class="btnPrimary" @click="handleCreateCompany">
-          <Loader2 v-if="isCreatingCompany" class="size-4 animate-spin" /><Check v-else class="size-4" /> Создать
-        </button>
-        <button type="button" :class="btnGhost" @click="showCreateCompany = false"><X class="size-4" />Отмена</button>
+        <UiButton :loading="isCreatingCompany" :disabled="!companyForm.name.trim()" :icon-left="Check" @click="handleCreateCompany">
+          Создать
+        </UiButton>
+        <UiButton variant="ghost" :icon-left="X" @click="showCreateCompany = false">Отмена</UiButton>
       </div>
     </section>
 
@@ -357,10 +356,10 @@ const iconBtn = 'p-2 rounded-lg text-surface-400 hover:text-surface-700 dark:hov
         </div>
       </div>
       <div class="mt-4 flex items-center gap-2">
-        <button type="button" :disabled="isCreatingDept || !deptForm.name.trim()" :class="btnPrimary" @click="handleCreateDept">
-          <Loader2 v-if="isCreatingDept" class="size-4 animate-spin" /><Check v-else class="size-4" /> Создать
-        </button>
-        <button type="button" :class="btnGhost" @click="showCreateDept = false"><X class="size-4" />Отмена</button>
+        <UiButton :loading="isCreatingDept" :disabled="!deptForm.name.trim()" :icon-left="Check" @click="handleCreateDept">
+          Создать
+        </UiButton>
+        <UiButton variant="ghost" :icon-left="X" @click="showCreateDept = false">Отмена</UiButton>
       </div>
     </section>
 
@@ -392,8 +391,8 @@ const iconBtn = 'p-2 rounded-lg text-surface-400 hover:text-surface-700 dark:hov
               <input v-model="companyEditForm.inn" type="text" placeholder="ИНН" maxlength="12" :class="inputCls" />
             </div>
             <div class="flex items-center gap-2">
-              <button type="button" :disabled="!companyEditForm.name.trim()" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-medium px-2.5 py-1.5 transition-colors" @click="handleSaveCompany"><Check class="size-3.5" />Сохранить</button>
-              <button type="button" class="inline-flex items-center gap-1.5 rounded-lg text-xs font-medium px-2.5 py-1.5 text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors" @click="editingCompanyId = null"><X class="size-3.5" />Отмена</button>
+              <UiButton size="sm" :disabled="!companyEditForm.name.trim()" :icon-left="Check" @click="handleSaveCompany">Сохранить</UiButton>
+              <UiButton size="sm" variant="ghost" :icon-left="X" @click="editingCompanyId = null">Отмена</UiButton>
             </div>
           </div>
           <div v-else class="flex items-center gap-3">
@@ -418,11 +417,11 @@ const iconBtn = 'p-2 rounded-lg text-surface-400 hover:text-surface-700 dark:hov
               </p>
             </div>
             <div v-if="canManage" class="flex items-center gap-0.5 shrink-0">
-              <button v-if="!c.isArchived" type="button" title="Добавить подразделение" :class="iconBtn" @click="startCreateDeptForCompany(c.id)"><Plus class="size-4" /></button>
-              <button v-if="!c.isDefault && !c.isArchived" type="button" title="По умолчанию" :disabled="busyId === c.id" :class="iconBtn" class="hover:text-brand-600 dark:hover:text-brand-400" @click="handleSetDefault(c)"><Star class="size-4" /></button>
-              <button v-if="!c.isArchived" type="button" title="Редактировать" :class="iconBtn" @click="startEditCompany(c)"><Pencil class="size-4" /></button>
-              <button v-if="!c.isDefault" type="button" :title="c.isArchived ? 'Восстановить' : 'Архивировать'" :disabled="busyId === c.id" :class="iconBtn" @click="handleToggleArchiveCompany(c)"><ArchiveRestore v-if="c.isArchived" class="size-4" /><Archive v-else class="size-4" /></button>
-              <button v-if="!c.isDefault && c.jobsCount === 0 && c.departmentsCount === 0" type="button" title="Удалить" :disabled="busyId === c.id" :class="iconBtn" class="hover:text-danger-600 dark:hover:text-danger-400" @click="handleDeleteCompany(c)"><Trash2 class="size-4" /></button>
+              <UiButton v-if="!c.isArchived" icon-only variant="ghost" size="sm" title="Добавить подразделение" @click="startCreateDeptForCompany(c.id)"><Plus class="size-4" /></UiButton>
+              <UiButton v-if="!c.isDefault && !c.isArchived" icon-only variant="ghost" size="sm" title="По умолчанию" :disabled="busyId === c.id" class="hover:text-brand-600 dark:hover:text-brand-400" @click="handleSetDefault(c)"><Star class="size-4" /></UiButton>
+              <UiButton v-if="!c.isArchived" icon-only variant="ghost" size="sm" title="Редактировать" @click="startEditCompany(c)"><Pencil class="size-4" /></UiButton>
+              <UiButton v-if="!c.isDefault" icon-only variant="ghost" size="sm" :title="c.isArchived ? 'Восстановить' : 'Архивировать'" :disabled="busyId === c.id" @click="handleToggleArchiveCompany(c)"><ArchiveRestore v-if="c.isArchived" class="size-4" /><Archive v-else class="size-4" /></UiButton>
+              <UiButton v-if="!c.isDefault && c.jobsCount === 0 && c.departmentsCount === 0" icon-only variant="ghost" size="sm" title="Удалить" :disabled="busyId === c.id" class="hover:text-danger-600 dark:hover:text-danger-400" @click="handleDeleteCompany(c)"><Trash2 class="size-4" /></UiButton>
             </div>
           </div>
         </div>
@@ -444,8 +443,8 @@ const iconBtn = 'p-2 rounded-lg text-surface-400 hover:text-surface-700 dark:hov
                   </select>
                 </div>
                 <div class="flex items-center gap-2">
-                  <button type="button" :disabled="!deptEditForm.name.trim()" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-medium px-2.5 py-1.5 transition-colors" @click="handleSaveDept"><Check class="size-3.5" />Сохранить</button>
-                  <button type="button" class="inline-flex items-center gap-1.5 rounded-lg text-xs font-medium px-2.5 py-1.5 text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors" @click="editingDeptId = null"><X class="size-3.5" />Отмена</button>
+                  <UiButton size="sm" :disabled="!deptEditForm.name.trim()" :icon-left="Check" @click="handleSaveDept">Сохранить</UiButton>
+                  <UiButton size="sm" variant="ghost" :icon-left="X" @click="editingDeptId = null">Отмена</UiButton>
                 </div>
               </div>
               <div v-else class="flex items-center gap-2">
@@ -461,10 +460,10 @@ const iconBtn = 'p-2 rounded-lg text-surface-400 hover:text-surface-700 dark:hov
                   </div>
                 </div>
                 <div v-if="canManage" class="flex items-center gap-0.5 shrink-0">
-                  <button v-if="!d.isArchived" type="button" title="Дочернее подразделение" :class="iconBtn" @click="startCreateChildDept(d)"><Plus class="size-4" /></button>
-                  <button v-if="!d.isArchived" type="button" title="Редактировать" :class="iconBtn" @click="startEditDept(d)"><Pencil class="size-4" /></button>
-                  <button type="button" :title="d.isArchived ? 'Восстановить' : 'Архивировать'" :disabled="busyId === d.id" :class="iconBtn" @click="handleToggleArchiveDept(d)"><ArchiveRestore v-if="d.isArchived" class="size-4" /><Archive v-else class="size-4" /></button>
-                  <button v-if="!d.hasChildren && d.jobsCount === 0" type="button" title="Удалить" :disabled="busyId === d.id" :class="iconBtn" class="hover:text-danger-600 dark:hover:text-danger-400" @click="handleDeleteDept(d)"><Trash2 class="size-4" /></button>
+                  <UiButton v-if="!d.isArchived" icon-only variant="ghost" size="sm" title="Дочернее подразделение" @click="startCreateChildDept(d)"><Plus class="size-4" /></UiButton>
+                  <UiButton v-if="!d.isArchived" icon-only variant="ghost" size="sm" title="Редактировать" @click="startEditDept(d)"><Pencil class="size-4" /></UiButton>
+                  <UiButton icon-only variant="ghost" size="sm" :title="d.isArchived ? 'Восстановить' : 'Архивировать'" :disabled="busyId === d.id" @click="handleToggleArchiveDept(d)"><ArchiveRestore v-if="d.isArchived" class="size-4" /><Archive v-else class="size-4" /></UiButton>
+                  <UiButton v-if="!d.hasChildren && d.jobsCount === 0" icon-only variant="ghost" size="sm" title="Удалить" :disabled="busyId === d.id" class="hover:text-danger-600 dark:hover:text-danger-400" @click="handleDeleteDept(d)"><Trash2 class="size-4" /></UiButton>
                 </div>
               </div>
             </li>
@@ -495,10 +494,10 @@ const iconBtn = 'p-2 rounded-lg text-surface-400 hover:text-surface-700 dark:hov
                 </div>
               </div>
               <div v-if="canManage" class="flex items-center gap-0.5 shrink-0">
-                <button v-if="!d.isArchived" type="button" title="Дочернее подразделение" :class="iconBtn" @click="startCreateChildDept(d)"><Plus class="size-4" /></button>
-                <button v-if="!d.isArchived" type="button" title="Редактировать" :class="iconBtn" @click="startEditDept(d)"><Pencil class="size-4" /></button>
-                <button type="button" :title="d.isArchived ? 'Восстановить' : 'Архивировать'" :disabled="busyId === d.id" :class="iconBtn" @click="handleToggleArchiveDept(d)"><ArchiveRestore v-if="d.isArchived" class="size-4" /><Archive v-else class="size-4" /></button>
-                <button v-if="!d.hasChildren && d.jobsCount === 0" type="button" title="Удалить" :disabled="busyId === d.id" :class="iconBtn" class="hover:text-danger-600 dark:hover:text-danger-400" @click="handleDeleteDept(d)"><Trash2 class="size-4" /></button>
+                <UiButton v-if="!d.isArchived" icon-only variant="ghost" size="sm" title="Дочернее подразделение" @click="startCreateChildDept(d)"><Plus class="size-4" /></UiButton>
+                <UiButton v-if="!d.isArchived" icon-only variant="ghost" size="sm" title="Редактировать" @click="startEditDept(d)"><Pencil class="size-4" /></UiButton>
+                <UiButton icon-only variant="ghost" size="sm" :title="d.isArchived ? 'Восстановить' : 'Архивировать'" :disabled="busyId === d.id" @click="handleToggleArchiveDept(d)"><ArchiveRestore v-if="d.isArchived" class="size-4" /><Archive v-else class="size-4" /></UiButton>
+                <UiButton v-if="!d.hasChildren && d.jobsCount === 0" icon-only variant="ghost" size="sm" title="Удалить" :disabled="busyId === d.id" class="hover:text-danger-600 dark:hover:text-danger-400" @click="handleDeleteDept(d)"><Trash2 class="size-4" /></UiButton>
               </div>
             </div>
           </li>

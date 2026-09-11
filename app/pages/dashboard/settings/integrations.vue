@@ -279,12 +279,16 @@ async function handleDisconnect() {
         <p class="text-sm text-emerald-700 dark:text-emerald-300 flex-1">
           {{ successMessage }}
         </p>
-        <button
-          class="text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-200"
+        <UiButton
+          icon-only
+          variant="ghost"
+          size="sm"
+          class="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300"
+          aria-label="Закрыть"
           @click="successMessage = ''"
         >
           <X class="size-4" />
-        </button>
+        </UiButton>
       </div>
     </Transition>
 
@@ -297,12 +301,16 @@ async function handleDisconnect() {
         <p class="text-sm text-danger-700 dark:text-danger-300 flex-1">
           {{ errorMessage }}
         </p>
-        <button
-          class="text-danger-400 hover:text-danger-600 dark:hover:text-danger-200"
+        <UiButton
+          icon-only
+          variant="ghost"
+          size="sm"
+          class="text-danger-500 hover:text-danger-700 dark:hover:text-danger-300"
+          aria-label="Закрыть"
           @click="errorMessage = ''"
         >
           <X class="size-4" />
-        </button>
+        </UiButton>
       </div>
     </Transition>
 
@@ -440,31 +448,34 @@ async function handleDisconnect() {
             </div>
 
             <div class="flex items-center gap-2">
-              <button
+              <UiButton
                 v-if="!showDisconnectConfirm"
-                class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors"
+                variant="ghost"
+                size="sm"
+                :icon-left="Unplug"
+                class="text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30"
                 @click="showDisconnectConfirm = true"
               >
-                <Unplug class="size-3.5" />
                 Отключить
-              </button>
+              </UiButton>
 
               <template v-else>
                 <span class="text-sm text-surface-500 dark:text-surface-400">Вы уверены?</span>
-                <button
-                  :disabled="isDisconnecting"
-                  class="inline-flex items-center gap-1.5 rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
+                <UiButton
+                  variant="danger"
+                  size="sm"
+                  :loading="isDisconnecting"
                   @click="handleDisconnect"
                 >
-                  <Loader2 v-if="isDisconnecting" class="size-3.5 animate-spin" />
                   Да, отключить
-                </button>
-                <button
-                  class="rounded-lg px-3 py-1.5 text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                </UiButton>
+                <UiButton
+                  variant="ghost"
+                  size="sm"
                   @click="showDisconnectConfirm = false"
                 >
                   Отмена
-                </button>
+                </UiButton>
               </template>
             </div>
           </div>
@@ -499,13 +510,12 @@ async function handleDisconnect() {
             </div>
           </div>
 
-          <button
-            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+          <UiButton
+            :icon-left="Calendar"
             @click="connect"
           >
-            <Calendar class="size-4" />
             Подключить Google Calendar
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -624,30 +634,33 @@ async function handleDisconnect() {
               Токены зашифрованы на диске
             </div>
             <div class="flex items-center gap-2">
-              <button
+              <UiButton
                 v-if="!hhShowDisconnectConfirm"
-                class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors"
+                variant="ghost"
+                size="sm"
+                :icon-left="Unplug"
+                class="text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30"
                 @click="hhShowDisconnectConfirm = true"
               >
-                <Unplug class="size-3.5" />
                 Отключить
-              </button>
+              </UiButton>
               <template v-else>
                 <span class="text-sm text-surface-500 dark:text-surface-400">Уверены?</span>
-                <button
-                  :disabled="hhIsDisconnecting"
-                  class="inline-flex items-center gap-1.5 rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
+                <UiButton
+                  variant="danger"
+                  size="sm"
+                  :loading="hhIsDisconnecting"
                   @click="disconnectHh"
                 >
-                  <Loader2 v-if="hhIsDisconnecting" class="size-3.5 animate-spin" />
                   Да, отключить
-                </button>
-                <button
-                  class="rounded-lg px-3 py-1.5 text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                </UiButton>
+                <UiButton
+                  variant="ghost"
+                  size="sm"
                   @click="hhShowDisconnectConfirm = false"
                 >
                   Отмена
-                </button>
+                </UiButton>
               </template>
             </div>
           </div>
@@ -672,13 +685,12 @@ async function handleDisconnect() {
               Токены зашифрованы, отключить можно в любой момент
             </div>
           </div>
-          <button
-            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+          <UiButton
+            :icon-left="Briefcase"
             @click="connectHh"
           >
-            <Briefcase class="size-4" />
             Подключить hh.ru
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -808,44 +820,44 @@ async function handleDisconnect() {
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
-            <button
-              class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+            <UiButton
               :disabled="tgBusy"
               @click="saveTgWelcome"
             >
               Сохранить приветствие
-            </button>
-            <button
-              class="inline-flex items-center gap-2 rounded-lg border border-surface-200 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
+            </UiButton>
+            <UiButton
+              variant="secondary"
               :disabled="tgBusy"
               @click="toggleTgEnabled"
             >
               {{ tgStatus.enabled ? 'Приостановить' : 'Включить' }}
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               v-if="!tgShowDisconnectConfirm"
-              class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30 disabled:opacity-50 transition-colors"
+              variant="ghost"
+              :icon-left="Unplug"
               :disabled="tgBusy"
+              class="text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30"
               @click="tgShowDisconnectConfirm = true"
             >
-              <Unplug class="size-4" />
               Отключить
-            </button>
+            </UiButton>
             <template v-else>
               <span class="text-sm text-surface-500 dark:text-surface-400">Точно отключить?</span>
-              <button
-                class="inline-flex items-center gap-2 rounded-lg bg-danger-600 px-3 py-2 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 transition-colors"
+              <UiButton
+                variant="danger"
                 :disabled="tgBusy"
                 @click="disconnectTg"
               >
                 Да, отключить
-              </button>
-              <button
-                class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800/60 transition-colors"
+              </UiButton>
+              <UiButton
+                variant="ghost"
                 @click="tgShowDisconnectConfirm = false"
               >
                 Отмена
-              </button>
+              </UiButton>
             </template>
           </div>
         </div>
@@ -864,15 +876,14 @@ async function handleDisconnect() {
               class="flex-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-800 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono"
               @keydown.enter="connectTg"
             >
-            <button
-              class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              :disabled="tgBusy || !tgToken.trim()"
+            <UiButton
+              :loading="tgBusy"
+              :disabled="!tgToken.trim()"
+              :icon-left="Bot"
               @click="connectTg"
             >
-              <Loader2 v-if="tgBusy" class="size-4 animate-spin" />
-              <Bot v-else class="size-4" />
               Подключить бота
-            </button>
+            </UiButton>
           </div>
           <div class="rounded-lg bg-surface-50 dark:bg-surface-800/50 p-4 space-y-2">
             <div class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">

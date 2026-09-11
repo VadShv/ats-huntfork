@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Globe, Save, Check, Loader2 } from 'lucide-vue-next'
+import { Globe, Save, Check } from 'lucide-vue-next'
 
 definePageMeta({})
 
@@ -234,16 +234,17 @@ const previewDateFormatted = computed(() => {
 
         <!-- Save button -->
         <div class="flex items-center gap-3">
-          <button
-            :disabled="!canUpdateOrg || isSaving"
-            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          <UiButton
+            :disabled="!canUpdateOrg"
+            :loading="isSaving"
             @click="handleSave"
           >
-            <Check v-if="saveSuccess" class="size-4" />
-            <Loader2 v-else-if="isSaving" class="size-4 animate-spin" />
-            <Save v-else class="size-4" />
+            <template #icon-before>
+              <Check v-if="saveSuccess" class="size-4" />
+              <Save v-else class="size-4" />
+            </template>
             {{ saveSuccess ? 'Сохранено' : isSaving ? 'Сохранение…' : 'Сохранить изменения' }}
-          </button>
+          </UiButton>
           <p v-if="!canUpdateOrg" class="text-xs text-surface-400">Только администраторы и владельцы могут изменять настройки организации.</p>
         </div>
       </div>

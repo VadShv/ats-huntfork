@@ -179,9 +179,9 @@ async function copyCallbackUrl(providerId: string) {
         <p class="text-sm text-emerald-700 dark:text-emerald-300 flex-1">
           {{ formSuccess }}
         </p>
-        <button class="text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-200" @click="formSuccess = ''">
+        <UiButton icon-only variant="ghost" size="sm" class="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300" aria-label="Закрыть" @click="formSuccess = ''">
           <X class="size-4" />
-        </button>
+        </UiButton>
       </div>
     </Transition>
 
@@ -194,9 +194,9 @@ async function copyCallbackUrl(providerId: string) {
         <p class="text-sm text-danger-700 dark:text-danger-300 flex-1">
           {{ formError }}
         </p>
-        <button class="text-danger-400 hover:text-danger-600 dark:hover:text-danger-200" @click="formError = ''">
+        <UiButton icon-only variant="ghost" size="sm" class="text-danger-500 hover:text-danger-700 dark:hover:text-danger-300" aria-label="Закрыть" @click="formError = ''">
           <X class="size-4" />
-        </button>
+        </UiButton>
       </div>
     </Transition>
 
@@ -245,14 +245,17 @@ async function copyCallbackUrl(providerId: string) {
                   <code class="text-xs font-mono text-surface-500 dark:text-surface-400 break-all flex-1">
                     {{ getCallbackUrl(provider.providerId) }}
                   </code>
-                  <button
-                    class="shrink-0 rounded p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                  <UiButton
+                    icon-only
+                    variant="ghost"
+                    size="sm"
+                    class="shrink-0"
                     title="Копировать URL обратного вызова"
                     @click="copyCallbackUrl(provider.providerId)"
                   >
                     <Check v-if="copiedProviderId === provider.providerId" class="size-3.5 text-emerald-500" />
                     <Copy v-else class="size-3.5" />
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </div>
@@ -261,30 +264,34 @@ async function copyCallbackUrl(providerId: string) {
             <div v-if="canManageSso" class="shrink-0">
               <template v-if="confirmDeleteId === provider.id">
                 <div class="flex items-center gap-1">
-                  <button
-                    class="rounded px-2 py-1 text-xs font-medium text-danger-600 dark:text-danger-400 bg-danger-50 dark:bg-danger-950/40 hover:bg-danger-100 dark:hover:bg-danger-950/60 transition-colors disabled:opacity-50"
-                    :disabled="deletingId === provider.id"
+                  <UiButton
+                    size="xs"
+                    :loading="deletingId === provider.id"
+                    class="text-danger-600 dark:text-danger-400 bg-danger-50 dark:bg-danger-950/40 hover:bg-danger-100 dark:hover:bg-danger-950/60 border-transparent"
                     @click="handleDelete(provider.id)"
                   >
-                    <Loader2 v-if="deletingId === provider.id" class="size-3 animate-spin" />
-                    <span v-else>Подтвердить</span>
-                  </button>
-                  <button
-                    class="rounded px-2 py-1 text-xs font-medium text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                    Подтвердить
+                  </UiButton>
+                  <UiButton
+                    size="xs"
+                    variant="ghost"
                     @click="confirmDeleteId = null"
                   >
                     Отмена
-                  </button>
+                  </UiButton>
                 </div>
               </template>
-              <button
+              <UiButton
                 v-else
-                class="rounded p-1.5 text-surface-400 hover:text-danger-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                icon-only
+                variant="ghost"
+                size="sm"
+                class="hover:text-danger-500"
                 title="Удалить провайдера SSO"
                 @click="confirmDeleteId = provider.id"
               >
                 <Trash2 class="size-4" />
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -302,25 +309,24 @@ async function copyCallbackUrl(providerId: string) {
         <p class="text-xs text-surface-500 dark:text-surface-400 mb-4 max-w-sm mx-auto">
           Подключите корпоративный провайдер идентификации, чтобы команда входила с рабочими учётными записями без отдельных паролей.
         </p>
-        <button
+        <UiButton
           v-if="canManageSso"
-          class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+          :icon-left="Plus"
           @click="showForm = true"
         >
-          <Plus class="size-4" />
           Добавить провайдера SSO
-        </button>
+        </UiButton>
       </div>
 
       <!-- Add another provider (when one already exists) -->
       <div v-if="hasProvider && !showForm && canManageSso" class="mb-6">
-        <button
-          class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 px-3.5 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+        <UiButton
+          variant="secondary"
+          :icon-left="Plus"
           @click="showForm = true"
         >
-          <Plus class="size-4" />
           Добавить ещё одного провайдера
-        </button>
+        </UiButton>
       </div>
 
       <!-- Registration form -->
@@ -403,22 +409,20 @@ async function copyCallbackUrl(providerId: string) {
 
             <!-- Actions -->
             <div class="flex items-center gap-3 pt-2">
-              <button
+              <UiButton
                 type="submit"
-                :disabled="isRegistering"
-                class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                :loading="isRegistering"
+                :icon-left="ShieldCheck"
               >
-                <Loader2 v-if="isRegistering" class="size-4 animate-spin" />
-                <ShieldCheck v-else class="size-4" />
                 {{ isRegistering ? 'Проверка и регистрация…' : 'Зарегистрировать провайдера SSO' }}
-              </button>
-              <button
+              </UiButton>
+              <UiButton
                 type="button"
-                class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                variant="ghost"
                 @click="showForm = false; resetForm()"
               >
                 Отмена
-              </button>
+              </UiButton>
             </div>
           </form>
 
