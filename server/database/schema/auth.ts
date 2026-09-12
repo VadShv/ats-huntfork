@@ -102,6 +102,12 @@ export const member = pgTable('member', {
   hmCanViewSalary: boolean('hm_can_view_salary').notNull().default(false),
   mustChangePassword: boolean('must_change_password').notNull().default(false),
   passwordUpdatedAt: timestamp('password_updated_at'),
+  // ── RBAC v2 (Sprint 1) ──────────────────────────────────────
+  // revoked_at: мгновенный отзыв доступа без удаления строки.
+  // permissions_version: bump при смене роли/scope/override → сигнал
+  // инвалидации кэша ActorContext/сессии (≤60 c, план §5.5).
+  revokedAt: timestamp('revoked_at'),
+  permissionsVersion: integer('permissions_version').notNull().default(0),
 }, (t) => ([
   index('member_user_id_idx').on(t.userId),
   index('member_organization_id_idx').on(t.organizationId),

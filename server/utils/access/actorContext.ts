@@ -20,12 +20,16 @@ import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 import { member } from '../../database/schema/auth'
 import {
-  expandRolesCapabilities,
   type AccessScope,
   type AccessSnapshot,
   type Capability,
   type ScopeType,
 } from '../../../shared/access/capabilities'
+import {
+  resolveRoleCapabilities,
+  resolveMemberOverrides,
+  applyOverrides,
+} from './permissionResolver'
 
 export interface ActorContext {
   userId: string
@@ -87,6 +91,7 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
       status: member.status,
       canViewSalary: member.hmCanViewSalary,
       mustChangePassword: member.mustChangePassword,
+      revokedAt: member.revokedAt,
     })
     .from(member)
     .where(and(eq(member.organizationId, orgId), eq(member.userId, session.user.id)))
@@ -98,19 +103,34 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
   }
 
   const roleKeys = [row.role]
+
+  // Effective permissions: DB (role → role_permission) + per-member overrides
+  // (deny wins). Falls back to the static role map pre-seed/pre-migration.
+  const [baseCaps, overrides] = await Promise.all([
+    resolveRoleCapabilities(orgId, row.role),
+    resolveMemberOverrides(row.id),
+  ])
+  const permissions = applyOverrides(baseCaps, overrides)
+
   const actor: ActorContext = {
     userId: session.user.id,
     memberId: row.id,
     orgId,
     roleKeys,
-    permissions: expandRolesCapabilities(roleKeys),
-    overrides: new Map(),
+    permissions,
+    overrides,
     scope: { type: defaultScopeTypeForRole(row.role), departmentIds: [], jobIds: [] },
     limits: null,
     status: row.status,
+    // revoked members are treated as inactive for access decisions
     isViewAs: false,
     canViewSalary: row.canViewSalary,
     mustChangePassword: row.mustChangePassword,
+  }
+
+  // Effective status: a revoked member is never active regardless of status text.
+  if (row.revokedAt) {
+    actor.status = 'revoked'
   }
 
   ;(event.context as { actor?: ActorContext | null }).actor = actor

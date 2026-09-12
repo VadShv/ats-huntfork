@@ -673,6 +673,13 @@
       "when": 1801000420000,
       "tag": "0096_prompt_sandbox",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1801000430000,
+      "tag": "0097_rbac_v2_foundation",
+      "breakpoints": true
     }
   ]
 }

@@ -164,15 +164,47 @@ export const hiringManager = ac.newRole({
   ...hiringManagerAtsStatements,
 })
 
-// ─── Role → ATS statements registry (for capability expansion) ─────
-// Used by shared/access/capabilities.ts to build the capability snapshot.
-// hiring_manager is included so the client can finally reason about it
-// (fixes the auth-client.ts gap where HM was unregistered).
-export const ROLE_ATS_STATEMENTS = {
-  owner: ownerAtsStatements,
-  admin: adminAtsStatements,
-  member: memberAtsStatements,
-  hiring_manager: hiringManagerAtsStatements,
+// ─── Better Auth default org statements per role (parity mirror) ───
+// Mirrors better-auth/plugins/organization/access defaults so capability
+// expansion matches auth.api.hasPermission exactly (member/invitation/team/ac).
+// Source: node_modules/better-auth/.../organization/access/statement.mjs.
+// ATS statements override these on overlapping resources (spread order below).
+const ownerDefaultStatements = {
+  organization: ['update', 'delete'],
+  member: ['create', 'update', 'delete'],
+  invitation: ['create', 'cancel'],
+  team: ['create', 'update', 'delete'],
+  ac: ['create', 'read', 'update', 'delete'],
+} as const
+const adminDefaultStatements = {
+  organization: ['update'],
+  member: ['create', 'update', 'delete'],
+  invitation: ['create', 'cancel'],
+  team: ['create', 'update', 'delete'],
+  ac: ['create', 'read', 'update', 'delete'],
+} as const
+const memberDefaultStatements = {
+  organization: [],
+  member: [],
+  invitation: [],
+  team: [],
+  ac: ['read'],
 } as const
 
-export type RoleKey = keyof typeof ROLE_ATS_STATEMENTS
+// ─── Role → FULL merged statements registry (for capability expansion) ───
+// Merge = { ...betterAuthDefaults, ...ATS } so ATS wins on overlap — this is the
+// EXACT same merge as ac.newRole() above, guaranteeing shadow-mode parity.
+// hiring_manager is included so the client can finally reason about it
+// (fixes the auth-client.ts gap where HM was unregistered).
+export const ROLE_STATEMENTS = {
+  owner: { ...ownerDefaultStatements, ...ownerAtsStatements },
+  admin: { ...adminDefaultStatements, ...adminAtsStatements },
+  member: { ...memberDefaultStatements, ...memberAtsStatements },
+  // hiring_manager derives from memberAc defaults (see ac.newRole above).
+  hiring_manager: { ...memberDefaultStatements, ...hiringManagerAtsStatements },
+} as const
+
+/** @deprecated use ROLE_STATEMENTS — kept for back-compat of imports. */
+export const ROLE_ATS_STATEMENTS = ROLE_STATEMENTS
+
+export type RoleKey = keyof typeof ROLE_STATEMENTS

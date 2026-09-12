@@ -192,6 +192,18 @@ export const envSchema = z
       .pipe(z.string().min(1))
       .optional()
       .default('Huntfork/1.0'),
+    /**
+     * RBAC v2 enforcement mode (master plan §12):
+     *   'old'    — enforce with the legacy Better Auth AC only.
+     *   'shadow' — enforce with legacy AC, ALSO evaluate can() and log divergence
+     *              (Sprint 1 default; safe migration, no behavior change).
+     *   'new'    — enforce with can() only (Sprint 2 switch; keeps this flag as
+     *              the post-switch rollback lever).
+     */
+    ACCESS_ENFORCEMENT: emptyToUndefined
+      .pipe(z.enum(['old', 'shadow', 'new']))
+      .optional()
+      .default('shadow'),
   })
   .superRefine((data, ctx) => {
     // BETTER_AUTH_URL can be derived at runtime from RAILWAY_PUBLIC_DOMAIN,

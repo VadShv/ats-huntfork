@@ -14,13 +14,13 @@
  *   • Pure functions → trivially unit-testable without a database (see
  *     docs/rbac-v2-master-plan.md §13.0 — matrix tests of can() as pure units).
  *
- * Source of truth for role→statements: shared/permissions.ts (ROLE_ATS_STATEMENTS).
+ * Source of truth for role→statements: shared/permissions.ts (ROLE_STATEMENTS).
  * Sprint 0.5 fills capabilities from the static role map ("temporary fill" per
  * the master plan §12); Sprints 1-2 will source them from the DB + can() engine
  * WITHOUT changing this module's public shape (AccessSnapshot / can()).
  */
 
-import { ROLE_ATS_STATEMENTS, type RoleKey } from '../permissions'
+import { ROLE_STATEMENTS, type RoleKey } from '../permissions'
 
 /** A capability string, e.g. `candidate:read` or `candidate:read:contacts`. */
 export type Capability = string
@@ -68,7 +68,7 @@ export function emptyAccessSnapshot(): AccessSnapshot {
  * Unknown roles yield an empty set (deny-by-default).
  */
 export function expandRoleCapabilities(roleKey: string): Set<Capability> {
-  const statements = ROLE_ATS_STATEMENTS[roleKey as RoleKey]
+  const statements = ROLE_STATEMENTS[roleKey as RoleKey]
   const out = new Set<Capability>()
   if (!statements) return out
   for (const [resource, actions] of Object.entries(statements)) {
