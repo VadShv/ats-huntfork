@@ -1,6 +1,8 @@
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
 import { document } from '../../database/schema'
+import { getActorContext } from '../../utils/access/actorContext'
+import { isCandidateInScope } from '../../utils/access/scope'
 
 /**
  * DELETE /api/documents/:id
@@ -28,11 +30,18 @@ export default defineEventHandler(async (event) => {
     ),
     columns: {
       id: true,
+      candidateId: true,
       storageKey: true,
     },
   })
 
   if (!doc) {
+    throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
+  }
+
+  // Scope guard (RBAC v2): document belongs to a candidate the actor can see.
+  const actor = await getActorContext(event)
+  if (actor && !(await isCandidateInScope(actor, doc.candidateId))) {
     throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
   }
 

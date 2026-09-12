@@ -7,6 +7,9 @@ import {
   loadPropertyEntriesForEntities,
   type PropertyFilter,
 } from '../../utils/properties'
+import { getActorContext } from '../../utils/access/actorContext'
+import { applicationScopeCondition } from '../../utils/access/scope'
+import { canReadContacts } from '../../utils/access/mask'
 
 /**
  * GET /api/applications
@@ -23,11 +26,18 @@ import {
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const query = await getValidatedQuery(event, applicationQuerySchema.parse)
 
   const offset = (query.page - 1) * query.limit
   const conditions = [eq(application.organizationId, orgId)]
+
+  // Scope filter (RBAC v2): restrict to applications on jobs the actor can see.
+  if (actor) {
+    const scopeCond = await applicationScopeCondition(actor)
+    if (scopeCond) conditions.push(scopeCond)
+  }
 
   if (query.jobId) {
     conditions.push(eq(application.jobId, query.jobId))
@@ -220,16 +230,25 @@ export default defineEventHandler(async (event) => {
     for (const v of versions) versionMap.set(`${v.id}:${v.candidateId}`, v.versionNumber)
   }
 
+  // Field masking: the list exposes candidateEmail (flat). Null it out for
+  // actors without candidate:read:contacts (masking-on-output by default).
+  const showContacts = canReadContacts(actor)
+
   const enriched = data.map((a) => {
     const versionId = (a as { resumeVersionId?: string | null }).resumeVersionId ?? null
     const versionKey = versionId != null ? `${versionId}:${a.candidateId}` : null
-    return {
+    const row: Record<string, unknown> = {
       ...a,
       properties: propertyMap.get(a.id) ?? [],
       resumeVersion: versionKey != null && versionMap.has(versionKey)
         ? { id: versionId!, versionNumber: versionMap.get(versionKey)! }
         : null,
     }
+    if (!showContacts && 'candidateEmail' in row && row.candidateEmail != null) {
+      row.candidateEmail = null
+      row._masked = ['candidateEmail']
+    }
+    return row
   })
 
   return { data: enriched, total, page: query.page, limit: query.limit }

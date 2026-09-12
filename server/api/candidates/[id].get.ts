@@ -2,12 +2,22 @@ import { eq, and, or, count, inArray } from 'drizzle-orm'
 import { candidate, candidateDuplicateCandidate, candidateResumeVersion } from '../../database/schema'
 import { candidateIdParamSchema } from '../../utils/schemas/candidate'
 import { loadPropertyEntriesForEntity } from '../../utils/properties'
+import { getActorContext } from '../../utils/access/actorContext'
+import { isCandidateInScope } from '../../utils/access/scope'
+import { maskCandidate } from '../../utils/access/mask'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { candidate: ['read'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // Scope guard: out-of-scope (or cross-org) candidate → 404 (do not confirm
+  // existence). Unrestricted actors (owner/admin/org scope) pass through.
+  if (actor && !(await isCandidateInScope(actor, id))) {
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
+  }
 
   const result = await db.query.candidate.findFirst({
     where: and(eq(candidate.id, id), eq(candidate.organizationId, orgId)),
@@ -114,7 +124,10 @@ export default defineEventHandler(async (event) => {
     ? ((hhResumeRaw as { _hf?: { source?: string } })._hf?.source === 'document_parse' ? 'document' : 'hh')
     : null
 
-  return {
+  // Field masking (masking-on-output by default): null out contacts/salary the
+  // actor may not read and report them in `_masked`. hhResumeRaw is already
+  // stripped above; contacts (email/phone/telegram/…) live in `rest`.
+  const payload = {
     ...rest,
     hasResumeSnapshot: hhResumeRaw != null,
     resumeSource,
@@ -127,4 +140,6 @@ export default defineEventHandler(async (event) => {
     properties,
     fuzzyDuplicatesCount: Number(dupCount?.value ?? 0),
   }
+
+  return maskCandidate(actor, payload)
 })

@@ -10,13 +10,23 @@ import { allPermissionKeys, buildPermissionCatalog } from '../../shared/access/c
  */
 
 describe('preset ⇄ static AC parity', () => {
+  // Sprint 3: owner/admin/member additionally carry the PII field-set grants
+  // (contacts/salary) which the static AC never modeled. Parity = static ∪ PII.
+  const PII = ['candidate:read:contacts', 'candidate:read:salary']
+  const withPii: Record<string, string[]> = { owner: PII, admin: PII, member: PII, hiring_manager: [] }
   for (const key of ['owner', 'admin', 'member', 'hiring_manager']) {
-    it(`${key} preset capabilities == static expansion`, () => {
+    it(`${key} preset capabilities == static expansion (+PII where applicable)`, () => {
       const preset = new Set(ROLE_PRESET_BY_KEY[key].capabilities)
-      const staticCaps = expandRoleCapabilities(key)
-      expect(preset).toEqual(staticCaps)
+      const expected = new Set([...expandRoleCapabilities(key), ...withPii[key]])
+      expect(preset).toEqual(expected)
     })
   }
+
+  it('hiring_manager and junior_recruiter do NOT get PII grants', () => {
+    expect(new Set(ROLE_PRESET_BY_KEY.hiring_manager.capabilities).has('candidate:read:contacts')).toBe(false)
+    expect(new Set(ROLE_PRESET_BY_KEY.junior_recruiter.capabilities).has('candidate:read:contacts')).toBe(false)
+    expect(new Set(ROLE_PRESET_BY_KEY.junior_recruiter.capabilities).has('candidate:read:salary')).toBe(false)
+  })
 
   it('owner/admin include platform capabilities (member/invitation)', () => {
     const owner = new Set(ROLE_PRESET_BY_KEY.owner.capabilities)

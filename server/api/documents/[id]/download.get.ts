@@ -2,6 +2,8 @@ import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
 import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { document } from '../../../database/schema'
+import { getActorContext } from '../../../utils/access/actorContext'
+import { isCandidateInScope } from '../../../utils/access/scope'
 
 /**
  * GET /api/documents/:id/download
@@ -31,6 +33,7 @@ export default defineEventHandler(async (event) => {
       eq(document.organizationId, orgId),
     ),
     columns: {
+      candidateId: true,
       storageKey: true,
       originalFilename: true,
       mimeType: true,
@@ -38,6 +41,12 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!doc) {
+    throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
+  }
+
+  // Scope guard (RBAC v2): document belongs to a candidate the actor can see.
+  const actor = await getActorContext(event)
+  if (actor && !(await isCandidateInScope(actor, doc.candidateId))) {
     throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
   }
 

@@ -1,9 +1,13 @@
 /**
  * Visibility helper for the collaboration thread.
  *
- * Rule (см. RFC §5):
- *   - role IN ('owner', 'admin', 'recruiter')        → видит ВСЁ
- *   - role = 'hiring_manager' | 'member'             → видит ТОЛЬКО is_internal=false
+ * Rule (RBAC v2 — fixed in Sprint 3):
+ *   - role IN ('owner','admin','member','lead_recruiter') → видит ВСЁ
+ *     ('member' — это и есть рекрутер; 'recruiter' — синоним-пресет)
+ *   - role = 'hiring_manager' | 'junior_recruiter'        → только is_internal=false
+ *
+ * BUGFIX: раньше в наборе стояла НЕсуществующая org-роль 'recruiter', из-за чего
+ * рекрутер (org-роль 'member') НЕ видел внутренние комментарии (audit-rbac.md §5).
  *
  * The helper returns a SQL fragment that callers append to their WHERE clause.
  */
@@ -12,9 +16,9 @@ import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { member } from '../../database/schema/auth'
 import { applicationComment } from '../../database/schema/app'
 
-export type Role = 'owner' | 'admin' | 'recruiter' | 'hiring_manager' | 'member' | string
+export type Role = 'owner' | 'admin' | 'recruiter' | 'lead_recruiter' | 'hiring_manager' | 'member' | 'junior_recruiter' | string
 
-const INTERNAL_VISIBLE_ROLES = new Set<Role>(['owner', 'admin', 'recruiter'])
+const INTERNAL_VISIBLE_ROLES = new Set<Role>(['owner', 'admin', 'member', 'recruiter', 'lead_recruiter'])
 
 export function canSeeInternal(role: Role | null | undefined): boolean {
   if (!role) return false

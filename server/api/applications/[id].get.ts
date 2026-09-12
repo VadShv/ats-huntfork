@@ -2,6 +2,9 @@ import { eq, and } from 'drizzle-orm'
 import { application, candidateResumeVersion, pipelineStage } from '../../database/schema'
 import { applicationIdParamSchema } from '../../utils/schemas/application'
 import { loadPropertyEntriesForEntity } from '../../utils/properties'
+import { getActorContext } from '../../utils/access/actorContext'
+import { isJobInScope } from '../../utils/access/scope'
+import { maskCandidate } from '../../utils/access/mask'
 
 /**
  * GET /api/applications/:id
@@ -11,6 +14,7 @@ import { loadPropertyEntriesForEntity } from '../../utils/properties'
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
 
@@ -71,6 +75,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   }
 
+  // Scope guard: application on a job outside the actor's scope → 404.
+  if (actor && !(await isJobInScope(actor, result.jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
+  }
+
   // Load current stage details if available
   let currentStage: { id: string; name: string; color: string; type: string; isTerminal: boolean } | null = null
   if (result.currentStageId) {
@@ -106,5 +115,10 @@ export default defineEventHandler(async (event) => {
     if (version) resumeVersion = version
   }
 
-  return { ...result, currentStage, properties, resumeVersion }
+  // Field masking: null out candidate contacts/salary the actor may not read.
+  const maskedCandidate = result.candidate
+    ? maskCandidate(actor, result.candidate as Record<string, unknown>)
+    : result.candidate
+
+  return { ...result, candidate: maskedCandidate, currentStage, properties, resumeVersion }
 })

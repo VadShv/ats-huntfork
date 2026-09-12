@@ -45,10 +45,21 @@ function caps(map: Record<string, readonly string[]>): string[] {
   return out
 }
 
-// ── owner / admin / member / hiring_manager: EXACT parity with static AC ──
-const ownerCaps = Array.from(expandRoleCapabilities('owner'))
-const adminCaps = Array.from(expandRoleCapabilities('admin'))
-const memberCaps = Array.from(expandRoleCapabilities('member'))
+// ── PII field-set permissions (Sprint 3) ──
+// Granted to roles that must see candidate contacts/salary so that enabling
+// masking-by-default does NOT change behavior for existing owner/admin/member.
+// junior_recruiter intentionally omits them (PII hidden); hiring_manager salary
+// stays gated separately by member.hmCanViewSalary in the HM endpoints.
+const PII_CONTACTS = 'candidate:read:contacts'
+const PII_SALARY = 'candidate:read:salary'
+
+// ── owner / admin / member / hiring_manager: parity with static AC + PII ──
+// expandRoleCapabilities gives the exact static-AC set; we then ADD the PII
+// field-set grants (which the static AC never modeled) to preserve today's
+// behavior where these roles see contacts/salary.
+const ownerCaps = [...expandRoleCapabilities('owner'), PII_CONTACTS, PII_SALARY]
+const adminCaps = [...expandRoleCapabilities('admin'), PII_CONTACTS, PII_SALARY]
+const memberCaps = [...expandRoleCapabilities('member'), PII_CONTACTS, PII_SALARY]
 const hiringManagerCaps = Array.from(expandRoleCapabilities('hiring_manager'))
 
 // ── recruiter: same as current member (recruiter) ──
@@ -90,6 +101,8 @@ const leadRecruiterCaps = caps({
   company: ['read'],
   department: ['read'],
 })
+// lead_recruiter sees candidate PII (contacts + salary) within its scope.
+leadRecruiterCaps.push(PII_CONTACTS, PII_SALARY)
 
 export const ROLE_PRESETS: RolePreset[] = [
   {

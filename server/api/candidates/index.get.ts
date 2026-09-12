@@ -7,15 +7,26 @@ import {
   loadPropertyEntriesForEntities,
   type PropertyFilter,
 } from '../../utils/properties'
+import { getActorContext } from '../../utils/access/actorContext'
+import { candidateScopeCondition } from '../../utils/access/scope'
+import { maskCandidates } from '../../utils/access/mask'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { candidate: ['read'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const query = await getValidatedQuery(event, candidateQuerySchema.parse)
 
   const offset = (query.page - 1) * query.limit
   const conditions = [eq(candidate.organizationId, orgId)]
+
+  // Scope filter (RBAC v2): restrict to candidates on jobs the actor can see.
+  // Unrestricted (owner/admin/org scope) → undefined → no change.
+  if (actor) {
+    const scopeCond = await candidateScopeCondition(actor)
+    if (scopeCond) conditions.push(scopeCond)
+  }
 
   // ─── Sprint 1A: full-text поиск через q (websearch_to_tsquery) ───
   // Параллельно поддерживаем старый search для обратной совместимости.
@@ -267,8 +278,12 @@ export default defineEventHandler(async (event) => {
   })
   const enriched = combined.map((c) => ({ ...c, properties: propertyMap.get(c.id) ?? [] }))
 
+  // Field masking (masking-on-output by default) — null out contacts/salary
+  // the actor may not read; adds `_masked` to each row.
+  const maskedData = maskCandidates(actor, enriched)
+
   // total отражает только основной FTS — fuzzy не входит в пагинацию,
   // это «бонусные» подсказки сверх. Иначе пользователь увидит total=8, но
   // переключится на page=2 и получит пусто (fuzzy показываем только на page=1).
-  return { data: enriched, total, page: query.page, limit: query.limit }
+  return { data: maskedData, total, page: query.page, limit: query.limit }
 })
