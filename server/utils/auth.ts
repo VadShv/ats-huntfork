@@ -7,6 +7,7 @@ import { ac, owner, admin, member, hiringManager } from "~~/shared/permissions";
 import { sendOrgInvitationEmail, sendPasswordResetEmail } from "./email";
 import * as schema from "../database/schema";
 import { seedSystemPipelineForOrg } from "./pipeline-seed";
+import { ensureMemberRbac, syncMemberRoleChange } from "./access/memberRbacSync";
 
 type Auth = ReturnType<typeof betterAuth>;
 let _auth: Auth | undefined;
@@ -365,6 +366,61 @@ function getAuth(): Auth {
               catch (err) {
                 // Never block org creation — log and continue
                 console.error('[moderation] Failed to set member status to pending', err);
+              }
+
+              // ── RBAC v2: project the owner into member_role/member_scope ──
+              try {
+                await ensureMemberRbac(db as never, {
+                  memberId: data.member.id,
+                  organizationId: data.organization.id,
+                  roleKey: String((data.member as { role?: string }).role ?? 'owner'),
+                });
+              }
+              catch (err) {
+                console.error('[rbac] ensureMemberRbac (afterCreateOrganization) failed', err);
+              }
+            },
+
+            // ── RBAC v2: keep member_role/member_scope in sync for Better-Auth
+            // driven member additions (invitation accept) and role changes.
+            async afterAcceptInvitation(data: { member?: { id: string; role?: string }; organization?: { id: string } }) {
+              try {
+                if (data.member?.id && data.organization?.id) {
+                  await ensureMemberRbac(db as never, {
+                    memberId: data.member.id,
+                    organizationId: data.organization.id,
+                    roleKey: String(data.member.role ?? 'member'),
+                  });
+                }
+              }
+              catch (err) {
+                console.error('[rbac] ensureMemberRbac (afterAcceptInvitation) failed', err);
+              }
+            },
+
+            async afterAddMember(data: { member?: { id: string; role?: string }; organization?: { id: string } }) {
+              try {
+                if (data.member?.id && data.organization?.id) {
+                  await ensureMemberRbac(db as never, {
+                    memberId: data.member.id,
+                    organizationId: data.organization.id,
+                    roleKey: String(data.member.role ?? 'member'),
+                  });
+                }
+              }
+              catch (err) {
+                console.error('[rbac] ensureMemberRbac (afterAddMember) failed', err);
+              }
+            },
+
+            async afterUpdateMemberRole(data: { member?: { id: string; organizationId?: string; role?: string } }) {
+              try {
+                if (data.member?.id && data.member.organizationId && data.member.role) {
+                  await syncMemberRoleChange(data.member.id, data.member.organizationId, String(data.member.role));
+                }
+              }
+              catch (err) {
+                console.error('[rbac] syncMemberRoleChange (afterUpdateMemberRole) failed', err);
               }
             },
           },

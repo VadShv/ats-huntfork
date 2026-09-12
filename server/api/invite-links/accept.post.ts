@@ -1,6 +1,7 @@
 import { eq, and, isNull, gt, sql } from 'drizzle-orm'
 import { inviteLink, member, organization, user } from '../../database/schema'
 import { acceptInviteLinkSchema } from '../../utils/schemas/inviteLink'
+import { ensureMemberRbac } from '../../utils/access/memberRbacSync'
 
 /**
  * POST /api/invite-links/accept
@@ -138,6 +139,13 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Вы уже состоите в этой организации',
       })
     }
+
+    // ── RBAC v2: project into member_role/member_scope inside the same txn ──
+    await ensureMemberRbac(tx as never, {
+      memberId: newMember.id,
+      organizationId: link.organizationId,
+      roleKey: safeRole,
+    })
 
     return newMember
   })

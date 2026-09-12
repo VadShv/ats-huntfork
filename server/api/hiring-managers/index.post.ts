@@ -3,6 +3,7 @@ import { hashPassword } from '@better-auth/utils/password'
 import { account, member, user } from '../../database/schema'
 import { createHiringManagerSchema } from '../../utils/schemas/hiringManager'
 import { generateTemporaryPassword } from '../../utils/hiringManager'
+import { ensureMemberRbac } from '../../utils/access/memberRbacSync'
 
 /**
  * POST /api/hiring-managers
@@ -84,6 +85,13 @@ export default defineEventHandler(async (event) => {
       approvedAt: now,
       createdAt: now,
     }).returning({ id: member.id })
+
+    // ── RBAC v2: project into member_role/member_scope inside the same txn ──
+    await ensureMemberRbac(tx as never, {
+      memberId: newMember.id,
+      organizationId: orgId,
+      roleKey: 'hiring_manager',
+    })
 
     return { userId, memberId: newMember.id }
   })

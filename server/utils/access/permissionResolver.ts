@@ -1,24 +1,21 @@
 /**
  * ─────────────────────────────────────────────
- * Permission resolver — DB-sourced capabilities (RBAC v2, Sprint 1)
+ * Permission resolver — DB-sourced capabilities (RBAC v2, Sprint 1→2)
  * ─────────────────────────────────────────────
  *
- * Resolves the effective capability set for a member from the DB (role →
- * role_permission), with a static fallback to shared/permissions.ts if the
- * seed is missing (defensive; keeps the app working pre-seed).
+ * Sprint 2: resolves the effective capability set for a MEMBER from their
+ * actual role assignments (member_role → role_permission), unioned across roles
+ * (v2 assigns one, schema allows several for v3). Falls back to the role-key
+ * path (member.role → system preset) if no member_role rows exist yet, and to
+ * the static shared/permissions.ts map if the DB/seed is unavailable.
  *
- * Sprint 1 sources capabilities BY ROLE KEY (member.role → system preset role
- * with matching `key`), because member_role rows are populated only in Sprint 2.
- * The public shape returned here is stable across sprints.
- *
- * Caching: per (orgId, roleKey, permissionsVersion) in-process with short TTL.
- * On permissions_version bump (role/scope/override change) the cache key changes
- * → effective invalidation ≤ TTL (master plan §5.5). For Sprint 1 this only
- * affects the temp role-key path; Sprint 2 wires member-level resolution.
+ * Caching: keyed by (memberId, permissionsVersion) so a version bump on any
+ * role/scope/override change invalidates immediately (master plan §5.5). Short
+ * TTL bounds staleness even without a bump.
  */
 
 import { and, eq, inArray, isNull, or } from 'drizzle-orm'
-import { role, rolePermission, memberPermissionOverride } from '../../database/schema/rbac'
+import { role, rolePermission, memberRole, memberPermissionOverride } from '../../database/schema/rbac'
 import { expandRoleCapabilities } from '../../../shared/access/capabilities'
 
 interface CacheEntry {
@@ -28,20 +25,9 @@ interface CacheEntry {
 const CACHE_TTL_MS = 30_000
 const _cache = new Map<string, CacheEntry>()
 
-/**
- * Effective capabilities for a role key within an org.
- * Looks up the system preset role (organization_id IS NULL) OR an org-custom
- * role with that key, then its granted permissions.
- */
+/** Capabilities for a role key (system preset or org-custom). Static fallback. */
 export async function resolveRoleCapabilities(orgId: string, roleKey: string): Promise<Set<string>> {
-  const cacheKey = `${orgId}::${roleKey}`
-  const now = Date.now()
-  const hit = _cache.get(cacheKey)
-  if (hit && hit.expires > now) return hit.caps
-
-  let caps: Set<string>
   try {
-    // Prefer an org-specific role with this key; else the system preset.
     const roles = await db
       .select({ id: role.id, organizationId: role.organizationId })
       .from(role)
@@ -49,36 +35,67 @@ export async function resolveRoleCapabilities(orgId: string, roleKey: string): P
         eq(role.key, roleKey),
         or(isNull(role.organizationId), eq(role.organizationId, orgId)),
       ))
+    if (roles.length === 0) return expandRoleCapabilities(roleKey)
+    const chosen = roles.find((r) => r.organizationId === orgId) ?? roles[0]
+    const perms = await db
+      .select({ permission: rolePermission.permission })
+      .from(rolePermission)
+      .where(eq(rolePermission.roleId, chosen.id))
+    const caps = new Set(perms.map((p) => p.permission))
+    return caps.size > 0 ? caps : expandRoleCapabilities(roleKey)
+  }
+  catch {
+    return expandRoleCapabilities(roleKey)
+  }
+}
 
-    if (roles.length === 0) {
-      // Not seeded yet → static fallback (parity with pre-RBAC-v2 behavior).
-      caps = expandRoleCapabilities(roleKey)
+/**
+ * Effective capabilities for a member. Prefers member_role assignments; if none,
+ * falls back to the role-key path (roleKeyFallback = member.role).
+ * Cached by (memberId, permissionsVersion).
+ */
+export async function resolveMemberCapabilities(
+  memberId: string,
+  orgId: string,
+  roleKeyFallback: string,
+  permissionsVersion: number,
+): Promise<Set<string>> {
+  const cacheKey = `${memberId}::${permissionsVersion}`
+  const now = Date.now()
+  const hit = _cache.get(cacheKey)
+  if (hit && hit.expires > now) return hit.caps
+
+  let caps: Set<string>
+  try {
+    // Role ids assigned to this member.
+    const assigned = await db
+      .select({ roleId: memberRole.roleId })
+      .from(memberRole)
+      .where(eq(memberRole.memberId, memberId))
+
+    if (assigned.length === 0) {
+      // Not backfilled yet → role-key path (caller lazily heals member_role).
+      caps = await resolveRoleCapabilities(orgId, roleKeyFallback)
     }
     else {
-      // Prefer org-scoped over system preset if both exist.
-      const chosen = roles.find((r) => r.organizationId === orgId) ?? roles[0]
+      const roleIds = assigned.map((r) => r.roleId)
       const perms = await db
         .select({ permission: rolePermission.permission })
         .from(rolePermission)
-        .where(eq(rolePermission.roleId, chosen.id))
+        .where(inArray(rolePermission.roleId, roleIds))
       caps = new Set(perms.map((p) => p.permission))
-      // Defensive: if a seeded role somehow has no permissions, fall back.
-      if (caps.size === 0) caps = expandRoleCapabilities(roleKey)
+      if (caps.size === 0) caps = await resolveRoleCapabilities(orgId, roleKeyFallback)
     }
   }
   catch {
-    // DB/table may not exist yet (pre-migration) → static fallback.
-    caps = expandRoleCapabilities(roleKey)
+    caps = expandRoleCapabilities(roleKeyFallback)
   }
 
   _cache.set(cacheKey, { caps, expires: now + CACHE_TTL_MS })
   return caps
 }
 
-/**
- * Load active (non-expired) per-member overrides.
- * Returns a map permission → effect. Empty on any error / pre-migration.
- */
+/** Active (non-expired) per-member overrides. Empty on error / pre-migration. */
 export async function resolveMemberOverrides(memberId: string): Promise<Map<string, 'allow' | 'deny'>> {
   const map = new Map<string, 'allow' | 'deny'>()
   try {
@@ -92,13 +109,11 @@ export async function resolveMemberOverrides(memberId: string): Promise<Map<stri
       .where(eq(memberPermissionOverride.memberId, memberId))
     const now = Date.now()
     for (const r of rows) {
-      if (r.expiresAt && r.expiresAt.getTime() < now) continue // expired → ignore
+      if (r.expiresAt && r.expiresAt.getTime() < now) continue
       map.set(r.permission, r.effect as 'allow' | 'deny')
     }
   }
-  catch {
-    // pre-migration → no overrides
-  }
+  catch { /* pre-migration */ }
   return map
 }
 
@@ -107,7 +122,7 @@ export function applyOverrides(base: Set<string>, overrides: Map<string, 'allow'
   const out = new Set(base)
   for (const [perm, effect] of overrides) {
     if (effect === 'allow') out.add(perm)
-    else out.delete(perm) // deny wins
+    else out.delete(perm)
   }
   return out
 }
@@ -116,6 +131,3 @@ export function applyOverrides(base: Set<string>, overrides: Map<string, 'allow'
 export function _clearCapabilityCache(): void {
   _cache.clear()
 }
-
-// Suppress unused import warning for inArray (reserved for Sprint 2 member_role path).
-void inArray

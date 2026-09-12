@@ -19,6 +19,7 @@
 import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 import { member } from '../../database/schema/auth'
+import { memberScope } from '../../database/schema/rbac'
 import {
   type AccessScope,
   type AccessSnapshot,
@@ -26,10 +27,14 @@ import {
   type ScopeType,
 } from '../../../shared/access/capabilities'
 import {
-  resolveRoleCapabilities,
+  resolveMemberCapabilities,
   resolveMemberOverrides,
   applyOverrides,
 } from './permissionResolver'
+import { ensureMemberRbac } from './memberRbacSync'
+
+// Executor shape accepted by ensureMemberRbac (db or tx).
+type ExecutorLike = Parameters<typeof ensureMemberRbac>[0]
 
 export interface ActorContext {
   userId: string
@@ -92,6 +97,7 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
       canViewSalary: member.hmCanViewSalary,
       mustChangePassword: member.mustChangePassword,
       revokedAt: member.revokedAt,
+      permissionsVersion: member.permissionsVersion,
     })
     .from(member)
     .where(and(eq(member.organizationId, orgId), eq(member.userId, session.user.id)))
@@ -102,13 +108,34 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
     return null
   }
 
+  // ── Self-healing (Sprint 2): if the member has no member_role assignment yet
+  // (created by an un-instrumented path, or pre-backfill), lazily project
+  // member.role → member_role + member_scope. Best-effort, never blocks the
+  // request. Effective perms below still resolve correctly via the role-key
+  // fallback even if this no-ops (e.g. presets not seeded yet).
+  let permissionsVersion = row.permissionsVersion
+  try {
+    const healed = await ensureMemberRbac(db as unknown as ExecutorLike, {
+      memberId: row.id,
+      organizationId: orgId,
+      roleKey: row.role,
+    })
+    if (healed) {
+      // Version was not bumped here (initial projection, not a change); the
+      // per-request cache key uses the current version which is fine.
+      void permissionsVersion
+    }
+  }
+  catch { /* self-heal best-effort */ }
+
   const roleKeys = [row.role]
 
-  // Effective permissions: DB (role → role_permission) + per-member overrides
-  // (deny wins). Falls back to the static role map pre-seed/pre-migration.
-  const [baseCaps, overrides] = await Promise.all([
-    resolveRoleCapabilities(orgId, row.role),
+  // Effective permissions: member_role → role_permission (union), + per-member
+  // overrides (deny wins). Falls back to role-key path / static map.
+  const [baseCaps, overrides, scope] = await Promise.all([
+    resolveMemberCapabilities(row.id, orgId, row.role, permissionsVersion),
     resolveMemberOverrides(row.id),
+    resolveMemberScope(row.id, row.role),
   ])
   const permissions = applyOverrides(baseCaps, overrides)
 
@@ -119,7 +146,7 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
     roleKeys,
     permissions,
     overrides,
-    scope: { type: defaultScopeTypeForRole(row.role), departmentIds: [], jobIds: [] },
+    scope,
     limits: null,
     status: row.status,
     // revoked members are treated as inactive for access decisions
@@ -135,6 +162,30 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
 
   ;(event.context as { actor?: ActorContext | null }).actor = actor
   return actor
+}
+
+/** Read the member's scope from member_scope, falling back to the role default. */
+async function resolveMemberScope(memberId: string, roleKey: string): Promise<AccessScope> {
+  try {
+    const [row] = await db
+      .select({
+        scopeType: memberScope.scopeType,
+        departmentIds: memberScope.departmentIds,
+        jobIds: memberScope.jobIds,
+      })
+      .from(memberScope)
+      .where(eq(memberScope.memberId, memberId))
+      .limit(1)
+    if (row) {
+      return {
+        type: row.scopeType as ScopeType,
+        departmentIds: row.departmentIds ?? [],
+        jobIds: row.jobIds ?? [],
+      }
+    }
+  }
+  catch { /* pre-migration */ }
+  return { type: defaultScopeTypeForRole(roleKey), departmentIds: [], jobIds: [] }
 }
 
 /**

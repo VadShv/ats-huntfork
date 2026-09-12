@@ -1,6 +1,7 @@
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
 import { joinRequest, member, user } from '../../../database/schema'
+import { ensureMemberRbac } from '../../../utils/access/memberRbacSync'
 
 /**
  * POST /api/join-requests/:id/approve
@@ -122,6 +123,13 @@ export default defineEventHandler(async (event) => {
           statusMessage: 'Пользователь уже состоит в этой организации',
         })
       }
+
+      // ── RBAC v2: project into member_role/member_scope inside the same txn ──
+      await ensureMemberRbac(tx as never, {
+        memberId: newMember.id,
+        organizationId: orgId!,
+        roleKey: 'member',
+      })
 
       return newMember
     })

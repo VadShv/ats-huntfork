@@ -17,10 +17,11 @@
  * edits to system presets — though system presets are not user-editable).
  */
 
-import { and, eq, inArray, isNull } from 'drizzle-orm'
-import { permission, role, rolePermission } from '../../database/schema/rbac'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { permission, role, rolePermission, memberRole, memberScope } from '../../database/schema/rbac'
+import { member } from '../../database/schema/auth'
 import { buildPermissionCatalog, allPermissionKeys } from '../../../shared/access/catalog'
-import { ROLE_PRESETS } from '../../../shared/access/role-presets'
+import { ROLE_PRESETS, ROLE_PRESET_BY_KEY } from '../../../shared/access/role-presets'
 
 export async function seedRbac(): Promise<{ permissions: number; roles: number; grants: number }> {
   const catalog = buildPermissionCatalog()
@@ -121,4 +122,59 @@ export async function seedRbac(): Promise<{ permissions: number; roles: number; 
 
   void inArray // reserved for future bulk ops
   return { permissions: permCount, roles: roleCount, grants: grantCount }
+}
+
+/**
+ * Backfill member_role + member_scope for EXISTING members from member.role.
+ * Runs after seedRbac() (system preset roles must exist). Idempotent:
+ * only inserts assignments/scopes that are missing. Safe to run every boot.
+ *
+ * This complements the lazy self-heal in getActorContext(): it covers members
+ * who may never hit an authed request (e.g. suspended), giving a consistent DB.
+ */
+export async function backfillMemberRbac(): Promise<{ roles: number; scopes: number }> {
+  // Map system preset role key → role id.
+  const systemRoles = await db
+    .select({ id: role.id, key: role.key })
+    .from(role)
+    .where(and(isNull(role.organizationId), eq(role.isSystem, true)))
+  const roleIdByKey = new Map<string, string>()
+  for (const r of systemRoles) if (r.key) roleIdByKey.set(r.key, r.id)
+
+  // Members lacking a member_role assignment.
+  const membersNeedingRole = await db
+    .select({ id: member.id, organizationId: member.organizationId, role: member.role })
+    .from(member)
+    .leftJoin(memberRole, eq(memberRole.memberId, member.id))
+    .where(sql`${memberRole.memberId} IS NULL`)
+
+  let roleCount = 0
+  for (const m of membersNeedingRole) {
+    const roleId = roleIdByKey.get(m.role)
+    if (!roleId) continue // unknown role key → skip (lazy path / manual fix)
+    await db
+      .insert(memberRole)
+      .values({ memberId: m.id, roleId, organizationId: m.organizationId, isPrimary: true })
+      .onConflictDoNothing()
+    roleCount++
+  }
+
+  // Members lacking a member_scope row.
+  const membersNeedingScope = await db
+    .select({ id: member.id, organizationId: member.organizationId, role: member.role })
+    .from(member)
+    .leftJoin(memberScope, eq(memberScope.memberId, member.id))
+    .where(sql`${memberScope.memberId} IS NULL`)
+
+  let scopeCount = 0
+  for (const m of membersNeedingScope) {
+    const scopeType = ROLE_PRESET_BY_KEY[m.role]?.defaultScope ?? 'assigned'
+    await db
+      .insert(memberScope)
+      .values({ memberId: m.id, organizationId: m.organizationId, scopeType })
+      .onConflictDoNothing({ target: memberScope.memberId })
+    scopeCount++
+  }
+
+  return { roles: roleCount, scopes: scopeCount }
 }

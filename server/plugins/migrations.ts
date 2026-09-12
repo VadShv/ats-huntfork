@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { db } from '../utils/db'
-import { seedRbac } from '../utils/access/seedRbac'
+import { seedRbac, backfillMemberRbac } from '../utils/access/seedRbac'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -126,6 +126,18 @@ export default defineNitroPlugin(async () => {
           permissions: String(seed.permissions),
           roles: String(seed.roles),
           grants: String(seed.grants),
+        })
+
+        // Backfill member_role/member_scope for existing members (roles exist now).
+        const backfill = await backfillMemberRbac()
+        if (backfill.roles > 0 || backfill.scopes > 0) {
+          console.log(
+            `[Reqcore] RBAC member backfill (roles=${backfill.roles}, scopes=${backfill.scopes})`
+          )
+        }
+        logInfo('rbac.backfill.completed', {
+          roles: String(backfill.roles),
+          scopes: String(backfill.scopes),
         })
       }
     } catch (seedErr) {
