@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { member, user } from '../../database/schema/auth'
-import { role, memberRole, memberScope, rolePermission } from '../../database/schema/rbac'
+import { role, memberRole, memberScope, rolePermission, orgScopeAssignment } from '../../database/schema/rbac'
 import { jobMember } from '../../database/schema/hm'
 import { job } from '../../database/schema/app'
 
@@ -73,6 +73,31 @@ export default defineEventHandler(async (event) => {
     }
     else if (scopeType === 'jobs') {
       visibleJobs = (r.jobIds ?? []).length
+    }
+    else if (scopeType === 'hrbp') {
+      // §1: jobs in assigned companies OR department subtrees (org_scope_assignment).
+      const asg = await db
+        .select({ companyId: orgScopeAssignment.companyId, departmentId: orgScopeAssignment.departmentId })
+        .from(orgScopeAssignment)
+        .where(and(eq(orgScopeAssignment.organizationId, orgId), eq(orgScopeAssignment.memberId, r.memberId)))
+      const companyIds = asg.map((a) => a.companyId).filter((x): x is string => !!x)
+      const rootDeptIds = asg.map((a) => a.departmentId).filter((x): x is string => !!x)
+      if (companyIds.length === 0 && rootDeptIds.length === 0) {
+        visibleJobs = 0
+      }
+      else {
+        const sub = await db.execute<{ cnt: number }>(sql`
+          WITH RECURSIVE subtree AS (
+            SELECT id FROM department WHERE id = ANY(${rootDeptIds}) AND organization_id = ${orgId}
+            UNION ALL
+            SELECT d.id FROM department d JOIN subtree s ON d.parent_id = s.id
+          )
+          SELECT count(*)::int AS cnt FROM job
+          WHERE organization_id = ${orgId}
+            AND (company_id = ANY(${companyIds}) OR department_id IN (SELECT id FROM subtree))
+        `)
+        visibleJobs = Number(sub[0]?.cnt ?? 0)
+      }
     }
     else if (scopeType === 'departments') {
       const roots = r.departmentIds ?? []

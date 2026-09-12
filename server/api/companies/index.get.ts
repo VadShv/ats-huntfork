@@ -1,5 +1,7 @@
-import { eq, asc, sql } from 'drizzle-orm'
+import { eq, asc, sql, and, isNotNull } from 'drizzle-orm'
 import { company, department, job } from '../../database/schema'
+import { orgScopeAssignment } from '../../database/schema/rbac'
+import { member, user } from '../../database/schema/auth'
 
 /**
  * GET /api/companies — список компаний (юрлиц) организации.
@@ -31,9 +33,23 @@ export default defineEventHandler(async (event) => {
   const jobCountMap = new Map(jobCounts.map(r => [r.companyId, r.cnt]))
   const deptCountMap = new Map(deptCounts.map(r => [r.companyId, r.cnt]))
 
+  // §1: HRBP assignments per company → [{ memberId, userId, name }].
+  const hrbpRows = await db
+    .select({ companyId: orgScopeAssignment.companyId, memberId: orgScopeAssignment.memberId, userId: member.userId, name: user.name })
+    .from(orgScopeAssignment)
+    .innerJoin(member, eq(member.id, orgScopeAssignment.memberId))
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(and(eq(orgScopeAssignment.organizationId, orgId), isNotNull(orgScopeAssignment.companyId)))
+  const hrbpMap = new Map<string, Array<{ memberId: string, userId: string, name: string }>>()
+  for (const r of hrbpRows) {
+    if (!r.companyId) continue
+    ;(hrbpMap.get(r.companyId) ?? hrbpMap.set(r.companyId, []).get(r.companyId)!).push({ memberId: r.memberId, userId: r.userId, name: r.name })
+  }
+
   return companies.map(c => ({
     ...c,
     jobsCount: jobCountMap.get(c.id) ?? 0,
     departmentsCount: deptCountMap.get(c.id) ?? 0,
+    hrbps: hrbpMap.get(c.id) ?? [],
   }))
 })

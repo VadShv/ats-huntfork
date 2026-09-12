@@ -113,6 +113,25 @@ export const memberRole = pgTable('member_role', {
   index('member_role_org_idx').on(t.organizationId),
 ]))
 
+// ─── HRBP org-scope assignments (RBAC v2 §1) ────────────────────────
+// Many-to-many: an HRBP member is responsible for one or more companies OR
+// departments. Scope is DERIVED from these rows (no duplication in member_scope).
+// Exactly one of company_id / department_id is set per row (CHECK in SQL).
+export const orgScopeAssignment = pgTable('org_scope_assignment', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  memberId: text('member_id').notNull().references(() => member.id, { onDelete: 'cascade' }),
+  companyId: text('company_id'),
+  departmentId: text('department_id'),
+  createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ([
+  index('org_scope_assignment_member_idx').on(t.memberId),
+  index('org_scope_assignment_org_idx').on(t.organizationId),
+  index('org_scope_assignment_company_idx').on(t.companyId),
+  index('org_scope_assignment_department_idx').on(t.departmentId),
+]))
+
 // ─── member scope ───────────────────────────────────────────────────
 export const memberScope = pgTable('member_scope', {
   memberId: text('member_id').primaryKey().references(() => member.id, { onDelete: 'cascade' }),

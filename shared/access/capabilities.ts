@@ -26,7 +26,7 @@ import { ROLE_STATEMENTS, type RoleKey } from '../permissions'
 export type Capability = string
 
 /** Scope model (final shape now; only the type is used in Sprint 0.5). */
-export type ScopeType = 'org' | 'departments' | 'jobs' | 'assigned' | 'own'
+export type ScopeType = 'org' | 'departments' | 'jobs' | 'assigned' | 'own' | 'hrbp'
 
 export interface AccessScope {
   type: ScopeType

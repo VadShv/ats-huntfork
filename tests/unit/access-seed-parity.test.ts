@@ -99,6 +99,31 @@ describe('lead_recruiter default (AI view-only example)', () => {
   })
 })
 
+describe('hrbp (§1) fixed preset', () => {
+  const caps = () => new Set(ROLE_PRESET_BY_KEY.hrbp.capabilities)
+
+  it('has hrbp default scope', () => {
+    expect(ROLE_PRESET_BY_KEY.hrbp.defaultScope).toBe('hrbp')
+  })
+
+  it('sees PII and can add hiring managers within scope', () => {
+    expect(caps().has('candidate:read:contacts')).toBe(true)
+    expect(caps().has('candidate:read:salary')).toBe(true)
+    expect(caps().has('hiringManager:create')).toBe(true)
+  })
+
+  it('manages candidates/applications/interviews but does not delete candidates', () => {
+    expect(caps().has('candidate:update')).toBe(true)
+    expect(caps().has('application:update')).toBe(true)
+    expect(caps().has('interview:create')).toBe(true)
+    expect(caps().has('candidate:delete')).toBe(false)
+  })
+
+  it('does not manage org members (no member:create)', () => {
+    expect(caps().has('member:create')).toBe(false)
+  })
+})
+
 describe('external_recruiter (§8) is minimal, no AI, but can run interviews', () => {
   const caps = () => new Set(ROLE_PRESET_BY_KEY.external_recruiter.capabilities)
 

@@ -1,5 +1,7 @@
-import { eq, asc, sql } from 'drizzle-orm'
+import { eq, asc, sql, and, isNotNull } from 'drizzle-orm'
 import { department, job } from '../../database/schema'
+import { orgScopeAssignment } from '../../database/schema/rbac'
+import { member, user } from '../../database/schema/auth'
 
 /**
  * GET /api/departments — все подразделения организации.
@@ -24,6 +26,19 @@ export default defineEventHandler(async (event) => {
 
   const jobCountMap = new Map(jobCounts.map(r => [r.departmentId, r.cnt]))
 
+  // §1: HRBP assignments per department → [{ memberId, userId, name }].
+  const hrbpRows = await db
+    .select({ departmentId: orgScopeAssignment.departmentId, memberId: orgScopeAssignment.memberId, userId: member.userId, name: user.name })
+    .from(orgScopeAssignment)
+    .innerJoin(member, eq(member.id, orgScopeAssignment.memberId))
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(and(eq(orgScopeAssignment.organizationId, orgId), isNotNull(orgScopeAssignment.departmentId)))
+  const hrbpMap = new Map<string, Array<{ memberId: string, userId: string, name: string }>>()
+  for (const r of hrbpRows) {
+    if (!r.departmentId) continue
+    ;(hrbpMap.get(r.departmentId) ?? hrbpMap.set(r.departmentId, []).get(r.departmentId)!).push({ memberId: r.memberId, userId: r.userId, name: r.name })
+  }
+
   // Обход в глубину: сохраняем сортировку внутри уровня, вычисляем depth.
   // Узлы с parentId, указывающим на чужую/несуществующую запись, считаем корневыми.
   const ids = new Set(rows.map(r => r.id))
@@ -35,7 +50,7 @@ export default defineEventHandler(async (event) => {
     childrenMap.set(key, list)
   }
 
-  type DepartmentNode = (typeof rows)[number] & { depth: number, hasChildren: boolean, jobsCount: number }
+  type DepartmentNode = (typeof rows)[number] & { depth: number, hasChildren: boolean, jobsCount: number, hrbps: Array<{ memberId: string, userId: string, name: string }> }
   const result: DepartmentNode[] = []
   const visited = new Set<string>()
 
@@ -48,6 +63,7 @@ export default defineEventHandler(async (event) => {
         depth,
         hasChildren: (childrenMap.get(node.id) ?? []).length > 0,
         jobsCount: jobCountMap.get(node.id) ?? 0,
+        hrbps: hrbpMap.get(node.id) ?? [],
       })
       walk(node.id, depth + 1)
     }

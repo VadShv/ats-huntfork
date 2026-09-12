@@ -110,6 +110,28 @@ const leadRecruiterCaps = caps({
 // may add hiring managers (§7).
 leadRecruiterCaps.push(PII_CONTACTS, PII_SALARY, HM_CREATE)
 
+// ── hrbp (§1): HR business partner — oversees hiring within their assigned
+// companies/departments (scope derived from org_scope_assignment). Fixed preset;
+// only the company/department assignment varies per HRBP.
+const hrbpCaps = caps({
+  organization: ['read'],
+  job: ['read'],
+  candidate: ['create', 'read', 'update'],
+  application: ['create', 'read', 'update'],
+  document: ['create', 'read'],
+  comment: ['create', 'read', 'delete'],
+  interview: ['create', 'read', 'update'],
+  emailTemplate: ['read'],
+  activityLog: ['read'],
+  scoring: ['read'],
+  sourceTracking: ['read'],
+  pipeline: ['read'],
+  company: ['read'],
+  department: ['read'],
+})
+// HRBP sees candidate PII within its scope and may add hiring managers.
+hrbpCaps.push(PII_CONTACTS, PII_SALARY, HM_CREATE)
+
 export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'owner',
@@ -154,6 +176,13 @@ export const ROLE_PRESETS: RolePreset[] = [
     descriptionRu: 'Для агентств/внешних подрядчиков: только свои вакансии, без ИИ и без контактов по умолчанию. Может создавать интервью.',
     defaultScope: 'assigned', isAssignable: true, sortOrder: 40,
     capabilities: externalRecruiterCaps,
+  },
+  {
+    key: 'hrbp',
+    nameRu: 'HR бизнес-партнёр', nameEn: 'HR Business Partner',
+    descriptionRu: 'Отвечает за подбор в назначенных компаниях/департаментах. Права фиксированы; меняется только назначение в оргструктуре.',
+    defaultScope: 'hrbp', isAssignable: true, sortOrder: 25,
+    capabilities: hrbpCaps,
   },
   {
     key: 'hiring_manager',

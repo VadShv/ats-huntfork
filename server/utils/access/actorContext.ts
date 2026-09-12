@@ -68,6 +68,10 @@ function defaultScopeTypeForRole(roleKey: string): ScopeType {
       return 'org'
     case 'hiring_manager':
       return 'jobs'
+    case 'hrbp':
+      return 'hrbp'
+    case 'lead_recruiter':
+      return 'org'
     case 'member':
     default:
       return 'assigned'

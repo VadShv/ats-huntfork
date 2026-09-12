@@ -24,6 +24,7 @@ import type { ActorContext } from './actorContext'
 import { job } from '../../database/schema/app'
 import { jobMember } from '../../database/schema/hm'
 import { application, candidate, document } from '../../database/schema/app'
+import { orgScopeAssignment } from '../../database/schema/rbac'
 
 // Roles counted as "assigned to a job" for scope 'assigned'.
 const ASSIGNED_JOB_ROLES = ['recruiter', 'hiring_manager'] as const
@@ -51,6 +52,35 @@ async function expandDepartmentSubtree(orgId: string, rootIds: string[]): Promis
     SELECT DISTINCT id FROM subtree
   `)
   return rows.map((r) => r.id)
+}
+
+/**
+ * §1 HRBP: resolve visible job ids from org_scope_assignment — jobs whose
+ * companyId is an assigned company OR whose departmentId is within the subtree
+ * of an assigned department. Returns [] when the HRBP has no assignments.
+ */
+async function resolveHrbpJobIds(orgId: string, memberId: string): Promise<string[]> {
+  const assignments = await db
+    .select({ companyId: orgScopeAssignment.companyId, departmentId: orgScopeAssignment.departmentId })
+    .from(orgScopeAssignment)
+    .where(and(eq(orgScopeAssignment.organizationId, orgId), eq(orgScopeAssignment.memberId, memberId)))
+
+  const companyIds = assignments.map((a) => a.companyId).filter((x): x is string => !!x)
+  const rootDeptIds = assignments.map((a) => a.departmentId).filter((x): x is string => !!x)
+  if (companyIds.length === 0 && rootDeptIds.length === 0) return []
+
+  const deptIds = rootDeptIds.length > 0 ? await expandDepartmentSubtree(orgId, rootDeptIds) : []
+
+  const preds: SQL[] = []
+  if (companyIds.length > 0) preds.push(inArray(job.companyId, companyIds))
+  if (deptIds.length > 0) preds.push(inArray(job.departmentId, deptIds))
+  if (preds.length === 0) return []
+
+  const rows = await db
+    .select({ id: job.id })
+    .from(job)
+    .where(and(eq(job.organizationId, orgId), preds.length === 1 ? preds[0] : or(...preds)))
+  return [...new Set(rows.map((r) => r.id))]
 }
 
 /**
@@ -82,6 +112,11 @@ export async function getScopeJobIds(actor: ActorContext): Promise<ScopeJobIds> 
         .where(and(eq(job.organizationId, actor.orgId), inArray(job.departmentId, deptIds)))
       result = rows.map((r) => r.id)
     }
+  }
+  else if (actor.scope.type === 'hrbp') {
+    // §1: scope derived from org_scope_assignment — union of jobs in assigned
+    // companies OR in the subtree of assigned departments.
+    result = await resolveHrbpJobIds(actor.orgId, actor.memberId)
   }
   else {
     // 'assigned' (and 'own' fallback): jobs where the user is a job_member.
@@ -175,5 +210,3 @@ export async function isCandidateInScope(actor: ActorContext, candidateId: strin
   return rows.length > 0
 }
 
-// silence unused import in some build paths
-void or

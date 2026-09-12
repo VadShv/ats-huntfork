@@ -11,6 +11,8 @@ useSeoMeta({
   description: 'Компании и подразделения: иерархия юрлиц и оргструктуры для привязки вакансий',
 })
 
+interface Hrbp { memberId: string; userId: string; name: string }
+
 interface CompanyRow {
   id: string
   name: string
@@ -20,6 +22,7 @@ interface CompanyRow {
   isArchived: boolean
   jobsCount: number
   departmentsCount: number
+  hrbps?: Hrbp[]
 }
 
 interface DepartmentRow {
@@ -31,6 +34,7 @@ interface DepartmentRow {
   depth: number
   hasChildren: boolean
   jobsCount: number
+  hrbps?: Hrbp[]
 }
 
 const { allowed: canManage } = usePermission({ company: ['update'] })
@@ -417,6 +421,7 @@ const inputCls = 'w-full rounded-lg border border-surface-300 dark:border-surfac
               </p>
             </div>
             <div v-if="canManage" class="flex items-center gap-0.5 shrink-0">
+              <HrbpPicker v-if="!c.isArchived" target-type="company" :target-id="c.id" :current="c.hrbps ?? []" @saved="refresh" />
               <UiButton v-if="!c.isArchived" icon-only variant="ghost" size="sm" title="Добавить подразделение" @click="startCreateDeptForCompany(c.id)"><Plus class="size-4" /></UiButton>
               <UiButton v-if="!c.isDefault && !c.isArchived" icon-only variant="ghost" size="sm" title="По умолчанию" :disabled="busyId === c.id" class="hover:text-brand-600 dark:hover:text-brand-400" @click="handleSetDefault(c)"><Star class="size-4" /></UiButton>
               <UiButton v-if="!c.isArchived" icon-only variant="ghost" size="sm" title="Редактировать" @click="startEditCompany(c)"><Pencil class="size-4" /></UiButton>
@@ -460,6 +465,7 @@ const inputCls = 'w-full rounded-lg border border-surface-300 dark:border-surfac
                   </div>
                 </div>
                 <div v-if="canManage" class="flex items-center gap-0.5 shrink-0">
+                  <HrbpPicker v-if="!d.isArchived" target-type="department" :target-id="d.id" :current="d.hrbps ?? []" @saved="refresh" />
                   <UiButton v-if="!d.isArchived" icon-only variant="ghost" size="sm" title="Дочернее подразделение" @click="startCreateChildDept(d)"><Plus class="size-4" /></UiButton>
                   <UiButton v-if="!d.isArchived" icon-only variant="ghost" size="sm" title="Редактировать" @click="startEditDept(d)"><Pencil class="size-4" /></UiButton>
                   <UiButton icon-only variant="ghost" size="sm" :title="d.isArchived ? 'Восстановить' : 'Архивировать'" :disabled="busyId === d.id" @click="handleToggleArchiveDept(d)"><ArchiveRestore v-if="d.isArchived" class="size-4" /><Archive v-else class="size-4" /></UiButton>
