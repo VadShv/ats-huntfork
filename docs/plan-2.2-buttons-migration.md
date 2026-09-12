@@ -9,14 +9,12 @@
 
 > ## 📍 ТЕКУЩИЙ СТАТУС (точка продолжения)
 > **Готово и в `main`:** Батчи 0 (пилот), 1 (Настройки), 2 (общие компоненты),
-> 3 (UiSegmented + переключатели периодов), 4 (Кандидаты), **5 часть 1**
-> (job settings/questions/application-form/sourcing).
-> **Готово и в `main`:** Батчи 0 (пилот), 1 (Настройки), 2 (общие компоненты),
 > 3 (UiSegmented + переключатели периодов), 4 (Кандидаты), **5 части 1+2**
-> (job settings/questions/application-form/sourcing + job pages).
-> Последний коммит миграции: `f295f47`.
+> (job settings/questions/application-form/sourcing + job pages),
+> 6 (Интервью), **7 (Отклики/коммуникации/чатбот)**.
+> Последний коммит миграции: `4620039`.
 >
-> **Продолжить с:** Батч 7 (Отклики/коммуникации/чатбот), Батч 8 (Прочее).
+> **Продолжить с:** Батч 8 (Прочее).
 >
 > **Дисциплина:** помодульно, атомарный коммит на батч (или его часть),
 > проверка сборкой (`npm run build`), соблюдать §3 (что меняем / что не трогаем).
@@ -136,11 +134,10 @@
       3 пропуска: tabs v-for, template card-selector, preview toggle with ChevronDown)
 - [x] Сборка на ВМ OK, `curl localhost:3030` -> 200.
 
-### Батч 7 — Отклики / коммуникации / чатбот 🟡
-- [ ] `applications/index.vue` (19), `ApplicationQuickActions.vue` (8)
-- [ ] `Comms/CommsChatPanel.vue` (10), `Comments/ApplicationCommentThread.vue` (10),
-      `ApplicationCommentItem.vue` (8)
-- [ ] `chatbot/[[id]].vue` (10), `ChatbotSidebar.vue` (10)
+### Батч 7 — Отклики / коммуникации / чатбот 🟡 — ✅ ВЫПОЛНЕНО (в `main`, коммит b1344e9 + фикс 4620039; сборка на ВМ OK, `curl localhost:3030` → 200)
+- [x] `applications/index.vue` (6 замен из 19; пропуски: sort-заголовки, dropdown-триггер, v-for stage chips, card-buttons), `ApplicationQuickActions.vue` (3 из 8; пропуски: v-for quickActionSet с динамическим `:class`, dropdown-триггер "Ещё", menu-items)
+- [x] `Comms/CommsChatPanel.vue` (9 из 10; пропуск: channel switcher v-for), `Comments/ApplicationCommentThread.vue` (2 из 10; пропуски: search toggle, AI summarize, search nav, filter chips, screening/risk snapshots), `ApplicationCommentItem.vue` (2 из 8; пропуски: menu-items/dropdown triggers)
+- [x] `chatbot/[[id]].vue` (2 из 10; пропуски: scope-picker, menu-items, thinking toggle, sources toggle, suggestion cards, remove-attachment chip, stop button; Loader2 импорт оставлен — используется вне кнопок), `ChatbotSidebar.vue` (5 из 10; пропуски: folder-header buttons <24px, collapse toggles)
 
 ### Батч 8 — Прочее 🟢/🟡
 - [ ] `source-tracking/index.vue` (14; после Батча 3 — сегмент уже на `UiSegmented`),
