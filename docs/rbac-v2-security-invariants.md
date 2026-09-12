@@ -69,6 +69,27 @@
 | 3 (rollout #1) | 12.09.2026 | ✅ | AI chatTools наследует member-scope + masking, серверная защита от prompt-injection. Коммит ba0323f. Задеплоено. |
 | 3 (rollout #2–#6) | 12.09.2026 | ✅ | Контакт-эндпоинты (gate contacts+scope), read_resume gate, job-scope на root jobs (private jobs), masking на leak-sites, слабые guard'ы (conversations), модель «общий кандидат + приватные вакансии» (Вариант A), cross-org e2e. См. сверку ниже. |
 
+### Сверка Спринта 5 (коммиты 25125c3, 41c76c1, c40cac8)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A1 orgId из сессии | ✅ | access-эндпоинты берут orgId из сессии; все запросы скоупятся по org |
+| B2 сервер — единственный гейт | ✅ | UI-действия идут через `/api/access/*` с `member:['update']` (owner/admin) |
+| B3 requirePermission не ослаблен | ✅ | все access-эндпоинты под `member:update`; view-as start — тоже |
+| B4 активность членства | ✅ | members-list отражает `revoked_at`→'revoked' |
+| B5 view-as read-only | ✅ | сервер: getActorContext ставит isViewAs, can() запрещает write; cookie перепроверяется каждый запрос (owner/admin) |
+| C4 защита от самоблокировки | ✅ | role.post: нельзя снять последнего owner; нельзя назначить 'owner'; owner-строка залочена в UI |
+| C5 инвалидация ≤60c | ✅ | role/scope/overrides bump `permissions_version` |
+| C2 deny сильнее allow | ✅ | overrides.put валидирует ключи, replace-all в txn; resolve — deny wins |
+| E2 чувствительные действия логируются | ✅ (частично) | role/scope/overrides/view_as_started → recordActivity (полный hash-chain — Спринт 6) |
+| F4 SSR-payload | ✅ | снапшот добавил только `viewAsName` (имя), без секретов |
+| view-as security | ✅ | cookie httpOnly/secure/30m; сам по себе прав не даёт — привилегия реального участника перепроверяется; нельзя смотреть от себя |
+| G1 тесты | ✅ | 846 (resume-parser флак под нагрузкой) |
+| G2 сборка | ✅ | typecheck 0; build на ВМ при деплое |
+| G3 откат | ✅ | `git reset` + rebuild; view-as выключается удалением cookie |
+
+**Follow-up (документировано):** приглашения с предзаданным scope/гостевой TTL (#5) — отложено; scope назначается после вступления во вкладке «Доступы». Редактор-матрица ролей и live-превью/diff (§8.3–8.4) — Спринт 7.
+
 ### Сверка Спринта 3 rollout #2–#6 (коммиты a2133dc, f69a757, aa391a5, b91d7c7, 1c188b6)
 
 | Инвариант | Статус | Подтверждение |
