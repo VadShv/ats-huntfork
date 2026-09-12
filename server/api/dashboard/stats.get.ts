@@ -1,6 +1,8 @@
 import { eq, and, desc, sql, count, countDistinct, inArray, asc } from 'drizzle-orm'
 import { application, candidate, job, pipelineStage } from '../../database/schema'
 import { resolveRecruiterScope, getJobRecruitersMap } from '../../utils/recruiterScope'
+import { getActorContext } from '../../utils/access/actorContext'
+import { canReadContacts } from '../../utils/access/mask'
 import { getOrgStageRollup } from '../../utils/funnel-rollup'
 
 /**
@@ -15,6 +17,7 @@ import { getOrgStageRollup } from '../../utils/funnel-rollup'
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['read'], candidate: ['read'], application: ['read'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   // ─── Sprint 20.2: скоуп «мои вакансии» для рекрутера (member) ───
   // Сентинел '__none__' даёт нулевые агрегаты без ветвления формы ответа (важно для типов useFetch)
@@ -246,7 +249,9 @@ export default defineEventHandler(async (event) => {
     },
     pipeline,
     jobsByStatus,
-    recentApplications,
+    recentApplications: canReadContacts(actor)
+      ? recentApplications
+      : recentApplications.map((r) => ({ ...r, candidateEmail: null })),
     topJobs: topJobsEnriched,
     scope: scopedIds ? 'mine' : 'all',
   }

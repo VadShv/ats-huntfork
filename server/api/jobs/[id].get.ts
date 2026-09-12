@@ -1,12 +1,21 @@
 import { eq, and } from 'drizzle-orm'
 import { job, pipeline } from '../../database/schema'
 import { idParamSchema } from '../../utils/schemas/job'
+import { getActorContext } from '../../utils/access/actorContext'
+import { isJobInScope } from '../../utils/access/scope'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['read'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
+
+  // Scope guard (RBAC v2 — "private jobs"): a job outside the actor's scope
+  // returns 404 even by direct ID. Foundation for the shared-candidate model.
+  if (actor && !(await isJobInScope(actor, id))) {
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
+  }
 
   const result = await db.query.job.findFirst({
     where: and(eq(job.id, id), eq(job.organizationId, orgId)),

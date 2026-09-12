@@ -2,12 +2,21 @@ import { eq, and, isNull } from 'drizzle-orm'
 import { job, company, department, jobStatusHistory } from '../../database/schema'
 import { idParamSchema, updateJobSchema, JOB_STATUS_TRANSITIONS } from '../../utils/schemas/job'
 import { computeJobLifecycleUpdate } from '../../utils/job-lifecycle'
+import { getActorContext } from '../../utils/access/actorContext'
+import { isJobInScope } from '../../utils/access/scope'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['update'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
+
+  // Scope guard (RBAC v2 — "private jobs"): out-of-scope job → 404.
+  if (actor && !(await isJobInScope(actor, id))) {
+    throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
+  }
+
   const body = await readValidatedBody(event, updateJobSchema.parse)
 
   // Fetch existing job — needed for status transition check, slug regeneration, and pipeline change check

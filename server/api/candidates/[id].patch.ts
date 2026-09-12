@@ -4,6 +4,9 @@ import { extractIdentitiesFromCandidateRow } from '../../utils/dedup/extract'
 import { getOrgGroupId, upsertCandidateIdentities } from '../../utils/dedup/resolve'
 import { enqueueFuzzyDetect } from '../../utils/dedup/workers/fuzzy-job'
 import { candidateIdParamSchema, updateCandidateSchema } from '../../utils/schemas/candidate'
+import { getActorContext } from '../../utils/access/actorContext'
+import { isCandidateInScope } from '../../utils/access/scope'
+import { maskCandidate } from '../../utils/access/mask'
 
 /**
  * Sprint 3.5 (P2.4): поля, влияющие на fuzzy/exact-дедуп.
@@ -24,8 +27,15 @@ const DEDUP_RELEVANT_FIELDS = [
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { candidate: ['update'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // Scope guard: out-of-scope candidate → 404.
+  if (actor && !(await isCandidateInScope(actor, id))) {
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
+  }
+
   const body = await readValidatedBody(event, updateCandidateSchema.parse)
 
   // If email is being changed, check uniqueness within the org
@@ -121,5 +131,6 @@ export default defineEventHandler(async (event) => {
     metadata: { name: `${updated.firstName} ${updated.lastName}` },
   })
 
-  return updated
+  // Mask contacts in the response by the actor's PII permission.
+  return maskCandidate(actor, updated as Record<string, unknown>)
 })

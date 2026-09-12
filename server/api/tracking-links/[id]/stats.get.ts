@@ -2,6 +2,8 @@ import { eq, and, sql, count, gte, lte, desc } from 'drizzle-orm'
 import { applicationSource, application, trackingLink, job, candidate, pipelineStage } from '../../../database/schema'
 import { getOrgStageRollup } from '../../../utils/funnel-rollup'
 import { trackingLinkIdSchema, sourceStatsQuerySchema } from '../../../utils/schemas/trackingLink'
+import { getActorContext } from '../../../utils/access/actorContext'
+import { canReadContacts } from '../../../utils/access/mask'
 
 /**
  * GET /api/tracking-links/:id/stats
@@ -15,6 +17,7 @@ import { trackingLinkIdSchema, sourceStatsQuerySchema } from '../../../utils/sch
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { sourceTracking: ['read'], application: ['read'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const { id } = await getValidatedRouterParams(event, trackingLinkIdSchema.parse)
   const query = await getValidatedQuery(event, sourceStatsQuerySchema.parse)
@@ -170,7 +173,9 @@ export default defineEventHandler(async (event) => {
     },
     funnel,
     dailyTrend,
-    attributedApplications,
+    attributedApplications: canReadContacts(actor)
+      ? attributedApplications
+      : attributedApplications.map((r) => ({ ...r, candidateEmail: null })),
     referrerDomains,
     totalAttributed,
   }

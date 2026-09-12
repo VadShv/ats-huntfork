@@ -5,6 +5,9 @@
 import { z } from 'zod'
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { application, candidate, commsConversation, job } from '../../../database/schema'
+import { getActorContext } from '../../../utils/access/actorContext'
+import { applicationScopeCondition } from '../../../utils/access/scope'
+import { canReadContacts } from '../../../utils/access/mask'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 const querySchema = z.object({ q: z.string().trim().max(200).optional() })
@@ -12,6 +15,7 @@ const querySchema = z.object({ q: z.string().trim().max(200).optional() })
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
   const { q } = await getValidatedQuery(event, querySchema.parse)
 
@@ -25,6 +29,12 @@ export default defineEventHandler(async (event) => {
 
   const term = (q ?? '').trim()
   const filters = [eq(application.organizationId, orgId)]
+  // RBAC v2: restrict candidate-linking search to applications on jobs the
+  // actor can see (member scope). Owner/admin unrestricted.
+  if (actor) {
+    const scopeCond = await applicationScopeCondition(actor)
+    if (scopeCond) filters.push(scopeCond)
+  }
   if (term) {
     const pattern = `%${term}%`
     filters.push(or(
@@ -53,12 +63,14 @@ export default defineEventHandler(async (event) => {
     .orderBy(desc(application.createdAt))
     .limit(10)
 
+  // Mask telegram (contact) unless the actor may read contacts.
+  const showContacts = canReadContacts(actor)
   return {
     items: rows.map(r => ({
       applicationId: r.applicationId,
       candidateId: r.candidateId,
       candidateName: r.displayName || `${r.firstName} ${r.lastName}`.trim(),
-      telegram: r.telegram,
+      telegram: showContacts ? r.telegram : null,
       jobTitle: r.jobTitle,
     })),
   }

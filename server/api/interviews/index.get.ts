@@ -2,10 +2,13 @@ import { and, count, desc, eq, gte, inArray, lte } from 'drizzle-orm'
 import { interview, application, candidate, job } from '../../database/schema'
 import { interviewQuerySchema } from '../../utils/schemas/interview'
 import { resolveRecruiterScope } from '../../utils/recruiterScope'
+import { getActorContext } from '../../utils/access/actorContext'
+import { canReadContacts } from '../../utils/access/mask'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { interview: ['read'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const query = await getValidatedQuery(event, interviewQuerySchema.parse)
 
@@ -80,5 +83,11 @@ export default defineEventHandler(async (event) => {
       .then(rows => rows[0]?.count ?? 0),
   ])
 
-  return { data, total, page: query.page, limit: query.limit }
+  // Mask candidate email unless the actor may read contacts.
+  const showContacts = canReadContacts(actor)
+  const maskedData = showContacts
+    ? data
+    : data.map((r) => ({ ...r, candidateEmail: null, _masked: ['candidateEmail'] }))
+
+  return { data: maskedData, total, page: query.page, limit: query.limit }
 })
