@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { X, Save } from 'lucide-vue-next'
+import { X, Save, Search } from 'lucide-vue-next'
+import { categoryLabelRu, categoryOrder } from '~~/shared/access/categories'
 
 /**
  * Per-user permission overrides editor (RBAC v2, Sprint 5 #4).
@@ -41,12 +42,20 @@ watchEffect(() => {
   state.value = s
 })
 
-const grouped = computed(() => {
+const filterText = ref('')
+
+// Group by category, apply optional text filter, and order sections meaningfully.
+const sections = computed(() => {
+  const q = filterText.value.trim().toLowerCase()
   const by: Record<string, PermissionRow[]> = {}
   for (const p of catalog.value ?? []) {
+    if (q && !(p.labelRu.toLowerCase().includes(q) || p.key.toLowerCase().includes(q))) continue
     ;(by[p.category] ??= []).push(p)
   }
-  return by
+  return Object.entries(by)
+    .map(([key, perms]) => ({ key, labelRu: categoryLabelRu(key), order: categoryOrder(key), perms }))
+    .filter((s) => s.perms.length > 0)
+    .sort((a, b) => a.order - b.order)
 })
 
 const saving = ref(false)
@@ -76,7 +85,7 @@ async function save() {
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="emit('close')">
-      <div class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-surface-0 shadow-xl dark:bg-surface-900">
+      <div class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl dark:bg-surface-900">
         <header class="flex items-center justify-between border-b border-surface-200 px-5 py-4 dark:border-surface-800">
           <div>
             <h2 class="text-base font-semibold text-surface-900 dark:text-surface-50">Индивидуальные права</h2>
@@ -89,25 +98,44 @@ async function save() {
           </UiButton>
         </header>
 
-        <div class="flex-1 overflow-y-auto px-5 py-4">
-          <div v-for="(perms, category) in grouped" :key="category" class="mb-5">
-            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-400">{{ category }}</h3>
-            <ul class="space-y-1">
+        <!-- filter -->
+        <div class="border-b border-surface-200 px-5 py-3 dark:border-surface-800">
+          <div class="relative">
+            <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-surface-400" />
+            <input
+              v-model="filterText"
+              type="text"
+              placeholder="Поиск по названию права…"
+              class="w-full rounded-md border border-surface-300 bg-white py-1.5 pl-8 pr-3 text-sm dark:border-surface-700 dark:bg-surface-900"
+            >
+          </div>
+        </div>
+
+        <div class="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <p v-if="sections.length === 0" class="py-6 text-center text-sm text-surface-500">
+            Ничего не найдено.
+          </p>
+          <section
+            v-for="s in sections"
+            :key="s.key"
+            class="overflow-hidden rounded-lg border border-surface-200 dark:border-surface-800"
+          >
+            <h3 class="border-b border-surface-200 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-800 dark:border-surface-800 dark:bg-surface-800/50 dark:text-surface-100">
+              {{ s.labelRu }}
+            </h3>
+            <ul class="divide-y divide-surface-100 dark:divide-surface-800/60">
               <li
-                v-for="p in perms"
+                v-for="p in s.perms"
                 :key="p.key"
-                class="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-surface-50 dark:hover:bg-surface-800/50"
+                class="flex items-center justify-between gap-3 px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800/40"
               >
-                <div class="min-w-0">
-                  <div class="truncate text-sm text-surface-800 dark:text-surface-200">
-                    {{ p.labelRu }}
-                    <span v-if="p.riskLevel >= 2" class="ml-1 rounded bg-danger-100 px-1 text-xs text-danger-700 dark:bg-danger-950 dark:text-danger-300">чувствительное</span>
-                  </div>
-                  <div class="truncate font-mono text-xs text-surface-400">{{ p.key }}</div>
+                <div class="min-w-0" :title="p.key">
+                  <span class="text-sm text-surface-800 dark:text-surface-200">{{ p.labelRu }}</span>
+                  <span v-if="p.riskLevel >= 2" class="ml-2 rounded bg-danger-100 px-1.5 py-0.5 text-xs text-danger-700 dark:bg-danger-950 dark:text-danger-300">чувствительное</span>
                 </div>
                 <select
                   v-model="state[p.key]"
-                  class="shrink-0 rounded-md border border-surface-300 bg-surface-0 px-2 py-1 text-xs dark:border-surface-700 dark:bg-surface-900"
+                  class="shrink-0 rounded-md border border-surface-300 bg-white px-2 py-1 text-xs dark:border-surface-700 dark:bg-surface-900"
                 >
                   <option value="">по роли</option>
                   <option value="allow">разрешить</option>
@@ -115,7 +143,7 @@ async function save() {
                 </select>
               </li>
             </ul>
-          </div>
+          </section>
         </div>
 
         <footer class="flex items-center justify-end gap-2 border-t border-surface-200 px-5 py-3 dark:border-surface-800">

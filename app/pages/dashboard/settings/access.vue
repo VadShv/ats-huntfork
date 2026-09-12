@@ -100,7 +100,7 @@ function isSelf(m: AccessMember) {
       <li
         v-for="m in members"
         :key="m.memberId"
-        class="flex flex-col gap-3 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-0 dark:bg-surface-900 p-4 sm:flex-row sm:items-center sm:justify-between"
+        class="flex flex-col gap-3 rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-4 sm:flex-row sm:items-center sm:justify-between"
       >
         <!-- identity -->
         <div class="flex min-w-0 items-center gap-3">
@@ -137,7 +137,7 @@ function isSelf(m: AccessMember) {
         <!-- controls -->
         <div class="flex items-center gap-2">
           <select
-            class="rounded-md border border-surface-300 bg-surface-0 px-2 py-1.5 text-sm dark:border-surface-700 dark:bg-surface-900"
+            class="rounded-md border border-surface-300 bg-white px-2 py-1.5 text-sm dark:border-surface-700 dark:bg-surface-900"
             :value="m.role.key ?? ''"
             :disabled="busyMemberId === m.memberId || m.role.key === 'owner'"
             @change="changeRole(m, ($event.target as HTMLSelectElement).value)"
