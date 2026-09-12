@@ -64,6 +64,37 @@
 |---|---|---|---|
 | 0.5 | 12.09.2026 | ✅ | Роль на SSR, единый `getActorContext`, deny-by-default в `snapshotCan`, view-as read-only в движке. Изоляция/аудит не тронуты (n/a). |
 | 1 | 12.09.2026 | ✅ | См. развёрнутую сверку ниже. Enforcement НЕ изменён (shadow-mode). |
+| 2 | 12.09.2026 | ✅ | Enforcement переключён на `can()` (`new`). Backfill member_role/scope 100%. См. сверку ниже. |
+
+### Сверка Спринта 2 (коммит 43f18e9)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A1 orgId только из сессии | ✅ | `getActorContext`/`requirePermission` — из сессии; новые записи member_role/scope скоупятся по orgId из сессии/родителя |
+| A2 скоуп по оргу | n/a | доменные запросы — Спринт 3 (`scopedDb`) |
+| A3 cross-org → 404 | ⚠ частично | `can()` deny `cross_org` при передаче `resource`; эндпоинты передадут resource в Спринте 3 |
+| A4 дочерние по родителю | n/a | Спринт 3 |
+| B1 deny-by-default | ✅ | `new`-режим fail-closed: ошибка резолва → 403 (проверено логикой requirePermission) |
+| B2 сервер — единственный гейт | ✅ | клиент не менялся |
+| B3 requirePermission не ослаблен | ✅ | `new`: `can()` решает; паритет доказан — effective caps на ВМ owner=64/member=29 == сид роли |
+| B4 активность членства | ✅ | `revoked_at`→status='revoked'→`can()` deny; status≠active deny |
+| B5 view-as read-only | ✅ | без изменений (движок) |
+| C1 единый источник истины | ✅ | member_role→role_permission; sync-хелпер единый; нет новых хардкодов |
+| C2 deny сильнее allow | ✅ | `applyOverrides` тест; overrides из БД учитываются |
+| C3 роль-потолок/scope-охват | ⚠ частично | scope читается из member_scope в actor; фильтрация данных — Спринт 3 |
+| C4 защита от самоблокировки | n/a | UI ролей — Спринт 7; owner/admin полные |
+| C5 инвалидация ≤60c | ✅ | кэш по `(memberId, permissions_version)`; `syncMemberRoleChange` bump версии; TTL 30с |
+| D1–D3 masking | n/a | Спринт 3; секреты по-прежнему не сериализуются |
+| E1–E3 аудит | n/a | Спринт 6 (member-инсерты уже пишут activity_log как раньше) |
+| F1 секреты на старте | ✅ | флаг через Zod |
+| F2 миграции безопасны | ✅ | нет новой SQL-миграции; backfill идемпотентный рантайм; бэкап снят (`rbac_pre_sprint2_*`) |
+| F3 rate limiting | ✅ | не тронут |
+| F4 SSR-payload | ✅ | без изменений |
+| F5 RLS-готовность | ✅ | без изменений |
+| G1 тесты | ✅ | 825 passed / 0 failed |
+| G2 сборка | ✅ | build app на ВМ OK; typecheck 0 |
+| G3 откат | ✅ | `ACCESS_ENFORCEMENT=old` (env, мгновенно) ИЛИ `git reset`+restore дампа. Проверено: флаг читается контейнером |
+| G4 нет роста техдолга | ✅ | резолв роли единый; sync-хелпер один; hooks+lazy-heal исключают дрейф |
 
 ### Сверка Спринта 1 (коммиты 3fd044c, 391ed1c, 3d81a9e)
 
