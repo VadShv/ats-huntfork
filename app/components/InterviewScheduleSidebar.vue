@@ -424,12 +424,14 @@ async function handleMoveToInterview() {
                   {{ candidateName }} · {{ jobTitle }}
                 </p>
               </div>
-              <button
-                class="flex items-center justify-center rounded-lg p-2 -mr-1.5 -mt-0.5 text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:text-surface-500 dark:hover:text-surface-300 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+              <UiButton
+                variant="ghost"
+                size="sm"
+                icon-only
+                :icon-left="X"
+                class="-mr-1.5 -mt-0.5"
                 @click="showSuccess ? emit('scheduled', createdInterview ?? undefined) : emit('close')"
-              >
-                <X class="size-4" />
-              </button>
+              />
             </div>
           </div>
 
@@ -509,12 +511,15 @@ async function handleMoveToInterview() {
 
             <!-- Success footer -->
             <div class="shrink-0 border-t border-surface-200/60 dark:border-surface-800/40 bg-white/80 dark:bg-surface-900/80 backdrop-blur-sm px-6 py-4">
-              <button
+              <UiButton
                 type="button"
-                class="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 transition-colors cursor-pointer shadow-sm shadow-brand-600/20 dark:shadow-brand-500/10"
+                variant="primary"
+                full-width
+                class="rounded-xl"
                 @click="emit('scheduled', createdInterview ?? undefined)"
               >
-                Готово              </button>
+                Готово
+              </UiButton>
             </div>
           </template>
 
@@ -647,15 +652,17 @@ async function handleMoveToInterview() {
                       </p>
                     </div>
                     <!-- Customize toggle -->
-                    <button
+                    <UiButton
                       v-if="notifyViaCalendar && calendarConnected"
                       type="button"
-                      class="shrink-0 rounded-lg p-1.5 text-surface-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-950/30 transition-colors cursor-pointer"
+                      variant="ghost"
+                      size="sm"
+                      icon-only
+                      :icon-left="Pencil"
+                      class="shrink-0 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-950/30"
                       title="Настроить событие"
                       @click.prevent="calendarCustomization.showCustomize = !calendarCustomization.showCustomize"
-                    >
-                      <Pencil class="size-3.5" />
-                    </button>
+                    />
                   </label>
 
                   <!-- Google Calendar event customization (expanded) -->
@@ -726,7 +733,6 @@ async function handleMoveToInterview() {
                 type="text"
                 placeholder="Например, техническое интервью — этап 1"
                 class="w-full rounded-xl border bg-surface-50/50 dark:bg-surface-800/50 px-4 py-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 focus:bg-white dark:focus:bg-surface-800 transition-all"
-                :class="errors.title ? 'border-danger-300 dark:border-danger-700' : 'border-surface-200 dark:border-surface-700/80'"
               />
               <p v-if="errors.title" class="mt-1.5 text-xs text-danger-600 dark:text-danger-400">{{ errors.title }}</p>
             </div>
@@ -740,21 +746,23 @@ async function handleMoveToInterview() {
                 <div class="flex-1 rounded-xl border border-surface-200/80 dark:border-surface-700/60 bg-white dark:bg-surface-800/40 overflow-hidden min-w-0 flex flex-col">
                   <!-- Month navigation -->
                   <div class="flex items-center justify-between px-3 py-2.5">
-                    <button
+                    <UiButton
                       type="button"
-                      class="flex items-center justify-center rounded-lg p-1.5 text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:text-surface-300 dark:hover:bg-surface-700 transition-colors cursor-pointer"
+                      variant="ghost"
+                      size="sm"
+                      icon-only
+                      :icon-left="ChevronLeft"
                       @click="prevMonth"
-                    >
-                      <ChevronLeft class="size-4" />
-                    </button>
+                    />
                     <span class="text-sm font-semibold text-surface-800 dark:text-surface-200">{{ calendarMonthLabel }}</span>
-                    <button
+                    <UiButton
                       type="button"
-                      class="flex items-center justify-center rounded-lg p-1.5 text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:text-surface-300 dark:hover:bg-surface-700 transition-colors cursor-pointer"
+                      variant="ghost"
+                      size="sm"
+                      icon-only
+                      :icon-left="ChevronRight"
                       @click="nextMonth"
-                    >
-                      <ChevronRight class="size-4" />
-                    </button>
+                    />
                   </div>
 
                   <!-- Weekday headers -->
@@ -887,22 +895,26 @@ async function handleMoveToInterview() {
                     :class="errors.interviewers && email.trim() && !EMAIL_RE.test(email.trim()) ? 'border-danger-300 dark:border-danger-700' : 'border-surface-200 dark:border-surface-700/80'"
                     class="flex-1 rounded-xl border bg-surface-50/50 dark:bg-surface-800/50 px-4 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 focus:bg-white dark:focus:bg-surface-800 transition-all"
                   />
-                  <button
+                  <UiButton
                     v-if="form.interviewers.length > 1"
                     type="button"
-                    class="flex items-center justify-center rounded-lg p-1.5 text-surface-400 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors cursor-pointer"
+                    variant="ghost"
+                    size="sm"
+                    icon-only
+                    :icon-left="X"
+                    class="hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-950/30"
                     @click="removeInterviewer(idx)"
-                  >
-                    <X class="size-3.5" />
-                  </button>
+                  />
                 </div>
-                <button
+                <UiButton
                   type="button"
-                  class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/20 transition-colors cursor-pointer"
+                  variant="link"
+                  size="sm"
+                  :icon-left="Plus"
                   @click="addInterviewer"
                 >
-                  <Plus class="size-3.5" />
-                  Добавить интервьюера                </button>
+                  Добавить интервьюера
+                </UiButton>
                 <p v-if="errors.interviewers" class="mt-1 text-xs text-danger-600 dark:text-danger-400">{{ errors.interviewers }}</p>
               </div>
             </div>
@@ -946,31 +958,37 @@ async function handleMoveToInterview() {
             </div>
 
             <div class="flex items-center gap-3">
-              <button
+              <UiButton
                 type="button"
-                class="flex-1 rounded-xl border border-surface-200 dark:border-surface-700 px-4 py-2.5 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-800 hover:bg-surface-50 dark:hover:text-surface-200 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+                variant="secondary"
+                class="flex-1 rounded-xl"
                 :disabled="isSubmitting || isMoving"
                 @click="emit('close')"
               >
-                Отмена              </button>
-              <button
+                Отмена
+              </UiButton>
+              <UiButton
                 type="button"
-                :disabled="isSubmitting || isMoving"
-                class="flex-[1.5] rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm shadow-brand-600/20 dark:shadow-brand-500/10"
+                variant="primary"
+                :loading="isSubmitting"
+                :disabled="isMoving"
+                class="flex-[1.5] rounded-xl"
                 @click="handleSubmit"
               >
                 {{ isSubmitting ? 'Планирование…' : 'Запланировать интервью' }}
-              </button>
+              </UiButton>
             </div>
             <div class="mt-2.5 text-center">
-              <button
+              <UiButton
                 type="button"
-                :disabled="isSubmitting || isMoving"
-                class="text-[12px] text-surface-400 hover:text-surface-600 dark:text-surface-500 dark:hover:text-surface-300 underline underline-offset-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="link"
+                size="sm"
+                :loading="isMoving"
+                :disabled="isSubmitting"
                 @click="handleMoveToInterview"
               >
                 {{ isMoving ? 'Перемещение…' : 'Пропустить планирование — перевести на этап интервью' }}
-              </button>
+              </UiButton>
             </div>
           </div>
           </template>

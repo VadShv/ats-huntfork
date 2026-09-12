@@ -404,7 +404,7 @@ const statusCounts = computed(() => {
       class="rounded-lg border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950 p-4 text-sm text-danger-700 dark:text-danger-400"
     >
       {{ $t('dashboard.interviews.failedToLoad') }}
-      <button class="underline ml-1 cursor-pointer" @click="refresh()">{{ $t('dashboard.interviews.retry') }}</button>
+      <UiButton variant="link" size="sm" class="ml-1" @click="refresh()">{{ $t('dashboard.interviews.retry') }}</UiButton>
     </div>
 
     <!-- Empty state -->
@@ -421,12 +421,13 @@ const statusCounts = computed(() => {
           ? 'Измените параметры фильтра.'
           : 'Здесь появятся интервью, когда вы запланируете их из воронки.' }}
       </p>
-      <button
+      <UiButton
         v-if="activeStatus || searchInput"
-        class="cursor-pointer rounded-lg border border-surface-200 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+        variant="secondary"
         @click="activeStatus = undefined; searchInput = ''"
       >
-        Сбросить фильтры      </button>
+        Сбросить фильтры
+      </UiButton>
     </div>
 
     <!-- LIST VIEW -->
@@ -525,12 +526,14 @@ const statusCounts = computed(() => {
             <!-- Right: actions -->
             <div class="flex items-center gap-2 shrink-0">
               <!-- Quick status actions -->
-              <button
+              <UiButton
                 v-if="interviewItem.status === 'scheduled'"
-                class="cursor-pointer rounded-lg bg-success-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-success-700 transition-all shadow-sm"
+                variant="success"
+                size="xs"
                 @click="quickStatusChange(interviewItem, 'completed')"
               >
-                Завершить              </button>
+                Завершить
+              </UiButton>
 
               <!-- More menu -->
               <div ref="menuRef" class="relative">
@@ -665,18 +668,21 @@ const statusCounts = computed(() => {
                   </div>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                  <button
-                    class="cursor-pointer rounded-lg border border-surface-200 dark:border-surface-700 p-1.5 text-surface-400 hover:text-surface-600 hover:bg-surface-50 dark:hover:text-surface-300 dark:hover:bg-surface-800 transition-all"
+                  <UiButton
+                    variant="secondary"
+                    size="sm"
+                    icon-only
+                    :icon-left="Pencil"
                     @click="openEdit(interviewItem)"
-                  >
-                    <Pencil class="size-3.5" />
-                  </button>
-                  <button
+                  />
+                  <UiButton
                     v-if="interviewItem.status === 'scheduled'"
-                    class="cursor-pointer rounded-lg bg-success-600 px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-success-700 transition-all shadow-sm"
+                    variant="success"
+                    size="xs"
                     @click="quickStatusChange(interviewItem, 'completed')"
                   >
-                    Завершить                  </button>
+                    Завершить
+                  </UiButton>
                 </div>
               </div>
             </div>
@@ -802,19 +808,20 @@ const statusCounts = computed(() => {
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-2">
-              <button
+              <UiButton
                 type="button"
-                class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                variant="secondary"
                 @click="cancelEdit"
               >
-                Отмена              </button>
-              <button
+                Отмена
+              </UiButton>
+              <UiButton
                 type="submit"
-                :disabled="isSaving"
-                class="cursor-pointer rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                variant="primary"
+                :loading="isSaving"
               >
                 {{ isSaving ? 'Сохранение…' : 'Сохранить изменения' }}
-              </button>
+              </UiButton>
             </div>
           </form>
         </div>
@@ -831,19 +838,22 @@ const statusCounts = computed(() => {
             Удалить <strong>{{ deletingInterview?.title }}</strong>? Действие необратимо.
           </p>
           <div class="flex justify-end gap-2">
-            <button
+            <UiButton
+              variant="secondary"
+              size="sm"
               :disabled="isDeleting"
-              class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
               @click="showDeleteConfirm = false"
             >
-              Отмена            </button>
-            <button
-              :disabled="isDeleting"
-              class="cursor-pointer rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              Отмена
+            </UiButton>
+            <UiButton
+              variant="danger"
+              size="sm"
+              :loading="isDeleting"
               @click="handleDelete"
             >
               {{ isDeleting ? 'Удаление…' : 'Удалить' }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>

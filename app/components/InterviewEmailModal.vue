@@ -175,12 +175,13 @@ const canSend = computed(() => {
                 </p>
               </div>
             </div>
-            <button
-              class="rounded-lg p-1.5 text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:text-surface-300 dark:hover:bg-surface-800 transition-all cursor-pointer"
+            <UiButton
+              variant="ghost"
+              size="sm"
+              icon-only
+              :icon-left="X"
               @click="emit('close')"
-            >
-              <X class="size-5" />
-            </button>
+            />
           </div>
         </div>
 
@@ -321,14 +322,14 @@ const canSend = computed(() => {
 
               <!-- Preview -->
               <div v-if="customSubject || customBody">
-                <button
+                <UiButton
                   type="button"
-                  class="flex items-center gap-1.5 text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors cursor-pointer"
+                  variant="link"
+                  :icon-left="Eye"
                   @click="showPreview = !showPreview"
                 >
-                  <Eye class="size-3.5" />
                   {{ showPreview ? 'Скрыть предпросмотр' : 'Предпросмотр с фактическими данными' }}
-                </button>
+                </UiButton>
                 <div v-if="showPreview" class="mt-3 rounded-xl border border-surface-200 dark:border-surface-700/80 bg-surface-50 dark:bg-surface-800/40 p-4">
                   <div class="mb-2">
                     <span class="text-[10px] uppercase tracking-wider font-semibold text-surface-400">Тема</span>
@@ -347,14 +348,16 @@ const canSend = computed(() => {
               <div class="flex items-center justify-between">
                 <p class="text-xs text-surface-500 dark:text-surface-400">
                   Создавайте и управляйте шаблонами писем для вашей организации.                </p>
-                <button
+                <UiButton
                   v-if="!showNewTemplateForm"
                   type="button"
-                  class="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-all cursor-pointer"
+                  variant="primary"
+                  size="sm"
+                  :icon-left="Plus"
                   @click="showNewTemplateForm = true"
                 >
-                  <Plus class="size-3.5" />
-                  Новый шаблон                </button>
+                  Новый шаблон
+                </UiButton>
               </div>
 
               <!-- New template form -->
@@ -382,21 +385,24 @@ const canSend = computed(() => {
                   class="w-full rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all resize-none font-mono"
                 />
                 <div class="flex items-center justify-end gap-2">
-                  <button
+                  <UiButton
                     type="button"
-                    class="rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all cursor-pointer"
+                    variant="secondary"
+                    size="sm"
                     @click="showNewTemplateForm = false"
                   >
-                    Отмена                  </button>
-                  <button
+                    Отмена
+                  </UiButton>
+                  <UiButton
                     type="button"
-                    :disabled="isSavingTemplate"
-                    class="flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    variant="primary"
+                    size="sm"
+                    :loading="isSavingTemplate"
+                    :icon-left="Save"
                     @click="handleSaveTemplate"
                   >
-                    <Save class="size-3" />
                     {{ isSavingTemplate ? 'Сохранение…' : 'Сохранить шаблон' }}
-                  </button>
+                  </UiButton>
                 </div>
               </div>
 
@@ -412,13 +418,15 @@ const canSend = computed(() => {
                     <p class="text-sm font-semibold text-surface-800 dark:text-surface-200 truncate">{{ t.name }}</p>
                     <p class="text-xs text-surface-500 dark:text-surface-400 truncate mt-0.5">{{ t.subject }}</p>
                   </div>
-                  <button
+                  <UiButton
                     type="button"
-                    class="shrink-0 ml-3 rounded-lg p-1.5 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:text-danger-400 dark:hover:bg-danger-950/40 transition-all cursor-pointer"
+                    variant="ghost"
+                    size="sm"
+                    icon-only
+                    :icon-left="Trash2"
+                    class="shrink-0 ml-3 hover:text-danger-600 hover:bg-danger-50 dark:hover:text-danger-400 dark:hover:bg-danger-950/40"
                     @click="handleDeleteTemplate(t.id)"
-                  >
-                    <Trash2 class="size-3.5" />
-                  </button>
+                  />
                 </div>
               </div>
 
@@ -447,21 +455,25 @@ const canSend = computed(() => {
           <!-- Footer -->
           <div v-if="activeTab !== 'manage'" class="shrink-0 border-t border-surface-200/80 dark:border-surface-800/60 bg-surface-50/80 dark:bg-surface-950/60 px-6 py-4">
             <div class="flex items-center gap-3">
-              <button
+              <UiButton
                 type="button"
-                class="flex-1 rounded-xl border border-surface-200 dark:border-surface-700 px-4 py-2.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all cursor-pointer"
+                variant="secondary"
+                class="flex-1 rounded-xl"
                 @click="emit('close')"
               >
-                Отмена              </button>
-              <button
+                Отмена
+              </UiButton>
+              <UiButton
                 type="button"
-                :disabled="!canSend || isSending"
-                class="flex-1 flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm shadow-brand-500/20"
+                variant="primary"
+                :loading="isSending"
+                :disabled="!canSend"
+                :icon-left="Send"
+                class="flex-1 rounded-xl"
                 @click="handleSend"
               >
-                <Send class="size-4" />
                 {{ isSending ? 'Отправка…' : 'Отправить приглашение' }}
-              </button>
+              </UiButton>
             </div>
           </div>
         </template>

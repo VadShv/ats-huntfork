@@ -422,12 +422,7 @@ const localePath = useLocalePath()
               </div>
             </div>
           </div>
-          <button
-            class="cursor-pointer rounded-lg border border-surface-200 dark:border-surface-700 p-2 text-surface-400 hover:text-surface-600 hover:bg-surface-50 dark:hover:text-surface-300 dark:hover:bg-surface-800 transition-all"
-            @click="openEditDetails"
-          >
-            <Pencil class="size-4" />
-          </button>
+          <UiButton variant="secondary" size="sm" icon-only :icon-left="Pencil" @click="openEditDetails" />
         </div>
         <!-- Invitation status -->
         <div
@@ -475,21 +470,13 @@ const localePath = useLocalePath()
             />
             {{ nextStatus === 'scheduled' ? 'Перенести' : `Отметить как ${statusConfig[nextStatus]?.label}` }}
           </button>
-          <button
-            class="inline-flex cursor-pointer items-center rounded-full border border-brand-200 dark:border-brand-800 bg-brand-50 dark:bg-brand-950/30 px-3.5 py-1.5 text-sm font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-950/50 transition-all duration-150"
-            @click="openReschedule"
-          >
-            <Calendar class="mr-1.5 size-3.5" />
-            Перенести          </button>
-          <button
-            v-if="interview.status === 'scheduled'"
-            class="inline-flex cursor-pointer items-center rounded-full border border-success-200 dark:border-success-800 bg-success-50 dark:bg-success-950/30 px-3.5 py-1.5 text-sm font-medium text-success-700 dark:text-success-300 hover:bg-success-100 dark:hover:bg-success-950/50 transition-all duration-150"
-            @click="showSendInvitation = !showSendInvitation"
-          >
-            <Mail class="mr-1.5 size-3.5" />
+          <UiButton variant="outline" size="sm" :icon-left="Calendar" class="rounded-full border-brand-200 dark:border-brand-800 bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-950/50" @click="openReschedule">
+            Перенести
+          </UiButton>
+          <UiButton v-if="interview.status === 'scheduled'" variant="outline" size="sm" :icon-left="Mail" class="rounded-full border-success-200 dark:border-success-800 bg-success-50 dark:bg-success-950/30 text-success-700 dark:text-success-300 hover:bg-success-100 dark:hover:bg-success-950/50" @click="showSendInvitation = !showSendInvitation">
             {{ interview.invitationSentAt ? 'Отправить приглашение повторно' : 'Отправить приглашение' }}
             <ChevronDown class="ml-1 size-3 transition-transform" :class="showSendInvitation ? 'rotate-180' : ''" />
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -525,12 +512,7 @@ const localePath = useLocalePath()
                     <p class="text-xs text-surface-500 dark:text-surface-400">на {{ interview.candidateEmail }}</p>
                   </div>
                 </div>
-                <button
-                  class="cursor-pointer rounded-lg p-1.5 text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:text-surface-300 dark:hover:bg-surface-800 transition-all"
-                  @click="showSendInvitation = false"
-                >
-                  <X class="size-4" />
-                </button>
+                <UiButton variant="ghost" size="sm" icon-only :icon-left="X" @click="showSendInvitation = false" />
               </div>
             </div>
 
@@ -607,21 +589,12 @@ const localePath = useLocalePath()
             <!-- Send button -->
             <div class="border-t border-surface-100 dark:border-surface-800 bg-surface-50/80 dark:bg-surface-950/40 px-5 py-4">
               <div class="flex items-center gap-3">
-                <button
-                  type="button"
-                  class="flex-1 rounded-xl border border-surface-200 dark:border-surface-700 px-4 py-2.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all cursor-pointer"
-                  @click="showSendInvitation = false"
-                >
-                  Отмена                </button>
-                <button
-                  type="button"
-                  :disabled="!selectedTemplateId || isSendingEmail"
-                  class="flex-1 flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm shadow-brand-500/20"
-                  @click="handleSendInvitation"
-                >
-                  <Send class="size-4" />
+                <UiButton type="button" variant="secondary" class="flex-1 rounded-xl" @click="showSendInvitation = false">
+                  Отмена
+                </UiButton>
+                <UiButton type="button" variant="primary" :loading="isSendingEmail" :disabled="!selectedTemplateId" :icon-left="Send" class="flex-1 rounded-xl" @click="handleSendInvitation">
                   {{ isSendingEmail ? 'Отправка…' : 'Отправить приглашение' }}
-                </button>
+                </UiButton>
               </div>
             </div>
           </template>
@@ -763,13 +736,9 @@ const localePath = useLocalePath()
             <MessageSquare class="size-4 text-surface-500 dark:text-surface-400" />
             <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">Заметки</h2>
           </div>
-          <button
-            v-if="!isEditingNotes"
-            class="cursor-pointer text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
-            @click="startEditNotes"
-          >
+          <UiButton v-if="!isEditingNotes" variant="link" size="sm" @click="startEditNotes">
             {{ interview.notes ? 'Изменить' : 'Добавить заметки' }}
-          </button>
+          </UiButton>
         </div>
 
         <div v-if="isEditingNotes">
@@ -780,18 +749,12 @@ const localePath = useLocalePath()
             class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors resize-none"
           />
           <div class="flex items-center gap-2 mt-2">
-            <button
-              :disabled="isSavingNotes"
-              class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              @click="saveNotes"
-            >
+            <UiButton variant="primary" size="sm" :loading="isSavingNotes" @click="saveNotes">
               {{ isSavingNotes ? 'Сохранение…' : 'Сохранить' }}
-            </button>
-            <button
-              class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-600 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-              @click="isEditingNotes = false"
-            >
-              Отмена            </button>
+            </UiButton>
+            <UiButton variant="secondary" size="sm" @click="isEditingNotes = false">
+              Отмена
+            </UiButton>
           </div>
         </div>
 
@@ -811,11 +774,9 @@ const localePath = useLocalePath()
       <div class="rounded-xl border border-danger-200/60 dark:border-danger-900/40 bg-danger-50/30 dark:bg-danger-950/20 p-5">
         <h3 class="text-sm font-semibold text-danger-700 dark:text-danger-400 mb-1">Опасная зона</h3>
         <p class="text-xs text-danger-600/80 dark:text-danger-400/60 mb-3">Удалить интервью без возможности восстановления.</p>
-        <button
-          class="cursor-pointer rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 transition-colors"
-          @click="showDeleteConfirm = true"
-        >
-          Удалить интервью        </button>
+        <UiButton variant="danger" size="sm" @click="showDeleteConfirm = true">
+          Удалить интервью
+        </UiButton>
       </div>
     </template>
 
@@ -866,19 +827,12 @@ const localePath = useLocalePath()
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-                @click="showReschedule = false"
-              >
-                Отмена              </button>
-              <button
-                type="submit"
-                :disabled="isRescheduling"
-                class="cursor-pointer rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
+              <UiButton type="button" variant="secondary" @click="showReschedule = false">
+                Отмена
+              </UiButton>
+              <UiButton type="submit" variant="primary" :loading="isRescheduling">
                 {{ isRescheduling ? 'Сохранение…' : 'Перенести' }}
-              </button>
+              </UiButton>
             </div>
           </form>
         </div>
@@ -948,39 +902,21 @@ const localePath = useLocalePath()
                     placeholder="ФИО интервьюера"
                     class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
                   />
-                  <button
-                    v-if="editForm.interviewers.length > 1"
-                    type="button"
-                    class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 p-2 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors"
-                    @click="editForm.interviewers.splice(idx, 1)"
-                  >
-                    <X class="size-4" />
-                  </button>
+                  <UiButton v-if="editForm.interviewers.length > 1" type="button" variant="secondary" size="sm" icon-only :icon-left="X" class="hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30" @click="editForm.interviewers.splice(idx, 1)" />
                 </div>
-                <button
-                  v-if="editForm.interviewers.length < 20"
-                  type="button"
-                  class="cursor-pointer text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors"
-                  @click="editForm.interviewers.push('')"
-                >
-                  + Добавить интервьюера                </button>
+                <UiButton v-if="editForm.interviewers.length < 20" type="button" variant="link" size="sm" @click="editForm.interviewers.push('')">
+                  + Добавить интервьюера
+                </UiButton>
               </div>
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-                @click="showEditDetails = false"
-              >
-                Отмена              </button>
-              <button
-                type="submit"
-                :disabled="isSavingEdit"
-                class="cursor-pointer rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
+              <UiButton type="button" variant="secondary" @click="showEditDetails = false">
+                Отмена
+              </UiButton>
+              <UiButton type="submit" variant="primary" :loading="isSavingEdit">
                 {{ isSavingEdit ? 'Сохранение…' : 'Сохранить изменения' }}
-              </button>
+              </UiButton>
             </div>
           </form>
         </div>
@@ -997,19 +933,12 @@ const localePath = useLocalePath()
             Удалить <strong>{{ interview?.title }}</strong>? Действие необратимо.
           </p>
           <div class="flex justify-end gap-2">
-            <button
-              :disabled="isDeleting"
-              class="cursor-pointer rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
-              @click="showDeleteConfirm = false"
-            >
-              Отмена            </button>
-            <button
-              :disabled="isDeleting"
-              class="cursor-pointer rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              @click="handleDelete"
-            >
+            <UiButton variant="secondary" size="sm" :disabled="isDeleting" @click="showDeleteConfirm = false">
+              Отмена
+            </UiButton>
+            <UiButton variant="danger" size="sm" :loading="isDeleting" @click="handleDelete">
               {{ isDeleting ? 'Удаление…' : 'Удалить' }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
