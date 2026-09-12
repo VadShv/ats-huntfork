@@ -11,10 +11,12 @@
 > **Готово и в `main`:** Батчи 0 (пилот), 1 (Настройки), 2 (общие компоненты),
 > 3 (UiSegmented + переключатели периодов), 4 (Кандидаты), **5 часть 1**
 > (job settings/questions/application-form/sourcing).
-> Последний коммит миграции: `a378736`.
+> **Готово и в `main`:** Батчи 0 (пилот), 1 (Настройки), 2 (общие компоненты),
+> 3 (UiSegmented + переключатели периодов), 4 (Кандидаты), **5 части 1+2**
+> (job settings/questions/application-form/sourcing + job pages).
+> Последний коммит миграции: `f295f47`.
 >
-> **Продолжить с:** Батч 6 (Интервью), Батч 7 (Отклики/коммуникации/чатбот),
-> Батч 8 (Прочее).
+> **Продолжить с:** Батч 7 (Отклики/коммуникации/чатбот), Батч 8 (Прочее).
 >
 > **Дисциплина:** помодульно, атомарный коммит на батч (или его часть),
 > проверка сборкой (`npm run build`), соблюдать §3 (что меняем / что не трогаем).
@@ -117,8 +119,22 @@
       Loader2 оставлен — card-buttons и create link buttons)
 
 ### Батч 6 — Интервью 🟡
-- [ ] `interviews/[id].vue` (21; замен ~10), `interviews/index.vue` (17)
-- [ ] `InterviewScheduleSidebar.vue` (17), `InterviewEmailModal.vue` (11)
+### Батч 6 — Интервью ✅ ВЫПОЛНЕНО (в `main`, коммит `f295f47`)
+- [x] `interviews/[id].vue` (18 замен: edit pencil, reschedule, send invitation,
+      close, cancel/send notes, delete, reschedule modal cancel/save, edit modal
+      remove/add interviewer, cancel/save, delete confirm cancel/delete;
+      3 пропуска: status transition pill v-for, template card-selector, preview toggle)
+- [x] `interviews/index.vue` (9 замен: retry link, reset filters, complete x2,
+      edit pencil, edit modal cancel/save, delete confirm cancel/delete;
+      8 пропусков: search clear, status pills, view toggles, more-menu trigger, menu items)
+- [x] `InterviewScheduleSidebar.vue` (10 замен: close, done, customize pencil,
+      prev/next month, remove interviewer, add interviewer, cancel, submit,
+      skip planning; 7 пропусков: schedule-another card-button, template dropdown
+      trigger, system/custom template items, calendar day/time/duration selectors)
+- [x] `InterviewEmailModal.vue` (8 замен: close, new template, cancel/save template,
+      delete template, cancel, send invitation, custom preview toggle;
+      3 пропуска: tabs v-for, template card-selector, preview toggle with ChevronDown)
+- [x] Сборка на ВМ OK, `curl localhost:3030` -> 200.
 
 ### Батч 7 — Отклики / коммуникации / чатбот 🟡
 - [ ] `applications/index.vue` (19), `ApplicationQuickActions.vue` (8)
