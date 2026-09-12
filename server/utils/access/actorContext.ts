@@ -18,7 +18,7 @@
 
 import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
-import { member } from '../../database/schema/auth'
+import { member, user as userTable } from '../../database/schema/auth'
 import { memberScope } from '../../database/schema/rbac'
 import {
   type AccessScope,
@@ -53,6 +53,8 @@ export interface ActorContext {
   status: string
   /** Режим «Посмотреть как» — форс read-only (Спринт 5; в 0.5 — false). */
   isViewAs: boolean
+  /** Имя участника, от чьего лица идёт просмотр (для баннера). */
+  viewAsName?: string | null
   // ── Обратная совместимость с текущими хелперами HM ──
   canViewSalary: boolean
   mustChangePassword: boolean
@@ -89,23 +91,49 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
     return null
   }
 
-  const [row] = await db
-    .select({
-      id: member.id,
-      role: member.role,
-      status: member.status,
-      canViewSalary: member.hmCanViewSalary,
-      mustChangePassword: member.mustChangePassword,
-      revokedAt: member.revokedAt,
-      permissionsVersion: member.permissionsVersion,
-    })
+  const memberCols = {
+    id: member.id,
+    userId: member.userId,
+    role: member.role,
+    status: member.status,
+    canViewSalary: member.hmCanViewSalary,
+    mustChangePassword: member.mustChangePassword,
+    revokedAt: member.revokedAt,
+    permissionsVersion: member.permissionsVersion,
+  }
+
+  const [realRow] = await db
+    .select(memberCols)
     .from(member)
     .where(and(eq(member.organizationId, orgId), eq(member.userId, session.user.id)))
     .limit(1)
 
-  if (!row) {
+  if (!realRow) {
     ;(event.context as { actor?: ActorContext | null }).actor = null
     return null
+  }
+
+  // ── View-as (read-only impersonation, Sprint 5) ──
+  // If a view_as cookie is set AND the real member is owner/admin, rebuild the
+  // actor AS the target member with isViewAs=true. The cookie alone grants
+  // nothing — we re-verify the real member's privilege here on every request.
+  let row = realRow
+  let isViewAs = false
+  let viewAsName: string | null = null
+  const viewAsMemberId = getCookie(event, 'access_view_as')
+  if (viewAsMemberId && viewAsMemberId !== realRow.id
+    && (realRow.role === 'owner' || realRow.role === 'admin')) {
+    const [targetRow] = await db
+      .select({ ...memberCols, userName: userTable.name })
+      .from(member)
+      .innerJoin(userTable, eq(userTable.id, member.userId))
+      .where(and(eq(member.organizationId, orgId), eq(member.id, viewAsMemberId)))
+      .limit(1)
+    if (targetRow) {
+      row = targetRow
+      isViewAs = true
+      viewAsName = targetRow.userName
+    }
   }
 
   // ── Self-healing (Sprint 2): if the member has no member_role assignment yet
@@ -140,7 +168,9 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
   const permissions = applyOverrides(baseCaps, overrides)
 
   const actor: ActorContext = {
-    userId: session.user.id,
+    // When impersonating, the actor IS the target member (userId/memberId of the
+    // target) so scope resolves for them. isViewAs forces read-only in can().
+    userId: row.userId,
     memberId: row.id,
     orgId,
     roleKeys,
@@ -150,7 +180,8 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
     limits: null,
     status: row.status,
     // revoked members are treated as inactive for access decisions
-    isViewAs: false,
+    isViewAs,
+    viewAsName,
     canViewSalary: row.canViewSalary,
     mustChangePassword: row.mustChangePassword,
   }
@@ -210,6 +241,7 @@ export function actorToSnapshot(actor: ActorContext | null): AccessSnapshot {
       canViewSalary: actor.canViewSalary,
       mustChangePassword: actor.mustChangePassword,
       isViewAs: actor.isViewAs,
+      viewAsName: actor.viewAsName ?? null,
     },
     status: actor.status,
   }

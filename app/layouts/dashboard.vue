@@ -22,6 +22,7 @@ const isDemoAccount = computed(() => session.value?.user?.email === 'demo@reqcor
 <template>
   <div class="flex h-screen flex-col overflow-hidden bg-surface-50 dark:bg-surface-950">
     <AppTopBar />
+    <ClientOnly><ViewAsBanner /></ClientOnly>
     <AppToasts />
     <PreviewUpsellModal v-if="isUpsellOpen" @close="closeUpsell" />
     <ClientOnly>

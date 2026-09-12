@@ -20,6 +20,7 @@ const isDemoAccount = computed(() => session.value?.user?.email === 'demo@reqcor
   <div class="flex min-h-screen flex-col bg-surface-50 dark:bg-surface-950">
     <!-- AppTopBar: desktop only -->
     <AppTopBar class="hidden lg:block" />
+    <ClientOnly><ViewAsBanner /></ClientOnly>
     <AppToasts />
     <PreviewUpsellModal v-if="isUpsellOpen" @close="closeUpsell" />
     <ClientOnly>

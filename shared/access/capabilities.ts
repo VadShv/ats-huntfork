@@ -48,6 +48,8 @@ export interface AccessSnapshot {
     canViewSalary: boolean
     mustChangePassword: boolean
     isViewAs: boolean
+    /** Name of the member being viewed (for the view-as banner). */
+    viewAsName?: string | null
   }
   status: string
 }
