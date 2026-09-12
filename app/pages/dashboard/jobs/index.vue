@@ -69,7 +69,10 @@ function jobGrandTotal(j: any): number {
 // Fetch jobs with pipeline data
 // ─────────────────────────────────────────────
 
-const { jobs, total, fetchStatus, error, refresh } = useJobs()
+// §4: «Мои / Все» — дефолт «мои» (рабочий экран рекрутера), тумблер «все в scope».
+// Показываем только рекрутеру (member); owner/admin и так видят всё с разбивкой.
+const jobsScope = ref<'mine' | 'all'>('mine')
+const { jobs, total, fetchStatus, error, refresh } = useJobs({ scope: jobsScope })
 
 // ─────────────────────────────────────────────
 // Job status → UiBadge tone mapping
@@ -517,6 +520,15 @@ const sortDirOptions = computed(() => [
             :icon-left="Search"
           />
         </div>
+
+        <!-- §4: «Мои / Все» — только для рекрутера (member). Влияет на список, не на доступ. -->
+        <UiSegmented
+          v-if="orgRole === 'member'"
+          v-model="jobsScope"
+          :options="[{ value: 'mine', label: 'Мои' }, { value: 'all', label: 'Все' }]"
+          size="sm"
+          aria-label="Фильтр вакансий: мои или все"
+        />
 
         <!-- Saved views menu -->
         <SavedViewsMenu

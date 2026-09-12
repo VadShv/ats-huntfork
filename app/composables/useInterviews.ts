@@ -45,6 +45,8 @@ export function useInterviews(options?: {
   from?: MaybeRefOrGetter<string | undefined>
   to?: MaybeRefOrGetter<string | undefined>
   limit?: MaybeRefOrGetter<number | undefined>
+  /** §4: 'mine' (I organize) | 'all' (all in scope). */
+  scope?: MaybeRefOrGetter<'mine' | 'all' | undefined>
 }) {
   const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 
@@ -73,6 +75,10 @@ export function useInterviews(options?: {
     if (options?.limit) {
       const v = toValue(options.limit)
       if (v) q.limit = v
+    }
+    if (options?.scope) {
+      const v = toValue(options.scope)
+      if (v) q.scope = v
     }
     return q
   })

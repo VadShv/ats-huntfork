@@ -146,9 +146,15 @@ const mainNav = computed<Array<{ label: string; to: string; icon: typeof Briefca
   { label: t('dashboard.nav.settings'), to: '/dashboard/settings', icon: Settings, exact: false },
 ])
 
-// Assistant is now generally available — inserted right after AI Analysis.
+// §5: the assistant requires an AI permission (scoring). Roles without AI
+// (external_recruiter) don't see the link — matches server-side gating in
+// requireChatbotAccess. Client gate is cosmetic; the server enforces.
+const { allowed: hasAi } = usePermission({ scoring: ['read'] })
+
+// Assistant is inserted right after AI Analysis when the user has AI.
 const navItems = computed(() => {
   const merged = [...mainNav.value]
+  if (!hasAi.value) return merged
   const idx = merged.findIndex((n) => n.label === t('dashboard.nav.aiAnalysis'))
   const insertAt = idx >= 0 ? idx + 1 : merged.length
   merged.splice(insertAt, 0, {
@@ -477,8 +483,9 @@ onUnmounted(() => {
             </Transition>
           </div>
 
-          <!-- Assistant quick access -->
+          <!-- Assistant quick access (§5: only with AI permission) -->
           <NuxtLink
+            v-if="hasAi"
             :to="$localePath('/dashboard/chatbot')"
             class="hidden sm:inline-flex items-center justify-center size-8 rounded-lg transition-all duration-200 no-underline"
             :class="isActiveRoute('/dashboard/chatbot', false)

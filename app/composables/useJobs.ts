@@ -6,11 +6,14 @@ import type { Ref } from 'vue'
  */
 export function useJobs(options?: {
   status?: Ref<string | undefined> | string
+  /** §4: 'mine' (assigned) | 'all' (whole scope). Server default: member→mine. */
+  scope?: Ref<'mine' | 'all' | undefined> | 'mine' | 'all'
 }) {
   const { handlePreviewReadOnlyError } = usePreviewReadOnly()
 
   const query = computed(() => ({
     ...(toValue(options?.status) && { status: toValue(options?.status) }),
+    ...(toValue(options?.scope) && { scope: toValue(options?.scope) }),
   }))
 
   const { data, status: fetchStatus, error, refresh } = useFetch('/api/jobs', {

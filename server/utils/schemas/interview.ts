@@ -53,6 +53,8 @@ export const interviewQuerySchema = z.object({
   status: z.enum(interviewStatuses).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  // §4: 'mine' = interviews I organize (createdById); 'all' = all in my scope.
+  scope: z.enum(['mine', 'all']).optional(),
 })
 
 /** Reusable schema for `:id` route params */

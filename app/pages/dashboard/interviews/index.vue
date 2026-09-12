@@ -40,9 +40,13 @@ type InterviewStatus = typeof STATUS_OPTIONS[number]
 
 const activeStatus = ref<InterviewStatus | undefined>(undefined)
 const activeView = ref<'list' | 'calendar'>('list')
+// §4: default «Мои» (интервью, которые я организую); тумблер «Все в моём scope».
+// Фильтр вида, не ограничивает доступ к карточкам.
+const scopeFilter = ref<'mine' | 'all'>('mine')
 
 const { interviews, total, status: fetchStatus, error, refresh, updateInterview, deleteInterviewById } = useInterviews({
   status: activeStatus,
+  scope: scopeFilter,
   limit: 100,
 })
 
@@ -338,6 +342,14 @@ const statusCounts = computed(() => {
           <X class="size-4" />
         </button>
       </div>
+
+      <!-- §4: «Мои / Все» — дефолт «Мои» (я организатор); «Все» — все в моём scope -->
+      <UiSegmented
+        v-model="scopeFilter"
+        :options="[{ value: 'mine', label: 'Мои' }, { value: 'all', label: 'Все' }]"
+        size="sm"
+        aria-label="Фильтр интервью: мои или все"
+      />
 
       <!-- Status pills -->
       <div class="flex items-center gap-1.5">

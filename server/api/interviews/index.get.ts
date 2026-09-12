@@ -21,6 +21,13 @@ export default defineEventHandler(async (event) => {
     conditions.push(inArray(application.jobId, scope.jobIds.length > 0 ? scope.jobIds : ['__none__']))
   }
 
+  // §4: default view = interviews I organize (createdById). 'all' = all in scope.
+  // This is a VIEW filter (list cleanliness), NOT an access boundary — the
+  // recruiter scope above still governs what data is reachable.
+  if (query.scope !== 'all') {
+    conditions.push(eq(interview.createdById, session.user.id))
+  }
+
   if (query.applicationId) {
     conditions.push(eq(interview.applicationId, query.applicationId))
   }
