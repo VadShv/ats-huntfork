@@ -1039,6 +1039,14 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           if (!visible) throw new Error(`Document ${documentId} not found.`)
         }
 
+        // ── RBAC v2 rollout #3: resume text contains contacts in free text and
+        // is NOT masked line-by-line. Whoever cannot see contacts in the card
+        // must not extract them from the resume via the assistant. Requires
+        // candidate:read:contacts. Owner/admin have it; junior/HM do not.
+        if (!ctx.actor?.permissions.has('candidate:read:contacts')) {
+          throw new Error('You do not have permission to read candidate contact details / resumes.')
+        }
+
         // Sprint 6 fix: resolve candidateName so the Sources panel shows the
         // candidate's name instead of "hh-resume-xxx.json".
         const cand = await db.query.candidate.findFirst({
