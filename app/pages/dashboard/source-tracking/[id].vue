@@ -415,23 +415,25 @@ async function handleSidebarUpdated() {
             </div>
 
             <!-- Edit -->
-            <button
-              class="inline-flex items-center gap-1.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :icon-left="Pencil"
               @click="openEditModal"
             >
-              <Pencil class="size-3.5" />
               Изменить
-            </button>
+            </UiButton>
 
             <!-- Copy URL -->
-            <button
-              class="inline-flex items-center gap-1.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              variant="secondary"
+              size="sm"
               @click="copyTrackingUrl"
             >
               <Copy v-if="!copied" class="size-3.5" />
               <CheckCircle2 v-else class="size-3.5 text-green-500" />
               {{ copied ? 'Скопировано!' : 'Копировать URL' }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -442,12 +444,14 @@ async function handleSidebarUpdated() {
         <code class="text-xs text-surface-600 dark:text-surface-300 font-mono truncate flex-1">
           {{ buildTrackingUrl(link.code) }}
         </code>
-        <button
-          class="shrink-0 text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
+        <UiButton
+          variant="link"
+          size="xs"
+          class="shrink-0"
           @click="copyTrackingUrl"
         >
           {{ copied ? 'Скопировано!' : 'Копировать' }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- ─── Stat cards ─── -->
@@ -822,12 +826,15 @@ async function handleSidebarUpdated() {
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-surface-100 dark:border-surface-800">
             <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Изменить ссылку отслеживания</h2>
-            <button
-              class="p-1.5 rounded-lg text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              variant="ghost"
+              icon-only
+              size="sm"
+              class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"
               @click="showEditModal = false"
             >
               <X class="size-4" />
-            </button>
+            </UiButton>
           </div>
 
           <!-- Body -->
@@ -895,20 +902,20 @@ async function handleSidebarUpdated() {
 
             <!-- Footer -->
             <div class="flex items-center justify-end gap-3 pt-2">
-              <button
+              <UiButton
                 type="button"
-                class="rounded-xl px-4 py-2.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                variant="ghost"
                 @click="showEditModal = false"
               >
                 Отмена
-              </button>
-              <button
+              </UiButton>
+              <UiButton
                 type="submit"
-                :disabled="!editForm.name.trim() || isSaving"
-                class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 shadow-sm shadow-brand-600/15 transition-all"
+                :loading="isSaving"
+                :disabled="!editForm.name.trim()"
               >
-                {{ isSaving ? 'Сохранение…' : 'Сохранить изменения' }}
-              </button>
+                Сохранить изменения
+              </UiButton>
             </div>
           </form>
         </div>

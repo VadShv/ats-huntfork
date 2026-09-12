@@ -429,14 +429,16 @@ function getEventDescription(item: TimelineItem): string {
         </div>
 
         <!-- Scroll to today button -->
-        <button
+        <UiButton
           v-if="dayGroups.length > 0 && !isLoading"
-          class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors cursor-pointer"
+          variant="ghost"
+          size="xs"
+          class="text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40"
           @click="scrollToToday"
         >
           <ArrowDown class="size-3" />
           Сегодня
-        </button>
+        </UiButton>
       </div>
 
       <!-- Filter pills -->
@@ -501,9 +503,9 @@ function getEventDescription(item: TimelineItem): string {
     >
       <AlertCircle class="size-4 shrink-0" />
       <span>{{ error }}</span>
-      <button class="underline ml-auto font-medium cursor-pointer" @click="loadInitial(activeFilter)">
+      <UiButton variant="link" class="ml-auto" @click="loadInitial(activeFilter)">
         Повторить
-      </button>
+      </UiButton>
     </div>
 
     <!-- ─── Empty state ─── -->
@@ -543,12 +545,14 @@ function getEventDescription(item: TimelineItem): string {
       <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">
         Попробуйте искать по имени, дате или ключевому слову
       </p>
-      <button
-        class="mt-3 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
+      <UiButton
+        variant="link"
+        size="xs"
+        class="mt-3"
         @click="searchQuery = ''"
       >
         Очистить поиск
-      </button>
+      </UiButton>
     </div>
 
     <!-- ─── Timeline ─── -->
@@ -756,13 +760,15 @@ function getEventDescription(item: TimelineItem): string {
           Загрузка…
         </div>
         <div v-else-if="hasMore" class="flex justify-center py-4">
-          <button
-            class="inline-flex items-center gap-1.5 rounded-md border border-surface-200 dark:border-surface-800 px-3 py-1.5 text-xs font-medium text-surface-500 dark:text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-300 dark:hover:border-brand-700 transition-colors cursor-pointer"
+          <UiButton
+            variant="secondary"
+            size="xs"
+            class="text-surface-500 dark:text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-300 dark:hover:border-brand-700"
+            :icon-left="ChevronDown"
             @click="loadMore"
           >
-            <ChevronDown class="size-3.5" />
             Показать более раннее
-          </button>
+          </UiButton>
         </div>
         <div v-else-if="totalEvents > 0" class="flex items-center justify-center gap-2 py-6 text-xs text-surface-400 dark:text-surface-500">
           <Clock class="size-3.5" />

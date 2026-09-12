@@ -56,15 +56,15 @@ const inputCls = 'rounded-lg border border-surface-300 dark:border-surface-700 p
 <template>
   <div>
     <div class="mb-4 flex items-center justify-end">
-      <button v-if="canManage" type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-3 py-2" @click="showCreate = !showCreate">
-        <Plus class="size-4" /> Команда
-      </button>
+      <UiButton v-if="canManage" size="sm" :icon-left="Plus" @click="showCreate = !showCreate">
+        Команда
+      </UiButton>
     </div>
 
     <section v-if="showCreate && canManage" class="mb-4 rounded-xl border border-brand-200 dark:border-brand-800 bg-brand-50/40 dark:bg-brand-950/20 p-4 flex items-center gap-3">
       <input v-model="newName" type="text" placeholder="Название команды" :class="inputCls" class="flex-1" @keydown.enter="createTeam">
       <input v-model="newColor" type="color" class="size-9 rounded-lg border border-surface-300 dark:border-surface-700 bg-transparent cursor-pointer">
-      <button type="button" class="inline-flex items-center gap-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm px-3 py-2" @click="createTeam"><Check class="size-4" />Создать</button>
+      <UiButton size="sm" :icon-left="Check" @click="createTeam">Создать</UiButton>
     </section>
 
     <div class="space-y-3 mb-8">
@@ -73,12 +73,30 @@ const inputCls = 'rounded-lg border border-surface-300 dark:border-surface-700 p
           <span class="size-3.5 rounded-full" :style="{ backgroundColor: t.color }" />
           <span class="text-sm font-medium text-surface-900 dark:text-surface-100 flex-1">{{ t.name }}</span>
           <span class="text-xs text-surface-400">{{ t.members.length }} чел.</span>
-          <button v-if="canManage" type="button" class="p-1.5 rounded-lg text-surface-400 hover:text-danger-600 hover:bg-surface-100 dark:hover:bg-surface-800" @click="deleteTeam(t.id)"><Trash2 class="size-4" /></button>
+          <UiButton
+            v-if="canManage"
+            variant="ghost"
+            icon-only
+            size="sm"
+            class="text-surface-400 hover:text-danger-600 dark:hover:text-danger-400"
+            @click="deleteTeam(t.id)"
+          >
+            <Trash2 class="size-4" />
+          </UiButton>
         </div>
         <div class="flex flex-wrap gap-1.5">
           <span v-for="m in t.members" :key="m.userId" class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300">
             {{ m.name }}
-            <button v-if="canManage" type="button" class="text-surface-400 hover:text-danger-500" @click="removeMember(t.id, m.userId)"><X class="size-3" /></button>
+            <UiButton
+              v-if="canManage"
+              variant="ghost"
+              icon-only
+              size="xs"
+              class="text-surface-400 hover:text-danger-500"
+              @click="removeMember(t.id, m.userId)"
+            >
+              <X class="size-3" />
+            </UiButton>
           </span>
           <div v-if="canManage" class="relative">
             <button type="button" class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-surface-300 dark:border-surface-600 text-surface-500 hover:border-brand-400" @click="assignFor = assignFor === t.id ? null : t.id">
@@ -108,7 +126,7 @@ const inputCls = 'rounded-lg border border-surface-300 dark:border-surface-700 p
       </label>
       <div class="flex items-center gap-2">
         <input v-model="mvpChatId" type="text" placeholder="chat_id канала (например -1001234567890)" :class="inputCls" class="flex-1">
-        <button type="button" class="inline-flex items-center gap-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm px-3 py-2" @click="saveMvp"><Check class="size-4" />Сохранить</button>
+        <UiButton size="sm" :icon-left="Check" @click="saveMvp">Сохранить</UiButton>
       </div>
     </section>
   </div>

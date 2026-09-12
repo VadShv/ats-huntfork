@@ -94,7 +94,7 @@ function timeAgo(ts: number | null): string {
     <!-- Error -->
     <div v-else-if="error" class="rounded-2xl border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950/60 p-5 text-sm text-danger-700 dark:text-danger-400">
       Не удалось загрузить промпты.
-      <button class="underline ml-2 font-medium cursor-pointer" @click="refresh()">Повторить</button>
+      <UiButton variant="link" class="ml-2" @click="refresh()">Повторить</UiButton>
     </div>
 
     <!-- Content -->
@@ -173,14 +173,17 @@ function timeAgo(ts: number | null): string {
               >
                 <Pencil class="size-4" />
               </NuxtLink>
-              <button
+              <UiButton
                 v-if="prompt.isOwner"
-                class="rounded-lg p-2 text-surface-500 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors cursor-pointer"
+                icon-only
+                variant="ghost"
+                size="sm"
+                class="text-surface-500 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40"
                 title="Удалить"
                 @click="deletePrompt(prompt.id)"
               >
                 <Trash2 class="size-4" />
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>

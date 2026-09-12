@@ -164,9 +164,9 @@ async function save() {
       <div>
         <div class="flex items-center justify-between mb-2">
           <label class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Переменные</label>
-          <button class="text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1 cursor-pointer" @click="addVariable">
-            <Plus class="size-3.5" /> Добавить
-          </button>
+          <UiButton variant="link" size="xs" :icon-left="Plus" @click="addVariable">
+            Добавить
+          </UiButton>
         </div>
         <div v-if="form.variables.length" class="space-y-2">
           <div v-for="(v, idx) in form.variables" :key="idx" class="flex items-center gap-2">
@@ -177,9 +177,9 @@ async function save() {
               <input v-model="v.required" type="checkbox" class="rounded border-surface-300 text-brand-500">
               req
             </label>
-            <button class="rounded-lg p-1.5 text-surface-400 hover:text-danger-600 cursor-pointer" @click="removeVariable(idx)">
+            <UiButton icon-only variant="ghost" size="xs" class="text-surface-400 hover:text-danger-600" @click="removeVariable(idx)">
               <X class="size-3.5" />
-            </button>
+            </UiButton>
           </div>
         </div>
         <p v-else class="text-xs text-surface-400 dark:text-surface-500">Используйте <code class="text-brand-600">{{ '{' + '{varName}' + '}' }}</code> в промпте для подстановки значений при тесте.</p>
@@ -191,7 +191,7 @@ async function save() {
         <div class="flex items-center gap-2 flex-wrap mb-2">
           <span v-for="(tag, idx) in form.tags" :key="idx" class="inline-flex items-center gap-1 rounded-full bg-surface-100 dark:bg-surface-800 px-2.5 py-1 text-xs text-surface-600 dark:text-surface-400">
             {{ tag }}
-            <button class="text-surface-400 hover:text-danger-500 cursor-pointer" @click="removeTag(idx)"><X class="size-3" /></button>
+            <UiButton icon-only variant="ghost" size="xs" class="text-surface-400 hover:text-danger-500" @click="removeTag(idx)"><X class="size-3" /></UiButton>
           </span>
         </div>
         <input v-model="tagInput" type="text" placeholder="тег + Enter" class="w-full max-w-xs rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 px-3 py-1.5 text-sm text-surface-700 dark:text-surface-300 outline-none focus:ring-2 focus:ring-brand-500/40" @keydown.enter.prevent="addTag">
@@ -207,14 +207,14 @@ async function save() {
         <NuxtLink to="/dashboard/prompts/sandbox" class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors">
           Отмена
         </NuxtLink>
-        <button
+        <UiButton
+          :loading="saving"
           :disabled="saving"
-          class="inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium transition-colors cursor-pointer"
+          :icon-left="Save"
           @click="save"
         >
-          <Save class="size-4" />
           {{ saving ? 'Сохранение...' : 'Сохранить' }}
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>

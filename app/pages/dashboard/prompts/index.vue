@@ -108,7 +108,7 @@ function copyPromptToSandbox(prompt: any) {
     <!-- Error -->
     <div v-else-if="error" class="rounded-2xl border border-danger-200 dark:border-danger-900 bg-danger-50 dark:bg-danger-950/60 p-5 text-sm text-danger-700 dark:text-danger-400">
       Не удалось загрузить промпты.
-      <button class="underline ml-2 font-medium cursor-pointer" @click="refresh()">Повторить</button>
+      <UiButton variant="link" class="ml-2" @click="refresh()">Повторить</UiButton>
     </div>
 
     <!-- Content -->
@@ -186,9 +186,9 @@ function copyPromptToSandbox(prompt: any) {
             <div>
               <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">System prompt</span>
-                <button class="text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1 cursor-pointer" @click="copyToClipboard(prompt.systemPrompt)">
-                  <Copy class="size-3" /> Копировать
-                </button>
+                <UiButton variant="link" size="xs" :icon-left="Copy" @click="copyToClipboard(prompt.systemPrompt)">
+                  Копировать
+                </UiButton>
               </div>
               <pre class="text-xs text-surface-700 dark:text-surface-300 bg-surface-50 dark:bg-surface-950/60 rounded-xl p-4 overflow-x-auto whitespace-pre-wrap max-h-96 font-mono leading-relaxed">{{ prompt.systemPrompt }}</pre>
             </div>
@@ -197,9 +197,9 @@ function copyPromptToSandbox(prompt: any) {
             <div v-if="prompt.userPromptTemplate">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">User prompt (шаблон)</span>
-                <button class="text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1 cursor-pointer" @click="copyToClipboard(prompt.userPromptTemplate)">
-                  <Copy class="size-3" /> Копировать
-                </button>
+                <UiButton variant="link" size="xs" :icon-left="Copy" @click="copyToClipboard(prompt.userPromptTemplate)">
+                  Копировать
+                </UiButton>
               </div>
               <pre class="text-xs text-surface-700 dark:text-surface-300 bg-surface-50 dark:bg-surface-950/60 rounded-xl p-4 overflow-x-auto whitespace-pre-wrap max-h-64 font-mono leading-relaxed">{{ prompt.userPromptTemplate }}</pre>
             </div>
@@ -233,13 +233,13 @@ function copyPromptToSandbox(prompt: any) {
 
             <!-- Actions -->
             <div class="flex items-center gap-2 pt-2">
-              <button
-                class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+              <UiButton
+                size="xs"
+                :icon-left="FlaskConical"
                 @click="copyPromptToSandbox(prompt)"
               >
-                <FlaskConical class="size-3.5" />
                 Копировать в песочницу
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>

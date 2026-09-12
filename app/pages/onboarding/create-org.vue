@@ -293,18 +293,20 @@ async function handleSubmitJoinRequest() {
     </button>
 
     <div class="flex flex-col gap-2 mt-2 pt-2 border-t border-surface-200 dark:border-surface-800">
-      <button
-        class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+      <UiButton
+        variant="link"
+        size="sm"
         @click="viewMode = 'create'"
       >
         Создать новую организацию
-      </button>
-      <button
-        class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+      </UiButton>
+      <UiButton
+        variant="link"
+        size="sm"
         @click="viewMode = 'join'"
       >
         Присоединиться к существующей организации
-      </button>
+      </UiButton>
     </div>
   </div>
 
@@ -331,14 +333,14 @@ async function handleSubmitJoinRequest() {
           class="flex-1 px-3 py-2 border border-surface-300 dark:border-surface-700 rounded-md text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15"
           @keydown.enter="handleAcceptInviteCode"
         />
-        <button
+        <UiButton
+          size="sm"
           :disabled="isAcceptingCode || !inviteCode.trim()"
-          class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm font-medium hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+          :loading="isAcceptingCode"
           @click="handleAcceptInviteCode"
         >
-          <Loader2 v-if="isAcceptingCode" class="size-4 animate-spin" />
           Присоединиться
-        </button>
+        </UiButton>
       </div>
       <div v-if="inviteCodeError" class="mt-2 text-xs text-danger-600 dark:text-danger-400">{{ inviteCodeError }}</div>
     </div>
@@ -400,12 +402,14 @@ async function handleSubmitJoinRequest() {
             <Building2 class="size-4 text-brand-600 dark:text-brand-400" />
             <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ selectedOrg.name }}</span>
           </div>
-          <button
-            class="text-xs text-surface-400 hover:text-surface-600 transition-colors"
+          <UiButton
+            variant="link"
+            size="xs"
+            class="text-surface-400 hover:text-surface-600"
             @click="selectedOrg = null"
           >
             Изменить
-          </button>
+          </UiButton>
         </div>
 
         <label class="flex flex-col gap-1 text-xs text-surface-600 dark:text-surface-400">
@@ -419,15 +423,17 @@ async function handleSubmitJoinRequest() {
           />
         </label>
 
-        <button
+        <UiButton
+          size="sm"
+          block
+          class="mt-2"
           :disabled="isSubmittingRequest"
-          class="mt-2 w-full px-4 py-2 bg-brand-600 text-white rounded-md text-sm font-medium hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5"
+          :loading="isSubmittingRequest"
+          :icon-left="UserPlus"
           @click="handleSubmitJoinRequest"
         >
-          <Loader2 v-if="isSubmittingRequest" class="size-4 animate-spin" />
-          <UserPlus v-else class="size-4" />
           {{ isSubmittingRequest ? 'Отправка…' : 'Отправить запрос на вступление' }}
-        </button>
+        </UiButton>
       </div>
 
       <div v-if="requestError" class="mt-2 text-xs text-danger-600 dark:text-danger-400">{{ requestError }}</div>
@@ -441,12 +447,13 @@ async function handleSubmitJoinRequest() {
 
     <!-- Back links -->
     <div class="flex flex-col items-center gap-2">
-      <button
-        class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+      <UiButton
+        variant="link"
+        size="sm"
         @click="viewMode = orgs.length > 0 ? 'picker' : 'create'"
       >
         {{ orgs.length > 0 ? 'Назад к списку организаций' : 'Создать новую организацию' }}
-      </button>
+      </UiButton>
     </div>
   </div>
 
@@ -483,30 +490,34 @@ async function handleSubmitJoinRequest() {
       <span class="text-xs font-normal text-surface-400">Используется в URL. Только строчные латинские буквы, цифры и дефисы.</span>
     </label>
 
-    <button
+    <UiButton
       type="submit"
+      size="sm"
+      class="mt-2 py-2.5"
       :disabled="isLoading"
-      class="mt-2 px-4 py-2.5 bg-brand-600 text-white rounded-md text-sm font-medium hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+      :loading="isLoading"
     >
       {{ isLoading ? 'Создание…' : 'Создать организацию' }}
-    </button>
+    </UiButton>
 
     <div class="flex flex-col items-center gap-2 mt-1">
-      <button
+      <UiButton
         v-if="orgs.length > 0"
         type="button"
-        class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+        variant="link"
+        size="sm"
         @click="viewMode = 'picker'"
       >
         Назад к списку организаций
-      </button>
-      <button
+      </UiButton>
+      <UiButton
         type="button"
-        class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+        variant="link"
+        size="sm"
         @click="viewMode = 'join'"
       >
         Присоединиться к существующей организации
-      </button>
+      </UiButton>
     </div>
   </form>
 </template>

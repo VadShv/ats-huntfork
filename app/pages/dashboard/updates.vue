@@ -297,14 +297,16 @@ function formatDate(dateString: string | null | undefined): string {
 
         <!-- Action buttons -->
         <div class="flex flex-wrap items-center gap-3 pt-2">
-          <button
+          <UiButton
+            variant="secondary"
+            size="sm"
             :disabled="isChecking || versionLoading"
-            class="inline-flex items-center gap-2 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :loading="isChecking || versionLoading"
+            :icon-left="RefreshCw"
             @click="handleCheckUpdate"
           >
-            <RefreshCw :class="['size-4', (isChecking || versionLoading) && 'animate-spin']" />
             {{ (isChecking || versionLoading) ? 'Проверка…' : 'Проверить обновления' }}
-          </button>
+          </UiButton>
 
           <a
             v-if="versionInfo?.releaseUrl"
@@ -356,15 +358,16 @@ function formatDate(dateString: string | null | undefined): string {
 
         <!-- Backup button -->
         <div class="flex flex-wrap items-center gap-3">
-          <button
+          <UiButton
+            variant="secondary"
+            size="sm"
             :disabled="isBackingUp"
-            class="inline-flex items-center gap-2 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :loading="isBackingUp"
+            :icon-left="Database"
             @click="handleBackup"
           >
-            <Loader2 v-if="isBackingUp" class="size-4 animate-spin" />
-            <Database v-else class="size-4" />
             {{ isBackingUp ? 'Создание резервной копии…' : 'Сначала создать резервную копию' }}
-          </button>
+          </UiButton>
         </div>
 
         <!-- Backup result -->
@@ -380,14 +383,15 @@ function formatDate(dateString: string | null | undefined): string {
 
         <!-- Update button -->
         <div v-if="!showUpdateConfirm">
-          <button
+          <UiButton
+            size="sm"
+            class="px-5 py-2.5"
             :disabled="isUpdating"
-            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :icon-left="Download"
             @click="showUpdateConfirm = true"
           >
-            <Download class="size-4" />
             Update to v{{ versionInfo.latestVersion }}
-          </button>
+          </UiButton>
         </div>
 
         <!-- Update confirmation -->
@@ -402,22 +406,23 @@ function formatDate(dateString: string | null | undefined): string {
               Эта операция обновит вашу установку Huntfork с <strong>v{{ versionInfo.currentVersion }}</strong> до <strong>v{{ versionInfo.latestVersion }}</strong>. Во время обновления приложение перезапустится.
             </p>
             <div class="flex items-center gap-2">
-              <button
+              <UiButton
+                size="sm"
                 :disabled="isUpdating"
-                class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :loading="isUpdating"
+                :icon-left="Download"
                 @click="handleApplyUpdate"
               >
-                <Loader2 v-if="isUpdating" class="size-4 animate-spin" />
-                <Download v-else class="size-4" />
                 {{ isUpdating ? 'Обновление…' : 'Подтвердить обновление' }}
-              </button>
-              <button
+              </UiButton>
+              <UiButton
+                variant="ghost"
+                size="sm"
                 :disabled="isUpdating"
-                class="rounded-lg px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 transition-colors"
                 @click="showUpdateConfirm = false"
               >
                 Отмена
-              </button>
+              </UiButton>
             </div>
           </div>
         </Transition>
@@ -569,19 +574,23 @@ function formatDate(dateString: string | null | undefined): string {
         История изменений
       </h2>
       <div class="flex items-center gap-2 text-xs">
-        <button
-          class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors cursor-pointer bg-transparent border-0"
+        <UiButton
+          variant="ghost"
+          size="xs"
+          class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
           @click="expandAll"
         >
           Развернуть все
-        </button>
+        </UiButton>
         <span class="text-surface-300 dark:text-surface-600">·</span>
-        <button
-          class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors cursor-pointer bg-transparent border-0"
+        <UiButton
+          variant="ghost"
+          size="xs"
+          class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
           @click="collapseAll"
         >
           Свернуть все
-        </button>
+        </UiButton>
       </div>
     </div>
 

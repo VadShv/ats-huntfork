@@ -197,14 +197,15 @@ async function deletePrompt() {
           {{ prompt?.name ?? 'Промпт' }}
         </h1>
       </div>
-      <button
+      <UiButton
         v-if="prompt?.isOwner"
-        class="inline-flex items-center gap-2 rounded-lg text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 px-3 py-2 text-sm font-medium transition-colors cursor-pointer"
+        variant="ghost"
+        class="text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40"
+        :icon-left="Trash2"
         @click="deletePrompt"
       >
-        <Trash2 class="size-4" />
         Удалить
-      </button>
+      </UiButton>
     </div>
 
     <!-- Loading -->
@@ -284,18 +285,18 @@ async function deletePrompt() {
           <div v-if="prompt.isOwner" class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
             <div class="flex items-center justify-between mb-2">
               <label class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Переменные</label>
-              <button class="text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1 cursor-pointer" @click="addVariable">
-                <Plus class="size-3.5" /> Добавить
-              </button>
+              <UiButton variant="link" size="xs" :icon-left="Plus" @click="addVariable">
+                Добавить
+              </UiButton>
             </div>
             <div class="space-y-2">
               <div v-for="(v, idx) in form.variables" :key="idx" class="flex items-center gap-2">
                 <input v-model="v.name" type="text" placeholder="name" class="w-28 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 px-2 py-1.5 text-xs font-mono text-surface-700 dark:text-surface-300 outline-none focus:ring-2 focus:ring-brand-500/40">
                 <input v-model="v.description" type="text" placeholder="описание" class="flex-1 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 px-2 py-1.5 text-xs text-surface-700 dark:text-surface-300 outline-none focus:ring-2 focus:ring-brand-500/40">
                 <input v-model="v.example" type="text" placeholder="пример" class="w-28 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 px-2 py-1.5 text-xs text-surface-700 dark:text-surface-300 outline-none focus:ring-2 focus:ring-brand-500/40">
-                <button class="rounded-lg p-1.5 text-surface-400 hover:text-danger-600 cursor-pointer" @click="removeVariable(idx)">
+                <UiButton icon-only variant="ghost" size="xs" class="text-surface-400 hover:text-danger-600" @click="removeVariable(idx)">
                   <X class="size-3.5" />
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -303,14 +304,14 @@ async function deletePrompt() {
           <!-- Save -->
           <div v-if="prompt.isOwner" class="flex items-center justify-end gap-3">
             <div v-if="saveError" class="text-sm text-danger-600 dark:text-danger-400">{{ saveError }}</div>
-            <button
+            <UiButton
+              :loading="saving"
               :disabled="saving"
-              class="inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium transition-colors cursor-pointer"
+              :icon-left="Save"
               @click="save"
             >
-              <Save class="size-4" />
               {{ saving ? 'Сохранение...' : 'Сохранить' }}
-            </button>
+            </UiButton>
           </div>
         </div>
 
@@ -322,21 +323,25 @@ async function deletePrompt() {
                 <FlaskConical class="size-4 text-brand-500" />
                 Тест промпта
               </h2>
-              <button
+              <UiButton
                 v-if="testStatus === 'streaming'"
-                class="inline-flex items-center gap-1.5 rounded-lg bg-danger-50 dark:bg-danger-950/40 text-danger-600 dark:text-danger-400 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
+                variant="ghost"
+                size="xs"
+                class="bg-danger-50 dark:bg-danger-950/40 text-danger-600 dark:text-danger-400"
+                :icon-left="Square"
                 @click="stopTest"
               >
-                <Square class="size-3" /> Стоп
-              </button>
-              <button
+                Стоп
+              </UiButton>
+              <UiButton
                 v-else
+                size="xs"
                 :disabled="testStatus === 'streaming'"
-                class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+                :icon-left="Play"
                 @click="runTest"
               >
-                <Play class="size-3" /> Запустить
-              </button>
+                Запустить
+              </UiButton>
             </div>
 
             <!-- Variable inputs -->

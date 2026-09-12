@@ -353,7 +353,7 @@ const showTab = ref<'links' | 'table'>(initialTab)
     >
       <AlertCircle class="size-5 shrink-0" />
       <span>Не удалось загрузить данные отслеживания источников.</span>
-      <button class="underline ml-auto font-medium cursor-pointer" @click="refreshStats()">Повторить</button>
+      <UiButton variant="link" class="ml-auto" @click="refreshStats()">Повторить</UiButton>
     </div>
 
     <!-- ─── Main content ─── -->
@@ -393,14 +393,15 @@ const showTab = ref<'links' | 'table'>(initialTab)
           </div>
 
           <!-- Create link button -->
-          <button
+          <UiButton
             v-if="canManageLinks"
-            class="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-brand-700 shadow-sm shadow-brand-600/15 hover:shadow-md hover:shadow-brand-600/20 transition-all"
+            variant="primary"
+            size="sm"
+            :icon-left="Plus"
             @click="showCreateModal = true"
           >
-            <Plus class="size-4" />
             <span class="hidden sm:inline">Новая ссылка</span>
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -450,14 +451,14 @@ const showTab = ref<'links' | 'table'>(initialTab)
             <p class="text-sm text-surface-500 dark:text-surface-400 mb-10 leading-relaxed max-w-sm mx-auto">
               Создавайте уникальные ссылки для каждого джоб-борда, кампании или источника рекомендаций. Отслеживайте переходы, отклики и конверсии в реальном времени.
             </p>
-            <button
+            <UiButton
               v-if="canManageLinks"
-              class="inline-flex items-center gap-2.5 rounded-xl bg-brand-600 px-7 py-3.5 text-sm font-semibold text-white hover:bg-brand-700 shadow-md shadow-brand-600/20 hover:shadow-lg hover:shadow-brand-600/25 transition-all"
+              size="lg"
+              :icon-left="Plus"
               @click="showCreateModal = true"
             >
-              <Plus class="size-4" />
               Создать ссылку
-            </button>
+            </UiButton>
           </div>
         </div>
 
@@ -545,31 +546,40 @@ const showTab = ref<'links' | 'table'>(initialTab)
                   <!-- Actions -->
                   <td class="px-4 py-3.5 text-right">
                     <div class="inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        class="p-1.5 rounded-lg text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                      <UiButton
+                        variant="ghost"
+                        icon-only
+                        size="sm"
                         title="Копировать URL отслеживания"
+                        class="text-surface-400 hover:text-brand-600 dark:hover:text-brand-400"
                         @click="copyTrackingUrl(link.code)"
                       >
                         <Copy v-if="copiedCode !== link.code" class="size-3.5" />
                         <CheckCircle2 v-else class="size-3.5 text-green-500" />
-                      </button>
-                      <button
+                      </UiButton>
+                      <UiButton
                         v-if="canManageLinks"
-                        class="p-1.5 rounded-lg text-surface-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                        variant="ghost"
+                        icon-only
+                        size="sm"
                         :title="link.isActive ? 'Отключить' : 'Включить'"
+                        class="text-surface-400 hover:text-amber-600 dark:hover:text-amber-400"
                         @click="toggleLink(link.id, !link.isActive)"
                       >
                         <ToggleRight v-if="link.isActive" class="size-3.5" />
                         <ToggleLeft v-else class="size-3.5" />
-                      </button>
-                      <button
+                      </UiButton>
+                      <UiButton
                         v-if="canManageLinks"
-                        class="p-1.5 rounded-lg text-surface-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                        variant="ghost"
+                        icon-only
+                        size="sm"
                         title="Удалить"
+                        class="text-surface-400 hover:text-danger-600 dark:hover:text-danger-400"
                         @click="confirmDelete(link.id)"
                       >
                         <Trash2 class="size-3.5" />
-                      </button>
+                      </UiButton>
                     </div>
                   </td>
                 </tr>
@@ -592,9 +602,9 @@ const showTab = ref<'links' | 'table'>(initialTab)
           >
             <span class="size-1.5 rounded-full" :class="getChannelColor(selectedChannel)" />
             {{ getChannelLabel(selectedChannel) }}
-            <button class="ml-0.5 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" @click="selectedChannel = undefined">
+            <UiButton variant="ghost" icon-only size="xs" class="ml-0.5 hover:text-surface-900 dark:hover:text-surface-100" @click="selectedChannel = undefined">
               <X class="size-3" />
-            </button>
+            </UiButton>
           </span>
         </div>
 
@@ -701,12 +711,15 @@ const showTab = ref<'links' | 'table'>(initialTab)
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-surface-100 dark:border-surface-800">
             <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Создать ссылку отслеживания</h2>
-            <button
-              class="p-1.5 rounded-lg text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              variant="ghost"
+              icon-only
+              size="sm"
+              class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"
               @click="showCreateModal = false"
             >
               <X class="size-4" />
-            </button>
+            </UiButton>
           </div>
 
           <!-- Body -->
@@ -780,20 +793,20 @@ const showTab = ref<'links' | 'table'>(initialTab)
 
             <!-- Footer -->
             <div class="flex items-center justify-end gap-3 pt-2">
-              <button
+              <UiButton
                 type="button"
-                class="rounded-xl px-4 py-2.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                variant="ghost"
                 @click="showCreateModal = false"
               >
                 Отмена
-              </button>
-              <button
+              </UiButton>
+              <UiButton
                 type="submit"
-                :disabled="!newLink.name.trim() || isCreating"
-                class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 shadow-sm shadow-brand-600/15 transition-all"
+                :loading="isCreating"
+                :disabled="!newLink.name.trim()"
               >
-                {{ isCreating ? 'Создание…' : 'Создать ссылку' }}
-              </button>
+                Создать ссылку
+              </UiButton>
             </div>
           </form>
         </div>
@@ -815,18 +828,18 @@ const showTab = ref<'links' | 'table'>(initialTab)
             Существующие данные атрибуции сохранятся, но новые переходы не будут отслеживаться.
           </p>
           <div class="flex items-center justify-center gap-3">
-            <button
-              class="rounded-xl px-4 py-2.5 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              variant="ghost"
               @click="showDeleteConfirm = false"
             >
               Отмена
-            </button>
-            <button
-              class="rounded-xl bg-danger-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-danger-700 transition-colors"
+            </UiButton>
+            <UiButton
+              variant="danger"
               @click="handleDelete"
             >
               Удалить
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
