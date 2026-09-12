@@ -679,14 +679,16 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
           class="inline-flex items-center justify-center min-w-[1rem] h-4 px-1 rounded-full bg-surface-700 dark:bg-surface-300 text-white dark:text-surface-900 text-[10px] font-semibold"
         >{{ drawerActiveCount }}</span>
       </button>
-      <button
+      <UiButton
         v-if="hasActiveFilters"
-        class="inline-flex items-center gap-1 text-xs text-surface-400 hover:text-danger-600 transition-colors"
+        variant="ghost"
+        size="xs"
+        :icon-left="X"
+        class="text-surface-400 hover:text-danger-600"
         @click="clearAllFilters"
       >
-        <X class="size-3" />
         Очистить
-      </button>
+      </UiButton>
       <UiButton
         variant="secondary"
         icon-only
@@ -739,11 +741,12 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
           </div>
           <div v-if="activeStageIds.length > 0" class="mt-2 flex items-center justify-between">
             <span class="text-xs text-surface-500 dark:text-surface-400">Выбрано этапов: {{ activeStageIds.length }}</span>
-            <button
-              type="button"
-              class="text-xs text-danger-500 hover:text-danger-700 transition-colors cursor-pointer"
+            <UiButton
+              variant="link"
+              size="xs"
+              class="text-danger-500 hover:text-danger-700"
               @click="activeStageIds = []"
-            >Сбросить</button>
+            >Сбросить</UiButton>
           </div>
         </div>
 

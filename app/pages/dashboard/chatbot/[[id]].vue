@@ -526,13 +526,16 @@ async function startNew() {
                 <FileText class="size-3.5 text-brand-500" />
                 <span class="max-w-[160px] truncate font-medium">{{ a.filename }}</span>
                 <span class="text-surface-400">{{ formatBytes(a.sizeBytes) }}</span>
-                <button
-                  class="ml-1 inline-flex items-center justify-center rounded p-0.5 text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700 hover:text-danger-500 transition-colors cursor-pointer border-0 bg-transparent"
+                <UiButton
+                  icon-only
+                  variant="ghost"
+                  size="xs"
+                  class="ml-1 text-surface-400 hover:text-danger-500"
                   :aria-label="t('assistant.composer.remove_attachment', { name: a.filename })"
                   @click="removeAttachment(a.id)"
                 >
                   <X class="size-3" />
-                </button>
+                </UiButton>
               </div>
             </div>
 
@@ -571,14 +574,15 @@ async function startNew() {
               </div>
 
               <div class="flex items-center gap-2">
-                <button
+                <UiButton
                   v-if="isStreaming"
-                  class="inline-flex items-center gap-1.5 rounded-lg bg-surface-900 dark:bg-surface-100 px-3 py-1.5 text-xs font-semibold text-white dark:text-surface-900 hover:opacity-90 transition-opacity cursor-pointer border-0"
+                  size="sm"
+                  :icon-left="Square"
+                  class="bg-surface-900 dark:bg-surface-100 border-surface-900 dark:border-surface-100 text-white dark:text-surface-900 hover:opacity-90 hover:bg-surface-900 dark:hover:bg-surface-100"
                   @click="abort"
                 >
-                  <Square class="size-3.5 fill-current" />
                   {{ t('assistant.composer.stop') }}
-                </button>
+                </UiButton>
                 <UiButton
                   v-else
                   size="sm"
