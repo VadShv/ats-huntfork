@@ -66,6 +66,27 @@
 | 1 | 12.09.2026 | ✅ | См. развёрнутую сверку ниже. Enforcement НЕ изменён (shadow-mode). |
 | 2 | 12.09.2026 | ✅ | Enforcement переключён на `can()` (`new`). Backfill member_role/scope 100%. См. сверку ниже. |
 | 3 (пилот) | 12.09.2026 | ✅ | Scope-фильтрация + masking на 7 PII-эндпоинтах; cross-org→404 для них; фикс visibility. Долгий хвост эндпоинтов + AI chatTools — в rollout. См. сверку ниже. |
+| 3 (rollout #1) | 12.09.2026 | ✅ | AI chatTools наследует member-scope + masking, серверная защита от prompt-injection. Коммит ba0323f. Задеплоено. |
+| 3 (rollout #2–#6) | 12.09.2026 | ✅ | Контакт-эндпоинты (gate contacts+scope), read_resume gate, job-scope на root jobs (private jobs), masking на leak-sites, слабые guard'ы (conversations), модель «общий кандидат + приватные вакансии» (Вариант A), cross-org e2e. См. сверку ниже. |
+
+### Сверка Спринта 3 rollout #2–#6 (коммиты a2133dc, f69a757, aa391a5, b91d7c7, 1c188b6)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A3 cross-org → 404 | ✅ | job-scope на `jobs/[id]` get/patch/delete; candidate/application-by-id гейты; e2e `cross-org-isolation.spec.ts` (орг B → job орга A → 404) |
+| A4 дочерние по родителю | ✅ | application→job (isJobInScope), candidate→application→job (EXISTS), document→candidate |
+| B3 requirePermission не ослаблен | ✅ | усилено: `telegram-first-contact` был requireAuth без прав — добавлены scope+contacts; `conversations/*` (requireAuth) получили member-scope |
+| B5 view-as read-only | ✅ | без изменений |
+| C3 роль-потолок/scope-охват | ✅ | scope применяется на контакт-эндпоинтах, job-эндпоинтах, conversations |
+| D1 masking-by-default | ✅ | masking на interviews/dashboard/tracking/source-stats/conversations/candidates[id].patch |
+| D2 нет PII без права | ✅ (в рамках rollout) | chatTools (#1), контакт-эндпоинты (#2), read_resume (#3), leak-sites (#4a); остаток хвоста — документированный follow-up (owner/admin не затронуты) |
+| D3 секреты не утекают | ✅ | без изменений |
+| «общий кандидат» (Вариант A) | ✅ | история не фильтруется; `jobInScope` флаг для UI; переход в чужую вакансию → 404. Acceptance А/Б/Иван по логике + e2e |
+| G1 тесты | ✅ | 846 passed (resume-parser флак под нагрузкой, в изоляции 20/20) |
+| G2 сборка | ✅ | typecheck 0; build на ВМ при деплое |
+| G3 откат | ✅ | `git reset` + rebuild (scope/mask вне флага enforcement) |
+
+**Документированный follow-up (механический хвост, вне этого спринта):** nested job config-эндпоинты (~36), application-by-id (~41), candidate-by-id high-PII reads (hh-resume/raw, resume-versions, fuzzy-duplicates, merge*, enrich, ai-summary), dedup/extension subtrees, миграция legacy `resolveRecruiterScope` → v2 `applicationScopeCondition`. Все по 3 шаблонам пилота; owner/admin (unrestricted) не затронуты — риск низкий. Список — в отчёте.
 
 ### Сверка Спринта 3 (пилот, коммит a4568f1)
 
