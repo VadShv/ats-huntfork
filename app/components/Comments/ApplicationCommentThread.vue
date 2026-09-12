@@ -34,14 +34,10 @@ const { t } = useI18n()
 const { data: session } = await authClient.useSession(useFetch)
 const currentUserId = computed(() => session.value?.user?.id ?? '')
 
-// Resolve current member role via Better Auth
-const currentRole = ref<string>('')
-onMounted(async () => {
-  try {
-    const { data } = await authClient.organization.getActiveMemberRole()
-    currentRole.value = (data?.role as string) ?? ''
-  } catch {}
-})
+// Resolve current member role from the shared SSR access snapshot
+// (RBAC v2, Sprint 0.5) — no async Better Auth roundtrip, available immediately.
+const { role: currentMemberRole } = usePermissions()
+const currentRole = computed<string>(() => currentMemberRole.value ?? '')
 
 const {
   comments,

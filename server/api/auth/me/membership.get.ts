@@ -1,45 +1,34 @@
-import { eq, and } from 'drizzle-orm'
-import * as schema from '../../../database/schema'
+import { getActorContext, actorToSnapshot } from '../../../utils/access/actorContext'
 
 /**
  * GET /api/auth/me/membership
- * Returns the current user's member record in their active organization,
- * including the moderation status field.
+ *
+ * Returns the current user's member record in their active organization plus an
+ * `access` snapshot (RBAC v2, Sprint 0.5) used by the client to gate UI
+ * synchronously on SSR — no Better Auth roundtrip, no flicker.
+ *
  * Returns null if the user has no session or no active organization.
+ *
+ * Backward compatible: the top-level fields (id, role, status,
+ * mustChangePassword, hmCanViewSalary, ...) are preserved for existing
+ * middleware; `access` is additive.
  */
 export default defineEventHandler(async (event) => {
-  const session = await auth.api.getSession({ headers: event.headers })
+  const actor = await getActorContext(event)
 
-  if (!session) {
+  if (!actor) {
     return null
   }
 
-  const activeOrganizationId = (session.session as { activeOrganizationId?: string }).activeOrganizationId
-
-  if (!activeOrganizationId) {
-    return null
+  return {
+    id: actor.memberId,
+    userId: actor.userId,
+    organizationId: actor.orgId,
+    role: actor.roleKeys[0] ?? null,
+    status: actor.status,
+    mustChangePassword: actor.mustChangePassword,
+    hmCanViewSalary: actor.canViewSalary,
+    // ── RBAC v2 access snapshot (Sprint 0.5) ──
+    access: actorToSnapshot(actor),
   }
-
-  const rows = await db
-    .select({
-      id: schema.member.id,
-      userId: schema.member.userId,
-      organizationId: schema.member.organizationId,
-      role: schema.member.role,
-      status: schema.member.status,
-      createdAt: schema.member.createdAt,
-      // Спринт 20: флаги НМ для глобального middleware/UI
-      mustChangePassword: schema.member.mustChangePassword,
-      hmCanViewSalary: schema.member.hmCanViewSalary,
-    })
-    .from(schema.member)
-    .where(
-      and(
-        eq(schema.member.userId, session.user.id),
-        eq(schema.member.organizationId, activeOrganizationId),
-      ),
-    )
-    .limit(1)
-
-  return rows[0] ?? null
 })

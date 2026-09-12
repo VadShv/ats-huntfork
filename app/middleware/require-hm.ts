@@ -21,9 +21,9 @@ export default defineNuxtRouteMiddleware(async () => {
     return navigateTo(localePath('/onboarding/create-org'))
   }
 
-  const { data: membership } = await useFetch('/api/auth/me/membership', {
-    key: `membership-${session.value.user.id}-${activeOrgId}`,
-  })
+  // Единый снапшот доступов (дедуплицируется по key 'access-membership').
+  const { membership, refresh } = useAccessSnapshot()
+  if (!membership.value) await refresh()
 
   if (!membership.value || membership.value.role !== 'hiring_manager') {
     // Не НМ — на общий дашборд

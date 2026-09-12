@@ -23,9 +23,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // No active org — defer to require-org middleware
   if (!session.value.session.activeOrganizationId) return
 
-  const { data: membership } = await useFetch('/api/auth/me/membership', {
-    key: `membership-${session.value.user.id}-${session.value.session.activeOrganizationId}`,
-  })
+  // Единый снапшот доступов (дедуплицируется по key 'access-membership'
+  // с useAccessSnapshot/usePermission — один запрос на страницу).
+  const { membership, refresh } = useAccessSnapshot()
+  if (!membership.value) await refresh()
 
   if (!membership.value) return
 

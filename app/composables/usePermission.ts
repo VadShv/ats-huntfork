@@ -1,4 +1,5 @@
 import type { statements } from '~~/shared/permissions'
+import { snapshotCan, type PermissionRequest as SnapshotRequest } from '~~/shared/access/capabilities'
 
 /**
  * Permission descriptor — same shape as the server-side PermissionRequest.
@@ -12,68 +13,60 @@ type PermissionRequest = {
 
 /**
  * ─────────────────────────────────────────────
- * usePermission — client-side permission gating
+ * usePermission — client-side permission gating (RBAC v2, Sprint 0.5)
  * ─────────────────────────────────────────────
  *
- * Returns reactive `allowed` (boolean ref) indicating whether the
- * current user's role satisfies the given permission set.
+ * Reactive `allowed` indicating whether the current user's access snapshot
+ * satisfies the given permission set.
  *
- * Uses Better Auth's `checkRolePermission` which runs synchronously
- * on the client against the AC config — no server roundtrip required.
+ * Sprint 0.5 change: reads the SSR-provided access snapshot SYNCHRONOUSLY via
+ * `useAccessSnapshot()` instead of the old async `getActiveMemberRole()` +
+ * client Better Auth AC. This removes UI flicker (role is known on first render)
+ * and correctly handles `hiring_manager` (previously unregistered client-side).
  *
- * **Important:** client-side checks are cosmetic only.  They control
- * UI visibility (hide buttons, disable inputs).  The real enforcement
- * happens on the server via `requirePermission()`.
+ * **Important:** client-side checks are cosmetic only. Real enforcement is
+ * server-side via `requirePermission()`.
  *
- * Usage:
+ * Signature is UNCHANGED — existing call sites work without edits:
  * ```vue
- * <script setup>
  * const { allowed: canCreateJob } = usePermission({ job: ['create'] })
- * </script>
- *
- * <template>
- *   <UButton v-if="canCreateJob" @click="createJob">New Job</UButton>
- * </template>
  * ```
  */
 export function usePermission(permissions: PermissionRequest) {
-  const role = ref<string | null>(null)
-  const isLoading = ref(true)
+  const { snapshot, isLoading } = useAccessSnapshot()
 
-  // Fetch the active member's role and re-fetch when org changes
-  const activeOrgState = authClient.useActiveOrganization()
+  const role = computed<string | null>(() => snapshot.value.roleKeys[0] ?? null)
 
-  async function fetchRole() {
-    // Reset immediately to avoid stale role from previous org (race condition)
-    role.value = null
-    isLoading.value = true
-
-    const { data, error } = await authClient.organization.getActiveMemberRole()
-    if (!error) {
-      role.value = data?.role ?? null
-    }
-    isLoading.value = false
-  }
-
-  // Only fetch on the client — during SSR there is no window.location,
-  // so the Better Auth client cannot resolve relative API URLs.
-  // Permission checks are cosmetic (UI gating); real enforcement is server-side.
-  if (import.meta.client) {
-    watch(
-      () => activeOrgState.value.data?.id,
-      () => fetchRole(),
-      { immediate: true },
-    )
-  }
-
-  const allowed = computed(() => {
-    if (!role.value) return false
-
-    return authClient.organization.checkRolePermission({
-      permissions: permissions as Record<string, string[]>,
-      role: role.value as 'owner' | 'admin' | 'member',
-    })
-  })
+  const allowed = computed(() =>
+    snapshotCan(snapshot.value, permissions as SnapshotRequest),
+  )
 
   return { allowed, role: readonly(role), isLoading: readonly(isLoading) }
+}
+
+/**
+ * ─────────────────────────────────────────────
+ * usePermissions — new capability API (master plan §8.7)
+ * ─────────────────────────────────────────────
+ *
+ * Preferred going forward. Returns imperative `can`/`cannot` plus reactive
+ * `scope`, `masked` (reserved for field masking), `role` and `isReady`.
+ *
+ * ```vue
+ * const { can } = usePermissions()
+ * <UButton v-if="can({ candidate: ['export'] })" ... />
+ * ```
+ */
+export function usePermissions() {
+  const { snapshot, isLoading } = useAccessSnapshot()
+
+  const can = (permissions: PermissionRequest) =>
+    snapshotCan(snapshot.value, permissions as SnapshotRequest)
+  const cannot = (permissions: PermissionRequest) => !can(permissions)
+
+  const role = computed<string | null>(() => snapshot.value.roleKeys[0] ?? null)
+  const scope = computed(() => snapshot.value.scope)
+  const isReady = computed(() => !isLoading.value)
+
+  return { can, cannot, role: readonly(role), scope, isReady }
 }

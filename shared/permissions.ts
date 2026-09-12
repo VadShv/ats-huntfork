@@ -59,8 +59,15 @@ export const ac = createAccessControl(statements)
 // admin   — hiring managers.  Full CRUD on ATS resources + invite members.
 // member  — recruiters.  Read jobs, manage candidates/applications in pipeline.
 
-export const owner = ac.newRole({
-  ...ownerAc.statements,
+// ─── Raw ATS role→statements maps (single source of truth) ─────────
+//
+// These plain objects hold ONLY the ATS-specific statements per role.
+// They are (a) passed to `ac.newRole()` below for Better Auth, and
+// (b) exported so the RBAC v2 access layer (getActorContext / capability
+// snapshot / can()) can expand them into `resource:action` strings WITHOUT
+// introspecting Better Auth internals. Keep this the single source of truth.
+
+export const ownerAtsStatements = {
   organization: ['read', 'update', 'delete'],
   job: ['create', 'read', 'update', 'delete'],
   candidate: ['create', 'read', 'update', 'delete'],
@@ -75,10 +82,9 @@ export const owner = ac.newRole({
   pipeline: ['create', 'read', 'update', 'delete'],
   company: ['create', 'read', 'update', 'delete'],
   department: ['create', 'read', 'update', 'delete'],
-})
+} as const
 
-export const admin = ac.newRole({
-  ...adminAc.statements,
+export const adminAtsStatements = {
   organization: ['read', 'update', 'delete'],
   job: ['create', 'read', 'update', 'delete'],
   candidate: ['create', 'read', 'update', 'delete'],
@@ -93,10 +99,9 @@ export const admin = ac.newRole({
   pipeline: ['create', 'read', 'update', 'delete'],
   company: ['create', 'read', 'update', 'delete'],
   department: ['create', 'read', 'update', 'delete'],
-})
+} as const
 
-export const member = ac.newRole({
-  ...memberAc.statements,
+export const memberAtsStatements = {
   organization: ['read'],
   // Рекрутер ведёт вакансии: создаёт их (с авто-назначением себя
   // рекрутером), меняет настройки (воронка, назначение НМ).
@@ -115,6 +120,21 @@ export const member = ac.newRole({
   // Справочники оргструктуры ведут owner/admin; рекрутер только читает (селекты в вакансии).
   company: ['read'],
   department: ['read'],
+} as const
+
+export const owner = ac.newRole({
+  ...ownerAc.statements,
+  ...ownerAtsStatements,
+})
+
+export const admin = ac.newRole({
+  ...adminAc.statements,
+  ...adminAtsStatements,
+})
+
+export const member = ac.newRole({
+  ...memberAc.statements,
+  ...memberAtsStatements,
 })
 
 // hiring_manager — Нанимающий менеджер (Sprint 20.1).
@@ -124,8 +144,7 @@ export const member = ac.newRole({
 //
 // Видимость части комментариев (is_internal=true) скрыта на уровне
 // server/utils/comments/visibility.ts (уже было).
-export const hiringManager = ac.newRole({
-  ...memberAc.statements,
+export const hiringManagerAtsStatements = {
   organization: ['read'],
   job: ['read'],
   candidate: ['read'],
@@ -138,4 +157,22 @@ export const hiringManager = ac.newRole({
   pipeline: ['read'],
   company: ['read'],
   department: ['read'],
+} as const
+
+export const hiringManager = ac.newRole({
+  ...memberAc.statements,
+  ...hiringManagerAtsStatements,
 })
+
+// ─── Role → ATS statements registry (for capability expansion) ─────
+// Used by shared/access/capabilities.ts to build the capability snapshot.
+// hiring_manager is included so the client can finally reason about it
+// (fixes the auth-client.ts gap where HM was unregistered).
+export const ROLE_ATS_STATEMENTS = {
+  owner: ownerAtsStatements,
+  admin: adminAtsStatements,
+  member: memberAtsStatements,
+  hiring_manager: hiringManagerAtsStatements,
+} as const
+
+export type RoleKey = keyof typeof ROLE_ATS_STATEMENTS
