@@ -18,8 +18,15 @@
  */
 
 import type { ActorContext } from './actorContext'
+import { RESOURCES } from '../../../shared/access/resources'
 
-const CANDIDATE_CONTACT_FIELDS = ['email', 'phone', 'telegram', 'linkedin', 'github'] as const
+// Registry-driven (master plan §6): field → required permission comes from
+// RESOURCES.candidate.fields. We derive the list of contact fields (those
+// gated by candidate:read:contacts) instead of hardcoding, so adding a new
+// contact field in the registry automatically masks it.
+const CANDIDATE_CONTACT_FIELDS = Object.entries(RESOURCES.candidate.fields ?? {})
+  .filter(([, perm]) => perm === 'candidate:read:contacts')
+  .map(([field]) => field)
 
 export interface MaskResult<T> {
   data: T & { _masked?: string[] }

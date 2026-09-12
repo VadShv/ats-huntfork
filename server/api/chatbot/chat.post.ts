@@ -12,6 +12,8 @@ import {
 } from '../../utils/ai/provider'
 import { loadAiConfig } from '../../utils/ai/loadConfig'
 import { buildChatbotTools } from '../../utils/ai/chatTools'
+import { getActorContext } from '../../utils/access/actorContext'
+import { getScopeJobIds } from '../../utils/access/scope'
 import { getChatbotAttachments } from '../../utils/chatbotAttachments'
 import { requireChatbotAccess } from '../../utils/chatbotAccess'
 import { extractChatbotSources } from '../../utils/chatbotSources'
@@ -260,11 +262,18 @@ export default defineEventHandler(async (event) => {
     baseUrl: config.baseUrl,
     maxTokens: Math.max(config.maxTokens, 2048),
   })
+  // RBAC v2: the assistant INHERITS the recruiter's member-scope. Compute the
+  // actor + visible job ids once and pass them into the tools (server-side).
+  const actor = await getActorContext(event)
+  const memberJobIds = actor ? await getScopeJobIds(actor) : null
+
   const tools = buildChatbotTools({
     orgId,
     scope: body.scope,
     attachments: attachmentRecords,
     lastUserMessage: lastUser.content,
+    actor,
+    memberJobIds,
   })
 
   const modelMessages: ModelMessage[] = body.messages.map((m) => ({

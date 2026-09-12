@@ -36,6 +36,8 @@ import {
   CHATBOT_MAX_ATTACHMENT_CHARS,
   type ChatbotAttachment,
 } from '../../../shared/chatbot'
+import type { ActorContext } from '../access/actorContext'
+import { maskCandidate } from '../access/mask'
 
 export interface ChatbotToolContext {
   orgId: string
@@ -44,6 +46,21 @@ export interface ChatbotToolContext {
   attachments: Array<ChatbotAttachment & { text: string }>
   /** Последнее сообщение юзера — fallback для слабых моделей (Qwen/Yandex), которые теряют параметры. */
   lastUserMessage?: string
+  /**
+   * RBAC v2 (Sprint 3 rollout): the authenticated actor. The assistant INHERITS
+   * the recruiter's member-scope — it never sees more than the user can.
+   */
+  actor?: ActorContext | null
+  /**
+   * Precomputed member-visible job ids (getScopeJobIds(actor)). `null` = the
+   * actor is unrestricted (owner/admin/org scope). `[]` = the actor sees no
+   * jobs. Threaded from chat.post.ts so tools don't each hit the DB.
+   *
+   * SERVER-SIDE ENFORCEMENT: this is applied to every candidate/application/job
+   * tool regardless of what the model requests — prompt injection ("show the
+   * whole org", "ignore restrictions") cannot widen it.
+   */
+  memberJobIds?: string[] | null
 }
 
 /**
@@ -122,6 +139,72 @@ function jobScopeFilter(orgId: string, scope: ChatbotScope) {
   return base
 }
 
+// ─────────────────────────────────────────────
+// RBAC v2 member-scope enforcement (Sprint 3 rollout).
+// EVERY candidate/application/job tool must combine the conversation scope with
+// the actor's MEMBER scope. Enforced server-side — the model cannot widen it.
+// ─────────────────────────────────────────────
+
+/** true when the actor sees all org jobs (owner/admin/org scope or no actor set). */
+function memberUnrestricted(ctx: ChatbotToolContext): boolean {
+  return ctx.memberJobIds == null
+}
+
+/**
+ * The effective set of job ids the assistant may touch, combining:
+ *   • conversation scope (scope.kind==='job' → [scope.jobId])
+ *   • member scope (ctx.memberJobIds; null = unrestricted)
+ * Returns null = unrestricted (org-wide). Returns [] = nothing visible.
+ *
+ * Exported for unit testing — this is the security-critical intersection that
+ * makes prompt-injection irrelevant.
+ */
+export function effectiveJobIds(ctx: ChatbotToolContext): string[] | null {
+  const convJob = ctx.scope.kind === 'job' && ctx.scope.jobId ? ctx.scope.jobId : null
+  const member = ctx.memberJobIds ?? null // null = unrestricted
+
+  if (convJob && member) {
+    // Both constrained → intersection (conversation job must also be visible).
+    return member.includes(convJob) ? [convJob] : []
+  }
+  if (convJob) return [convJob] // member unrestricted, conversation pins one job
+  if (member) return member // no conversation pin, member-restricted
+  return null // both unrestricted
+}
+
+/**
+ * Server-side guard: throw if `jobId` is outside the EFFECTIVE scope
+ * (conversation ∩ member). Called by every tool that takes a jobId, so
+ * prompt-injection ("ignore restrictions") cannot bypass it.
+ */
+export function assertJobAllowed(ctx: ChatbotToolContext, jobId: string) {
+  assertJobInScope(ctx.scope, jobId) // conversation scope (existing behavior)
+  if (!memberUnrestricted(ctx) && !(ctx.memberJobIds ?? []).includes(jobId)) {
+    throw new Error(`Job ${jobId} is outside your access scope.`)
+  }
+}
+
+/** SQL condition on job.id for the effective scope. undefined = unrestricted. */
+function effectiveJobCondition(ctx: ChatbotToolContext) {
+  const ids = effectiveJobIds(ctx)
+  if (ids == null) return undefined
+  if (ids.length === 0) return sql`false`
+  return inArray(job.id, ids)
+}
+
+/** SQL condition on application.jobId for the effective scope. undefined = unrestricted. */
+function effectiveApplicationCondition(ctx: ChatbotToolContext) {
+  const ids = effectiveJobIds(ctx)
+  if (ids == null) return undefined
+  if (ids.length === 0) return sql`false`
+  return inArray(application.jobId, ids)
+}
+
+/** Mask a candidate-shaped object by the actor's PII permissions (deny-by-default). */
+function maskCand<T extends Record<string, unknown>>(ctx: ChatbotToolContext, row: T) {
+  return maskCandidate(ctx.actor ?? null, row)
+}
+
 /** Truncate long text to keep the model context manageable. */
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text
@@ -143,6 +226,9 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
       }),
       execute: async ({ status, search, limit }) => {
         const conditions = [jobScopeFilter(ctx.orgId, ctx.scope)]
+        // Member-scope: restrict to jobs the actor can see (server-side).
+        const memberJobCond = effectiveJobCondition(ctx)
+        if (memberJobCond) conditions.push(memberJobCond)
         if (status) conditions.push(eq(job.status, status))
         if (search) conditions.push(ilike(job.title, `%${search}%`))
 
@@ -173,7 +259,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
         jobId: z.string().min(1),
       }),
       execute: async ({ jobId }) => {
-        assertJobInScope(ctx.scope, jobId)
+        assertJobAllowed(ctx, jobId)
         const j = await db.query.job.findFirst({
           where: and(eq(job.organizationId, ctx.orgId), eq(job.id, jobId)),
         })
@@ -233,10 +319,13 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
       execute: async ({ jobId, stageId, stageType, status, dateFrom, dateTo, limit }) => {
         const conditions = [eq(application.organizationId, ctx.orgId)]
         if (jobId) {
-          assertJobInScope(ctx.scope, jobId)
+          assertJobAllowed(ctx, jobId)
           conditions.push(eq(application.jobId, jobId))
-        } else if (ctx.scope.kind === 'job' && ctx.scope.jobId) {
-          conditions.push(eq(application.jobId, ctx.scope.jobId))
+        } else {
+          // No explicit jobId → restrict to effective scope (conversation ∩ member).
+          // Replaces the old conversation-only branch; also enforces member scope.
+          const appCond = effectiveApplicationCondition(ctx)
+          if (appCond) conditions.push(appCond)
         }
 
         // ── Этапный фильтр (предпочтительный) — по current_stage_id, а не legacy status ──
@@ -279,12 +368,14 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           db.select({ cnt: count() }).from(application).where(and(...conditions)),
         ])
         const total = Number(totalRows[0]?.cnt ?? rows.length)
+        // Mask candidate contacts by the actor's PII permission (deny-by-default).
+        const showContacts = Boolean(ctx.actor?.permissions.has('candidate:read:contacts'))
         const applications = rows.map((a) => ({
           id: a.id,
           applicationId: a.id,
           candidateId: a.candidateId,
           candidateName: `${a.candidate.firstName} ${a.candidate.lastName}`.trim(),
-          candidateEmail: a.candidate.email,
+          candidateEmail: showContacts ? a.candidate.email : null,
           currentStageId: a.currentStage?.id ?? null,
           currentStageName: a.currentStage?.name ?? null,
           currentStageType: a.currentStage?.type ?? null,
@@ -317,7 +408,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
       execute: async ({ jobId }) => {
         let pipelineId: string | null = null
         if (jobId) {
-          assertJobInScope(ctx.scope, jobId)
+          assertJobAllowed(ctx, jobId)
           const [j] = await db
             .select({ pipelineId: job.pipelineId })
             .from(job)
@@ -380,9 +471,10 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
       }),
       execute: async ({ dateFrom, dateTo }) => {
         const appConds = [eq(application.organizationId, ctx.orgId)]
-        if (ctx.scope.kind === 'job' && ctx.scope.jobId) {
-          appConds.push(eq(application.jobId, ctx.scope.jobId))
-        }
+        // Effective scope (conversation ∩ member) — aggregates must not leak
+        // counts for jobs the actor cannot see.
+        const summaryAppCond = effectiveApplicationCondition(ctx)
+        if (summaryAppCond) appConds.push(summaryAppCond)
         if (dateFrom) {
           const d = new Date(dateFrom)
           if (!isNaN(d.getTime())) appConds.push(gte(application.createdAt, d))
@@ -443,8 +535,10 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           .orderBy(sql`count(${application.id}) desc`)
           .limit(20)
 
-        // Total jobs in scope (independent of date window)
+        // Total jobs in scope (independent of date window) — member-scoped.
         const jobConds = [jobScopeFilter(ctx.orgId, ctx.scope)]
+        const summaryJobCond = effectiveJobCondition(ctx)
+        if (summaryJobCond) jobConds.push(summaryJobCond)
         const totalJobsRows = await db
           .select({ status: job.status, count: count() })
           .from(job)
@@ -677,6 +771,29 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           rows = rows.filter((c) => allowed.has(c.id))
         }
 
+        // ── RBAC v2 member-scope (SERVER-SIDE, non-bypassable) ──
+        // Restrict to candidates who have an application on a job the ACTOR can
+        // see. Runs regardless of the conversation scope or model prompt. Owner/
+        // admin (effective ids = null) skip this entirely.
+        const scopeIds = effectiveJobIds(ctx)
+        if (scopeIds !== null && rows.length > 0) {
+          if (scopeIds.length === 0) {
+            rows = []
+          }
+          else {
+            const apps = await db.query.application.findMany({
+              where: and(
+                eq(application.organizationId, ctx.orgId),
+                inArray(application.jobId, scopeIds),
+                inArray(application.candidateId, rows.map((c) => c.id)),
+              ),
+              columns: { candidateId: true },
+            })
+            const allowed = new Set(apps.map((a) => a.candidateId))
+            rows = rows.filter((c) => allowed.has(c.id))
+          }
+        }
+
         // Sprint 6 fix «48 вместо 142»: считаем общее число найденных (без limit)
         // чтобы ассистент мог сказать «coвпадений 142, показываю первые 20».
         // Находим тотал по total-rows count: для hasQuery — вторым запросом FTS
@@ -721,13 +838,21 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           total = rows.length
         }
 
+        // When member-scoped, the org-wide total above overstates reality —
+        // report the actual (scoped) row count instead of leaking org totals.
+        if (scopeIds !== null) {
+          total = rows.length
+        }
+
         // Pre-Sprint-6 payload: id, имя, email, phone, city. DeepSeek хорошо работает с этим
         // объёмом и может сразу показать топ-N без дополнительных get_candidate.
+        // PII masking (deny-by-default): null out email/phone without contacts perm.
+        const showContacts = Boolean(ctx.actor?.permissions.has('candidate:read:contacts'))
         const finalRows = rows.slice(0, limit).map((c) => ({
           id: c.id,
           name: `${c.firstName} ${c.lastName}`.trim(),
-          email: c.email,
-          phone: c.phone,
+          email: showContacts ? c.email : null,
+          phone: showContacts ? c.phone : null,
           city: c.city,
         }))
         const truncated = total > finalRows.length
@@ -782,6 +907,17 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           throw new Error('Candidate is not part of the active job scope.')
         }
 
+        // ── RBAC v2 member-scope (SERVER-SIDE) ──
+        // The candidate must have an application on a job the ACTOR can see.
+        // Non-bypassable by the model. Owner/admin (null) skip the check.
+        const gcScopeIds = effectiveJobIds(ctx)
+        if (gcScopeIds !== null) {
+          const visible = gcScopeIds.length > 0 && apps.some((a) => gcScopeIds.includes(a.job.id))
+          if (!visible) {
+            throw new Error(`Candidate ${candidateId} not found.`)
+          }
+        }
+
         const docs = await db.query.document.findMany({
           where: and(
             eq(document.organizationId, ctx.orgId),
@@ -817,14 +953,26 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           columns: { body: true, createdAt: true, targetType: true },
         })
 
+        // PII masking (deny-by-default): mask contacts/salary the actor can't see.
+        const masked = maskCand(ctx, {
+          email: c.email,
+          phone: c.phone,
+          telegram: c.telegram,
+          linkedin: c.linkedin,
+          github: c.github,
+        })
         return {
           id: c.id,
           name: `${c.firstName} ${c.lastName}`.trim(),
-          email: c.email,
-          phone: c.phone,
+          email: masked.email,
+          phone: masked.phone,
+          telegram: masked.telegram,
+          linkedin: masked.linkedin,
+          github: masked.github,
           gender: c.gender,
           dateOfBirth: c.dateOfBirth,
           quickNotes: c.quickNotes,
+          _masked: masked._masked,
           applications: apps.map((a) => ({
             id: a.id,
             status: a.status,
@@ -869,6 +1017,26 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
             columns: { id: true },
           })
           if (!inScope) throw new Error('Document is outside the active job scope.')
+        }
+
+        // ── RBAC v2 member-scope (SERVER-SIDE) ──
+        // The document's candidate must have an application on a job the ACTOR
+        // can see. Owner/admin (null) skip. Non-bypassable by the model.
+        const rrScopeIds = effectiveJobIds(ctx)
+        if (rrScopeIds !== null) {
+          let visible = false
+          if (rrScopeIds.length > 0) {
+            const inScope = await db.query.application.findFirst({
+              where: and(
+                eq(application.organizationId, ctx.orgId),
+                inArray(application.jobId, rrScopeIds),
+                eq(application.candidateId, doc.candidateId),
+              ),
+              columns: { id: true },
+            })
+            visible = Boolean(inScope)
+          }
+          if (!visible) throw new Error(`Document ${documentId} not found.`)
         }
 
         // Sprint 6 fix: resolve candidateName so the Sources panel shows the
@@ -929,7 +1097,7 @@ export function buildChatbotTools(ctx: ChatbotToolContext) {
           columns: { id: true, score: true, jobId: true },
         })
         if (!app) throw new Error(`Application ${applicationId} not found.`)
-        assertJobInScope(ctx.scope, app.jobId)
+        assertJobAllowed(ctx, app.jobId)
 
         const scores = await db.query.criterionScore.findMany({
           where: and(

@@ -87,10 +87,17 @@ export const RESOURCES = {
   candidate: {
     table: 'candidate',
     actions: ['create', 'read', 'update', 'delete'],
+    // field → required permission. These are the ACTUAL candidate contact
+    // columns (see schema/app.ts). maskCandidate derives its contact list from
+    // this map (registry-driven, master plan §6). Salary is not a column — it
+    // lives in hhResumeRaw.salary / derived expectedSalary and is handled as a
+    // special case in mask.ts keyed off candidate:read:salary.
     fields: {
-      phone: 'candidate:read:contacts',
       email: 'candidate:read:contacts',
-      messengers: 'candidate:read:contacts',
+      phone: 'candidate:read:contacts',
+      telegram: 'candidate:read:contacts',
+      linkedin: 'candidate:read:contacts',
+      github: 'candidate:read:contacts',
       expectedSalary: 'candidate:read:salary',
     },
     fieldSets: ['contacts', 'salary'],
