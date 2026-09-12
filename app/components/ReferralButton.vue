@@ -52,10 +52,12 @@ async function send() {
       </select>
       <textarea v-model="note" rows="2" placeholder="Заметка (необязательно)" class="w-full mb-2 rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1.5 text-sm bg-white dark:bg-surface-900" />
       <div class="flex items-center gap-2">
-        <button type="button" :disabled="sending || !toUserId" class="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm py-1.5" @click="send">
-          <Check class="size-3.5" /> Передать
-        </button>
-        <button type="button" class="rounded-lg bg-surface-100 dark:bg-surface-800 text-surface-500 px-2.5 py-1.5" @click="open = false"><X class="size-3.5" /></button>
+        <UiButton size="sm" class="flex-1" :icon-left="Check" :disabled="sending || !toUserId" @click="send">
+          Передать
+        </UiButton>
+        <UiButton variant="secondary" icon-only size="sm" @click="open = false">
+          <X class="size-3.5" />
+        </UiButton>
       </div>
     </div>
   </div>

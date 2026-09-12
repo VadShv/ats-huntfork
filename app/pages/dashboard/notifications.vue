@@ -123,15 +123,16 @@ async function handleMarkAll() {
           {{ t('notifications.subtitle') }}
         </p>
       </div>
-      <button
+      <UiButton
         v-if="unreadCount > 0"
         type="button"
-        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/40 hover:bg-brand-100 dark:hover:bg-brand-950/60 transition-colors cursor-pointer border-0"
+        variant="ghost"
+        :icon-left="CheckCheck"
+        class="text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/40 hover:bg-brand-100 dark:hover:bg-brand-950/60 border-0"
         @click="handleMarkAll"
       >
-        <CheckCheck class="size-4" />
         {{ t('notifications.mark_all_read') }}
-      </button>
+      </UiButton>
     </div>
 
     <!-- Filter tabs -->
@@ -223,25 +224,27 @@ async function handleMarkAll() {
 
     <!-- Pagination -->
     <div v-if="items.length > 0" class="flex items-center justify-between mt-4">
-      <button
+      <UiButton
         type="button"
         :disabled="page <= 1"
-        class="px-3 py-2 text-sm font-medium rounded-lg border border-surface-200 dark:border-surface-700 text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-surface-900"
+        variant="secondary"
+        size="sm"
         @click="prevPage"
       >
         {{ t('notifications.previous') }}
-      </button>
+      </UiButton>
       <div class="text-xs text-surface-500 dark:text-surface-400">
         {{ t('notifications.page', { n: page }) }}
       </div>
-      <button
+      <UiButton
         type="button"
         :disabled="!hasMore"
-        class="px-3 py-2 text-sm font-medium rounded-lg border border-surface-200 dark:border-surface-700 text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-surface-900"
+        variant="secondary"
+        size="sm"
         @click="nextPage"
       >
         {{ t('notifications.next') }}
-      </button>
+      </UiButton>
     </div>
   </div>
 </template>

@@ -345,16 +345,17 @@ const visibleStages = computed(() => {
               : 'border-surface-200 dark:border-surface-700'"
             :disabled="isMoving"
           />
-          <button
+          <UiButton
             type="button"
-            :disabled="isMoving || moveBlocked"
-            class="w-full rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            :class="isHireMove ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-600 hover:bg-brand-700'"
+            :variant="isHireMove ? 'success' : 'primary'"
+            size="xs"
+            :loading="isMoving"
+            :disabled="moveBlocked"
+            full-width
             @click="confirmMove"
           >
-            <Loader2 v-if="isMoving" class="size-3 animate-spin mx-auto" />
-            <span v-else>{{ isHireMove ? 'Подтвердить найм' : t('applications.stage.move') }}</span>
-          </button>
+            {{ isHireMove ? 'Подтвердить найм' : t('applications.stage.move') }}
+          </UiButton>
         </div>
       </div>
     </Transition>

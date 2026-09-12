@@ -111,17 +111,17 @@ const busy = computed(() => isRunning.value || risk.value?.status === 'running' 
         >
           {{ t(`candidate.risk.level.${risk.overallRisk}`) }}
         </span>
-        <button
-          type="button"
-          :disabled="!canGenerate || busy"
-          class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-surface-500 hover:bg-surface-100 disabled:opacity-50 dark:text-surface-400 dark:hover:bg-surface-800"
+        <UiButton
+          variant="ghost"
+          size="xs"
+          :icon-left="RefreshCcw"
+          :loading="busy"
+          :disabled="!canGenerate"
           :title="canGenerate ? t('candidate.risk.refresh') : t('candidate.risk.noResume')"
           @click="run"
         >
-          <Loader2 v-if="busy" class="size-3.5 animate-spin" />
-          <RefreshCcw v-else class="size-3.5" />
           {{ risk ? t('candidate.risk.refresh') : t('candidate.risk.generate') }}
-        </button>
+        </UiButton>
       </div>
     </div>
 
@@ -179,13 +179,14 @@ const busy = computed(() => isRunning.value || risk.value?.status === 'running' 
         {{ t('candidate.risk.noFindings') }}
       </p>
 
-      <button
-        type="button"
-        class="mt-2 inline-flex items-center gap-0.5 text-[11px] text-brand-600 hover:text-brand-700"
+      <UiButton
+        variant="link"
+        size="xs"
+        class="mt-2"
         @click="emit('open-details')"
       >
         {{ t('candidate.risk.details') }} <ChevronRight class="size-3" />
-      </button>
+      </UiButton>
     </template>
   </div>
 </template>

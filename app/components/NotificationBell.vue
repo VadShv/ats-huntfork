@@ -163,15 +163,15 @@ async function toggleOpen() {
               {{ badge }}
             </span>
           </div>
-          <button
+          <UiButton
             v-if="hasUnread"
-            type="button"
-            class="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 cursor-pointer border-0 bg-transparent p-0"
+            variant="link"
+            size="xs"
+            :icon-left="CheckCheck"
             @click="handleMarkAll"
           >
-            <CheckCheck class="size-3.5" />
             {{ t('notifications.mark_all_read') }}
-          </button>
+          </UiButton>
         </div>
 
         <!-- List -->

@@ -63,8 +63,8 @@ const statusLabel: Record<string, string> = { pending: 'ожидает', accepte
           <option value="">Вакансия…</option>
           <option v-for="j in openJobs" :key="j.id" :value="j.id">{{ j.title }}</option>
         </select>
-        <button type="button" :disabled="busy === r.id" class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs px-2 py-1" @click="accept(r)"><Check class="size-3.5" /></button>
-        <button type="button" :disabled="busy === r.id" class="rounded-lg bg-surface-200 dark:bg-surface-700 text-surface-600 dark:text-surface-300 text-xs px-2 py-1" @click="decline(r)"><X class="size-3.5" /></button>
+        <UiButton size="xs" icon-only :disabled="busy === r.id" @click="accept(r)"><Check class="size-3.5" /></UiButton>
+        <UiButton variant="secondary" size="xs" icon-only :disabled="busy === r.id" @click="decline(r)"><X class="size-3.5" /></UiButton>
       </div>
     </div>
 

@@ -208,14 +208,14 @@ async function save() {
 
       <!-- Сохранение -->
       <div class="flex items-center gap-3">
-        <button
+        <UiButton
           type="submit"
-          class="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+          :icon-left="Save"
+          :loading="saving"
           :disabled="saving"
         >
-          <Save class="size-4" />
-          {{ saving ? t('dashboard.jobs.aiChat.saving') : t('dashboard.jobs.aiChat.save') }}
-        </button>
+          {{ t('dashboard.jobs.aiChat.save') }}
+        </UiButton>
         <span v-if="saveSuccess" class="text-xs text-success-600 dark:text-success-400">{{ t('dashboard.jobs.aiChat.saved') }}</span>
         <span v-if="saveError" class="text-xs text-danger-600 dark:text-danger-400">{{ saveError }}</span>
       </div>

@@ -124,12 +124,13 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
               {{ agents.length }} / {{ CHATBOT_AGENT_MAX_PER_USER }}
             </span>
           </div>
-          <button
-            class="inline-flex size-8 items-center justify-center rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer border-0 bg-transparent"
+          <UiButton
+            variant="ghost"
+            size="sm"
+            icon-only
+            :icon-left="X"
             @click="emit('close')"
-          >
-            <X class="size-4" />
-          </button>
+          />
         </div>
 
         <!-- Body -->
@@ -258,31 +259,31 @@ const atCap = computed(() => agents.value.length >= CHATBOT_AGENT_MAX_PER_USER)
 
         <!-- Footer -->
         <div class="flex items-center justify-between border-t border-surface-200 dark:border-surface-800 px-5 py-3">
-          <button
+          <UiButton
             v-if="draft.id"
-            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30 cursor-pointer border-0 bg-transparent"
+            variant="ghost"
+            :icon-left="Trash2"
+            class="text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30"
             @click="remove"
           >
-            <Trash2 class="size-4" />
             Удалить
-          </button>
+          </UiButton>
           <span v-else />
 
           <div class="flex items-center gap-2">
-            <button
-              class="rounded-lg px-3 py-2 text-sm font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer border-0 bg-transparent"
+            <UiButton
+              variant="ghost"
               @click="emit('close')"
             >
               Закрыть
-            </button>
-            <button
-              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer transition-colors"
+            </UiButton>
+            <UiButton
+              :icon-left="Save"
               :disabled="!canSave"
               @click="save"
             >
-              <Save class="size-4" />
               {{ draft.id ? 'Сохранить изменения' : 'Создать агента' }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>

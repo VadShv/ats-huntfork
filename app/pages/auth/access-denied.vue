@@ -37,12 +37,13 @@ async function handleSignOut() {
       </p>
     </div>
 
-    <button
+    <UiButton
       type="button"
-      class="mt-2 px-4 py-2 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
+      variant="secondary"
+      class="mt-2"
       @click="handleSignOut"
     >
       {{ $t('auth.accessDenied.signOut') }}
-    </button>
+    </UiButton>
   </div>
 </template>

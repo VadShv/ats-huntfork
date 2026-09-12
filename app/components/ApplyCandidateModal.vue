@@ -73,12 +73,12 @@ async function applyCandidate(candidateId: string) {
             <UserPlus class="size-5 text-brand-600 dark:text-brand-400" />
             <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50">{{ $t('components.applyCandidateModal.title') }}</h3>
           </div>
-          <button
-            class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 transition-colors"
+          <UiButton
+            variant="ghost"
+            icon-only
+            :icon-left="X"
             @click="emit('close')"
-          >
-            <X class="size-5" />
-          </button>
+          />
         </div>
 
         <!-- Search -->

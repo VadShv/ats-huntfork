@@ -137,15 +137,15 @@ onMounted(() => {
             <Bot class="size-3.5 text-accent-500" />
             {{ t('discussion_widgets.screening') }}
           </span>
-          <button
+          <UiButton
             v-if="hasScreening"
-            type="button"
-            class="inline-flex items-center gap-0.5 text-[11px] text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
+            variant="link"
+            size="xs"
+            :icon-right="ExternalLink"
             @click="emit('openScreening')"
           >
             {{ t('discussion_widgets.details') }}
-            <ExternalLink class="size-3" />
-          </button>
+          </UiButton>
         </div>
 
         <div v-if="hasScreening" class="mt-1.5 flex items-baseline gap-2">
@@ -178,15 +178,15 @@ onMounted(() => {
             <ShieldAlert class="size-3.5 text-warning-500" />
             {{ t('discussion_widgets.risk') }}
           </span>
-          <button
+          <UiButton
             v-if="hasRisk"
-            type="button"
-            class="inline-flex items-center gap-0.5 text-[11px] text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
+            variant="link"
+            size="xs"
+            :icon-right="ExternalLink"
             @click="emit('openRisk')"
           >
             {{ t('discussion_widgets.details') }}
-            <ExternalLink class="size-3" />
-          </button>
+          </UiButton>
         </div>
 
         <div v-if="hasRisk" class="mt-1.5 flex flex-wrap items-center gap-1.5">

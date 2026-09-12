@@ -335,13 +335,15 @@ async function handleSocialSignIn(providerId: string) {
             </NuxtLink>
         </div>
 
-        <button
+        <UiButton
             type="submit"
             :disabled="isLoading"
-            class="mt-2 px-4 py-2.5 bg-brand-600 text-white rounded-md text-sm font-medium cursor-pointer hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            :loading="isLoading"
+            full-width
+            class="mt-2"
         >
-            {{ isLoading ? "Вход…" : "Войти" }}
-        </button>
+            Войти
+        </UiButton>
 
         <!-- Enterprise SSO button — always available on cloud, uses per-org providers -->
         <template v-if="!oidcEnabled">

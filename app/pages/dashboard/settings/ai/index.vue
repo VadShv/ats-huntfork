@@ -282,51 +282,58 @@ function formatPrice(p: number | null): string {
 
           <!-- Actions -->
           <div class="flex flex-wrap items-center gap-1.5 shrink-0">
-            <button
+            <UiButton
               v-if="!c.isDefaultChatbot"
               :disabled="!c.hasApiKey || (togglingDefaultId === c.id && togglingPurpose === 'chatbot')"
-              class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:border-brand-300 dark:hover:border-brand-700 hover:text-brand-700 dark:hover:text-brand-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              variant="secondary"
+              size="xs"
+              :icon-left="Sparkles"
+              :loading="togglingDefaultId === c.id && togglingPurpose === 'chatbot'"
+              class="hover:border-brand-300 dark:hover:border-brand-700 hover:text-brand-700 dark:hover:text-brand-300"
               :title="c.hasApiKey ? 'Использовать эту модель для чата' : 'Сначала добавьте ключ API'"
               @click="setDefault(c, 'chatbot')"
             >
-              <Loader2 v-if="togglingDefaultId === c.id && togglingPurpose === 'chatbot'" class="size-3.5 animate-spin" />
-              <Sparkles v-else class="size-3.5" />
               Использовать для чата
-            </button>
+            </UiButton>
 
-            <button
+            <UiButton
               v-if="!c.isDefaultAnalysis"
               :disabled="!c.hasApiKey || (togglingDefaultId === c.id && togglingPurpose === 'analysis')"
-              class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:border-warning-300 dark:hover:border-warning-700 hover:text-warning-700 dark:hover:text-warning-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              variant="secondary"
+              size="xs"
+              :icon-left="Star"
+              :loading="togglingDefaultId === c.id && togglingPurpose === 'analysis'"
+              class="hover:border-warning-300 dark:hover:border-warning-700 hover:text-warning-700 dark:hover:text-warning-300"
               :title="c.hasApiKey ? 'Использовать эту модель для анализа кандидатов' : 'Сначала добавьте ключ API'"
               @click="setDefault(c, 'analysis')"
             >
-              <Loader2 v-if="togglingDefaultId === c.id && togglingPurpose === 'analysis'" class="size-3.5 animate-spin" />
-              <Star v-else class="size-3.5" />
               Использовать для анализа
-            </button>
+            </UiButton>
 
-            <button
+            <UiButton
               v-if="!c.isDefaultInteractive"
               :disabled="!c.hasApiKey || (togglingDefaultId === c.id && togglingPurpose === 'interactive')"
-              class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:border-success-300 dark:hover:border-success-700 hover:text-success-700 dark:hover:text-success-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              variant="secondary"
+              size="xs"
+              :icon-left="PanelRight"
+              :loading="togglingDefaultId === c.id && togglingPurpose === 'interactive'"
+              class="hover:border-success-300 dark:hover:border-success-700 hover:text-success-700 dark:hover:text-success-300"
               :title="c.hasApiKey ? 'Использовать эту модель для быстрых задач панели Sidekick (саммари, чат, верификация)' : 'Сначала добавьте ключ API'"
               @click="setDefault(c, 'interactive')"
             >
-              <Loader2 v-if="togglingDefaultId === c.id && togglingPurpose === 'interactive'" class="size-3.5 animate-spin" />
-              <PanelRight v-else class="size-3.5" />
               Использовать для панели
-            </button>
+            </UiButton>
 
-            <button
+            <UiButton
               :disabled="testingId === c.id || !c.hasApiKey"
-              class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-xs font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              variant="secondary"
+              size="xs"
+              :icon-left="Zap"
+              :loading="testingId === c.id"
               @click="testConnection(c)"
             >
-              <Loader2 v-if="testingId === c.id" class="size-3.5 animate-spin" />
-              <Zap v-else class="size-3.5" />
               Проверить
-            </button>
+            </UiButton>
 
             <NuxtLink
               :to="`/dashboard/settings/ai/${c.id}`"
@@ -336,15 +343,18 @@ function formatPrice(p: number | null): string {
               Изменить
             </NuxtLink>
 
-            <button
+            <UiButton
               :disabled="deletingId === c.id"
               :aria-label="`Удалить конфигурацию ${c.name}`"
-              class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:border-danger-300 dark:hover:border-danger-700 hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              variant="secondary"
+              size="xs"
+              icon-only
+              :icon-left="Trash2"
+              :loading="deletingId === c.id"
+              class="text-danger-600 dark:text-danger-400 hover:border-danger-300 dark:hover:border-danger-700 hover:bg-danger-50 dark:hover:bg-danger-950/30"
               @click="deleteConfig(c)"
             >
-              <Loader2 v-if="deletingId === c.id" class="size-3.5 animate-spin" />
-              <Trash2 v-else class="size-3.5" />
-            </button>
+            </UiButton>
           </div>
         </div>
       </li>

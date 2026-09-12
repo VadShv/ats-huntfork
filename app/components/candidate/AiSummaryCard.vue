@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Sparkles, Loader2, RefreshCcw } from 'lucide-vue-next'
+import { Sparkles, RefreshCcw } from 'lucide-vue-next'
 
 const props = defineProps<{
   candidateId: string
@@ -61,17 +61,18 @@ async function generate() {
         <Sparkles class="size-4" />
         AI-саммари
       </h3>
-      <button
-        type="button"
-        :disabled="!canGenerate || isGenerating"
-        class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 disabled:opacity-50 disabled:cursor-not-allowed"
+      <UiButton
+        variant="ghost"
+        size="xs"
+        :icon-left="RefreshCcw"
+        :loading="isGenerating"
+        :disabled="!canGenerate"
+        class="text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40"
         :title="canGenerate ? 'Сгенерировать или обновить саммари' : 'Нет резюме с hh для анализа'"
         @click="generate"
       >
-        <Loader2 v-if="isGenerating" class="size-3.5 animate-spin" />
-        <RefreshCcw v-else class="size-3.5" />
         {{ localSummary ? 'Обновить' : 'Сгенерировать' }}
-      </button>
+      </UiButton>
     </div>
 
     <p v-if="!localSummary && !isGenerating" class="text-xs text-violet-700/80 dark:text-violet-300/80">

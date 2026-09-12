@@ -209,31 +209,31 @@ useSeoMeta({
 
         <!-- Header actions -->
         <div class="flex items-center gap-2 shrink-0">
-          <button
-            class="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-surface-200 dark:border-surface-700 px-3.5 py-2 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-all"
+          <UiButton
+            variant="secondary"
+            :icon-left="showPreview ? EyeOff : Eye"
             @click="showPreview = !showPreview"
           >
-            <component :is="showPreview ? EyeOff : Eye" class="size-4" />
             {{ showPreview ? 'Скрыть предпросмотр' : 'Предпросмотр' }}
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             v-if="isSystemTemplate"
             :disabled="isDuplicating"
-            class="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            :icon-left="Copy"
+            :loading="isDuplicating"
             @click="handleDuplicate"
           >
-            <Copy class="size-4" />
-            {{ isDuplicating ? 'Дублирование…' : 'Дублировать как свой' }}
-          </button>
+            Дублировать как свой
+          </UiButton>
           <template v-else>
-            <button
+            <UiButton
               :disabled="!isDirty || isSaving"
-              class="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              :icon-left="Save"
+              :loading="isSaving"
               @click="handleSave"
             >
-              <Save class="size-4" />
-              {{ isSaving ? 'Сохранение…' : saveSuccess ? 'Сохранено!' : 'Сохранить изменения' }}
-            </button>
+              {{ saveSuccess ? 'Сохранено!' : 'Сохранить изменения' }}
+            </UiButton>
           </template>
         </div>
       </div>
@@ -293,14 +293,16 @@ useSeoMeta({
           <div v-if="!isSystemTemplate" class="rounded-xl border border-danger-200/60 dark:border-danger-900/40 bg-danger-50/30 dark:bg-danger-950/20 p-5">
             <h3 class="text-sm font-semibold text-danger-700 dark:text-danger-400 mb-1">Опасная зона</h3>
             <p class="text-xs text-danger-600/80 dark:text-danger-400/60 mb-3">Удалить шаблон без возможности восстановления.</p>
-            <button
+            <UiButton
               :disabled="isDeleting"
-              class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-danger-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              variant="danger"
+              size="sm"
+              :icon-left="Trash2"
+              :loading="isDeleting"
               @click="handleDelete"
             >
-              <Trash2 class="size-3.5" />
-              {{ isDeleting ? 'Удаление…' : 'Удалить шаблон' }}
-            </button>
+              Удалить шаблон
+            </UiButton>
           </div>
         </div>
 

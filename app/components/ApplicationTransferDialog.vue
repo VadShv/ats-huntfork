@@ -94,15 +94,15 @@ async function submit() {
 </script>
 
 <template>
-  <button
-    type="button"
-    class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2.5 py-1 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
+  <UiButton
+    variant="secondary"
+    size="xs"
+    :icon-left="ArrowRightLeft"
     title="Перевести кандидата на другую вакансию"
     @click="openDialog"
   >
-    <ArrowRightLeft class="size-3.5" />
     Перевести
-  </button>
+  </UiButton>
 
   <Teleport to="body">
     <div
@@ -115,13 +115,13 @@ async function submit() {
           <h3 class="text-sm font-semibold text-surface-900 dark:text-surface-100">
             Перевести на другую вакансию
           </h3>
-          <button
-            type="button"
-            class="rounded-lg p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+          <UiButton
+            variant="ghost"
+            size="sm"
+            icon-only
+            :icon-left="X"
             @click="isOpen = false"
-          >
-            <X class="size-4" />
-          </button>
+          />
         </div>
 
         <div class="px-5 pb-4 space-y-3">
@@ -163,23 +163,22 @@ async function submit() {
         </div>
 
         <div class="flex items-center justify-end gap-2 px-5 pb-4">
-          <button
-            type="button"
-            class="rounded-lg px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+          <UiButton
+            variant="ghost"
+            size="xs"
             @click="isOpen = false"
           >
             Отмена
-          </button>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-50"
-            :disabled="!targetJobId || isSubmitting"
+          </UiButton>
+          <UiButton
+            size="xs"
+            :icon-left="ArrowRightLeft"
+            :loading="isSubmitting"
+            :disabled="!targetJobId"
             @click="submit"
           >
-            <Loader2 v-if="isSubmitting" class="size-3.5 animate-spin" />
-            <ArrowRightLeft v-else class="size-3.5" />
             Перевести
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>

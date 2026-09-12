@@ -65,15 +65,16 @@ const candidates = computed(() => searchResults.value.filter(m => !existingIds.v
             <div class="truncate text-[10px] text-surface-500">{{ t(`watchers.source_${w.source}`) }}</div>
           </div>
         </div>
-        <button
+        <UiButton
           v-if="!readOnly"
-          type="button"
-          class="cursor-pointer rounded p-1 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/20"
+          variant="ghost"
+          size="xs"
+          icon-only
+          :icon-left="X"
+          class="text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/20"
           :title="t('watchers.remove')"
           @click="removeWatcher(w.userId)"
-        >
-          <X class="size-3.5" />
-        </button>
+        />
       </li>
     </ul>
     <p v-else class="mb-2 text-xs italic text-surface-400">{{ t('watchers.empty') }}</p>

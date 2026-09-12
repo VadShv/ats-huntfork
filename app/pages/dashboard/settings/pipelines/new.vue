@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Loader2, GitBranch, Lock, Check } from 'lucide-vue-next'
+import { ArrowLeft, GitBranch, Lock, Check } from 'lucide-vue-next'
 import type { PipelineStage } from '~/components/PipelineStageEditor.vue'
 
 definePageMeta({})
@@ -341,14 +341,13 @@ async function handleSubmit() {
           >
             {{ $t('common.cancel') }}
           </NuxtLink>
-          <button
+          <UiButton
             type="submit"
             :disabled="!canSubmit"
-            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :loading="isSubmitting"
           >
-            <Loader2 v-if="isSubmitting" class="size-4 animate-spin" />
-            {{ isSubmitting ? 'Создание…' : $t('pipelines.create') }}
-          </button>
+            {{ $t('pipelines.create') }}
+          </UiButton>
         </div>
       </form>
     </div>

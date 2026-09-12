@@ -63,12 +63,13 @@ function hrefFor(s: ChatbotSource): string | null {
           {{ sources.length }}
         </span>
       </div>
-      <button
-        class="inline-flex size-7 items-center justify-center rounded text-surface-500 hover:bg-surface-200 dark:hover:bg-surface-800 cursor-pointer border-0 bg-transparent"
+      <UiButton
+        variant="ghost"
+        size="sm"
+        icon-only
+        :icon-left="X"
         @click="emit('close')"
-      >
-        <X class="size-4" />
-      </button>
+      />
     </div>
 
     <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-4">

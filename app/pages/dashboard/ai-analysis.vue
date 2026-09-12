@@ -157,7 +157,7 @@ function statusBadgeClass(status: string): string {
     >
       <AlertCircle class="size-5 shrink-0" />
       <span>{{ t('dashboard.aiAnalysis.failedToLoad') }}</span>
-      <button class="underline ml-auto font-medium cursor-pointer" @click="refresh()">{{ t('dashboard.aiAnalysis.retry') }}</button>
+      <UiButton variant="link" class="underline ml-auto font-medium" @click="refresh()">{{ t('dashboard.aiAnalysis.retry') }}</UiButton>
     </div>
 
     <!-- ─── Empty state (no runs at all) ─── -->

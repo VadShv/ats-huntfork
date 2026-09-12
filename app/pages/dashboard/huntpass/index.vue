@@ -126,15 +126,17 @@ const breakdown = computed(() => data.value?.breakdown)
             <span v-if="t.claimed" class="inline-flex items-center gap-1 text-xs text-success-600 dark:text-success-400">
               <Check class="size-3.5" /> Получено
             </span>
-            <button
+            <UiButton
               v-else-if="t.reached"
               type="button"
               :disabled="claiming === t.tier"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 transition-colors"
+              size="xs"
+              :icon-left="Gift"
+              :loading="claiming === t.tier"
               @click="claim(t.tier)"
             >
-              <Gift class="size-3.5" /> Забрать
-            </button>
+              Забрать
+            </UiButton>
             <Lock v-else class="size-4 text-surface-300 dark:text-surface-600" />
           </div>
         </div>

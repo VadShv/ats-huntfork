@@ -266,16 +266,17 @@ function formatResponseValue(value: unknown): string {
               <AlertTriangle class="size-3" />
               hh: рассинхрон
             </span>
-            <button
+            <UiButton
               type="button"
-              class="inline-flex items-center gap-1 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-0.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors disabled:opacity-50"
+              variant="secondary"
+              size="xs"
+              :icon-left="RefreshCw"
               :disabled="isResyncing"
               title="Повторно отправить текущий этап на hh.ru"
               @click="doHhResync"
             >
-              <RefreshCw class="size-3" :class="isResyncing ? 'animate-spin' : ''" />
               Синхронизировать
-            </button>
+            </UiButton>
           </div>
           <!-- Спринт 22 (todo 9): перевод на другую вакансию -->
           <NuxtLink
@@ -574,14 +575,16 @@ function formatResponseValue(value: unknown): string {
               <Keyboard class="size-5 text-surface-500" />
               <h2 class="text-base font-semibold text-surface-900 dark:text-surface-100">Горячие клавиши</h2>
             </div>
-            <button
+            <UiButton
               type="button"
-              class="rounded-lg p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+              variant="ghost"
+              icon-only
+              size="sm"
               aria-label="Закрыть"
               @click="showHotkeysModal = false"
             >
               <X class="size-4" />
-            </button>
+            </UiButton>
           </div>
           <ul class="space-y-2.5">
             <li class="flex items-center justify-between text-sm">

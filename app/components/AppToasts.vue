@@ -90,10 +90,11 @@ function getConfig(type: string) {
                 </p>
 
                 <!-- Expandable details toggle -->
-                <button
+                <UiButton
                   v-if="toast.details"
-                  type="button"
-                  class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 transition-colors"
+                  variant="link"
+                  size="xs"
+                  class="mt-2"
                   @click="toggleDetails(toast.id)"
                 >
                   <ChevronDown
@@ -101,7 +102,7 @@ function getConfig(type: string) {
                     :class="{ 'rotate-180': expandedToasts.has(toast.id) }"
                   />
                   {{ expandedToasts.has(toast.id) ? 'Hide details' : 'Show details' }}
-                </button>
+                </UiButton>
 
                 <!-- Expanded details -->
                 <div
@@ -123,13 +124,14 @@ function getConfig(type: string) {
                   </a>
                 </div>
               </div>
-              <button
-                type="button"
-                class="shrink-0 rounded-lg p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+              <UiButton
+                variant="ghost"
+                size="xs"
+                icon-only
+                :icon-left="X"
+                class="shrink-0"
                 @click="remove(toast.id)"
-              >
-                <X class="size-4" />
-              </button>
+              />
             </div>
           </div>
         </div>

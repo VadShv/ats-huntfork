@@ -50,20 +50,26 @@ watch(() => props.item.answerNote, v => { note.value = v ?? '' })
           :title="t('application.questions.markSkipped')"
           @click="emit('skipped')"
         ><SkipForward class="size-3.5" /></button>
-        <button
-          type="button"
-          class="rounded p-1 text-surface-400 hover:bg-surface-100 hover:text-surface-700 dark:hover:bg-surface-800"
+        <UiButton
+          variant="ghost"
+          icon-only
+          size="xs"
+          class="text-surface-400 hover:text-surface-700"
           :title="t('application.questions.note')"
           @click="noteOpen = !noteOpen"
         >
           <ChevronUp v-if="noteOpen" class="size-3.5" />
           <ChevronDown v-else class="size-3.5" />
-        </button>
-        <button
-          type="button"
-          class="rounded p-1 text-surface-400 hover:text-danger-600"
+        </UiButton>
+        <UiButton
+          variant="ghost"
+          icon-only
+          size="xs"
+          class="text-surface-400 hover:text-danger-600"
           @click="emit('delete')"
-        ><Trash2 class="size-3.5" /></button>
+        >
+          <Trash2 class="size-3.5" />
+        </UiButton>
       </div>
     </div>
 

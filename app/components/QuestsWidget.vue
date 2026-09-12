@@ -81,15 +81,15 @@ function pct(q: Quest) {
         </div>
         <div class="shrink-0 text-right">
           <span v-if="q.claimed" class="inline-flex items-center gap-0.5 text-[11px] text-success-600 dark:text-success-400"><Check class="size-3" /></span>
-          <button
+          <UiButton
             v-else-if="q.completed"
-            type="button"
+            size="xs"
+            :icon-left="Gift"
             :disabled="claiming === q.id"
-            class="inline-flex items-center gap-1 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-[10px] font-medium px-2 py-1 transition-colors"
             @click="claim(q)"
           >
-            <Gift class="size-3" /> +{{ q.sxpReward }}
-          </button>
+            +{{ q.sxpReward }}
+          </UiButton>
           <span v-else class="text-[11px] text-surface-400">{{ q.progress }}/{{ q.target }}</span>
         </div>
       </div>

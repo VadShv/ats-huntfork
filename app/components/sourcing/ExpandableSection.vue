@@ -76,10 +76,11 @@ function toggle() {
       <slot />
     </div>
 
-    <button
+    <UiButton
       v-if="hiddenCount > 0 || !$slots.summary"
-      type="button"
-      class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors"
+      variant="link"
+      size="xs"
+      class="mt-1.5"
       @click="toggle"
     >
       <ChevronDown
@@ -87,6 +88,6 @@ function toggle() {
         :class="collapsed ? '' : 'rotate-180'"
       />
       {{ toggleLabel }}
-    </button>
+    </UiButton>
   </div>
 </template>

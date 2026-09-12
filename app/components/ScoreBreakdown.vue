@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Brain, Sparkles, AlertTriangle, ChevronDown, ChevronUp, Loader2, BarChart3, RefreshCw } from 'lucide-vue-next'
+import { Brain, Sparkles, AlertTriangle, ChevronDown, ChevronUp, BarChart3, RefreshCw } from 'lucide-vue-next'
 
 interface AiConfigOption {
   id: string
@@ -169,15 +169,14 @@ async function retryParse() {
             <option :value="null">По умолчанию{{ defaultAnalysisConfig ? ` (${defaultAnalysisConfig.name})` : '' }}</option>
             <option v-for="c in aiConfigOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
           </select>
-          <button
-            :disabled="isAnalyzing"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          <UiButton
+            size="xs"
+            :icon-left="Sparkles"
+            :loading="isAnalyzing"
             @click="runAnalysis"
           >
-            <Loader2 v-if="isAnalyzing" class="size-3.5 animate-spin" />
-            <Sparkles v-else class="size-3.5" />
             {{ isAnalyzing ? 'Анализ…' : 'Запустить анализ' }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -208,13 +207,14 @@ async function retryParse() {
               <option :value="null">По умолчанию{{ defaultAnalysisConfig ? ` (${defaultAnalysisConfig.name})` : '' }}</option>
               <option v-for="c in aiConfigOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
-            <button
+            <UiButton
+              variant="link"
+              size="xs"
               :disabled="isAnalyzing"
-              class="text-xs text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-50"
               @click="runAnalysis"
             >
               {{ isAnalyzing ? t('dashboard.scoreBreakdown.reScoring') : t('dashboard.scoreBreakdown.reScore') }}
-            </button>
+            </UiButton>
           </div>
         </div>
 
@@ -343,17 +343,16 @@ async function retryParse() {
       <div>
         {{ analyzeError }}
         <div class="mt-2 flex items-center gap-2">
-          <button
+          <UiButton
             v-if="parseFailedDocId"
-            :disabled="isRetryingParse"
-            class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            size="xs"
+            :icon-left="RefreshCw"
+            :loading="isRetryingParse"
             @click="retryParse"
           >
-            <Loader2 v-if="isRetryingParse" class="size-3 animate-spin" />
-            <RefreshCw v-else class="size-3" />
             {{ isRetryingParse ? 'Повторная обработка…' : 'Повторить обработку резюме' }}
-          </button>
-          <button class="underline" @click="analyzeError = null; parseFailedDocId = null">Скрыть</button>
+          </UiButton>
+          <UiButton variant="link" size="xs" @click="analyzeError = null; parseFailedDocId = null">Скрыть</UiButton>
         </div>
       </div>
     </div>

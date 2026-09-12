@@ -184,13 +184,16 @@ async function handleDelete() {
 
           <!-- Actions -->
           <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            <button
-              class="cursor-pointer rounded-lg p-2 text-surface-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:text-danger-400 dark:hover:bg-danger-950/40 transition-all opacity-0 group-hover:opacity-100"
+            <UiButton
+              variant="ghost"
+              icon-only
+              size="sm"
+              :icon-left="Trash2"
+              class="opacity-0 group-hover:opacity-100"
               title="Удалить шаблон"
               @click.stop.prevent="confirmDelete(t.id, t.name)"
             >
-              <Trash2 class="size-4" />
-            </button>
+            </UiButton>
             <ChevronRight class="size-4 text-surface-300 dark:text-surface-600" />
           </div>
         </div>
@@ -215,18 +218,22 @@ async function handleDelete() {
               Удалить <strong>{{ templateToDelete?.name }}</strong>? Действие необратимо.
             </p>
             <div class="flex gap-3">
-              <button
-                class="flex-1 cursor-pointer rounded-xl border border-surface-200 dark:border-surface-700 px-4 py-2.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-all"
+              <UiButton
+                variant="secondary"
+                class="flex-1"
                 @click="showDeleteConfirm = false"
               >
-                Отмена              </button>
-              <button
+                Отмена
+              </UiButton>
+              <UiButton
                 :disabled="deletingId !== null"
-                class="flex-1 cursor-pointer rounded-xl bg-danger-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                variant="danger"
+                :loading="deletingId !== null"
+                class="flex-1"
                 @click="handleDelete"
               >
-                {{ deletingId ? 'Удаление…' : 'Удалить' }}
-              </button>
+                Удалить
+              </UiButton>
             </div>
           </div>
         </div>

@@ -140,22 +140,21 @@ async function quickReject() {
               class="w-full rounded-md border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-xs text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30 resize-none"
             />
             <div class="mt-2 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                class="rounded-md px-2 py-1 text-xs text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+              <UiButton
+                variant="ghost"
+                size="xs"
                 @click="selectedStageId = null; moveComment = ''"
               >
                 {{ t('comments.cancel') }}
-              </button>
-              <button
-                type="button"
+              </UiButton>
+              <UiButton
+                size="xs"
+                :icon-left="Check"
                 :disabled="moving"
-                class="inline-flex items-center gap-1 rounded-md bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 cursor-pointer"
                 @click="doMove(selectedStageId!, moveComment.trim() || undefined)"
               >
-                <Check class="size-3" />
                 {{ t('comments.save') }}
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>

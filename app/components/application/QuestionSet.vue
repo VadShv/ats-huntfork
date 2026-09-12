@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ListChecks, Sparkles, Loader2, Plus, Trash2, Check, SkipForward, ShieldAlert } from 'lucide-vue-next'
+import { ListChecks, Sparkles, Plus, Trash2, Check, SkipForward, ShieldAlert } from 'lucide-vue-next'
 import type { CandidateQuestionItem } from '~/composables/useCandidateQuestions'
 
 const props = defineProps<{
@@ -61,17 +61,15 @@ async function onAdd() {
         <ListChecks class="size-4 text-brand-600" />
         {{ t('application.questions.title') }}
       </h2>
-      <button
+      <UiButton
         v-if="canEdit"
-        type="button"
-        :disabled="isGenerating"
-        class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+        size="xs"
+        :icon-left="Sparkles"
+        :loading="isGenerating"
         @click="onGenerate"
       >
-        <Loader2 v-if="isGenerating" class="size-3.5 animate-spin" />
-        <Sparkles v-else class="size-3.5" />
         {{ items.length ? t('application.questions.regenerate') : t('application.questions.generate') }}
-      </button>
+      </UiButton>
     </div>
 
     <div v-if="status === 'pending'" class="py-6 text-center text-sm text-surface-400">…</div>
@@ -122,9 +120,9 @@ async function onAdd() {
         class="flex-1 rounded-md border border-surface-200 bg-white px-3 py-2 text-sm dark:border-surface-700 dark:bg-surface-800"
         @keydown.enter.prevent="onAdd"
       >
-      <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-surface-200 px-3 text-sm text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:hover:bg-surface-800" @click="onAdd">
-        <Plus class="size-4" /> {{ t('application.questions.add') }}
-      </button>
+      <UiButton variant="secondary" size="sm" :icon-left="Plus" @click="onAdd">
+        {{ t('application.questions.add') }}
+      </UiButton>
     </div>
   </div>
 </template>

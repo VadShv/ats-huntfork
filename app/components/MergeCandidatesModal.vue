@@ -183,12 +183,15 @@ function formatName(c: { firstName: string | null; lastName: string | null; disp
               Выберите кандидата, которого нужно слить в <span class="font-medium text-surface-700 dark:text-surface-200">{{ formatName(primaryCandidate) }}</span>. Его заявки, документы и идентификаторы перейдут сюда.
             </p>
           </div>
-          <button
-            class="rounded-md p-1 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200"
+          <UiButton
+            variant="ghost"
+            icon-only
+            size="sm"
+            class="text-surface-400 hover:text-surface-700 dark:hover:text-surface-200"
             @click="emit('close')"
           >
             <X class="size-5" />
-          </button>
+          </UiButton>
         </div>
 
         <!-- Body -->
@@ -250,12 +253,13 @@ function formatName(c: { firstName: string | null; lastName: string | null; disp
           <div v-else>
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-medium text-surface-600 dark:text-surface-400">Будет слит в текущего</span>
-              <button
-                class="text-xs text-brand-600 dark:text-brand-400 hover:underline"
+              <UiButton
+                variant="link"
+                size="xs"
                 @click="clearSelection"
               >
                 Выбрать другого
-              </button>
+              </UiButton>
             </div>
 
             <div v-if="isLoadingPreview" class="rounded-lg border border-surface-200 dark:border-surface-700 p-4 text-center text-sm text-surface-500">
@@ -312,20 +316,22 @@ function formatName(c: { firstName: string | null; lastName: string | null; disp
 
         <!-- Footer -->
         <div class="px-6 py-3 border-t border-surface-200 dark:border-surface-800 flex justify-end gap-2 shrink-0">
-          <button
-            class="rounded-md px-4 py-2 text-sm font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-200"
+          <UiButton
+            variant="secondary"
+            size="sm"
             :disabled="isMerging"
             @click="emit('close')"
           >
             Отмена
-          </button>
-          <button
-            class="rounded-md px-4 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="!canMerge || isMerging"
+          </UiButton>
+          <UiButton
+            size="sm"
+            :loading="isMerging"
+            :disabled="!canMerge"
             @click="submit"
           >
             {{ isMerging ? 'Сливаем…' : 'Подтвердить слияние' }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>

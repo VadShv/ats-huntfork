@@ -114,13 +114,15 @@ const isEditing = computed(() => !!props.question)
       <h3 class="text-sm font-semibold text-surface-700 dark:text-surface-300">
         {{ isEditing ? 'Изменить вопрос' : 'Добавить вопрос' }}
       </h3>
-      <button
-        type="button"
-        class="rounded p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+      <UiButton
+        variant="ghost"
+        icon-only
+        size="sm"
+        class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"
         @click="emit('cancel')"
       >
         <X class="size-4" />
-      </button>
+      </UiButton>
     </div>
 
     <form class="space-y-4" @submit.prevent="handleSubmit">
@@ -182,23 +184,27 @@ const isEditing = computed(() => !!props.question)
               :placeholder="`Вариант ${index + 1}`"
               class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm text-surface-900 dark:text-surface-100 bg-white dark:bg-surface-800 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
             />
-            <button
-              type="button"
-              class="rounded p-1 text-surface-400 hover:text-danger-600 transition-colors disabled:opacity-30"
+            <UiButton
+              variant="ghost"
+              icon-only
+              size="xs"
+              class="text-surface-400 hover:text-danger-600"
               :disabled="form.options.length <= 1"
               @click="removeOption(index)"
             >
               <Trash2 class="size-4" />
-            </button>
+            </UiButton>
           </div>
         </div>
-        <button
-          type="button"
-          class="mt-2 inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 transition-colors"
+        <UiButton
+          variant="link"
+          size="sm"
+          class="mt-2"
+          :icon-left="Plus"
           @click="addOption"
         >
-          <Plus class="size-3.5" />
-          Добавить вариант        </button>
+          Добавить вариант
+        </UiButton>
         <p v-if="errors.options" class="mt-1 text-xs text-danger-600 dark:text-danger-400">{{ errors.options }}</p>
       </div>
 
@@ -214,18 +220,19 @@ const isEditing = computed(() => !!props.question)
 
       <!-- Actions -->
       <div class="flex items-center gap-2 pt-1">
-        <button
+        <UiButton
           type="submit"
-          class="inline-flex items-center rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+          size="sm"
         >
           {{ isEditing ? 'Сохранить' : 'Добавить вопрос' }}
-        </button>
-        <button
-          type="button"
-          class="rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+        </UiButton>
+        <UiButton
+          variant="secondary"
+          size="sm"
           @click="emit('cancel')"
         >
-          Отмена        </button>
+          Отмена
+        </UiButton>
       </div>
     </form>
   </div>

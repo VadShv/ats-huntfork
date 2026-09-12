@@ -21,12 +21,11 @@ definePageMeta({
           <p class="text-sm text-surface-600 dark:text-surface-400 mb-4">
             {{ error?.message || 'An unexpected error occurred while loading this page.' }}
           </p>
-          <button
-            class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+          <UiButton
             @click="clearError"
           >
             Повторить
-          </button>
+          </UiButton>
         </div>
       </div>
     </template>

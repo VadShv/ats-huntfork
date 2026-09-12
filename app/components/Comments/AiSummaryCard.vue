@@ -40,22 +40,27 @@ function fmtDate(d: string | undefined) {
       <span v-if="meta?.generatedAt" class="text-[10px] text-surface-400 font-mono ml-auto">
         {{ fmtDate(meta.generatedAt) }}
       </span>
-      <button
+      <UiButton
         v-if="canRefresh"
-        type="button"
-        class="rounded p-1 text-surface-400 hover:text-accent-600 hover:bg-accent-100 dark:hover:bg-accent-900/30 cursor-pointer"
+        variant="ghost"
+        size="xs"
+        icon-only
+        :icon-left="RefreshCw"
+        class="text-surface-400 hover:text-accent-600 hover:bg-accent-100 dark:hover:bg-accent-900/30"
         :title="t('comments.summarize_refresh')"
         @click="emit('refresh')"
-      >
-        <RefreshCw class="size-3" />
-      </button>
-      <button
-        type="button"
-        class="rounded p-1 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+      />
+      <UiButton
+        variant="ghost"
+        size="xs"
+        icon-only
+        class="text-surface-400"
         @click="expanded = !expanded"
       >
-        <component :is="expanded ? ChevronUp : ChevronDown" class="size-3.5" />
-      </button>
+        <template #icon-before>
+          <component :is="expanded ? ChevronUp : ChevronDown" class="size-3.5" />
+        </template>
+      </UiButton>
     </div>
     <div
       v-show="expanded"

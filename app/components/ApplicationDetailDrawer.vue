@@ -137,12 +137,13 @@ onUnmounted(() => { document.body.style.overflow = '' })
               <ExternalLink class="size-3.5" />
               Открыть полностью
             </NuxtLink>
-            <button
-              class="rounded-lg p-1.5 text-surface-500 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              variant="ghost"
+              size="sm"
+              icon-only
+              :icon-left="X"
               @click="emit('close')"
-            >
-              <X class="size-4" />
-            </button>
+            />
           </div>
         </header>
 

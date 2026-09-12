@@ -24,12 +24,15 @@ function closeModal() {
             <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-50">Вы в демоверсии</h3>
           </div>
 
-          <button
-            class="cursor-pointer text-surface-400 transition-colors hover:text-surface-600 dark:hover:text-surface-200"
+          <UiButton
+            variant="ghost"
+            icon-only
+            size="sm"
+            class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"
             @click="closeModal"
           >
             <X class="size-5" />
-          </button>
+          </UiButton>
         </div>
 
         <div class="space-y-4 px-5 py-5">

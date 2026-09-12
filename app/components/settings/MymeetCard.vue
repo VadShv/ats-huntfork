@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Video, Check, Loader2, Unplug, RefreshCw } from 'lucide-vue-next'
+import { Video, Check, Unplug, RefreshCw } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -63,15 +63,14 @@ async function onDisconnect() {
           :placeholder="t('settings.mymeet.keyPlaceholder')"
           class="flex-1 rounded-md border border-surface-200 bg-white px-3 py-2 text-sm dark:border-surface-700 dark:bg-surface-800"
         >
-        <button
-          type="button"
-          :disabled="busy || !apiKey.trim()"
-          class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+        <UiButton
+          size="sm"
+          :loading="busy"
+          :disabled="!apiKey.trim()"
           @click="onConnect"
         >
-          <Loader2 v-if="busy" class="size-4 animate-spin" />
           {{ t('settings.mymeet.connect') }}
-        </button>
+        </UiButton>
       </div>
       <p v-else class="text-xs text-surface-400">{{ t('settings.mymeet.noPermission') }}</p>
     </template>
@@ -84,12 +83,12 @@ async function onDisconnect() {
         </div>
       </div>
       <div v-if="canManage" class="flex gap-2">
-        <button type="button" :disabled="busy" class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 px-3 py-1.5 text-sm text-surface-600 hover:bg-surface-50 disabled:opacity-60 dark:border-surface-700 dark:hover:bg-surface-800" @click="onTest">
-          <RefreshCw class="size-3.5" /> {{ t('settings.mymeet.test') }}
-        </button>
-        <button type="button" :disabled="busy" class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 px-3 py-1.5 text-sm text-danger-600 hover:bg-danger-50 disabled:opacity-60 dark:border-danger-900 dark:hover:bg-danger-950/40" @click="onDisconnect">
-          <Unplug class="size-3.5" /> {{ t('settings.mymeet.disconnect') }}
-        </button>
+        <UiButton variant="secondary" size="sm" :icon-left="RefreshCw" :disabled="busy" @click="onTest">
+          {{ t('settings.mymeet.test') }}
+        </UiButton>
+        <UiButton variant="outline" size="sm" :icon-left="Unplug" :disabled="busy" class="border-danger-200 text-danger-600 hover:bg-danger-50 dark:border-danger-900 dark:hover:bg-danger-950/40" @click="onDisconnect">
+          {{ t('settings.mymeet.disconnect') }}
+        </UiButton>
       </div>
     </template>
   </div>

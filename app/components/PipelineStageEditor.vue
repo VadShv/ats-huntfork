@@ -242,48 +242,55 @@ function addStage() {
 
         <!-- Move up/down (hidden when archived) -->
         <template v-if="!stage.isArchived">
-          <button
-            type="button"
-            class="shrink-0 p-1 rounded text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          <UiButton
+            variant="ghost"
+            icon-only
+            size="xs"
+            class="shrink-0 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
             :disabled="disabled || index === 0"
             :title="$t('pipelines.stage.moveUp')"
             @click="moveUp(index)"
           >
             <ChevronUp class="size-3.5" />
-          </button>
-          <button
-            type="button"
-            class="shrink-0 p-1 rounded text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          </UiButton>
+          <UiButton
+            variant="ghost"
+            icon-only
+            size="xs"
+            class="shrink-0 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
             :disabled="disabled || index === modelValue.length - 1"
             :title="$t('pipelines.stage.moveDown')"
             @click="moveDown(index)"
           >
             <ChevronDown class="size-3.5" />
-          </button>
+          </UiButton>
         </template>
 
         <!-- Archive / Restore button -->
-        <button
+        <UiButton
           v-if="!stage.isArchived"
-          type="button"
-          class="shrink-0 p-1 rounded text-surface-400 hover:text-danger-500 dark:hover:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          variant="ghost"
+          icon-only
+          size="xs"
+          class="shrink-0 text-surface-400 hover:text-danger-500 dark:hover:text-danger-400"
           :disabled="disabled"
           :title="$t('pipelines.stage.archive')"
           @click="archiveStage(index)"
         >
           <Trash2 class="size-3.5" />
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-else
-          type="button"
-          class="shrink-0 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed border border-brand-200 dark:border-brand-800"
+          variant="outline"
+          size="xs"
+          class="shrink-0"
+          :icon-left="RotateCcw"
           :disabled="disabled"
           :title="$t('pipelines.stage.restore')"
           @click="restoreStage(index)"
         >
-          <RotateCcw class="size-3" />
           {{ $t('pipelines.stage.restore') }}
-        </button>
+        </UiButton>
       </div>
     </div>
 

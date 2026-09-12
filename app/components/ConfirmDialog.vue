@@ -87,35 +87,31 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
                     {{ state.message }}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  class="shrink-0 rounded-lg p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                <UiButton
+                  variant="ghost"
+                  size="sm"
+                  icon-only
+                  :icon-left="X"
                   aria-label="Закрыть"
+                  class="shrink-0"
                   @click="close(false)"
-                >
-                  <X class="size-4" />
-                </button>
+                />
               </div>
 
               <!-- Actions -->
               <div class="flex items-center justify-end gap-2 mt-6">
-                <button
-                  type="button"
-                  class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
+                <UiButton
+                  variant="secondary"
                   @click="close(false)"
                 >
                   {{ state.cancelLabel ?? 'Отмена' }}
-                </button>
-                <button
-                  type="button"
-                  class="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
-                  :class="state.variant === 'danger'
-                    ? 'bg-danger-600 hover:bg-danger-700'
-                    : 'bg-brand-600 hover:bg-brand-700'"
+                </UiButton>
+                <UiButton
+                  :variant="state.variant === 'danger' ? 'danger' : 'primary'"
                   @click="close(true)"
                 >
                   {{ state.confirmLabel ?? 'Подтвердить' }}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>

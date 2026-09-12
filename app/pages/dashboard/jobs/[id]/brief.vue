@@ -170,13 +170,15 @@ const textSections: Array<{ group: string, fields: Array<{ key: keyof typeof for
                 class="flex-1 rounded-md border border-surface-200 bg-white px-2.5 py-1.5 text-sm dark:border-surface-700 dark:bg-surface-800"
                 @keydown.enter.prevent="addChip(cf.field)"
               >
-              <button
+              <UiButton
                 type="button"
-                class="inline-flex items-center rounded-md border border-surface-200 px-2 text-surface-500 hover:bg-surface-50 dark:border-surface-700 dark:hover:bg-surface-800"
+                variant="secondary"
+                icon-only
+                size="sm"
+                :icon-left="Plus"
                 @click="addChip(cf.field)"
               >
-                <Plus class="size-4" />
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -208,15 +210,14 @@ const textSections: Array<{ group: string, fields: Array<{ key: keyof typeof for
         <span v-if="savedFlash" class="inline-flex items-center gap-1 text-sm text-success-600">
           <Check class="size-4" /> {{ t('dashboard.jobs.brief.saved') }}
         </span>
-        <button
+        <UiButton
           type="button"
           :disabled="isSaving"
-          class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+          :loading="isSaving"
           @click="onSave"
         >
-          <Loader2 v-if="isSaving" class="size-4 animate-spin" />
-          {{ isSaving ? t('dashboard.jobs.brief.saving') : t('dashboard.jobs.brief.save') }}
-        </button>
+          {{ t('dashboard.jobs.brief.save') }}
+        </UiButton>
       </div>
     </div>
   </div>

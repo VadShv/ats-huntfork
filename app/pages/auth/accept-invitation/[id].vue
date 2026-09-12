@@ -109,12 +109,12 @@ onMounted(() => {
       <p class="text-sm text-surface-500 dark:text-surface-400">{{ error }}</p>
     </div>
     <div class="flex gap-3">
-      <button
-        class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+      <UiButton
+        variant="link"
         @click="handleAccept"
       >
         Повторить
-      </button>
+      </UiButton>
       <NuxtLink
         :to="localePath('/auth/sign-in')"
         class="text-sm text-surface-500 dark:text-surface-400 hover:underline no-underline"

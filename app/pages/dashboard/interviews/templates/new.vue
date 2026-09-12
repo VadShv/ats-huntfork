@@ -104,21 +104,21 @@ async function handleCreate() {
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        <button
-          class="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-surface-200 dark:border-surface-700 px-3.5 py-2 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-all"
+        <UiButton
+          variant="secondary"
+          :icon-left="showPreview ? EyeOff : Eye"
           @click="showPreview = !showPreview"
         >
-          <component :is="showPreview ? EyeOff : Eye" class="size-4" />
           {{ showPreview ? 'Скрыть предпросмотр' : 'Предпросмотр' }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           :disabled="!canSave || isSaving"
-          class="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          :icon-left="Save"
+          :loading="isSaving"
           @click="handleCreate"
         >
-          <Save class="size-4" />
-          {{ isSaving ? 'Создание…' : 'Создать шаблон' }}
-        </button>
+          Создать шаблон
+        </UiButton>
       </div>
     </div>
 

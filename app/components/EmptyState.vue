@@ -44,13 +44,12 @@ const props = withDefaults(defineProps<{
     >
       {{ action.label }}
     </NuxtLink>
-    <button
+    <UiButton
       v-else-if="actionButton"
-      type="button"
-      class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+      size="sm"
       @click="actionButton.onClick"
     >
       {{ actionButton.label }}
-    </button>
+    </UiButton>
   </div>
 </template>

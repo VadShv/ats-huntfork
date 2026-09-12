@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Upload, FileText, AlertTriangle, CheckCircle2, GitMerge, X, Loader2, Plus } from 'lucide-vue-next'
+import { Upload, FileText, AlertTriangle, CheckCircle2, GitMerge, X, Plus } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard',
@@ -242,24 +242,26 @@ function fullName(c: { firstName: string | null; lastName: string | null }): str
           <span class="text-xs text-surface-500">({{ (selectedFile.size / 1024).toFixed(1) }} КБ)</span>
         </p>
         <div class="flex items-center justify-center gap-2">
-          <button
+          <UiButton
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800"
+            variant="secondary"
+            size="xs"
+            :icon-left="X"
             :disabled="isUploading"
             @click="clearFile"
           >
-            <X class="size-3.5" /> Убрать
-          </button>
-          <button
+            Убрать
+          </UiButton>
+          <UiButton
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50"
+            size="xs"
+            :icon-left="CheckCircle2"
+            :loading="isUploading"
             :disabled="isUploading"
             @click="uploadPreview"
           >
-            <Loader2 v-if="isUploading" class="size-3.5 animate-spin" />
-            <CheckCircle2 v-else class="size-3.5" />
-            {{ isUploading ? 'Проверяем…' : 'Проверить файл' }}
-          </button>
+            Проверить файл
+          </UiButton>
         </div>
       </div>
       <div v-else class="space-y-3">
@@ -421,24 +423,26 @@ function fullName(c: { firstName: string | null; lastName: string | null }): str
           </span>
         </div>
         <div class="flex items-center gap-2">
-          <button
+          <UiButton
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border border-surface-300 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800"
+            variant="secondary"
+            size="xs"
+            :icon-left="X"
             :disabled="isCommitting"
             @click="clearFile"
           >
-            <X class="size-3.5" /> Отменить
-          </button>
-          <button
+            Отменить
+          </UiButton>
+          <UiButton
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-50"
+            size="xs"
+            :icon-left="CheckCircle2"
+            :loading="isCommitting"
             :disabled="isCommitting || (stats.create === 0 && stats.merge === 0)"
             @click="commit"
           >
-            <Loader2 v-if="isCommitting" class="size-3.5 animate-spin" />
-            <CheckCircle2 v-else class="size-3.5" />
-            {{ isCommitting ? 'Импортируем…' : `Импортировать ${stats.create + stats.merge} решений` }}
-          </button>
+            Импортировать {{ stats.create + stats.merge }} решений
+          </UiButton>
         </div>
       </div>
     </div>

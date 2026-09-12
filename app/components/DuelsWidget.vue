@@ -49,9 +49,9 @@ const inputCls = 'rounded-lg border border-surface-300 dark:border-surface-700 p
         <Swords class="size-5 text-brand-500" />
         <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">Дуэли</span>
       </div>
-      <button type="button" class="text-xs text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-0.5" @click="showCreate = !showCreate">
-        <Plus class="size-3" /> Вызвать
-      </button>
+      <UiButton variant="link" size="xs" :icon-left="Plus" @click="showCreate = !showCreate">
+        Вызвать
+      </UiButton>
     </div>
 
     <!-- Create -->
@@ -64,15 +64,15 @@ const inputCls = 'rounded-lg border border-surface-300 dark:border-surface-700 p
         <option value="">Метрика…</option>
         <option v-for="m in data.metrics" :key="m.key" :value="m.key">{{ m.label }}</option>
       </select>
-      <button type="button" class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs px-2 py-1.5" @click="createDuel"><Check class="size-3.5" /></button>
+      <UiButton size="xs" icon-only :icon-left="Check" @click="createDuel" />
     </div>
 
     <!-- Incoming challenges -->
     <div v-for="d in incoming" :key="d.id" class="mb-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
       <p class="text-xs text-surface-700 dark:text-surface-300 mb-1.5"><b>{{ d.challengerName }}</b> вызывает на дуэль: {{ d.metricLabel }}</p>
       <div class="flex gap-2">
-        <button type="button" class="flex-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs py-1" @click="respond(d.id, true)">Принять</button>
-        <button type="button" class="rounded-lg bg-surface-200 dark:bg-surface-700 text-surface-600 dark:text-surface-300 text-xs px-3" @click="respond(d.id, false)"><X class="size-3.5" /></button>
+        <UiButton size="xs" class="flex-1" @click="respond(d.id, true)">Принять</UiButton>
+        <UiButton variant="secondary" size="xs" icon-only :icon-left="X" @click="respond(d.id, false)" />
       </div>
     </div>
 

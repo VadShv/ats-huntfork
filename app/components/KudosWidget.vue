@@ -43,15 +43,17 @@ async function send() {
       <span class="text-xs text-surface-400">получено {{ data.totalReceived }}</span>
     </div>
 
-    <button
-      type="button"
-      class="w-full mb-3 inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm py-1.5"
+    <UiButton
+      size="sm"
+      block
+      class="mb-3"
+      :icon-left="Send"
       :disabled="remaining === 0"
       @click="open = !open"
     >
-      <Send class="size-3.5" /> Поблагодарить коллегу
+      Поблагодарить коллегу
       <span class="text-[10px] opacity-80">· осталось {{ remaining }}/{{ data.weeklyLimit }}</span>
-    </button>
+    </UiButton>
 
     <div v-if="open" class="mb-3 space-y-2">
       <select v-model="toUserId" class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1.5 text-sm bg-white dark:bg-surface-900">
@@ -59,9 +61,9 @@ async function send() {
         <option v-for="c in data.colleagues" :key="c.userId" :value="c.userId">{{ c.name }}</option>
       </select>
       <input v-model="reason" type="text" placeholder="За что? (необязательно)" class="w-full rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1.5 text-sm bg-white dark:bg-surface-900">
-      <button type="button" :disabled="sending || !toUserId" class="w-full inline-flex items-center justify-center gap-1 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm py-1.5" @click="send">
-        <Check class="size-3.5" /> Отправить
-      </button>
+      <UiButton size="sm" block :icon-left="Check" :disabled="sending || !toUserId" @click="send">
+        Отправить
+      </UiButton>
     </div>
 
     <div v-if="received.length" class="space-y-1.5 pt-2 border-t border-surface-100 dark:border-surface-800">

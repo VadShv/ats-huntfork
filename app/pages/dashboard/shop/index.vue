@@ -71,15 +71,17 @@ async function equip(item: Item) {
             </div>
             <p class="text-xs font-medium text-surface-900 dark:text-surface-100 text-center truncate">{{ item.name }}</p>
             <div class="mt-auto pt-2">
-              <button
+              <UiButton
                 v-if="!item.owned"
                 type="button"
                 :disabled="busy === item.key || balance < item.cost"
-                class="w-full inline-flex items-center justify-center gap-1 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs py-1.5"
+                size="xs"
+                full-width
+                :icon-left="Coins"
                 @click="buy(item)"
               >
-                <Coins class="size-3" /> {{ item.cost }}
-              </button>
+                {{ item.cost }}
+              </UiButton>
               <button
                 v-else
                 type="button"

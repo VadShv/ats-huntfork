@@ -530,24 +530,16 @@ const typeLabels = computed<Record<string, string>>(() => ({
 
             <!-- Submit row -->
             <div class="border-t border-surface-100 dark:border-surface-800 pt-5 flex flex-col sm:flex-row sm:items-center gap-3">
-              <button
+              <UiButton
                 type="submit"
                 :disabled="isSubmitting"
-                class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-7 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                :loading="isSubmitting"
+                size="lg"
+                full-width
+                class="active:scale-[0.98]"
               >
-                <!-- Spinner -->
-                <svg
-                  v-if="isSubmitting"
-                  class="size-4 animate-spin"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                {{ isSubmitting ? $t('publicApply.submitting') : $t('publicApply.submitApplication') }}
-              </button>
+                {{ $t('publicApply.submitApplication') }}
+              </UiButton>
               <p class="text-xs text-surface-400">{{ $t('publicApply.confidential') }}</p>
             </div>
           </form>

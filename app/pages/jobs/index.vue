@@ -150,7 +150,7 @@ function formatDate(dateStr: string) {
       class="rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 p-4 text-sm text-danger-700 dark:text-danger-400"
     >
       {{ $t('publicJob.failedToLoad') }}
-      <button class="underline ml-1 cursor-pointer" @click="refresh()">{{ $t('publicJob.retry') }}</button>
+      <UiButton variant="link" class="underline ml-1" @click="refresh()">{{ $t('publicJob.retry') }}</UiButton>
     </div>
 
     <!-- Empty state -->
@@ -213,27 +213,29 @@ function formatDate(dateStr: string) {
 
       <!-- Pagination -->
       <div v-if="totalPages > 1" class="flex items-center justify-between pt-4">
-        <button
+        <UiButton
           :disabled="page <= 1"
-          class="inline-flex items-center gap-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          variant="secondary"
+          size="sm"
+          :icon-left="ChevronLeft"
           @click="page--"
         >
-          <ChevronLeft class="size-4" />
           {{ $t('publicJob.previous') }}
-        </button>
+        </UiButton>
 
         <span class="text-sm text-surface-500">
           {{ $t('publicJob.pageOf', { page, totalPages }) }}
         </span>
 
-        <button
+        <UiButton
           :disabled="page >= totalPages"
-          class="inline-flex items-center gap-1 rounded-lg border border-surface-300 dark:border-surface-700 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          variant="secondary"
+          size="sm"
+          :icon-right="ChevronRight"
           @click="page++"
         >
           {{ $t('publicJob.next') }}
-          <ChevronRight class="size-4" />
-        </button>
+        </UiButton>
       </div>
 
       <!-- Total count -->

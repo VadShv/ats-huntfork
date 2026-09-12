@@ -237,27 +237,26 @@ async function resetToBase() {
 
       <!-- Actions -->
       <div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button
+        <UiButton
           v-if="view?.source === 'snapshot'"
-          type="button"
+          variant="ghost"
+          size="sm"
+          :icon-left="RotateCcw"
           :disabled="isSaving"
-          class="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-40"
           @click="resetToBase"
         >
-          <RotateCcw class="w-4 h-4" />
           Сбросить к базовой
-        </button>
+        </UiButton>
         <div v-else />
 
-        <button
-          type="button"
-          :disabled="!isDirty || isSaving"
-          class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+        <UiButton
+          size="sm"
+          :loading="isSaving"
+          :disabled="!isDirty"
           @click="saveSnapshot"
         >
-          <Loader2 v-if="isSaving" class="w-4 h-4 animate-spin" />
           {{ isSaving ? 'Сохраняю…' : 'Сохранить' }}
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>

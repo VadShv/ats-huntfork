@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Building2, UserPlus, Shield, ShieldCheck, UserCheck, Loader2, AlertTriangle, Check } from 'lucide-vue-next'
+import { Building2, UserPlus, Shield, ShieldCheck, UserCheck, AlertTriangle, Check } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'auth',
@@ -200,15 +200,15 @@ function getRoleIcon(role: string) {
     </div>
 
     <!-- Authenticated — accept button -->
-    <button
+    <UiButton
       v-else
       :disabled="isAccepting"
-      class="w-full px-4 py-2.5 bg-brand-600 text-white rounded-md text-sm font-medium hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+      :icon-left="UserPlus"
+      :loading="isAccepting"
+      full-width
       @click="handleAccept"
     >
-      <Loader2 v-if="isAccepting" class="size-4 animate-spin" />
-      <UserPlus v-else class="size-4" />
-      {{ isAccepting ? 'Присоединение…' : `Присоединиться к ${linkInfo.organizationName}` }}
-    </button>
+      Присоединиться к {{ linkInfo.organizationName }}
+    </UiButton>
   </div>
 </template>

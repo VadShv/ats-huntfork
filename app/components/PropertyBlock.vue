@@ -147,21 +147,23 @@ function openEditor(scope: 'org' | 'job') {
 
     <!-- Management affordances -->
     <div v-if="!managementDisabled" class="flex items-center gap-2 pt-1">
-      <button
-        type="button"
-        class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-surface-500 hover:text-surface-800 dark:hover:text-surface-100 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+      <UiButton
+        variant="ghost"
+        size="xs"
+        :icon-left="Plus"
         @click="openEditor('org')"
       >
-        <Plus class="size-3.5" /> {{ t('dashboard.properties.addOrgWide') }}
-      </button>
-      <button
+        {{ t('dashboard.properties.addOrgWide') }}
+      </UiButton>
+      <UiButton
         v-if="jobId && entityType === 'application'"
-        type="button"
-        class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-surface-500 hover:text-surface-800 dark:hover:text-surface-100 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+        variant="ghost"
+        size="xs"
+        :icon-left="Settings2"
         @click="openEditor('job')"
       >
-        <Settings2 class="size-3.5" /> {{ t('dashboard.properties.manageJobSpecific') }}
-      </button>
+        {{ t('dashboard.properties.manageJobSpecific') }}
+      </UiButton>
     </div>
 
     <PropertySchemaEditor

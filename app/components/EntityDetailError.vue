@@ -31,24 +31,23 @@ const props = withDefaults(defineProps<{
       {{ message }}
     </p>
     <div class="flex flex-wrap items-center justify-center gap-2">
-      <button
+      <UiButton
         v-if="onRetry"
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+        size="sm"
+        :icon-left="RotateCcw"
         @click="onRetry"
       >
-        <RotateCcw class="size-4" />
         {{ retryLabel }}
-      </button>
-      <button
+      </UiButton>
+      <UiButton
         v-if="onClose"
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+        variant="secondary"
+        size="sm"
+        :icon-left="X"
         @click="onClose"
       >
-        <X class="size-4" />
         {{ closeLabel }}
-      </button>
+      </UiButton>
     </div>
   </div>
 </template>

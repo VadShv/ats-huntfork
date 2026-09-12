@@ -86,14 +86,15 @@ function fmtDuration(sec: number | null): string {
       <h2 class="inline-flex items-center gap-1.5 text-sm font-semibold text-surface-700 dark:text-surface-200">
         <Video class="size-4 text-brand-600" /> {{ t('interview.mymeet.title') }}
       </h2>
-      <button
+      <UiButton
         v-if="canEdit && mymeetStatus.connected"
-        type="button"
-        class="inline-flex items-center gap-1 rounded-lg border border-surface-200 px-2.5 py-1 text-xs text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:hover:bg-surface-800"
+        variant="secondary"
+        size="xs"
+        :icon-left="Link2"
         @click="openDialog"
       >
-        <Link2 class="size-3.5" /> {{ report ? t('interview.mymeet.relink') : t('interview.mymeet.link') }}
-      </button>
+        {{ report ? t('interview.mymeet.relink') : t('interview.mymeet.link') }}
+      </UiButton>
     </div>
 
     <p v-if="!mymeetStatus.connected" class="text-xs text-surface-500 dark:text-surface-400">
@@ -108,7 +109,9 @@ function fmtDuration(sec: number | null): string {
 
       <div v-else-if="report.status === 'importing'" class="inline-flex items-center gap-1.5 text-sm text-surface-500">
         <Loader2 class="size-4 animate-spin" /> {{ t('interview.mymeet.importing') }}
-        <button type="button" class="ml-2 text-surface-400 hover:text-surface-600" @click="refresh()"><RefreshCcw class="size-3.5" /></button>
+        <UiButton variant="ghost" icon-only size="xs" class="ml-2 text-surface-400 hover:text-surface-600" @click="refresh()">
+          <RefreshCcw class="size-3.5" />
+        </UiButton>
       </div>
 
       <div v-else-if="report.status === 'failed'" class="text-sm text-danger-600">
@@ -124,10 +127,10 @@ function fmtDuration(sec: number | null): string {
         <p v-if="report.summary" class="whitespace-pre-line text-sm text-surface-700 dark:text-surface-200">{{ report.summary }}</p>
 
         <div v-if="report.transcriptText">
-          <button type="button" class="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700" @click="transcriptOpen = !transcriptOpen">
+          <UiButton variant="link" size="xs" @click="transcriptOpen = !transcriptOpen">
             {{ t('interview.mymeet.transcript') }}
             <ChevronUp v-if="transcriptOpen" class="size-3" /><ChevronDown v-else class="size-3" />
-          </button>
+          </UiButton>
           <pre v-if="transcriptOpen" class="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-surface-50 p-3 text-xs text-surface-600 dark:bg-surface-800/60 dark:text-surface-300">{{ report.transcriptText }}</pre>
         </div>
       </div>
@@ -153,9 +156,9 @@ function fmtDuration(sec: number | null): string {
           </li>
         </ul>
         <div class="mt-4 text-right">
-          <button type="button" class="rounded-lg px-3 py-1.5 text-sm text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800" @click="dialogOpen = false">
+          <UiButton variant="ghost" size="sm" @click="dialogOpen = false">
             {{ t('interview.mymeet.cancel') }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>

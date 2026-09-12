@@ -58,13 +58,14 @@ const dateRange = computed(() => {
       <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">
         {{ t('candidate.comparison.latest') }}: {{ latest.deltaSummaryText || t('candidate.comparison.noDelta') }}
       </p>
-      <button
-        type="button"
-        class="mt-2 inline-flex items-center gap-0.5 text-[11px] text-brand-600 hover:text-brand-700"
+      <UiButton
+        variant="link"
+        size="xs"
+        class="mt-2"
         @click="emit('open-details')"
       >
         {{ t('candidate.comparison.details') }} <ChevronRight class="size-3" />
-      </button>
+      </UiButton>
     </template>
 
     <!-- Загрузка -->

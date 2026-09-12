@@ -8,14 +8,15 @@ const isAstraBrand = useAstraBrand()
   <div class="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-950 p-4 relative">
     <div class="absolute right-4 top-4 z-10 flex items-center gap-2">
       <ClientOnly>
-        <button
-          class="inline-flex items-center justify-center size-8 rounded-lg text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-all duration-200 cursor-pointer border-0 bg-transparent"
+        <UiButton
+          variant="ghost"
+          icon-only
           :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
           @click="toggleColorMode"
         >
           <Sun v-if="isDark" class="size-4" />
           <Moon v-else class="size-4" />
-        </button>
+        </UiButton>
         <template #fallback>
           <div class="size-8" aria-hidden="true" />
         </template>

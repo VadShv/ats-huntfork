@@ -247,7 +247,7 @@ const isEmpty = computed(() =>
     >
       <AlertCircle class="size-5 shrink-0" />
       <span>{{ $t('dashboard.index.failedToLoad') }}</span>
-      <button class="underline ml-auto font-medium cursor-pointer" @click="refresh()">{{ $t('dashboard.index.retry') }}</button>
+      <UiButton variant="link" class="underline ml-auto font-medium" @click="refresh()">{{ $t('dashboard.index.retry') }}</UiButton>
     </div>
 
     <!-- ─── Empty state (brand new org) ─── -->
