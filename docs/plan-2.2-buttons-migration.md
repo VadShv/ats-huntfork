@@ -263,18 +263,16 @@
 Найдено при аудите Батча 7. Не блокеры (работают, но в старом виде). Домигрировать
 одним небольшим коммитом с проверкой сборки.
 
-- [ ] `app/pages/dashboard/applications/index.vue:682` — «Очистить» фильтры
-      (link `text-surface-400 hover:text-danger-600`) → `variant="link" size="xs"`
-- [ ] `app/pages/dashboard/applications/index.vue:742` — «Сбросить» этапы
-      (link danger `text-danger-500`) → `variant="link" size="xs"` + danger-класс
-- [ ] `app/pages/dashboard/chatbot/[[id]].vue:529` — удалить вложение
-      (icon-only `p-0.5 hover:text-danger-500`) → `icon-only variant="ghost" size="xs"`
-- [ ] `app/pages/dashboard/chatbot/[[id]].vue:574` — «Стоп»/abort стриминга
-      (спорно: особый стиль `bg-surface-900`) → обсудить: `secondary`+класс или оставить
+- [x] `applications/index.vue` — «Очистить» фильтры (ghost) + «Сбросить» этапы
+      (link danger). Коммит `a4f7c26`.
+- [x] `chatbot/[[id]].vue` — удалить вложение (icon-only ghost) + «Стоп»/abort
+      (secondary с инверсным тёмным стилем). Коммит `a4f7c26`.
 
 > Аудит Батчей 1-6, 8 — пропусков не выявлено. В Батче 7 — эти 4 + инцидент
-> со сборкой (исправлен агентом в `4620039`).
+> со сборкой (исправлен агентом в `4620039`). Все 4 домигрированы.
 
-> **Отдельная UI-задача (не про кнопки):** мигание скрытых вкладок рекрутеров
-> при обновлении главного дашборда (FOUC / flash of unstyled content до гидрации).
-> Разбирается отдельно.
+> **Отдельная UI-задача (не про кнопки) — ✅ ИСПРАВЛЕНО (`a8a8b3d`):** мигание
+> скрытых вкладок рекрутеров при обновлении дашборда (FOUC). Причина: состояние
+> сворачивания читалось из localStorage в onMounted → SSR рендерил раскрытым,
+> клиент схлопывал после гидрации. Решение: перенос на `useCookie` (SSR-safe)
+> в `dashboard/index.vue` и `jobs/index.vue`.
