@@ -7,6 +7,8 @@ import {
   pipelineStage,
 } from '../../../database/schema'
 import { candidateIdParamSchema } from '../../../utils/schemas/risk'
+import { getActorContext } from '../../../utils/access/actorContext'
+import { isCandidateInScope } from '../../../utils/access/scope'
 
 /**
  * GET /api/candidates/:id/discussion-tabs
@@ -22,6 +24,7 @@ import { candidateIdParamSchema } from '../../../utils/schemas/risk'
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'] })
   const orgId = session.session.activeOrganizationId
+  const actor = await getActorContext(event)
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
 
@@ -31,6 +34,13 @@ export default defineEventHandler(async (event) => {
     columns: { id: true },
   })
   if (!candidateRow) {
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
+  }
+
+  // Scope guard: must be able to see the candidate at all. Per the shared-
+  // candidate model we do NOT filter the tabs by scope (full history), only
+  // gate access to the candidate.
+  if (actor && !(await isCandidateInScope(actor, id))) {
     throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
 

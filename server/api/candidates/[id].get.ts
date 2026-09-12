@@ -3,7 +3,7 @@ import { candidate, candidateDuplicateCandidate, candidateResumeVersion } from '
 import { candidateIdParamSchema } from '../../utils/schemas/candidate'
 import { loadPropertyEntriesForEntity } from '../../utils/properties'
 import { getActorContext } from '../../utils/access/actorContext'
-import { isCandidateInScope } from '../../utils/access/scope'
+import { isCandidateInScope, getScopeJobIds } from '../../utils/access/scope'
 import { maskCandidate } from '../../utils/access/mask'
 
 export default defineEventHandler(async (event) => {
@@ -91,6 +91,19 @@ export default defineEventHandler(async (event) => {
       : versionMap.has(app.resumeVersionId)
         ? { id: app.resumeVersionId, versionNumber: versionMap.get(app.resumeVersionId)! }
         : null
+  }
+
+  // ── RBAC v2 "shared candidate + private jobs" (rollout #5) ──
+  // The candidate card shows FULL history (do NOT filter applications by scope).
+  // We only annotate each application with `jobInScope` so the UI can render an
+  // inactive link for jobs outside the actor's scope. The server still returns
+  // 404 on jobs/[id] for out-of-scope jobs (rollout #4a), so this is UX only.
+  const visibleJobIds = actor ? await getScopeJobIds(actor) : null
+  for (const app of (result.applications ?? [])) {
+    const jid = (app as any).job?.id as string | undefined
+    ;(app as any).jobInScope = visibleJobIds === null
+      ? true
+      : jid != null && visibleJobIds.includes(jid)
   }
 
   if (!result) {
