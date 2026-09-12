@@ -22,6 +22,11 @@
 
 Нумерация спринтов v1.0 сохранена намеренно (перекрёстные ссылки целы). «Дырка» Спринт 4 = v2.1 подписана явно.
 
+**Закрытые открытые вопросы (§15):**
+- **§15.1 Иерархия отделов → вложенные.** Scope `departments` наследует всё поддерево по `parentId` (стратегия `byDepartmentSubtree`, рекурсивный CTE, кэш поддерева в `ActorContext`, bump версии при перемещении отдела). Детали — §15.1, §5.3.
+- **§15.2 Одна роль в v2** (уже было в v1.1).
+- **Порядок старта:** Спринт 0 → **0.5 (блокер, стартуем с него)** → 1 → 2 → 3. `ActorContext` в 0.5 закладывается финальной структурой, временно наполняется из `member.role`, в Спринтах 1–2 источник переключается на `can()` без смены интерфейса.
+
 ---
 
 ## 0. Резюме для принимающего решение
@@ -330,7 +335,25 @@ const rows = await scopedDb(actor).candidates.findMany({ where: ... })
 // Неправильно (текущий антипаттерн в ~295 местах):
 const rows = await db.select().from(candidate).where(eq(candidate.organizationId, orgId))
 ```
-`scopedDb` подмешивает: `org_id = actor.orgId` всегда; для scope `assigned` — `job_id IN actor.scope.jobIds`; `departments` — по вакансиям отделов; `own` — `created_by = actor.userId`.
+`scopedDb` подмешивает: `org_id = actor.orgId` всегда; для scope `assigned` — `job_id IN actor.scope.jobIds`; `departments` — стратегия **`byDepartmentSubtree`** (см. ниже); `own` — `created_by = actor.userId`.
+
+**Стратегия `byDepartmentSubtree` (scope `departments`) [v1.1]:** `member_scopes.department_ids` — только корневые назначенные отделы. `scopedDb` разворачивает их в полное поддерево рекурсивным CTE и фильтрует по нему:
+```sql
+WITH RECURSIVE subtree AS (
+  SELECT id, 1 AS depth FROM department
+    WHERE id = ANY($assigned) AND organization_id = $org
+  UNION ALL
+  SELECT d.id, s.depth + 1 FROM department d
+    JOIN subtree s ON d.parent_id = s.id
+    WHERE s.depth < 32                    -- защита от циклов (инвариант «без циклов» лишь на уровне API)
+)
+-- далее: фильтр вакансий/кандидатов по department_id IN (SELECT id FROM subtree)
+```
+Требования реализации:
+- Результат (список id поддерева) **кэшируется в `ActorContext`** на время запроса (§5.1) — не гонять CTE в каждом под-запросе (§17.1).
+- Depth-limit (или visited-check) обязателен как страховка от бесконечного цикла.
+- Индекс `department.parent_id` уже есть (`parent_id_idx`) — CTE дёшев (отделов немного).
+- Перемещение отдела (`parentId`) → bump `permissions_version` затронутых `lead_recruiter` (§5.5).
 
 > **Дизайн-требование под будущий RLS (v2.1):** `scopedDb` проектируется так, чтобы позже можно было навесить транзакционный org-контекст (`SET LOCAL app.org_id` внутри транзакции) **без переделки** слоя. Практически: единая точка получения соединения/транзакции внутри `scopedDb`, куда в v2.1 добавится установка контекста. RLS отложен по реализации (§11), но учтён в дизайне уже сейчас — дешёвая страховка.
 
@@ -594,10 +617,11 @@ RLS-отказы молчаливы → dev-режим логирует кажд
 - Выбрать стратегию пула для будущего RLS (проверить прод-конфиг `postgres.js`/PgBouncer).
 - **Артефакт:** реестр ресурсов + таблица «есть/нет/переделать» (частично уже в этом документе).
 
-### Спринт 0.5 — Роль на SSR + единый контекст (1 нед) [блокер]
+### Спринт 0.5 — Роль на SSR + единый контекст (1 нед) [блокер, СТАРТУЕМ С НЕГО]
 - `getActorContext(event)` (§5.1) — убрать 5 дублей резолва роли.
-- Прокинуть capability-снапшот на SSR (`useState`), переписать `usePermission`→`usePermissions` (§8.7).
-- **DoD:** мигание на `/dashboard` ушло; нет hydration mismatch; роль синхронна на SSR.
+- **[v1.1] Каркас, не времянка:** структура `ActorContext` закладывается СРАЗУ финальной (`roleKeys`, `permissions`, `scope`, `overrides`, `limits`, `isViewAs`), даже если часть полей пока заглушки. Наполнение временное — из `member.role` + существующих хелперов (`getOrgRole`/`getHmFlags`/`getMemberRole`). Спринты 1–2 наполнят из новых таблиц/`can()` **без изменения интерфейса** — потребители не переписываются.
+- Прокинуть capability-снапшот на SSR (`useState`), переписать `usePermission`→`usePermissions` (§8.7). Формат снапшота — сразу финальный; источник в 0.5 — текущая роль (Better Auth), в Спринте 2 переключается на `can()`.
+- **DoD:** мигание на `/dashboard` ушло; нет hydration mismatch; роль синхронна на SSR; `ActorContext` имеет финальную сигнатуру; `npm run test`/`build` зелёные.
 
 ### Спринт 1 — Модель данных и `can()` (1.5–2 нед) [фундамент]
 - Миграции: `permissions`, `roles`, `role_permissions`, `member_roles`, `member_scopes`, `member_permission_overrides`, `role_limits`, `role_permission_versions`; расширение `member`.
@@ -686,7 +710,7 @@ RLS-отказы молчаливы → dev-режим логирует кажд
 ---
 
 ## 15. Открытые вопросы (уточнить на Спринте 0)
-1. Иерархия отделов: наследует ли `lead_recruiter` вложенные отделы (`department.parentId`) или scope плоский? (Влияет на `scopedDb` для `departments`.)
+1. ~~Иерархия отделов: наследует ли `lead_recruiter` вложенные отделы или scope плоский?~~ **Решено [v1.1]: scope `departments` = назначенные узлы + ВСЕ их потомки по `department.parentId`** (наследование по дереву). `member_scopes.department_ids` хранит только корневые точки входа; разворачивание в поддерево — задача `scopedDb` (стратегия `byDepartmentSubtree`, §5.3) через рекурсивный CTE. Обоснование: схема оргструктуры — дерево произвольной глубины (`schema/app.ts:2594`, «дирекция → департамент → отдел → сектор»), ведущий рекрутер отвечает за направление целиком; плоский scope противоречил бы модели и создавал «дыры» при добавлении под-отделов. Следствия: (а) поддерево кэшируется в `ActorContext` на время запроса (§5.1, §17.1); (б) рекурсивный CTE имеет защиту от циклов (depth-limit / visited-check), т.к. инвариант «без циклов» проверяется лишь на уровне API; (в) перемещение отдела (`parentId` меняется) → bump `permissions_version` (§5.5) у затронутых `lead_recruiter`, иначе кэш поддерева устареет.
 2. ~~Несколько ролей на участника (union) — включаем в v2 или одна роль?~~ **Решено [v1.1]:** в v2 — ровно одна роль на участника (ограничение приложения); схема `member_roles` остаётся many-to-many, union откладывается в v3. Потребность «роль + чуть-чуть» покрывается overrides (§4.5).
 3. Как AI-ассистент/расширение получают права — тем же `can()` (обязательно «не шире пользователя») — подтвердить контур.
 4. Объём hard-delete → archive: какие сущности уже имеют `isArchived`, где нужна новая корзина.
