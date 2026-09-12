@@ -151,20 +151,22 @@ function relativeTime(ms: number | null) {
   <aside class="flex h-full w-72 shrink-0 flex-col border-r border-surface-200 dark:border-surface-800 bg-surface-50/60 dark:bg-surface-950/40">
     <!-- Top actions -->
     <div class="flex items-center gap-2 border-b border-surface-200 dark:border-surface-800 px-3 h-14 shrink-0">
-      <button
-        class="inline-flex flex-1 h-9 items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-brand-700 transition-colors cursor-pointer"
+      <UiButton
+        class="flex-1"
+        :icon-left="Plus"
         @click="handleNewChat()"
       >
-        <Plus class="size-4" />
         Новый чат
-      </button>
-      <button
-        class="inline-flex items-center justify-center size-9 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-500 hover:text-surface-800 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors cursor-pointer"
+      </UiButton>
+      <UiButton
+        variant="secondary"
+        icon-only
+        class="size-9 text-surface-500 hover:text-surface-800 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800"
         title="Новая папка"
         @click="startNewFolder"
       >
         <FolderPlus class="size-4" />
-      </button>
+      </UiButton>
     </div>
 
     <!-- Inline new-folder input -->
@@ -179,20 +181,26 @@ function relativeTime(ms: number | null) {
           @keydown.enter="commitNewFolder"
           @keydown.escape="showNewFolder = false"
         />
-        <button
-          class="inline-flex size-6 items-center justify-center rounded text-surface-500 hover:text-success-600 hover:bg-success-50 dark:hover:bg-success-950/30 cursor-pointer border-0 bg-transparent"
+        <UiButton
+          variant="ghost"
+          icon-only
+          size="xs"
+          class="text-surface-500 hover:text-success-600 hover:bg-success-50 dark:hover:bg-success-950/30"
           title="Создать"
           @click="commitNewFolder"
         >
           <Check class="size-3.5" />
-        </button>
-        <button
-          class="inline-flex size-6 items-center justify-center rounded text-surface-500 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30 cursor-pointer border-0 bg-transparent"
+        </UiButton>
+        <UiButton
+          variant="ghost"
+          icon-only
+          size="xs"
+          class="text-surface-500 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/30"
           title="Отмена"
           @click="showNewFolder = false"
         >
           <X class="size-3.5" />
-        </button>
+        </UiButton>
       </div>
     </div>
 
@@ -327,13 +335,15 @@ function relativeTime(ms: number | null) {
 
     <!-- Agents button -->
     <div class="border-t border-surface-200 dark:border-surface-800 p-3">
-      <button
-        class="inline-flex w-full items-center gap-2 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm font-medium text-surface-700 dark:text-surface-200 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/30 dark:hover:text-brand-300 transition-colors cursor-pointer"
+      <UiButton
+        variant="secondary"
+        block
+        class="hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/30 dark:hover:text-brand-300"
         @click="emit('openAgents')"
       >
         <Sparkles class="size-4 text-brand-500" />
         Управление агентами
-      </button>
+      </UiButton>
     </div>
   </aside>
 </template>

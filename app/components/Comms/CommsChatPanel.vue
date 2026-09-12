@@ -456,27 +456,31 @@ onBeforeUnmount(() => {
       <p class="text-xs text-surface-400 dark:text-surface-500 mt-1.5">{{ chatEmptyHint }}</p>
       <!-- Спринт 19: чата ещё нет, но можно пригласить кандидата в Telegram -->
       <div v-if="telegramAvailable" class="mt-4">
-        <button
-          class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-surface-200/80 dark:border-surface-700/60 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
+        <UiButton
+          variant="secondary"
+          size="sm"
           :disabled="inviteLoading"
           @click="copyTelegramInvite()"
         >
-          <Check v-if="inviteCopied" class="size-3.5 text-success-600" />
-          <Copy v-else class="size-3.5" />
+          <template #icon-before>
+            <Check v-if="inviteCopied" class="size-3.5 text-success-600" />
+            <Copy v-else class="size-3.5" />
+          </template>
           {{ inviteCopied ? t('dashboard.chat.inviteCopied') : t('dashboard.chat.inviteTelegram') }}
-        </button>
+        </UiButton>
         <p class="text-[11px] text-surface-400 dark:text-surface-500 mt-1.5">{{ t('dashboard.chat.inviteHint') }}</p>
         <p v-if="inviteError" class="text-xs text-danger-600 dark:text-danger-400 mt-1">{{ inviteError }}</p>
         <!-- Спринт 19.5: первый контакт через личный ТГ рекрутера -->
         <div class="mt-2">
-          <button
-            class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-surface-200/80 dark:border-surface-700/60 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
-            :disabled="firstContactLoading"
+          <UiButton
+            variant="secondary"
+            size="sm"
+            :loading="firstContactLoading"
+            :icon-left="Send"
             @click="openTelegramFirstContact()"
           >
-            <Send class="size-3.5" />
             {{ firstContactLoading ? t('dashboard.chat.firstContactLoading') : t('dashboard.chat.firstContact') }}
-          </button>
+          </UiButton>
           <p class="text-[11px] text-surface-400 dark:text-surface-500 mt-1.5">{{ t('dashboard.chat.firstContactHint') }}</p>
           <p v-if="firstContactError" class="text-xs text-danger-600 dark:text-danger-400 mt-1">{{ firstContactError }}</p>
         </div>
@@ -511,17 +515,20 @@ onBeforeUnmount(() => {
             {{ chatConversation.channel === 'telegram' ? t('dashboard.chat.viaTelegram') : t('dashboard.chat.viaHh') }}
           </span>
           <!-- Приглашение в Telegram, пока tg-диалога ещё нет -->
-          <button
+          <UiButton
             v-if="telegramAvailable && !chatChannels.some(c => c.channel === 'telegram')"
-            class="cursor-pointer inline-flex items-center gap-1 rounded-full border border-surface-200/80 dark:border-surface-700/60 px-2.5 py-1 text-[11px] font-medium text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
+            variant="secondary"
+            size="sm"
             :disabled="inviteLoading"
             :title="t('dashboard.chat.inviteHint')"
             @click="copyTelegramInvite()"
           >
-            <Check v-if="inviteCopied" class="size-3 text-success-600" />
-            <Copy v-else class="size-3" />
+            <template #icon-before>
+              <Check v-if="inviteCopied" class="size-3 text-success-600" />
+              <Copy v-else class="size-3" />
+            </template>
             {{ inviteCopied ? t('dashboard.chat.inviteCopied') : t('dashboard.chat.inviteTelegram') }}
-          </button>
+          </UiButton>
         </div>
         <div class="flex items-center gap-2">
           <!-- Чат 2.0: режим ассистента — выкл / суфлёр / автопилот+ревью / автопилот -->
@@ -543,13 +550,14 @@ onBeforeUnmount(() => {
               <option v-for="m in assistantModes" :key="m.value" :value="m.value">{{ m.label }}</option>
             </select>
           </span>
-          <button
-            class="cursor-pointer inline-flex items-center gap-1 text-xs text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors"
+          <UiButton
+            variant="ghost"
+            size="sm"
+            icon-only
+            :icon-left="RefreshCw"
             :disabled="chatLoading"
             @click="loadChat()"
-          >
-            <RefreshCw class="size-3.5" :class="chatLoading ? 'animate-spin' : ''" />
-          </button>
+          />
         </div>
       </div>
 
@@ -645,31 +653,32 @@ onBeforeUnmount(() => {
         </p>
         <p class="text-sm text-surface-800 dark:text-surface-100 whitespace-pre-wrap break-words">{{ chatDraft.body }}</p>
         <div class="mt-2.5 flex items-center gap-2">
-          <button
+          <UiButton
             v-if="draftNeedsReview"
-            class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+            size="sm"
+            :icon-left="Send"
             :disabled="draftResolving || !chatConversation.canWrite"
             @click="resolveDraft(chatDraft.id, 'approve')"
           >
-            <Send class="size-3.5" />
             {{ t('dashboard.chat.reviewSend') }}
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             v-else
-            class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+            size="sm"
+            :icon-left="Sparkles"
             :disabled="draftResolving"
             @click="resolveDraft(chatDraft.id, 'consume')"
           >
-            <Sparkles class="size-3.5" />
             {{ t('dashboard.chat.draftToComposer') }}
-          </button>
-          <button
-            class="cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium text-surface-500 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800/60 disabled:opacity-50 transition-colors"
+          </UiButton>
+          <UiButton
+            variant="ghost"
+            size="sm"
             :disabled="draftResolving"
             @click="resolveDraft(chatDraft.id, 'discard')"
           >
             {{ t('dashboard.chat.reviewDiscard') }}
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -704,21 +713,22 @@ onBeforeUnmount(() => {
             class="flex-1 resize-none rounded-xl border border-surface-200/80 dark:border-surface-700/60 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-800 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             @keydown.enter.exact.prevent="sendChatMessage()"
           />
-          <button
-            class="cursor-pointer inline-flex items-center justify-center size-9 rounded-xl border border-surface-200/80 dark:border-surface-700/60 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 transition-colors"
+          <UiButton
+            variant="secondary"
+            icon-only
+            :icon-left="Sparkles"
             :disabled="chatSuggesting || !!chatDraft"
             :title="t('dashboard.chat.suggestReply')"
+            class="rounded-xl shrink-0"
             @click="suggestAssistantReply()"
-          >
-            <Sparkles class="size-4" :class="chatSuggesting ? 'animate-pulse' : ''" />
-          </button>
-          <button
-            class="cursor-pointer inline-flex items-center justify-center size-9 rounded-xl bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 transition-colors"
+          />
+          <UiButton
+            icon-only
+            :icon-left="Send"
             :disabled="chatSending || !chatText.trim()"
+            class="rounded-xl shrink-0"
             @click="sendChatMessage()"
-          >
-            <Send class="size-4" />
-          </button>
+          />
         </div>
         <p v-if="chatSendError" class="mt-1.5 text-xs text-danger-600 dark:text-danger-400">
           {{ chatSendError }}

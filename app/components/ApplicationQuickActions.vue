@@ -601,14 +601,16 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
 
       <!-- Фолбэк без воронки: только планирование интервью (в воронках планирование
            встроено в контекстный набор quickActionSet) -->
-      <button
+      <UiButton
         v-if="stagesReady && !hasPipeline"
-        class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 px-3.5 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+        variant="secondary"
+        size="sm"
+        class="rounded-full bg-white/80 dark:bg-surface-900 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 hover:text-brand-700 dark:hover:text-brand-300 focus:ring-brand-500/40"
+        :icon-left="Calendar"
         @click="emit('schedule')"
       >
-        <Calendar class="size-3.5" />
         {{ $t('applications.schedule_interview') }}
-      </button>
+      </UiButton>
     </div>
 
     <!-- Спринт 22: guard-диалог (G1 возврат с комментарием / G2 подтверждение найма) -->
@@ -638,22 +640,21 @@ onUnmounted(() => window.removeEventListener('keydown', onHotkey))
             </p>
           </template>
           <div class="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              class="rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+            <UiButton
+              variant="secondary"
+              size="xs"
               @click="closeGuardDialog"
             >
               Отмена
-            </button>
-            <button
-              type="button"
+            </UiButton>
+            <UiButton
+              :variant="guardDialog.mode === 'hired-confirm' ? 'success' : 'primary'"
+              size="xs"
               :disabled="guardDialog.mode === 'return-comment' && !guardComment.trim()"
-              class="rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              :class="guardDialog.mode === 'hired-confirm' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-600 hover:bg-brand-700'"
               @click="confirmGuardDialog"
             >
               {{ guardDialog.mode === 'hired-confirm' ? 'Подтвердить найм' : 'Вернуть в работу' }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>

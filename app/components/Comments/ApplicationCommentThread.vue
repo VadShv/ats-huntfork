@@ -254,15 +254,15 @@ const watchersOpen = ref(false)
           <Bot class="size-3.5" :class="summarizing ? 'animate-spin' : ''" />
           <span class="hidden sm:inline">{{ summarizing ? t('comments.summarizing') : t('comments.summarize') }}</span>
         </button>
-        <button
-          type="button"
-          class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer transition-colors"
+        <UiButton
+          variant="ghost"
+          size="sm"
           @click="watchersOpen = !watchersOpen"
         >
           <Users class="size-3.5" />
           <span class="hidden sm:inline">{{ t('watchers.label') }}</span>
           <span class="rounded-full bg-surface-200 dark:bg-surface-700 px-1.5 text-[10px] tabular-nums">{{ watchers.length }}</span>
-        </button>
+        </UiButton>
         <!-- Inline stage actions -->
         <InlineStageActions
           v-if="!readOnly"
@@ -409,15 +409,15 @@ const watchersOpen = ref(false)
       leave-from-class="opacity-100 translate-y-0"
       leave-to-class="opacity-0 translate-y-2"
     >
-      <button
+      <UiButton
         v-if="showJumpFab"
-        type="button"
-        class="absolute right-4 bottom-20 z-10 grid size-8 place-items-center rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 cursor-pointer transition-colors"
+        size="sm"
+        icon-only
+        :icon-left="ArrowDown"
+        class="absolute right-4 bottom-20 z-10 rounded-full shadow-lg"
         :title="t('comments.scroll_to_bottom')"
         @click="scrollToBottom()"
-      >
-        <ArrowDown class="size-4" />
-      </button>
+      />
     </Transition>
 
     <!-- Composer / read-only banner -->

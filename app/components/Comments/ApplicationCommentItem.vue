@@ -255,21 +255,21 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         <div class="mt-1.5 flex items-center gap-2">
-          <button
-            type="button"
-            :disabled="!editBody.trim() || saving"
-            class="rounded-md bg-brand-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 cursor-pointer"
+          <UiButton
+            size="xs"
+            :loading="saving"
+            :disabled="!editBody.trim()"
             @click="saveEdit"
           >
             {{ saving ? t('comments.saving') : t('comments.save') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md border border-surface-300 dark:border-surface-700 px-2.5 py-1 text-xs text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer"
+          </UiButton>
+          <UiButton
+            variant="secondary"
+            size="xs"
             @click="isEditing = false"
           >
             {{ t('comments.cancel') }}
-          </button>
+          </UiButton>
         </div>
       </div>
 

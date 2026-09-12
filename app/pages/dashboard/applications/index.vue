@@ -687,15 +687,15 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
         <X class="size-3" />
         Очистить
       </button>
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-2.5 py-2 text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200 transition-colors"
+      <UiButton
+        variant="secondary"
+        icon-only
         :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'Развернуть таблицу'"
         @click="isFullscreen = !isFullscreen"
       >
         <Maximize2 v-if="!isFullscreen" class="size-4" />
         <Minimize2 v-else class="size-4" />
-      </button>
+      </UiButton>
     </div>
 
     <!-- Filter drawer -->
@@ -837,7 +837,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
       class="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700"
     >
       {{ $t('dashboard.applications.failedToLoad') }}
-      <button class="underline ml-1" @click="refresh()">{{ $t('dashboard.applications.retry') }}</button>
+      <UiButton variant="link" class="underline ml-1" @click="refresh()">{{ $t('dashboard.applications.retry') }}</UiButton>
     </div>
 
     <!-- Empty state -->
@@ -862,12 +862,13 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
       <p class="text-sm text-surface-500 dark:text-surface-400 mb-3">
         Измените поисковый запрос или фильтры.
       </p>
-      <button
-        class="text-sm text-brand-600 hover:text-brand-700 font-medium transition-colors"
+      <UiButton
+        variant="link"
+        class="text-sm text-brand-600 hover:text-brand-700 font-medium"
         @click="clearAllFilters"
       >
         Сбросить все фильтры
-      </button>
+      </UiButton>
     </div>
 
     <!-- Application table -->
@@ -879,14 +880,14 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
             <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">
               Applications — {{ filteredApplications.length }} result{{ filteredApplications.length === 1 ? '' : 's' }}
             </span>
-            <button
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-800 px-2.5 py-1.5 text-sm text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200 transition-colors"
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :icon-left="Minimize2"
               @click="isFullscreen = false"
             >
-              <Minimize2 class="size-4" />
               Выйти из полноэкранного режима
-            </button>
+            </UiButton>
           </div>
           <div :class="isFullscreen ? 'flex-1 overflow-auto p-4' : ''">
             <div class="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-800">
@@ -1127,23 +1128,23 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
           </div>
         </div>
         <!-- Reject all -->
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950/50 px-3 py-1.5 text-sm font-medium text-danger-700 dark:text-danger-400 hover:bg-danger-100 dark:hover:bg-danger-950 transition-colors"
+        <UiButton
+          variant="danger"
+          size="sm"
+          :loading="isBulkOperating"
           :disabled="isBulkOperating"
           @click="bulkReject"
         >
-          <Loader2 v-if="isBulkOperating" class="size-3.5 animate-spin" />
           Отклонить
-        </button>
+        </UiButton>
         <!-- Cancel -->
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-sm font-medium text-surface-500 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
+        <UiButton
+          variant="secondary"
+          size="sm"
           @click="selectedIds = new Set(); bulkStageMenuOpen = false"
         >
           Отмена
-        </button>
+        </UiButton>
       </div>
     </Transition>
   </Teleport>

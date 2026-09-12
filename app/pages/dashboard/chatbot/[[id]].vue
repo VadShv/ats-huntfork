@@ -553,17 +553,16 @@ async function startNew() {
                   accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                   multiple
                   class="hidden"
-                  @change="handleFileChange"
-                />
-                <button
-                  class="inline-flex items-center justify-center size-8 rounded-lg text-surface-500 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors cursor-pointer border-0 bg-transparent disabled:opacity-50"
+                <UiButton
+                  variant="ghost"
+                  icon-only
+                  :loading="uploading"
+                  :icon-left="Paperclip"
+                  class="size-8 text-surface-500 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40"
                   :title="t('assistant.composer.attach')"
                   :disabled="uploading"
                   @click="fileInputRef?.click()"
-                >
-                  <Loader2 v-if="uploading" class="size-4 animate-spin" />
-                  <Paperclip v-else class="size-4" />
-                </button>
+                />
 
                 <ChatbotAgentPicker @manage="agentsOpen = true" />
                 <ChatbotModelPicker @manage="navigateTo('/dashboard/settings/ai')" />
@@ -578,15 +577,15 @@ async function startNew() {
                   <Square class="size-3.5 fill-current" />
                   {{ t('assistant.composer.stop') }}
                 </button>
-                <button
+                <UiButton
                   v-else
-                  class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-brand-600/30 hover:bg-brand-700 transition-colors cursor-pointer border-0 disabled:cursor-not-allowed disabled:opacity-40"
+                  size="sm"
+                  :icon-left="Send"
                   :disabled="!draft.trim() && pendingAttachments.length === 0"
                   @click="handleSubmit"
                 >
-                  <Send class="size-3.5" />
                   {{ t('assistant.composer.send') }}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
