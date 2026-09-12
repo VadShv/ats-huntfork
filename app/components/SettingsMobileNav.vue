@@ -26,6 +26,12 @@ const settingsNav = [
     exact: true,
   },
   {
+    label: 'Доступы',
+    to: '/dashboard/settings/access',
+    icon: ShieldCheck,
+    exact: true,
+  },
+  {
     label: 'Оргструктура',
     to: '/dashboard/settings/org-structure',
     icon: Landmark,

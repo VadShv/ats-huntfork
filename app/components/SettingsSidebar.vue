@@ -29,6 +29,13 @@ const settingsNav = [
     exact: true,
   },
   {
+    label: 'Доступы',
+    description: 'Роли, scope, права',
+    to: '/dashboard/settings/access',
+    icon: ShieldCheck,
+    exact: true,
+  },
+  {
     label: 'Оргструктура',
     description: 'Компании и подразделения',
     to: '/dashboard/settings/org-structure',
