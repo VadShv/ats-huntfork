@@ -63,4 +63,34 @@
 | Спринт | Дата | Итог | Заметки |
 |---|---|---|---|
 | 0.5 | 12.09.2026 | ✅ | Роль на SSR, единый `getActorContext`, deny-by-default в `snapshotCan`, view-as read-only в движке. Изоляция/аудит не тронуты (n/a). |
-| 1 | — | — | (заполняется по завершении) |
+| 1 | 12.09.2026 | ✅ | См. развёрнутую сверку ниже. Enforcement НЕ изменён (shadow-mode). |
+
+### Сверка Спринта 1 (коммиты 3fd044c, 391ed1c, 3d81a9e)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A1 orgId только из сессии | ✅ | `getActorContext`/`requirePermission` берут `activeOrganizationId` из `session.session`; новые таблицы скоупятся по `organization_id`, из ввода не читается |
+| A2 скоуп по оргу | n/a | Спринт 1 не менял запросы к доменным таблицам (это Спринт 3 `scopedDb`) |
+| A3 cross-org → 404 | ⚠ частично | `can()` возвращает `deny reason=cross_org` при `resource.orgId≠actor.orgId`; проверка ресурса подключается в Спринте 3 (пока эндпоинты не передают `resource`) |
+| A4 дочерние по родителю | n/a | Спринт 3 |
+| B1 deny-by-default | ✅ | `can()`/`snapshotCan`: нет права → deny; юнит-тесты |
+| B2 сервер — единственный гейт | ✅ | Клиент не менялся; `requirePermission` на сервере |
+| B3 requirePermission не ослаблен | ✅ | shadow-mode: фактический отказ = legacy AC (не слабее); при `new` — `can()`. Сигнатура прежняя |
+| B4 активность членства | ✅ | `getActorContext` учитывает `revoked_at`; `can()` deny при `status≠active` |
+| B5 view-as read-only | ✅ | `can()` deny на write при `isViewAs`; юнит-тест |
+| C1 единый источник истины | ✅ | `ROLE_STATEMENTS`→сид; реестр ресурсов; нет новых хардкодов ролей |
+| C2 deny сильнее allow | ✅ | `applyOverrides` (deny удаляет), учёт `expires_at`; тест |
+| C3 роль-потолок/scope-охват | n/a | scope-фильтрация — Спринт 3 |
+| C4 защита от самоблокировки | n/a | UI редактирования ролей — Спринт 7 (сид: owner/admin полные) |
+| C5 инвалидация ≤60c | ⚠ частично | кэш `permissionResolver` TTL 30с; полноценный bump `permissions_version` по member — Спринт 2 |
+| D1–D3 masking | n/a | field masking — Спринт 3 (реестр `fields` уже заложен; `storageKey`/ключи по-прежнему не сериализуются) |
+| E1–E3 аудит | n/a | расширение `activity_log` — Спринт 6 |
+| F1 секреты на старте | ✅ | `ACCESS_ENFORCEMENT` через Zod `env.ts`; в клиент не уходит |
+| F2 миграции безопасны | ✅ | `0097` идемпотентна (`IF NOT EXISTS`); бэкап БД снят перед раскаткой (`rbac_pre_sprint1_*.sql.gz`) |
+| F3 rate limiting | ✅ | не тронут |
+| F4 SSR-payload | ✅ | снапшот — только capability/scope/флаги (Спринт 0.5) |
+| F5 RLS-готовность | ✅ | дизайн сохранён; `scopedDb` — Спринт 3 |
+| G1 тесты | ✅ | 821 passed (0 failed) |
+| G2 сборка | ✅ | build app на ВМ OK; typecheck 0 ошибок |
+| G3 откат | ✅ | flag `ACCESS_ENFORCEMENT=old` + `git reset` + restore дампа |
+| G4 нет роста техдолга | ✅ | резолв роли единый (`getActorContext`); реестр ресурсов |
