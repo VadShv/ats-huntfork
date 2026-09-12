@@ -12,6 +12,9 @@ import { and, eq } from 'drizzle-orm'
 import { application, candidate as candidateTable, job as jobTable } from '../../../database/schema'
 import { generateAssistantText } from '../../../utils/comms/assistant'
 import { normalizeTgUsername } from '../../../utils/comms/telegram'
+import { getActorContext } from '../../../utils/access/actorContext'
+import { isJobInScope } from '../../../utils/access/scope'
+import { canReadContacts } from '../../../utils/access/mask'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 
@@ -26,6 +29,17 @@ export default defineEventHandler(async (event) => {
   })
   if (!app) {
     throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
+  }
+
+  // ── RBAC v2 (Sprint 3 rollout #2) ──
+  // «Первый контакт» раскрывает Telegram кандидата и генерирует обращение —
+  // это использование PII. Вне scope → 404; нет права на контакты → 403.
+  const actor = await getActorContext(event)
+  if (actor && !(await isJobInScope(actor, app.jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
+  }
+  if (!canReadContacts(actor)) {
+    throw createError({ statusCode: 403, statusMessage: 'Нет доступа: контакты кандидата закрыты' })
   }
 
   const cand = await db.query.candidate.findFirst({

@@ -32,6 +32,9 @@ import {
   isHhPlaceholderFirstName,
   isHhPlaceholderEmail,
 } from '../../../../shared/hh-placeholders'
+import { getActorContext } from '../../../utils/access/actorContext'
+import { isCandidateInScope } from '../../../utils/access/scope'
+import { canReadContacts } from '../../../utils/access/mask'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 
@@ -108,6 +111,20 @@ export default defineEventHandler(async (event) => {
   if (!cand) {
     throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   }
+
+  // ── RBAC v2 (Sprint 3 rollout #2) ──
+  // Раскрытие контактов = использование PII (тратит платную квоту hh.ru).
+  // Порядок: вне scope → 404 (не подтверждаем существование); нет права на
+  // контакты → 403. Masking скрывает контакты при просмотре — этот эндпоинт
+  // не должен позволять обойти его тем, кому контакты не положены.
+  const actor = await getActorContext(event)
+  if (actor && !(await isCandidateInScope(actor, id))) {
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
+  }
+  if (!canReadContacts(actor)) {
+    throw createError({ statusCode: 403, statusMessage: 'Нет доступа: раскрытие контактов запрещено' })
+  }
+
   if (!cand.hhResumeId) {
     throw createError({ statusCode: 400, statusMessage: 'У кандидата нет hh.ru резюме' })
   }
