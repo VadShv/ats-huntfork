@@ -12,9 +12,11 @@
 > 3 (UiSegmented + переключатели периодов), 4 (Кандидаты), **5 части 1+2**
 > (job settings/questions/application-form/sourcing + job pages),
 > 6 (Интервью), **7 (Отклики/коммуникации/чатбот)**.
-> Последний коммит миграции: `4620039`.
+> 6 (Интервью), **7 (Отклики/коммуникации/чатбот)**, **8 части 1+2** (Прочее).
+> Последний коммит миграции: `79e8c27`.
 >
-> **Продолжить с:** Батч 8 (Прочее).
+> **Статус:** ✅ Все низкорисковые батчи (0–8) выполнены. Деплой на ВМ OK
+> (`curl localhost:3030` → 200). Оставшееся — только §2B (отложено, высокий риск).
 >
 > **Дисциплина:** помодульно, атомарный коммит на батч (или его часть),
 > проверка сборкой (`npm run build`), соблюдать §3 (что меняем / что не трогаем).
@@ -140,10 +142,17 @@
 - [x] `chatbot/[[id]].vue` (2 из 10; пропуски: scope-picker, menu-items, thinking toggle, sources toggle, suggestion cards, remove-attachment chip, stop button; Loader2 импорт оставлен — используется вне кнопок), `ChatbotSidebar.vue` (5 из 10; пропуски: folder-header buttons <24px, collapse toggles)
 
 ### Батч 8 — Прочее 🟢/🟡
-- [ ] `source-tracking/index.vue` (14; после Батча 3 — сегмент уже на `UiSegmented`),
-      `[id].vue` (7), `timeline.vue` (7), `updates.vue` (8),
-      `onboarding/create-org.vue` (11), `TeamsManager.vue` (7),
-      `prompts/*`, остальные ≤5.
+### Батч 8 — Прочее 🟢/🟡 — ✅ ВЫПОЛНЕНО (в `main`, коммиты `f102140` pt.1 + `79e8c27` pt.2; сборка на ВМ OK, `curl localhost:3030` → 200)
+- [x] **Часть 1** (`f102140`): `source-tracking/{index,[id]}.vue`, `timeline.vue`,
+      `updates.vue`, `onboarding/create-org.vue`, `prompts/*` — ~59 замен.
+- [x] **Часть 2** (`79e8c27`): ~64 оставшихся файла (мелкие компоненты + страницы),
+      ~117 замен: AppToasts, ApplicationDetailDrawer, ConfirmDialog, DuelsWidget,
+      EmptyState, KudosWidget, MergeCandidatesModal, PipelineStageEditor,
+      QuestionForm, ScoreBreakdown, auth-страницы, dashboard pages, jobs public
+      pages и др. Loader2 убран там, где стал мёртвым.
+- [~] Намеренно пропущены (§3): dropdown-триггеры, menu-items, v-for чипы/табы,
+      карточки-кнопки, dashed-плейсхолдеры, контролы внутри инпутов, micro-toggles
+      <24px, password-глаза. `app/components/ui/*` (сам ДС) — не мигрируются (циклическая зависимость).
 
 ---
 
