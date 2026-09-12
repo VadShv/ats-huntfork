@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { db } from '../utils/db'
+import { seedRbac } from '../utils/access/seedRbac'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -106,6 +107,33 @@ export default defineNitroPlugin(async () => {
       `[Reqcore] Database migrations applied successfully${applied ? ` (${applied} new)` : ''}`
     )
     logInfo('migrations.completed')
+
+    // ── RBAC v2 seed (Sprint 1) ─────────────────────────────────────────
+    // Run under the SAME advisory lock, right after migrations, so the
+    // permission/role tables are guaranteed to exist (no plugin-ordering race).
+    // Non-fatal: seeding must never block boot (permissionResolver falls back
+    // to the static capability map if the seed is absent).
+    try {
+      const check = await db.execute<{ exists: boolean }>(
+        sql`SELECT to_regclass('public.permission') IS NOT NULL AS exists`
+      )
+      if (check[0]?.exists) {
+        const seed = await seedRbac()
+        console.log(
+          `[Reqcore] RBAC seed ready (permissions=${seed.permissions}, roles=${seed.roles}, +grants=${seed.grants})`
+        )
+        logInfo('rbac.seed.completed', {
+          permissions: String(seed.permissions),
+          roles: String(seed.roles),
+          grants: String(seed.grants),
+        })
+      }
+    } catch (seedErr) {
+      console.error('[Reqcore] RBAC seed failed (non-fatal):', seedErr)
+      logError('rbac.seed.failed', {
+        error_message: seedErr instanceof Error ? seedErr.message : String(seedErr),
+      })
+    }
   } catch (error) {
     console.error('[Reqcore] Migration failed:', error)
     logError('migrations.failed', {
