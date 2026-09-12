@@ -41,6 +41,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // С активным членством — проверяем НМ-специфичные правила
   if (membership.value.status !== 'active') return
 
+  // §3 view-as fix: в режиме «Посмотреть как» НЕ применяем НМ-редиректы.
+  // Смысл view-as — увидеть, что видит НМ, оставаясь в /dashboard со scope НМ и
+  // баннером выхода. Иначе смотрящего запирает в /hm/* без кнопки stop.
+  const isViewAs = (membership.value as { access?: { flags?: { isViewAs?: boolean } } })
+    .access?.flags?.isViewAs === true
+  if (isViewAs) return
+
   const isHm = membership.value.role === 'hiring_manager'
   const isHmRoute = to.path.startsWith('/hm/') || to.path === '/hm'
     || to.path.startsWith('/ru/hm/') || to.path === '/ru/hm'
