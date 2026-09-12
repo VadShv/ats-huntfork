@@ -295,27 +295,18 @@ const recruiterGroups = computed<RecruiterGroup[]>(() => {
   return groups
 })
 
-// Свёрнутые группы — сохраняются между визитами
-const COLLAPSE_LS_KEY = 'jobs-recruiter-collapsed'
-const collapsedRecruiters = ref<Set<string>>(new Set())
-
-onMounted(() => {
-  try {
-    const raw = localStorage.getItem(COLLAPSE_LS_KEY)
-    if (raw) collapsedRecruiters.value = new Set(JSON.parse(raw) as string[])
-  }
-  catch { /* localStorage недоступен — не критично */ }
+// Свёрнутые группы — сохраняются между визитами в cookie (SSR-safe, без FOUC).
+const collapsedRecruitersCookie = useCookie<string[]>('jobs-recruiter-collapsed', {
+  default: () => [],
+  sameSite: 'lax',
 })
+const collapsedRecruiters = computed(() => new Set(collapsedRecruitersCookie.value))
 
 function toggleRecruiterGroup(key: string) {
-  const next = new Set(collapsedRecruiters.value)
+  const next = new Set(collapsedRecruitersCookie.value)
   if (next.has(key)) next.delete(key)
   else next.add(key)
-  collapsedRecruiters.value = next
-  try {
-    localStorage.setItem(COLLAPSE_LS_KEY, JSON.stringify([...next]))
-  }
-  catch { /* игнорируем */ }
+  collapsedRecruitersCookie.value = [...next]
 }
 
 const jobsNeedingAttention = computed(() =>

@@ -99,26 +99,19 @@ const topJobGroups = computed<TopJobGroup[]>(() => {
   return groups
 })
 
-const DASH_COLLAPSE_LS_KEY = 'dashboard-recruiter-collapsed'
-const collapsedRecruiters = ref<Set<string>>(new Set())
-
-onMounted(() => {
-  try {
-    const raw = localStorage.getItem(DASH_COLLAPSE_LS_KEY)
-    if (raw) collapsedRecruiters.value = new Set(JSON.parse(raw) as string[])
-  }
-  catch { /* localStorage недоступен — не критично */ }
+// Состояние свёрнутых групп рекрутеров храним в cookie (а не localStorage),
+// чтобы SSR знал его сразу и не было мигания раскрытых групп при обновлении (FOUC).
+const collapsedRecruitersCookie = useCookie<string[]>('dashboard-recruiter-collapsed', {
+  default: () => [],
+  sameSite: 'lax',
 })
+const collapsedRecruiters = computed(() => new Set(collapsedRecruitersCookie.value))
 
 function toggleRecruiterGroup(key: string) {
-  const next = new Set(collapsedRecruiters.value)
+  const next = new Set(collapsedRecruitersCookie.value)
   if (next.has(key)) next.delete(key)
   else next.add(key)
-  collapsedRecruiters.value = next
-  try {
-    localStorage.setItem(DASH_COLLAPSE_LS_KEY, JSON.stringify([...next]))
-  }
-  catch { /* игнорируем */ }
+  collapsedRecruitersCookie.value = [...next]
 }
 
 // ─── Sprint 10: динамические этапы воронки на карточках topJobs ───
