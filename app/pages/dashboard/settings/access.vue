@@ -19,11 +19,28 @@ interface AccessMember {
 const toast = useToast()
 const { data: session } = await authClient.useSession(useFetch)
 
-const { data: rolesData } = await useFetch<AccessRole[]>('/api/access/roles', { key: 'access-roles' })
+// §6: gate the whole section — only owner/admin (member:update) manage access.
+const { allowed: canManageAccess, isLoading: permLoading } = usePermission({ member: ['update'] })
+
+const { data: rolesData, execute: loadRoles } = await useFetch<AccessRole[]>('/api/access/roles', {
+  key: 'access-roles',
+  immediate: false,
+})
 const roles = computed(() => rolesData.value ?? [])
 
-const { data: membersData, pending, refresh } = await useFetch<AccessMember[]>('/api/access/members', { key: 'access-members' })
+const { data: membersData, pending, refresh, execute: loadMembers } = await useFetch<AccessMember[]>('/api/access/members', {
+  key: 'access-members',
+  immediate: false,
+})
 const members = computed(() => membersData.value ?? [])
+
+// Load data only once we know the user is allowed (avoids 401 noise for others).
+watch(canManageAccess, (ok) => {
+  if (ok) {
+    loadRoles()
+    loadMembers()
+  }
+}, { immediate: true })
 
 const SCOPE_LABELS: Record<string, string> = {
   org: 'Вся организация',
@@ -85,13 +102,19 @@ function isSelf(m: AccessMember) {
           Роли, границы данных (scope) и индивидуальные права участников.
         </p>
       </div>
-      <UiButton variant="ghost" size="sm" :disabled="pending" @click="refresh">
+      <UiButton v-if="canManageAccess" variant="ghost" size="sm" :disabled="pending" @click="refresh">
         <RefreshCw class="size-4" :class="pending ? 'animate-spin' : ''" />
         Обновить
       </UiButton>
     </header>
 
-    <div v-if="members.length === 0 && !pending" class="rounded-lg border border-surface-200 dark:border-surface-800 p-8 text-center text-sm text-surface-500">
+    <!-- §6: access-denied banner for non owner/admin -->
+    <AccessDeniedBanner
+      v-if="!canManageAccess && !permLoading"
+      message="Управление ролями и доступами доступно только владельцу и администратору."
+    />
+
+    <div v-else-if="members.length === 0 && !pending" class="rounded-lg border border-surface-200 dark:border-surface-800 p-8 text-center text-sm text-surface-500">
       <Users class="mx-auto mb-2 size-6 opacity-50" />
       Участники не найдены.
     </div>

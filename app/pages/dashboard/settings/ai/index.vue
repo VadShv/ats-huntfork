@@ -171,16 +171,10 @@ function formatPrice(p: number | null): string {
       <Loader2 class="size-6 animate-spin text-surface-400" />
     </div>
 
-    <div
+    <AccessDeniedBanner
       v-else-if="!canManageAi"
-      class="rounded-xl border border-warning-200 dark:border-warning-800 bg-warning-50 dark:bg-warning-950 p-5 text-sm text-warning-700 dark:text-warning-400 flex items-start gap-3"
-    >
-      <AlertTriangle class="size-5 shrink-0 mt-0.5" />
-      <div>
-        <p class="font-semibold mb-1">Недостаточно прав</p>
-        <p>У вас недостаточно прав для управления настройками ИИ. Обратитесь к владельцу или администратору организации.</p>
-      </div>
-    </div>
+      message="У вас недостаточно прав для управления настройками ИИ. Обратитесь к владельцу или администратору организации."
+    />
 
     <!-- Loading -->
     <div v-else-if="isLoading" class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-8 text-center text-sm text-surface-500">

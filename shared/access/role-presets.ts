@@ -122,8 +122,10 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'lead_recruiter',
     nameRu: 'Ведущий рекрутер', nameEn: 'Lead Recruiter',
-    descriptionRu: 'Гибко настраиваемая роль: направление целиком (вложенные отделы), аналитика команды. Права тонко настраиваются.',
-    defaultScope: 'departments', isAssignable: true, sortOrder: 20,
+    descriptionRu: 'Видит всю организацию по умолчанию; при необходимости ограничивается отделами/компаниями через scope. Аналитика команды. Права тонко настраиваются.',
+    // §2: default scope org (sees everything). Narrow a specific lead via a
+    // per-member scope override (departments/company) in the access UI.
+    defaultScope: 'org', isAssignable: true, sortOrder: 20,
     capabilities: leadRecruiterCaps,
   },
   {

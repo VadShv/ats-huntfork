@@ -80,8 +80,8 @@ describe('lead_recruiter default (AI view-only example)', () => {
     expect(caps.has('scoring:create')).toBe(false)
   })
 
-  it('defaults to departments scope', () => {
-    expect(ROLE_PRESET_BY_KEY.lead_recruiter.defaultScope).toBe('departments')
+  it('defaults to org scope (§2)', () => {
+    expect(ROLE_PRESET_BY_KEY.lead_recruiter.defaultScope).toBe('org')
   })
 })
 

@@ -23,6 +23,7 @@ interface PermissionRow {
   labelRu: string
 }
 interface OverrideRow { permission: string; effect: 'allow' | 'deny'; reason?: string | null; expiresAt?: string | null }
+interface OverridesResponse { overrides: OverrideRow[]; roleCapabilities: string[] }
 
 const props = defineProps<{ member: AccessMemberLite }>()
 const emit = defineEmits<{ close: []; saved: [] }>()
@@ -30,15 +31,22 @@ const emit = defineEmits<{ close: []; saved: [] }>()
 const toast = useToast()
 
 const { data: catalog } = await useFetch<PermissionRow[]>('/api/access/permissions', { key: 'access-perm-catalog' })
-const { data: existing } = await useFetch<OverrideRow[]>(`/api/access/members/${props.member.memberId}/overrides`, {
+const { data: existing } = await useFetch<OverridesResponse>(`/api/access/members/${props.member.memberId}/overrides`, {
   key: `access-overrides-${props.member.memberId}`,
 })
+
+// The set of permission keys the member's ROLE grants (base, before overrides) —
+// drives the "по роли ✓/✗" badge (§9).
+const roleGrants = computed(() => new Set(existing.value?.roleCapabilities ?? []))
+function roleAllows(key: string): boolean {
+  return roleGrants.value.has(key)
+}
 
 // permission key → 'allow' | 'deny' | '' (inherit from role)
 const state = ref<Record<string, '' | 'allow' | 'deny'>>({})
 watchEffect(() => {
   const s: Record<string, '' | 'allow' | 'deny'> = {}
-  for (const o of existing.value ?? []) s[o.permission] = o.effect
+  for (const o of existing.value?.overrides ?? []) s[o.permission] = o.effect
   state.value = s
 })
 
@@ -133,14 +141,24 @@ async function save() {
                   <span class="text-sm text-surface-800 dark:text-surface-200">{{ p.labelRu }}</span>
                   <span v-if="p.riskLevel >= 2" class="ml-2 rounded bg-danger-100 px-1.5 py-0.5 text-xs text-danger-700 dark:bg-danger-950 dark:text-danger-300">чувствительное</span>
                 </div>
-                <select
-                  v-model="state[p.key]"
-                  class="shrink-0 rounded-md border border-surface-300 bg-white px-2 py-1 text-xs dark:border-surface-700 dark:bg-surface-900"
-                >
-                  <option value="">по роли</option>
-                  <option value="allow">разрешить</option>
-                  <option value="deny">запретить</option>
-                </select>
+                <div class="flex shrink-0 items-center gap-2">
+                  <!-- §9: base role effect so the admin sees where an override deviates -->
+                  <span
+                    class="whitespace-nowrap text-xs"
+                    :class="roleAllows(p.key) ? 'text-success-600 dark:text-success-400' : 'text-surface-400'"
+                    :title="roleAllows(p.key) ? 'Роль разрешает это право' : 'Роль не даёт это право'"
+                  >
+                    по роли: {{ roleAllows(p.key) ? '✓ разрешено' : '✗ нет' }}
+                  </span>
+                  <select
+                    v-model="state[p.key]"
+                    class="rounded-md border border-surface-300 bg-white px-2 py-1 text-xs dark:border-surface-700 dark:bg-surface-900"
+                  >
+                    <option value="">по роли</option>
+                    <option value="allow">разрешить</option>
+                    <option value="deny">запретить</option>
+                  </select>
+                </div>
               </li>
             </ul>
           </section>
