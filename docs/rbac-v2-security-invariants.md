@@ -65,6 +65,38 @@
 | 0.5 | 12.09.2026 | ✅ | Роль на SSR, единый `getActorContext`, deny-by-default в `snapshotCan`, view-as read-only в движке. Изоляция/аудит не тронуты (n/a). |
 | 1 | 12.09.2026 | ✅ | См. развёрнутую сверку ниже. Enforcement НЕ изменён (shadow-mode). |
 | 2 | 12.09.2026 | ✅ | Enforcement переключён на `can()` (`new`). Backfill member_role/scope 100%. См. сверку ниже. |
+| 3 (пилот) | 12.09.2026 | ✅ | Scope-фильтрация + masking на 7 PII-эндпоинтах; cross-org→404 для них; фикс visibility. Долгий хвост эндпоинтов + AI chatTools — в rollout. См. сверку ниже. |
+
+### Сверка Спринта 3 (пилот, коммит a4568f1)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A1 orgId из сессии | ✅ | без изменений; scope-джобы резолвятся по actor.orgId |
+| A2 скоуп по оргу | ✅ (пилот) | candidate/application/document — org + scope; owner/admin unrestricted |
+| A3 cross-org → 404 | ✅ (пилот) | `isCandidateInScope`/`isJobInScope`→404 на candidate/[id], application/[id], document download/preview/delete; хвост эндпоинтов — rollout |
+| A4 дочерние по родителю | ✅ (пилот) | document→candidate→application→job (EXISTS); application→job (jobId) |
+| B1 deny-by-default | ✅ | `maskCandidate(null)` маскирует всё; scope `[]`→пусто |
+| B5 view-as read-only | ✅ | без изменений |
+| C3 роль-потолок/scope-охват | ✅ (пилот) | scope из member_scope; фильтры не выдают данных вне scope; owner org=unrestricted |
+| D1 masking-by-default | ✅ (пилот) | `maskCandidate` на списках и детали candidate/application; хвост+chatTools — rollout |
+| D2 нет PII без права | ⚠ частично | закрыто на 7 эндпоинтах; **AI chatTools (`search_candidates`/`get_candidate`/`read_resume`) ещё отдают PII без masking** — явный gap, приоритет rollout |
+| D3 секреты не утекают | ✅ | storageKey/ключи по-прежнему не сериализуются; hhResumeRaw.salary маскируется |
+| C1 единый источник | ✅ | scope/mask из реестра ресурсов; PII-права в пресетах |
+| C2 deny сильнее allow | ✅ | без изменений (overrides в actor.permissions) |
+| C5 инвалидация | ✅ | без изменений (кэш по версии) |
+| F2 миграции | ✅ | нет SQL-миграции; seed добавил +10 PII-грантов (idempotent); бэкап `rbac_pre_sprint3_*` |
+| F4 SSR-payload | ✅ | без изменений |
+| G1 тесты | ✅ | 836 passed / 0 failed |
+| G2 сборка | ✅ | build app на ВМ OK; typecheck 0; scope-SQL (CTE/EXISTS) проверены на живой БД |
+| G3 откат | ✅ | `ACCESS_ENFORCEMENT=old` (снимает и scope? нет — scope/mask всегда активны; для отката именно scope/mask — `git reset`+rebuild) |
+| G4 нет роста техдолга | ✅ | 3 переиспользуемых примитива (scope/mask/404); хв端поинты по шаблону |
+
+**Важное замечание по G3:** scope-фильтрация и masking НЕ управляются флагом `ACCESS_ENFORCEMENT` (он про capability-enforcement). Откат именно scope/mask — через `git reset` на предыдущий коммит + rebuild. owner/admin не затронуты (unrestricted), поэтому риск для основных пользователей минимален.
+
+**Известные gaps (rollout Спринта 3):**
+1. **AI chatTools** (`server/utils/ai/chatTools.ts`) отдают контакты кандидатов без masking и без member-scope (только conversation-scope) — приоритетная задача (D2).
+2. ~60 остальных candidate/application эндпоинтов ещё org-only (list/detail по шаблону пилота).
+3. Scope `own` не выражается (нет creator-колонки) — трактуется как `assigned`; при необходимости — новая колонка/лог (документировано).
 
 ### Сверка Спринта 2 (коммит 43f18e9)
 
