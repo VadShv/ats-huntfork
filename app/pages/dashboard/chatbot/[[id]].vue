@@ -553,6 +553,8 @@ async function startNew() {
                   accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                   multiple
                   class="hidden"
+                  @change="handleFileChange"
+                />
                 <UiButton
                   variant="ghost"
                   icon-only
