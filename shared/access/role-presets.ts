@@ -12,7 +12,7 @@
  * This makes Sprint 1 shadow-mode show ZERO divergence before Sprint 2 switches
  * enforcement to can(). (master plan §12 Sprint 1)
  *
- * New presets (lead_recruiter / recruiter / junior_recruiter) are seeded but
+ * New presets (lead_recruiter / recruiter / external_recruiter) are seeded but
  * NOT assigned to anyone yet — assignment/customization is Sprints 2/7.
  *
  * lead_recruiter starts from a sensible default and is meant to be tuned in the
@@ -48,7 +48,7 @@ function caps(map: Record<string, readonly string[]>): string[] {
 // ── PII field-set permissions (Sprint 3) ──
 // Granted to roles that must see candidate contacts/salary so that enabling
 // masking-by-default does NOT change behavior for existing owner/admin/member.
-// junior_recruiter intentionally omits them (PII hidden); hiring_manager salary
+// external_recruiter intentionally omits them (PII hidden); hiring_manager salary
 // stays gated separately by member.hmCanViewSalary in the HM endpoints.
 const PII_CONTACTS = 'candidate:read:contacts'
 const PII_SALARY = 'candidate:read:salary'
@@ -57,9 +57,13 @@ const PII_SALARY = 'candidate:read:salary'
 // expandRoleCapabilities gives the exact static-AC set; we then ADD the PII
 // field-set grants (which the static AC never modeled) to preserve today's
 // behavior where these roles see contacts/salary.
-const ownerCaps = [...expandRoleCapabilities('owner'), PII_CONTACTS, PII_SALARY]
-const adminCaps = [...expandRoleCapabilities('admin'), PII_CONTACTS, PII_SALARY]
-const memberCaps = [...expandRoleCapabilities('member'), PII_CONTACTS, PII_SALARY]
+// §7: narrow "add hiring manager" capability (NOT full member:create).
+const HM_CREATE = 'hiringManager:create'
+
+const ownerCaps = [...expandRoleCapabilities('owner'), PII_CONTACTS, PII_SALARY, HM_CREATE]
+const adminCaps = [...expandRoleCapabilities('admin'), PII_CONTACTS, PII_SALARY, HM_CREATE]
+// member (recruiter) can add hiring managers, but NOT create members/admins.
+const memberCaps = [...expandRoleCapabilities('member'), PII_CONTACTS, PII_SALARY, HM_CREATE]
 const hiringManagerCaps = Array.from(expandRoleCapabilities('hiring_manager'))
 
 // ── recruiter: same as current member (recruiter) ──
@@ -67,19 +71,20 @@ const hiringManagerCaps = Array.from(expandRoleCapabilities('hiring_manager'))
 // add 'recruiter' as an explicit synonym preset for the new naming.
 const recruiterCaps = [...memberCaps]
 
-// ── junior_recruiter: minimal — pipeline work on assigned jobs, PII hidden ──
-const juniorRecruiterCaps = caps({
+// ── external_recruiter (§8, was junior_recruiter): minimal — agencies/contractors.
+// Only assigned jobs; NO AI at all (no scoring/assistant), NO PII by default,
+// NO activity log. MUST be able to create interviews for their jobs.
+const externalRecruiterCaps = caps({
   organization: ['read'],
   job: ['read'],
   candidate: ['create', 'read'],
-  application: ['create', 'read', 'update'], // move through stages
+  application: ['create', 'read', 'update'], // move through stages of own jobs
   document: ['read'],
   comment: ['create', 'read'],
-  interview: ['read'],
-  activityLog: ['read'],
-  pipeline: ['read'],
+  interview: ['create', 'read', 'update'], // external must schedule interviews
   company: ['read'],
   department: ['read'],
+  // NO scoring (AI), NO activityLog, NO PII field-sets (contacts/salary).
 })
 
 // ── lead_recruiter: broad default, tunable in matrix UI ──
@@ -101,8 +106,9 @@ const leadRecruiterCaps = caps({
   company: ['read'],
   department: ['read'],
 })
-// lead_recruiter sees candidate PII (contacts + salary) within its scope.
-leadRecruiterCaps.push(PII_CONTACTS, PII_SALARY)
+// lead_recruiter sees candidate PII (contacts + salary) within its scope and
+// may add hiring managers (§7).
+leadRecruiterCaps.push(PII_CONTACTS, PII_SALARY, HM_CREATE)
 
 export const ROLE_PRESETS: RolePreset[] = [
   {
@@ -143,11 +149,11 @@ export const ROLE_PRESETS: RolePreset[] = [
     capabilities: recruiterCaps,
   },
   {
-    key: 'junior_recruiter',
-    nameRu: 'Младший рекрутер', nameEn: 'Junior Recruiter',
-    descriptionRu: 'Минимум: карточки и перемещение по этапам на назначенных вакансиях, PII скрыт.',
+    key: 'external_recruiter',
+    nameRu: 'Внешний рекрутер', nameEn: 'External Recruiter',
+    descriptionRu: 'Для агентств/внешних подрядчиков: только свои вакансии, без ИИ и без контактов по умолчанию. Может создавать интервью.',
     defaultScope: 'assigned', isAssignable: true, sortOrder: 40,
-    capabilities: juniorRecruiterCaps,
+    capabilities: externalRecruiterCaps,
   },
   {
     key: 'hiring_manager',

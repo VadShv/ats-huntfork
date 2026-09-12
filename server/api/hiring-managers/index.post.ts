@@ -15,10 +15,12 @@ import { ensureMemberRbac } from '../../utils/access/memberRbacSync'
  *  - `must_change_password=true` — при первом входе НМ обязан сменить пароль.
  *  - `email_verified=true` — верификация не нужна.
  *
- * Права: `member:create` (owner/admin). Скрининг Qwen не трогается.
+ * Права (§7): `hiringManager:create` — узкое право «добавить НМ». Есть у
+ * owner/admin/member(рекрутер)/lead_recruiter, НО НЕ даёт создавать
+ * рекрутеров/админов (для этого нужен полный `member:create`).
  */
 export default defineEventHandler(async (event) => {
-  const session = await requirePermission(event, { member: ['create'] })
+  const session = await requirePermission(event, { hiringManager: ['create'] })
   const orgId = session.session.activeOrganizationId
   const actorId = session.user.id
 

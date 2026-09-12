@@ -65,6 +65,15 @@ export const RESOURCES = {
     scopeStrategy: 'orgOnly',
     category: 'members',
   },
+  // §7: a NARROW capability to add hiring managers WITHOUT the full member:create
+  // (which would let a recruiter create recruiters/admins). Granted to
+  // owner/admin/member/lead_recruiter; NOT to external_recruiter.
+  hiringManager: {
+    table: 'member',
+    actions: ['create'],
+    scopeStrategy: 'orgOnly',
+    category: 'members',
+  },
   team: {
     table: 'gamification_team',
     actions: ['create', 'update', 'delete'],

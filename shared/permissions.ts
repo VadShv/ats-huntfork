@@ -42,6 +42,9 @@ const atsStatements = {
   pipeline: ['create', 'read', 'update', 'delete'],
   company: ['create', 'read', 'update', 'delete'],
   department: ['create', 'read', 'update', 'delete'],
+  // §7: narrow "add hiring manager" capability (declared so requirePermission
+  // types it). Grants live in role presets (DB), not the static AC.
+  hiringManager: ['create'],
 } as const
 
 // ─── Merged statement (Better Auth defaults + ATS resources) ───────

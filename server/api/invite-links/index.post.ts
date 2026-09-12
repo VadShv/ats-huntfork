@@ -1,17 +1,37 @@
 import { randomBytes } from 'node:crypto'
 import { inviteLink } from '../../database/schema'
 import { createInviteLinkSchema } from '../../utils/schemas/inviteLink'
+import { getActorContext } from '../../utils/access/actorContext'
+import { canBool } from '../../utils/access/can'
 
 /**
  * POST /api/invite-links
  * Create a shareable invite link for the current organization.
- * Only owners and admins can create invite links.
+ *
+ * §7 authorization:
+ *  - `invitation:create` (owner/admin) → any role (member/admin/hiring_manager).
+ *  - `hiringManager:create` (recruiter/lead) → ONLY role='hiring_manager'.
+ *    Lets recruiters add hiring managers without the power to invite
+ *    recruiters/admins.
  */
 export default defineEventHandler(async (event) => {
-  const session = await requirePermission(event, { invitation: ['create'] })
+  // Base auth + active org (permission is enforced explicitly below).
+  const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
 
   const body = await readValidatedBody(event, createInviteLinkSchema.parse)
+
+  const actor = await getActorContext(event)
+  const canInviteAny = canBool(actor, 'invitation:create')
+  const canInviteHm = canBool(actor, 'hiringManager:create')
+
+  if (!canInviteAny && !canInviteHm) {
+    throw createError({ statusCode: 403, statusMessage: 'Нет доступа: недостаточно прав' })
+  }
+  // Recruiter (HM-only) path: restrict to hiring_manager invites.
+  if (!canInviteAny && body.role !== 'hiring_manager') {
+    throw createError({ statusCode: 403, statusMessage: 'Можно приглашать только нанимающих менеджеров' })
+  }
 
   // Generate a cryptographically secure token (32 bytes = 64 hex chars)
   const token = randomBytes(32).toString('hex')

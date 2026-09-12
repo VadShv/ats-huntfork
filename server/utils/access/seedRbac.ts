@@ -141,6 +141,23 @@ export async function backfillMemberRbac(): Promise<{ roles: number; scopes: num
   const roleIdByKey = new Map<string, string>()
   for (const r of systemRoles) if (r.key) roleIdByKey.set(r.key, r.id)
 
+  // ── §8 migration: junior_recruiter → external_recruiter (idempotent) ──
+  // Rename members' denormalized role, re-point their member_role to the new
+  // preset, and retire the stale junior_recruiter role row (keep row for FK
+  // safety, but hide from pickers).
+  const externalRoleId = roleIdByKey.get('external_recruiter')
+  if (externalRoleId) {
+    const juniorRow = systemRoles.find((r) => r.key === 'junior_recruiter')
+    // 1. member.role text
+    await db.update(member).set({ role: 'external_recruiter' }).where(eq(member.role, 'junior_recruiter'))
+    // 2. member_role rows pointing at the stale junior role → external
+    if (juniorRow) {
+      await db.update(memberRole).set({ roleId: externalRoleId }).where(eq(memberRole.roleId, juniorRow.id)).catch(() => {})
+      // 3. retire stale role row (hide from assignable list)
+      await db.update(role).set({ isAssignable: false, isSystem: false, key: 'junior_recruiter_deprecated' }).where(eq(role.id, juniorRow.id)).catch(() => {})
+    }
+  }
+
   // Members lacking a member_role assignment.
   const membersNeedingRole = await db
     .select({ id: member.id, organizationId: member.organizationId, role: member.role })

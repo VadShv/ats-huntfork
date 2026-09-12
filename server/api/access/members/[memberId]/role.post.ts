@@ -11,7 +11,7 @@ const bodySchema = z.object({ roleKey: z.string().min(1) })
 /**
  * POST /api/access/members/:memberId/role
  * Assign a system-preset (or org-custom) role to a member — including roles the
- * Better Auth client can't set (lead_recruiter, junior_recruiter, hiring_manager).
+ * Better Auth client can't set (lead_recruiter, external_recruiter, hiring_manager).
  * Updates member.role (denormalized primary) + member_role + member_scope and
  * bumps permissions_version. Owner/admin only.
  *

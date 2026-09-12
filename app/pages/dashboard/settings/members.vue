@@ -18,6 +18,9 @@ useSeoMeta({
 const { activeOrg } = useCurrentOrg()
 const { data: session } = await authClient.useSession(useFetch)
 const { allowed: canManageMembers } = usePermission({ member: ['create'] })
+// §7: narrow "add hiring manager" right (owner/admin/recruiter/lead), separate
+// from full member management. Recruiters can see/add HMs but not recruiters.
+const { allowed: canAddHm } = usePermission({ hiringManager: ['create'] })
 const { allowed: canInvite } = usePermission({ invitation: ['create'] })
 const { track } = useTrack()
 const { allowed: canCancelInvite } = usePermission({ invitation: ['cancel'] })
@@ -279,6 +282,10 @@ const isLoadingLinks = ref(true)
 const linksError = ref('')
 const showCreateLinkForm = ref(false)
 const newLinkRole = ref<'admin' | 'member' | 'hiring_manager'>('member')
+// §7: recruiters (canAddHm without canInvite) may only create HM invite links.
+watchEffect(() => {
+  if (!canInvite.value && canAddHm.value) newLinkRole.value = 'hiring_manager'
+})
 const newLinkMaxUses = ref<string | number>('')
 const newLinkExpiresInHours = ref(168) // 7 days default
 const isCreatingLink = ref(false)
@@ -877,8 +884,8 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- Invite links section -->
-    <section v-if="canInvite" class="mb-6 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden">
+    <!-- Invite links section — §7: recruiters (canAddHm) may create HM-only links -->
+    <section v-if="canInvite || canAddHm" class="mb-6 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden">
       <div class="px-4 sm:px-6 py-4 border-b border-surface-200 dark:border-surface-800">
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
@@ -930,10 +937,13 @@ onUnmounted(() => {
               <div class="relative">
                 <select
                   v-model="newLinkRole"
-                  class="appearance-none rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 pl-3 pr-8 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors cursor-pointer"
+                  :disabled="!canInvite"
+                  class="appearance-none rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 pl-3 pr-8 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors cursor-pointer disabled:opacity-60"
                 >
-                  <option value="member">Рекрутер</option>
-                  <option value="admin">Администратор</option>
+                  <!-- §7: only owner/admin (canInvite) may pick recruiter/admin.
+                       HM-only inviters are locked to hiring_manager. -->
+                  <option v-if="canInvite" value="member">Рекрутер</option>
+                  <option v-if="canInvite" value="admin">Администратор</option>
                   <option value="hiring_manager">Нанимающий менеджер</option>
                 </select>
                 <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 size-3 text-surface-400 pointer-events-none" />
@@ -1289,8 +1299,8 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- Members list -->
-    <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900">
+    <!-- Members list — §7: recruiter roster is visible to owner/admin only -->
+    <section v-if="canManageMembers" class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900">
       <div class="px-4 sm:px-6 py-5 border-b border-surface-200 dark:border-surface-800">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div class="flex items-center gap-3">
@@ -1362,8 +1372,8 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- ─── Нанимающие менеджеры (Sprint 20.2) ─── -->
-    <section class="mt-6 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900">
+    <!-- ─── Нанимающие менеджеры — §7: видят и рекрутеры (canAddHm) ─── -->
+    <section v-if="canAddHm || canManageMembers" class="mt-6 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900">
       <div class="px-4 sm:px-6 py-5 border-b border-surface-200 dark:border-surface-800">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div class="flex items-center gap-3">

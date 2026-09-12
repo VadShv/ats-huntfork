@@ -61,7 +61,7 @@ export const role = pgTable('role', {
   id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
   /** NULL = system preset (shared, not deletable) */
   organizationId: text('organization_id').references(() => organization.id, { onDelete: 'cascade' }),
-  /** stable key for system presets: owner|admin|lead_recruiter|recruiter|junior_recruiter|hiring_manager */
+  /** stable key for system presets: owner|admin|lead_recruiter|recruiter|external_recruiter|hiring_manager */
   key: text('key'),
   name: text('name').notNull(),
   description: text('description'),

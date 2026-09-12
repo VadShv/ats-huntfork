@@ -4,7 +4,7 @@
  * Rule (RBAC v2 — fixed in Sprint 3):
  *   - role IN ('owner','admin','member','lead_recruiter') → видит ВСЁ
  *     ('member' — это и есть рекрутер; 'recruiter' — синоним-пресет)
- *   - role = 'hiring_manager' | 'junior_recruiter'        → только is_internal=false
+ *   - role = 'hiring_manager' | 'external_recruiter'      → только is_internal=false
  *
  * BUGFIX: раньше в наборе стояла НЕсуществующая org-роль 'recruiter', из-за чего
  * рекрутер (org-роль 'member') НЕ видел внутренние комментарии (audit-rbac.md §5).
@@ -16,7 +16,7 @@ import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { member } from '../../database/schema/auth'
 import { applicationComment } from '../../database/schema/app'
 
-export type Role = 'owner' | 'admin' | 'recruiter' | 'lead_recruiter' | 'hiring_manager' | 'member' | 'junior_recruiter' | string
+export type Role = 'owner' | 'admin' | 'recruiter' | 'lead_recruiter' | 'hiring_manager' | 'member' | 'external_recruiter' | string
 
 const INTERNAL_VISIBLE_ROLES = new Set<Role>(['owner', 'admin', 'member', 'recruiter', 'lead_recruiter'])
 

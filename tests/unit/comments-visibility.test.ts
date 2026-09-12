@@ -13,9 +13,9 @@ describe('canSeeInternal', () => {
     expect(canSeeInternal('lead_recruiter')).toBe(true)
   })
 
-  it('returns false for hiring_manager and junior_recruiter', () => {
+  it('returns false for hiring_manager and external_recruiter', () => {
     expect(canSeeInternal('hiring_manager')).toBe(false)
-    expect(canSeeInternal('junior_recruiter')).toBe(false)
+    expect(canSeeInternal('external_recruiter')).toBe(false)
   })
 
   it('returns false for unknown or empty role', () => {

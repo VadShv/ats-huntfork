@@ -11,21 +11,35 @@ import { allPermissionKeys, buildPermissionCatalog } from '../../shared/access/c
 
 describe('preset ⇄ static AC parity', () => {
   // Sprint 3: owner/admin/member additionally carry the PII field-set grants
-  // (contacts/salary) which the static AC never modeled. Parity = static ∪ PII.
+  // (contacts/salary) + §7 hiringManager:create which the static AC never
+  // modeled. Parity = static ∪ these extras.
   const PII = ['candidate:read:contacts', 'candidate:read:salary']
-  const withPii: Record<string, string[]> = { owner: PII, admin: PII, member: PII, hiring_manager: [] }
+  const HM = ['hiringManager:create']
+  const extra: Record<string, string[]> = {
+    owner: [...PII, ...HM], admin: [...PII, ...HM], member: [...PII, ...HM], hiring_manager: [],
+  }
   for (const key of ['owner', 'admin', 'member', 'hiring_manager']) {
-    it(`${key} preset capabilities == static expansion (+PII where applicable)`, () => {
+    it(`${key} preset capabilities == static expansion (+extras where applicable)`, () => {
       const preset = new Set(ROLE_PRESET_BY_KEY[key].capabilities)
-      const expected = new Set([...expandRoleCapabilities(key), ...withPii[key]])
+      const expected = new Set([...expandRoleCapabilities(key), ...extra[key]])
       expect(preset).toEqual(expected)
     })
   }
 
-  it('hiring_manager and junior_recruiter do NOT get PII grants', () => {
+  it('§7: owner/admin/member/lead can add hiring managers; external cannot', () => {
+    for (const k of ['owner', 'admin', 'member', 'lead_recruiter']) {
+      expect(new Set(ROLE_PRESET_BY_KEY[k].capabilities).has('hiringManager:create')).toBe(true)
+    }
+    expect(new Set(ROLE_PRESET_BY_KEY.external_recruiter.capabilities).has('hiringManager:create')).toBe(false)
+    expect(new Set(ROLE_PRESET_BY_KEY.hiring_manager.capabilities).has('hiringManager:create')).toBe(false)
+    // member must NOT have full member:create (only owner/admin do)
+    expect(new Set(ROLE_PRESET_BY_KEY.member.capabilities).has('member:create')).toBe(false)
+  })
+
+  it('hiring_manager and external_recruiter do NOT get PII grants', () => {
     expect(new Set(ROLE_PRESET_BY_KEY.hiring_manager.capabilities).has('candidate:read:contacts')).toBe(false)
-    expect(new Set(ROLE_PRESET_BY_KEY.junior_recruiter.capabilities).has('candidate:read:contacts')).toBe(false)
-    expect(new Set(ROLE_PRESET_BY_KEY.junior_recruiter.capabilities).has('candidate:read:salary')).toBe(false)
+    expect(new Set(ROLE_PRESET_BY_KEY.external_recruiter.capabilities).has('candidate:read:contacts')).toBe(false)
+    expect(new Set(ROLE_PRESET_BY_KEY.external_recruiter.capabilities).has('candidate:read:salary')).toBe(false)
   })
 
   it('owner/admin include platform capabilities (member/invitation)', () => {
@@ -85,10 +99,26 @@ describe('lead_recruiter default (AI view-only example)', () => {
   })
 })
 
-describe('junior_recruiter is minimal', () => {
+describe('external_recruiter (§8) is minimal, no AI, but can run interviews', () => {
+  const caps = () => new Set(ROLE_PRESET_BY_KEY.external_recruiter.capabilities)
+
   it('cannot update candidates or delete anything', () => {
-    const caps = new Set(ROLE_PRESET_BY_KEY.junior_recruiter.capabilities)
-    expect(caps.has('candidate:update')).toBe(false)
-    for (const c of caps) expect(c.endsWith(':delete')).toBe(false)
+    expect(caps().has('candidate:update')).toBe(false)
+    for (const c of caps()) expect(c.endsWith(':delete')).toBe(false)
+  })
+
+  it('has NO AI (scoring) and NO activity log', () => {
+    for (const c of caps()) expect(c.startsWith('scoring:')).toBe(false)
+    expect(caps().has('activityLog:read')).toBe(false)
+  })
+
+  it('CAN create/read/update interviews (must schedule for own jobs)', () => {
+    expect(caps().has('interview:create')).toBe(true)
+    expect(caps().has('interview:read')).toBe(true)
+    expect(caps().has('interview:update')).toBe(true)
+  })
+
+  it('can move applications through stages of own jobs', () => {
+    expect(caps().has('application:update')).toBe(true)
   })
 })
