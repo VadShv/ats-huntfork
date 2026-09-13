@@ -22,6 +22,9 @@ export default defineEventHandler(async (event) => {
   // Сентинел '__none__' даёт пустую выдачу без ветвления формы ответа (важно для типов useFetch)
   const scope = await resolveRecruiterScope(orgId, session.user.id, query.scope)
 
+  // §K DEBUG
+  console.log('[§K DEBUG] jobs/index.get', JSON.stringify({ userId: session.user.id, queryScope: query.scope, role: scope.role, scoped: scope.scoped, jobIdsLen: scope.jobIds.length, jobIds: scope.jobIds.slice(0, 5) }))
+
   const offset = (query.page - 1) * query.limit
   const conditions = [eq(job.organizationId, orgId)]
   if (query.status) conditions.push(eq(job.status, query.status))

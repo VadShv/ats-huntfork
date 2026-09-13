@@ -13,7 +13,10 @@ export default defineEventHandler(async (event) => {
 
   // Scope guard (RBAC v2 — "private jobs"): a job outside the actor's scope
   // returns 404 even by direct ID. Foundation for the shared-candidate model.
-  if (actor && !(await isJobInScope(actor, id))) {
+  const _inScope = actor ? await isJobInScope(actor, id) : true
+  // §K DEBUG
+  console.log('[§K DEBUG] jobs/[id].get', JSON.stringify({ userId: actor?.userId, role: actor?.roleKeys, scopeType: actor?.scope.type, jobId: id, inScope: _inScope }))
+  if (actor && !_inScope) {
     throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
 
