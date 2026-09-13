@@ -35,3 +35,30 @@ jobs/interviews/documents/conversations + AI-ассистент (§3).
 
 Правило: любой эндпоинт с данными кандидатов/вакансий/откликов → scoped
 (out-of-scope → 404); всё остальное — гейт по праву, см. выше.
+
+---
+
+## Спринт G — финальное дозакрытие (0 непокрытых)
+
+`bash scripts/audit-scope-coverage.sh` → **0 непокрытых** [id]-эндпоинтов с
+данными (кроме create/index/org-wide). Добавлено в Спринте G:
+
+- **Корневые [id]-мутации:** `applications/[id].patch`, `candidates/[id].delete`,
+  `applications/index.post` (create-gate по job-scope).
+- **documents/[id]/*:** parsed/parse/re-extract — scope по кандидату документа.
+- **interviews/[id]/*:** index.patch/delete, meeting-report, send-invitation,
+  import-mymeet — scope по вакансии интервью (interview→application.jobId).
+- **analytics/jobs/[id]{,/candidates}** — job-scope (чужая вакансия → 404).
+- **Переписка (chat) — модель записи (§G2):**
+  - Чтение (`conversations/[id]/link-options,suggest.get/post,read.post`,
+    `unread-count`, `unread-stream`) — `requireConversationInScope` (+ фильтр
+    счётчиков по scope).
+  - Запись (`messages.post`, `link.post`, `assistant.patch`, `drafts`) —
+    `requireConversationWrite`: owner/admin ИЛИ lead_recruiter + job_member
+    (recruiter) на вакансии диалога; иначе 403. `read.post` («прочитано») —
+    разрешён всем в scope (маркер, не письмо).
+  - UI: композер read-only без права (флаг `canWrite` из API).
+
+**Не тронуто (по требованию):** обсуждение (`applications/[id]/comments/*`) —
+доступно всем в scope; HM-контур (`hm/*`, `requireHm`+`isHiringManagerOnJob`);
+job-роль `recruiter` (`job_member`); webhook-и по секрету.

@@ -69,6 +69,22 @@
 | 3 (rollout #1) | 12.09.2026 | ✅ | AI chatTools наследует member-scope + masking, серверная защита от prompt-injection. Коммит ba0323f. Задеплоено. |
 | 3 (rollout #2–#6) | 12.09.2026 | ✅ | Контакт-эндпоинты (gate contacts+scope), read_resume gate, job-scope на root jobs (private jobs), masking на leak-sites, слабые guard'ы (conversations), модель «общий кандидат + приватные вакансии» (Вариант A), cross-org e2e. См. сверку ниже. |
 
+### Сверка Фазы 2 · Спринт G — полное дозакрытие (коммиты c778b38, df63a76, d157fd1, +part4)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A3 cross-org/scope → 404 | ✅ | scripts/audit-scope-coverage.sh → **0 непокрытых** [id]-эндпоинтов с данными |
+| A4 дочерние по родителю | ✅ | document→candidate, interview→application→job, conversation→job |
+| C3 роль-потолок/scope | ✅ | переписка: read-only для всех в scope; запись — owner/admin или lead+job_member(recruiter) |
+| B3 requirePermission не ослаблен | ✅ (усилено) | conversations записи: requireAuth → requireConversationInScope + requireConversationWrite (403); read.post — маркер, всем в scope |
+| «обсуждение» не задето | ✅ | applications/[id]/comments/* — открыто всем в scope (не трогали) |
+| HM-контур не задет | ✅ | hm/* — requireHm + isHiringManagerOnJob (403), проверено |
+| G1 тесты | ✅ | 867 passed |
+| G2 сборка | ✅ | vue-tsc 0; esbuild-transform всех тронутых файлов OK; полный build клиент+сервер — на ВМ `--no-cache` (урок C1) |
+| G3 откат | ✅ | git reset + restore дампа |
+
+**Урок C1 соблюдён:** vue-tsc недостаточно — прогнал esbuild-transform по всем файлам; авторитетная сборка клиент+сервер — `docker compose build --no-cache` на ВМ.
+
 ### Сверка Фазы 2 · Спринты B–E (коммиты aa29b28, c0a5bb9, 6f5c19e, ef31f81, 6119a57, c2c3e34)
 
 | Инвариант | Статус | Подтверждение |
