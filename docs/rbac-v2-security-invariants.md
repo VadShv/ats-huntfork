@@ -68,6 +68,23 @@
 | 3 (пилот) | 12.09.2026 | ✅ | Scope-фильтрация + masking на 7 PII-эндпоинтах; cross-org→404 для них; фикс visibility. Долгий хвост эндпоинтов + AI chatTools — в rollout. См. сверку ниже. |
 | 3 (rollout #1) | 12.09.2026 | ✅ | AI chatTools наследует member-scope + masking, серверная защита от prompt-injection. Коммит ba0323f. Задеплоено. |
 | 3 (rollout #2–#6) | 12.09.2026 | ✅ | Контакт-эндпоинты (gate contacts+scope), read_resume gate, job-scope на root jobs (private jobs), masking на leak-sites, слабые guard'ы (conversations), модель «общий кандидат + приватные вакансии» (Вариант A), cross-org e2e. См. сверку ниже. |
+| K | 13.09.2026 | ✅ | Единый источник scope-дефолта (4→1 `defaultScopeForRoleKey`); фикс «плашки чужих вакансий»; unify `resolveEffectiveScope`; тесты list⊆cards. Часть 4 (чужой тред) — НЕ входила. См. сверку ниже. |
+
+### Сверка Спринта K — унификация scope-резолвера (коммиты 8de98bd, 1dffae3, 6b4e534, +part3)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A2 скоуп по оргу | ✅ | Часть 1 — списки теперь реально scoped (member=assigned, был org-дефолт-баг в scope.ts:214) |
+| A3 cross-org/scope → 404 | ✅ | Часть 1 — список⊆карточки (нет «плашки без входа»); инвариант протестован |
+| C1 единый источник | ✅ | 🎯 ГЛАВНОЕ: 4→1 источник scope-дефолта (`defaultScopeForRoleKey` в role-presets); scope.ts + actorContext.ts делегируют; локальные switch удалены; `grep "case 'member'" scope` = 0 |
+| C5 инвалидация ≤60c | ✅ | scope.put.ts:58 → `bumpPermissionsVersion`; `syncMemberRoleChange`:144 → bump; §H migration (seedRbac.ts:167) → bump при org→assigned. Backfill member_scope для lacking rows — не требует bump (создание строки = fallback = не behavior change) |
+| G1 тесты | ✅ | `tests/unit/access-scope-default.test.ts` — исполняемая матрица scope + инвариант «список⊆карточки» (15 tests); audit-coverage помечен как недостаточный |
+| G2 сборка | ✅ | vue-tsc 0; тесты зелёные; полный build — на ВМ `--no-cache` (урок C1) |
+| G3 откат | ✅ | `git revert` конкретного коммита ИЛИ `ACCESS_ENFORCEMENT=old` + restore `rbac_pre_K_*` |
+
+**Часть 4 (чтение чужого треда) НЕ входила в этот спринт** — высокорисковое послабление доступа (расширение + PII), отдельный спринт.
+
+**Часть 3 — верификация (no-op кода):** backfill member_scope уже существует в `seedRbac.ts:271-285` (создаёт строки для lacking members с `ROLE_PRESET_BY_KEY[role]?.defaultScope ?? 'assigned'`), запускается на каждом старте (`migrations.ts:132`). §H migration (`seedRbac.ts:153-175`) меняет existing scope org→assigned + bump. `seedRbac.ts`/`memberRbacSync.ts` НЕ правлены (уже читают пресет — подтверждено grep'ом).
 
 ### Сверка Фазы 2 · Спринт G — полное дозакрытие (коммиты c778b38, df63a76, d157fd1, +part4)
 
