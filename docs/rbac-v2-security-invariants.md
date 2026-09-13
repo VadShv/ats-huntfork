@@ -69,6 +69,22 @@
 | 3 (rollout #1) | 12.09.2026 | ✅ | AI chatTools наследует member-scope + masking, серверная защита от prompt-injection. Коммит ba0323f. Задеплоено. |
 | 3 (rollout #2–#6) | 12.09.2026 | ✅ | Контакт-эндпоинты (gate contacts+scope), read_resume gate, job-scope на root jobs (private jobs), masking на leak-sites, слабые guard'ы (conversations), модель «общий кандидат + приватные вакансии» (Вариант A), cross-org e2e. См. сверку ниже. |
 
+### Сверка Спринта 6 — Аудит v2 (коммиты 997b32e, dc3f7de)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| E1 иммутабельность журнала | ✅ | BEFORE UPDATE триггер (проверено на ВМ: UPDATE→ERROR append-only); hash-chain (sha256, per-org, advisory-lock); верификатор `npm run audit:verify` |
+| E2 чувствительные действия логируются | ✅ | role create/update/delete, member role/scope/override, view_as_started, contacts_viewed (risk2), resume_downloaded — с risk/before/after |
+| E3 запись не ломает операцию, но не теряет security-события | ✅ | транзакционная запись; risk≥1 сбои → logError (громко) |
+| A1 orgId из сессии | ✅ | audit-эндпоинт и запись — orgId из сессии |
+| B2/B3 | ✅ | `/api/access/audit` под member:update; enforcement не тронут |
+| F2 миграции | ✅ | 0099 идемпотентна (ADD COLUMN/VALUE IF NOT EXISTS, autocommit для enum); бэкап `rbac_pre_s6_*` |
+| G1 тесты | ✅ | 864 passed |
+| G2 сборка | ✅ | typecheck 0; build+миграция на ВМ OK |
+| G3 откат | ✅ | git reset + restore дампа; триггер/колонки аддитивны |
+
+**Отклонения:** REVOKE UPDATE/DELETE (§7.3) заменён UPDATE-триггером (приложение — владелец БД, REVOKE его не связывает); DELETE не блокируется триггером (org-cascade) — ловится hash-chain. Отдельная не-owner роль БД — инфра-follow-up (§17.4).
+
 ### Сверка Спринта 7 (коммиты 795d944, 2569421)
 
 | Инвариант | Статус | Подтверждение |
