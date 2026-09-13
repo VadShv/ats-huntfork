@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireInterviewInScope } from "../../../utils/access/scope"
 import { interview, application, candidate, job, emailTemplate, organization } from '../../../database/schema'
 import { interviewIdParamSchema } from '../../../utils/schemas/interview'
 import { sendInterviewInvitationSchema, SYSTEM_TEMPLATES } from '../../../utils/schemas/emailTemplate'
@@ -20,6 +21,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, interviewIdParamSchema.parse)
+  await requireInterviewInScope(event, id, orgId) // G1
   const body = await readValidatedBody(event, sendInterviewInvitationSchema.parse)
 
   // Fetch interview with all related data

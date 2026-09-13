@@ -5,6 +5,7 @@ import { resolvePeriod, analyticsQuerySchema } from '../../../utils/analytics/fi
 import { computeTimeToFill } from '../../../utils/analytics/aggregations'
 import { analyticsRefreshState } from '../../../utils/analytics/refresh-state'
 import { resolveAnalyticsScope } from '../../../utils/analytics/scope'
+import { requireJobInScope } from '../../../utils/access/scope'
 import { idParamSchema } from '../../../utils/schemas/job'
 
 /**
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'], sourceTracking: ['read'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
+  await requireJobInScope(event, id) // G1: аналитика чужой вакансии → 404
   const q = await getValidatedQuery(event, analyticsQuerySchema.parse)
 
   const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)

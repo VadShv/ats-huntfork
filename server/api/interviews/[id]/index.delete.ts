@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireInterviewInScope } from "../../../utils/access/scope"
 import { interview } from '../../../database/schema'
 import { interviewIdParamSchema } from '../../../utils/schemas/interview'
 import { cancelCalendarEvent } from '../../../utils/google-calendar'
@@ -8,6 +9,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, interviewIdParamSchema.parse)
+  await requireInterviewInScope(event, id, orgId) // G1
 
   const current = await db.query.interview.findFirst({
     where: and(eq(interview.id, id), eq(interview.organizationId, orgId)),

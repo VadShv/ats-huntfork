@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireDocumentInScope } from '../../../utils/access/scope'
 import { document, candidate } from '../../../database/schema'
 import { downloadFromS3 } from '../../../utils/s3'
 import { parseDocument } from '../../../utils/resume-parser'
@@ -16,6 +17,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id: documentId } = await getValidatedRouterParams(event, z.object({ id: z.string().min(1) }).parse)
+  await requireDocumentInScope(event, documentId, orgId) // G1
 
   const doc = await db.query.document.findFirst({
     where: eq(document.id, documentId),

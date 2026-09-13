@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireInterviewInScope } from "../../../utils/access/scope"
 import { interview, application, meetingReport } from '../../../database/schema'
 import { interviewIdParamSchema, importMeetingSchema } from '../../../utils/schemas/mymeet'
 import { isMymeetConnected } from '../../../utils/mymeet/account'
@@ -22,6 +23,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id: interviewId } = await getValidatedRouterParams(event, interviewIdParamSchema.parse)
+  await requireInterviewInScope(event, interviewId, orgId) // G1
   const body = await readValidatedBody(event, importMeetingSchema.parse)
 
   if (!(await isMymeetConnected(orgId))) {

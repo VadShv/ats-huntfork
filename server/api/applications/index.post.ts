@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { application, candidate, job, applicationStageHistory, candidateResumeVersion } from '../../database/schema'
+import { requireJobInScope } from '../../utils/access/scope'
 import { createApplicationSchema } from '../../utils/schemas/application'
 import { getEntryStageForPipeline } from '../../utils/pipeline-helpers'
 import { autoScoreApplication } from '../../utils/ai/autoScore'
@@ -34,6 +35,9 @@ export default defineEventHandler(async (event) => {
   if (!existingJob) {
     throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
   }
+
+  // G1: нельзя создать отклик на вакансию вне scope.
+  await requireJobInScope(event, body.jobId)
 
   // Check for duplicate application
   const existing = await db.query.application.findFirst({

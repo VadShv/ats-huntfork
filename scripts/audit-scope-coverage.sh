@@ -20,7 +20,7 @@ API_DIR="server/api"
 GROUPS_RE='candidate|application|job|interview|document|sourcing|conversation'
 
 # Хелперы/признаки scope-покрытия
-SCOPE_RE='requireCandidateInScope|requireApplicationInScope|requireJobInScope|requireConversationInScope|isCandidateInScope|isJobInScope|getScopeJobIds|effectiveJobIds|candidateScopeCondition|applicationScopeCondition|documentScopeCondition|resolveRecruiterScope|canWriteConversation|requireChatbotAccess|requireHm'
+SCOPE_RE='requireCandidateInScope|requireApplicationInScope|requireJobInScope|requireConversationInScope|requireConversationWrite|requireDocumentInScope|requireInterviewInScope|requireSourcingSearchInScope|requireSourcingCandidateInScope|requireTrackingLinkInScope|isCandidateInScope|isJobInScope|getScopeJobIds|effectiveJobIds|candidateScopeCondition|applicationScopeCondition|documentScopeCondition|resolveRecruiterScope|resolveAnalyticsScope|canWriteConversation|requireChatbotAccess|requireHm|isHiringManagerOnJob'
 
 # Файлы, которым scope НЕ нужен (создание/списки/статические)
 SKIP_RE='index\.post\.ts$|index\.get\.ts$|/index\.ts$|create|preview\.post\.ts$|commit\.post\.ts$|check-duplicates|webhooks/|/info/'

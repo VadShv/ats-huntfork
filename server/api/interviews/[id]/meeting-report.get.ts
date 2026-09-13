@@ -1,4 +1,5 @@
 import { and, eq, desc } from 'drizzle-orm'
+import { requireInterviewInScope } from "../../../utils/access/scope"
 import { interview, meetingReport } from '../../../database/schema'
 import { interviewIdParamSchema } from '../../../utils/schemas/mymeet'
 
@@ -11,6 +12,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id: interviewId } = await getValidatedRouterParams(event, interviewIdParamSchema.parse)
+  await requireInterviewInScope(event, interviewId, orgId) // G1
 
   const iv = await db.query.interview.findFirst({
     where: eq(interview.id, interviewId),

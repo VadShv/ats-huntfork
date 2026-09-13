@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireInterviewInScope } from "../../../utils/access/scope"
 import { interview, application } from '../../../database/schema'
 import { interviewIdParamSchema, updateInterviewSchema } from '../../../utils/schemas/interview'
 import { INTERVIEW_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
@@ -9,6 +10,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, interviewIdParamSchema.parse)
+  await requireInterviewInScope(event, id, orgId) // G1
   const body = await readValidatedBody(event, updateInterviewSchema.parse)
 
   // Fetch current interview for validation

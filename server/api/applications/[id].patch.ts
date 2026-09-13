@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { application, job } from '../../database/schema'
+import { requireApplicationInScope } from '../../utils/access/scope'
 import { applicationIdParamSchema, updateApplicationSchema, APPLICATION_STATUS_TRANSITIONS } from '../../utils/schemas/application'
 
 /**
@@ -11,6 +12,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id, orgId) // G1: нельзя править чужой отклик
   const body = await readValidatedBody(event, updateApplicationSchema.parse)
 
   // Fetch current application to validate status transition

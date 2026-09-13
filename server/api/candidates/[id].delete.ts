@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { candidate } from '../../database/schema'
+import { requireCandidateInScope } from '../../utils/access/scope'
 import { candidateIdParamSchema } from '../../utils/schemas/candidate'
 
 export default defineEventHandler(async (event) => {
@@ -7,6 +8,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+  await requireCandidateInScope(event, id) // G1: нельзя удалить чужого кандидата
 
   const [deleted] = await db.delete(candidate)
     .where(and(eq(candidate.id, id), eq(candidate.organizationId, orgId)))

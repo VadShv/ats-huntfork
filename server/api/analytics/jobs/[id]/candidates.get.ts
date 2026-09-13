@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 import { db } from '../../../../utils/db'
 import { analyticsQuerySchema, resolvePeriod, andAll } from '../../../../utils/analytics/filters'
 import { resolveAnalyticsScope } from '../../../../utils/analytics/scope'
+import { requireJobInScope } from '../../../../utils/access/scope'
 import { slaP90Cte, stuckCondition } from '../../../../utils/analytics/sla-threshold'
 
 const schema = analyticsQuerySchema.extend({
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'], sourceTracking: ['read'] })
   const orgId = session.session.activeOrganizationId
   const jobId = getRouterParam(event, 'id')!
+  await requireJobInScope(event, jobId) // G1: аналитика чужой вакансии → 404
 
   const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
   if (scope.scoped && !scope.jobIds.includes(jobId)) {

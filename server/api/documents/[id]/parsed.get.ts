@@ -1,4 +1,5 @@
 import { eq, and } from 'drizzle-orm'
+import { requireDocumentInScope } from '../../../utils/access/scope'
 import { document } from '../../../database/schema'
 import { z } from 'zod'
 
@@ -17,6 +18,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { document: ['read'] })
   const orgId = session.session.activeOrganizationId
   const { id: documentId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireDocumentInScope(event, documentId, orgId) // G1
 
   const doc = await db.query.document.findFirst({
     where: and(

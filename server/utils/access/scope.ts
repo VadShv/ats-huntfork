@@ -23,7 +23,7 @@ import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getActorContext, type ActorContext } from './actorContext'
 import { job } from '../../database/schema/app'
 import { jobMember } from '../../database/schema/hm'
-import { application, candidate, document, hhSavedSearch, hhSourcingCandidate, trackingLink } from '../../database/schema/app'
+import { application, candidate, document, hhSavedSearch, hhSourcingCandidate, trackingLink, interview, commsConversation } from '../../database/schema/app'
 import { orgScopeAssignment, memberScope } from '../../database/schema/rbac'
 import { member } from '../../database/schema/auth'
 
@@ -292,6 +292,96 @@ export async function requireTrackingLinkInScope(event: import('h3').H3Event, li
   if (!(await isJobInScope(actor, row.jobId))) {
     throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
   }
+}
+
+/** Guard for documents/[id]/*: the document's candidate must be in scope (§G1). */
+export async function requireDocumentInScope(event: import('h3').H3Event, documentId: string, orgId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor || (await getScopeJobIds(actor)) === null) return
+  const [row] = await db.select({ candidateId: document.candidateId }).from(document)
+    .where(and(eq(document.id, documentId), eq(document.organizationId, orgId))).limit(1)
+  if (!row || !(await isCandidateInScope(actor, row.candidateId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
+  }
+}
+
+/**
+ * Guard for interviews/[id]/*: the interview's job (via application) must be in
+ * scope (§G1). Loads interview → application.jobId.
+ */
+export async function requireInterviewInScope(event: import('h3').H3Event, interviewId: string, orgId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor || (await getScopeJobIds(actor)) === null) return
+  const [row] = await db
+    .select({ jobId: application.jobId })
+    .from(interview)
+    .innerJoin(application, eq(application.id, interview.applicationId))
+    .where(and(eq(interview.id, interviewId), eq(interview.organizationId, orgId)))
+    .limit(1)
+  if (!row || !(await isJobInScope(actor, row.jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Интервью не найдено' })
+  }
+}
+
+/**
+ * Guard for conversations/[id]/*: the conversation's job (via application) must
+ * be in scope (§G2). Who sees the application sees its chat.
+ */
+export async function requireConversationInScope(event: import('h3').H3Event, conversationId: string, orgId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor || (await getScopeJobIds(actor)) === null) return
+  const jobId = await conversationJobId(conversationId, orgId)
+  if (jobId === undefined || (jobId !== null && !(await isJobInScope(actor, jobId)))) {
+    throw createError({ statusCode: 404, statusMessage: 'Диалог не найден' })
+  }
+}
+
+/** Resolve a conversation's jobId (null if not tied to a job; undefined if not found). */
+async function conversationJobId(conversationId: string, orgId: string): Promise<string | null | undefined> {
+  const [row] = await db
+    .select({ jobId: commsConversation.jobId })
+    .from(commsConversation)
+    .where(and(eq(commsConversation.id, conversationId), eq(commsConversation.organizationId, orgId)))
+    .limit(1)
+  return row ? row.jobId : undefined
+}
+
+/**
+ * §G2 chat write model: only a lead_recruiter who is a job_member(recruiter) on
+ * the conversation's job, OR owner/admin, may WRITE to a candidate conversation.
+ * Everyone else with scope access is read-only. Throws 403 when not allowed.
+ */
+export async function requireConversationWrite(actor: ActorContext | null, conversationId: string, orgId: string): Promise<void> {
+  if (!actor) throw createError({ statusCode: 403, statusMessage: 'Нет доступа' })
+  // owner/admin may always write.
+  if (actor.roleKeys.some((r) => r === 'owner' || r === 'admin')) return
+  // Only lead_recruiter may write, and only on jobs where they are a recruiter.
+  if (!actor.roleKeys.includes('lead_recruiter')) {
+    throw createError({ statusCode: 403, statusMessage: 'Писать в чат может ведущий рекрутер, назначенный на вакансию' })
+  }
+  const jobId = await conversationJobId(conversationId, orgId)
+  if (!jobId) {
+    throw createError({ statusCode: 403, statusMessage: 'Писать в чат может ведущий рекрутер, назначенный на вакансию' })
+  }
+  const [rec] = await db
+    .select({ jobId: jobMember.jobId })
+    .from(jobMember)
+    .where(and(
+      eq(jobMember.organizationId, orgId),
+      eq(jobMember.userId, actor.userId),
+      eq(jobMember.jobId, jobId),
+      eq(jobMember.memberRole, 'recruiter'),
+    ))
+    .limit(1)
+  if (!rec) {
+    throw createError({ statusCode: 403, statusMessage: 'Писать в чат может ведущий рекрутер, назначенный на вакансию' })
+  }
+}
+
+/** Boolean form of requireConversationWrite for the UI capability flag. */
+export async function canWriteConversation(actor: ActorContext | null, conversationId: string, orgId: string): Promise<boolean> {
+  try { await requireConversationWrite(actor, conversationId, orgId); return true }
+  catch { return false }
 }
 
 /** Guard for sourcing-candidates/[id]/*: the candidate's job must be in scope (§C3). */
