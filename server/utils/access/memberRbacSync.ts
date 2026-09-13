@@ -22,7 +22,7 @@
  * (≤ TTL, master plan §5.5).
  */
 
-import { and, eq, isNull, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { member } from '../../database/schema/auth'
 import { role, memberRole, memberScope } from '../../database/schema/rbac'
 import { ROLE_PRESET_BY_KEY } from '../../../shared/access/role-presets'
@@ -69,18 +69,26 @@ export async function ensureMemberRbac(
 
   let changed = false
 
-  // ── member_role: ensure exactly one primary = this role ──
+  // ── member_role: EXACTLY ONE row = this (primary) role ──
+  // §I ROOT FIX: v2 = one role per member. DELETE any other role rows instead of
+  // demoting them (demoting left stale rows that the resolver unioned → a member
+  // accumulated caps of every role they ever had). Keep only the chosen role.
   const existing = await exec
     .select({ roleId: memberRole.roleId, isPrimary: memberRole.isPrimary })
     .from(memberRole)
     .where(eq(memberRole.memberId, memberId))
 
+  const staleRoleIds = existing.filter((r) => r.roleId !== roleId).map((r) => r.roleId)
+  if (staleRoleIds.length > 0) {
+    await exec.delete(memberRole).where(and(
+      eq(memberRole.memberId, memberId),
+      inArray(memberRole.roleId, staleRoleIds),
+    ))
+    changed = true
+  }
+
   const hasThisPrimary = existing.some((r) => r.roleId === roleId && r.isPrimary)
   if (!hasThisPrimary) {
-    // Demote any other primary rows, then upsert this one as primary.
-    if (existing.some((r) => r.isPrimary)) {
-      await exec.update(memberRole).set({ isPrimary: false }).where(eq(memberRole.memberId, memberId))
-    }
     await exec
       .insert(memberRole)
       .values({ memberId, roleId, organizationId, isPrimary: true })

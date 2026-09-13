@@ -67,22 +67,26 @@ export async function resolveMemberCapabilities(
 
   let caps: Set<string>
   try {
-    // Role ids assigned to this member.
+    // §I ROOT FIX: v2 = ONE role per member. Read ONLY the PRIMARY member_role,
+    // NOT the union of all rows. Historically role switches left stale
+    // is_primary=false rows behind, and a union granted the caps of ALL past
+    // roles (e.g. an external_recruiter also getting lead/owner caps → assistant
+    // + org scope). Primary-only restores the intended single-role model.
     const assigned = await db
       .select({ roleId: memberRole.roleId })
       .from(memberRole)
-      .where(eq(memberRole.memberId, memberId))
+      .where(and(eq(memberRole.memberId, memberId), eq(memberRole.isPrimary, true)))
+      .limit(1)
 
     if (assigned.length === 0) {
-      // Not backfilled yet → role-key path (caller lazily heals member_role).
+      // No primary row yet → role-key path (caller lazily heals member_role).
       caps = await resolveRoleCapabilities(orgId, roleKeyFallback)
     }
     else {
-      const roleIds = assigned.map((r) => r.roleId)
       const perms = await db
         .select({ permission: rolePermission.permission })
         .from(rolePermission)
-        .where(inArray(rolePermission.roleId, roleIds))
+        .where(eq(rolePermission.roleId, assigned[0].roleId))
       caps = new Set(perms.map((p) => p.permission))
       if (caps.size === 0) caps = await resolveRoleCapabilities(orgId, roleKeyFallback)
     }

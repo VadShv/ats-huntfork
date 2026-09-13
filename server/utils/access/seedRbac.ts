@@ -174,6 +174,50 @@ export async function backfillMemberRbac(): Promise<{ roles: number; scopes: num
     console.error('[Reqcore] §H member scope migration failed (non-fatal):', err)
   }
 
+  // ── §I ROOT FIX migration: collapse accumulated member_role rows ──
+  // Role switches historically left stale is_primary=false member_role rows,
+  // and the resolver unioned them → members had caps of every past role
+  // (e.g. external_recruiter with lead/owner caps → assistant + org scope).
+  // Delete all NON-primary member_role rows (v2 = one role) and bump versions.
+  // Also re-sync member_scope to the primary role's default when it drifted wider.
+  try {
+    const dropped = await db.execute<{ member_id: string }>(sql`
+      DELETE FROM member_role mr
+      WHERE mr.is_primary = false
+      RETURNING mr.member_id
+    `)
+    if (dropped.length > 0) {
+      const affected = [...new Set(dropped.map((r) => r.member_id))]
+      await db.execute(sql`
+        UPDATE member SET permissions_version = permissions_version + 1
+        WHERE id IN ${affected}
+      `)
+      console.log(`[Reqcore] §I: collapsed ${dropped.length} stale member_role row(s) for ${affected.length} member(s)`)
+    }
+    // Members with NO primary row but multiple/other rows → promote the row that
+    // matches member.role (denormalized source of truth), delete the rest.
+    const orphaned = await db.execute<{ member_id: string }>(sql`
+      SELECT m.id AS member_id FROM member m
+      WHERE NOT EXISTS (SELECT 1 FROM member_role mr WHERE mr.member_id = m.id AND mr.is_primary = true)
+        AND EXISTS (SELECT 1 FROM member_role mr WHERE mr.member_id = m.id)
+    `)
+    for (const o of orphaned) {
+      // Keep only the row matching the denormalized member.role.
+      await db.execute(sql`
+        DELETE FROM member_role mr USING member m, role r
+        WHERE mr.member_id = ${o.member_id} AND m.id = mr.member_id
+          AND r.id = mr.role_id AND r.key <> m.role
+      `)
+      await db.execute(sql`
+        UPDATE member_role SET is_primary = true WHERE member_id = ${o.member_id}
+      `)
+      await db.execute(sql`UPDATE member SET permissions_version = permissions_version + 1 WHERE id = ${o.member_id}`)
+    }
+  }
+  catch (err) {
+    console.error('[Reqcore] §I member_role collapse failed (non-fatal):', err)
+  }
+
   // ── §E migration: org-preset 'recruiter' → 'member' (idempotent) ──
   // Collapse the synonym preset. Members on role 'recruiter' become 'member';
   // the stale role row is retired. (Job-role 'recruiter' in job_member is a
