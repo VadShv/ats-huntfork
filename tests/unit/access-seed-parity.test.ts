@@ -15,7 +15,7 @@ describe('preset ⇄ static AC parity', () => {
   // modeled. Parity = static ∪ these extras.
   const PII = ['candidate:read:contacts', 'candidate:read:salary']
   const HM = ['hiringManager:create']
-  const ASSIST = ['assistant:suggest'] // §E: owner/admin only
+  const ASSIST = ['assistant:access', 'assistant:send', 'assistant:scopeOrg', 'assistant:reasoning', 'assistant:agents', 'assistant:selectModel', 'assistant:suggest'] // §I: trusted roles
   const extra: Record<string, string[]> = {
     owner: [...PII, ...HM, ...ASSIST], admin: [...PII, ...HM, ...ASSIST], member: [...PII, ...HM], hiring_manager: [],
   }
@@ -27,12 +27,23 @@ describe('preset ⇄ static AC parity', () => {
     })
   }
 
-  it('§E: suffler (assistant:suggest) — owner/admin only by default; member/lead/external NOT', () => {
-    expect(new Set(ROLE_PRESET_BY_KEY.owner.capabilities).has('assistant:suggest')).toBe(true)
-    expect(new Set(ROLE_PRESET_BY_KEY.admin.capabilities).has('assistant:suggest')).toBe(true)
-    expect(new Set(ROLE_PRESET_BY_KEY.member.capabilities).has('assistant:suggest')).toBe(false)
-    expect(new Set(ROLE_PRESET_BY_KEY.lead_recruiter.capabilities).has('assistant:suggest')).toBe(false)
-    expect(new Set(ROLE_PRESET_BY_KEY.external_recruiter.capabilities).has('assistant:suggest')).toBe(false)
+  it('§I: assistant — full access for owner/admin/lead; NONE for member/hrbp/external/hm', () => {
+    for (const k of ['owner', 'admin', 'lead_recruiter']) {
+      const c = new Set(ROLE_PRESET_BY_KEY[k].capabilities)
+      expect(c.has('assistant:access')).toBe(true)
+      expect(c.has('assistant:send')).toBe(true)
+      expect(c.has('assistant:scopeOrg')).toBe(true)
+    }
+    for (const k of ['member', 'hrbp', 'external_recruiter', 'hiring_manager']) {
+      const c = new Set(ROLE_PRESET_BY_KEY[k].capabilities)
+      expect(c.has('assistant:access')).toBe(false)
+      expect(c.has('assistant:suggest')).toBe(false)
+    }
+  })
+
+  it('§I: scoring:read (candidate scoring) stays with member — decoupled from assistant', () => {
+    expect(new Set(ROLE_PRESET_BY_KEY.member.capabilities).has('scoring:read')).toBe(true)
+    expect(new Set(ROLE_PRESET_BY_KEY.member.capabilities).has('assistant:access')).toBe(false)
   })
 
   it('§7: owner/admin/member/lead can add hiring managers; external cannot', () => {

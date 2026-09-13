@@ -56,6 +56,17 @@ const EN: Record<string, string> = {
   export: 'export', cancel: 'cancel',
 }
 
+// §I: human labels for granular assistant actions (avoid "assistant: access").
+const ASSISTANT_LABELS: Record<string, { ru: string; en: string }> = {
+  access: { ru: 'Доступ к ассистенту', en: 'Assistant access' },
+  send: { ru: 'Отправка сообщений', en: 'Send messages' },
+  scopeOrg: { ru: 'Контекст «вся организация»', en: 'Whole-org context' },
+  reasoning: { ru: 'Режим рассуждения', en: 'Reasoning mode' },
+  agents: { ru: 'Управление агентами', en: 'Manage agents' },
+  selectModel: { ru: 'Выбор AI-модели', en: 'Select AI model' },
+  suggest: { ru: 'Суфлёр переписки', en: 'Reply suggester' },
+}
+
 /** Build the full permission catalog from the resource registry. */
 export function buildPermissionCatalog(): PermissionCatalogEntry[] {
   const out: PermissionCatalogEntry[] = []
@@ -77,8 +88,12 @@ export function buildPermissionCatalog(): PermissionCatalogEntry[] {
         uiLevel: uiLevelFor(action, null),
         riskLevel: riskLevelFor(resource, action, null, sensitive),
         category: def.category,
-        labelRu: `${resource}: ${RU[action] ?? action}`,
-        labelEn: `${resource}: ${EN[action] ?? action}`,
+        labelRu: resource === 'assistant'
+          ? (ASSISTANT_LABELS[action]?.ru ?? `${resource}: ${action}`)
+          : `${resource}: ${RU[action] ?? action}`,
+        labelEn: resource === 'assistant'
+          ? (ASSISTANT_LABELS[action]?.en ?? `${resource}: ${action}`)
+          : `${resource}: ${EN[action] ?? action}`,
       })
     }
 

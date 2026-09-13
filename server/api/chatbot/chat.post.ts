@@ -140,6 +140,26 @@ export default defineEventHandler(async (event) => {
 
   const body = await readValidatedBody(event, bodySchema.parse)
 
+  // ── §I granular assistant gates (base access already checked above) ──
+  const gateActor = await getActorContext(event)
+  const has = (perm: string) => Boolean(gateActor?.permissions.has(perm))
+  // send: required to post a message.
+  if (!has('assistant:send')) {
+    throw createError({ statusCode: 403, statusMessage: 'Отправка сообщений ассистенту недоступна' })
+  }
+  // scopeOrg: 'organization' context requires the permission; else force to job.
+  if (body.scope?.kind === 'organization' && !has('assistant:scopeOrg')) {
+    throw createError({ statusCode: 403, statusMessage: 'Контекст «вся организация» недоступен' })
+  }
+  // reasoning: silently drop thinking without the permission (not a hard error).
+  if (body.thinking === true && !has('assistant:reasoning')) {
+    body.thinking = false
+  }
+  // selectModel: choosing a model requires the permission; else use org default.
+  if (body.aiConfigId != null && !has('assistant:selectModel')) {
+    body.aiConfigId = undefined
+  }
+
   // ── Load conversation (and verify ownership) ──
   const conversation = await db.query.chatbotConversation.findFirst({
     where: and(

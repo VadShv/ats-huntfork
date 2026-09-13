@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { chatbotAgent } from '../../../database/schema'
 import { requireChatbotAccess } from '../../../utils/chatbotAccess'
+import { getActorContext } from '../../../utils/access/actorContext'
 import {
   CHATBOT_AGENT_PROMPT_MAX,
   type ChatbotAgent,
@@ -23,6 +24,11 @@ const bodySchema = z.object({
  */
 export default defineEventHandler(async (event): Promise<{ agent: ChatbotAgent }> => {
   const session = await requireChatbotAccess(event)
+  // §I: managing agents requires assistant:agents.
+  const _actor = await getActorContext(event)
+  if (!_actor?.permissions.has('assistant:agents')) {
+    throw createError({ statusCode: 403, statusMessage: 'Управление агентами недоступно' })
+  }
   const orgId = session.session.activeOrganizationId
   const userId = session.user.id
   const { id } = await getValidatedRouterParams(event, z.object({ id: z.string().uuid() }).parse)

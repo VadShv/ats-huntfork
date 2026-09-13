@@ -86,11 +86,12 @@ export const RESOURCES = {
     scopeStrategy: 'orgOnly',
     category: 'members',
   },
-  // §E: AI reply assistant ("суфлёр") — advanced lead feature, OFF by default.
-  // Granted to owner/admin in presets; enabled for lead explicitly via the matrix.
+  // §E/§I: AI assistant (chatbot) — granular per-function permissions.
+  // access(base) / send / scopeOrg / reasoning / agents / selectModel + suggest(§E).
+  // Trusted only (owner/admin/lead by default); others closed.
   assistant: {
-    table: 'comms_conversation',
-    actions: ['suggest'],
+    table: 'chatbot_conversation',
+    actions: ['access', 'send', 'scopeOrg', 'reasoning', 'agents', 'selectModel', 'suggest'],
     scopeStrategy: 'orgOnly',
     sensitive: true,
     category: 'ai',

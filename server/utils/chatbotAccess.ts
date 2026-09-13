@@ -13,9 +13,12 @@
 import type { H3Event } from 'h3'
 
 export async function requireChatbotAccess(event: H3Event) {
-  // AI permission + the reads the assistant performs (jobs/candidates/apps/docs).
+  // §I: base gate for the assistant is `assistant:access` (decoupled from
+  // scoring — candidate scoring stays with recruiters). Roles without
+  // assistant:access (member/hrbp/external/hm by default) → 403 on every
+  // chatbot/* endpoint. The reads the assistant performs are still required.
   return requirePermission(event, {
-    scoring: ['read'],
+    assistant: ['access'],
     job: ['read'],
     candidate: ['read'],
     application: ['read'],

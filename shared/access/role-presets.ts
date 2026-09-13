@@ -59,11 +59,15 @@ const PII_SALARY = 'candidate:read:salary'
 // behavior where these roles see contacts/salary.
 // §7: narrow "add hiring manager" capability (NOT full member:create).
 const HM_CREATE = 'hiringManager:create'
-// §E: AI reply assistant ("суфлёр") — owner/admin by default; lead via matrix.
-const ASSISTANT = 'assistant:suggest'
+// §I: AI assistant — full granular set for trusted roles (owner/admin/lead).
+// member/hrbp/external/hm get NONE by default (assistant fully closed).
+const ASSISTANT_ALL = [
+  'assistant:access', 'assistant:send', 'assistant:scopeOrg',
+  'assistant:reasoning', 'assistant:agents', 'assistant:selectModel', 'assistant:suggest',
+]
 
-const ownerCaps = [...expandRoleCapabilities('owner'), PII_CONTACTS, PII_SALARY, HM_CREATE, ASSISTANT]
-const adminCaps = [...expandRoleCapabilities('admin'), PII_CONTACTS, PII_SALARY, HM_CREATE, ASSISTANT]
+const ownerCaps = [...expandRoleCapabilities('owner'), PII_CONTACTS, PII_SALARY, HM_CREATE, ...ASSISTANT_ALL]
+const adminCaps = [...expandRoleCapabilities('admin'), PII_CONTACTS, PII_SALARY, HM_CREATE, ...ASSISTANT_ALL]
 // member (recruiter) can add hiring managers, but NOT create members/admins.
 const memberCaps = [...expandRoleCapabilities('member'), PII_CONTACTS, PII_SALARY, HM_CREATE]
 const hiringManagerCaps = Array.from(expandRoleCapabilities('hiring_manager'))
@@ -108,9 +112,9 @@ const leadRecruiterCaps = caps({
   company: ['read'],
   department: ['read'],
 })
-// lead_recruiter sees candidate PII (contacts + salary) within its scope and
-// may add hiring managers (§7).
-leadRecruiterCaps.push(PII_CONTACTS, PII_SALARY, HM_CREATE)
+// lead_recruiter sees candidate PII (contacts + salary) within its scope, may
+// add hiring managers (§7), and has FULL assistant access (§I — trusted role).
+leadRecruiterCaps.push(PII_CONTACTS, PII_SALARY, HM_CREATE, ...ASSISTANT_ALL)
 
 // ── hrbp (§1): HR business partner — oversees hiring within their assigned
 // companies/departments (scope derived from org_scope_assignment). Fixed preset;
