@@ -159,8 +159,9 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'member',
     nameRu: 'Рекрутер', nameEn: 'Recruiter',
-    descriptionRu: 'Полный цикл кандидата на своих вакансиях. Без удаления вакансий и массового экспорта.',
-    defaultScope: 'assigned', isAssignable: true, sortOrder: 30,
+    descriptionRu: 'Видит все вакансии организации (помогаем друг другу). Тумблер «Мои/Все» — рабочий вид. Ограничение — точечно через scope.',
+    // §A2: member default scope = org (sees all like lead); narrow via override.
+    defaultScope: 'org', isAssignable: true, sortOrder: 30,
     capabilities: memberCaps,
   },
   {

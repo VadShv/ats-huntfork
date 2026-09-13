@@ -1,11 +1,20 @@
+import type { Ref } from 'vue'
+
 /**
  * Composable for the recruiter dashboard — fetches aggregated stats,
  * pipeline breakdown, recent applications, and top active jobs.
  * Read-only: no mutation methods needed.
  */
-export function useDashboard() {
+export function useDashboard(options?: {
+  /** §A: 'mine' (personal) | 'all' (full scope). Same source as jobs list. */
+  scope?: Ref<'mine' | 'all' | undefined> | 'mine' | 'all'
+}) {
+  const query = computed(() => ({
+    ...(toValue(options?.scope) && { scope: toValue(options?.scope) }),
+  }))
   const { data, status: fetchStatus, error, refresh } = useFetch('/api/dashboard/stats', {
     key: 'dashboard-stats',
+    query,
     headers: useRequestHeaders(['cookie']),
   })
 

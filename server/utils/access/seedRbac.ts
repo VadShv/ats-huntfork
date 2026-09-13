@@ -141,6 +141,33 @@ export async function backfillMemberRbac(): Promise<{ roles: number; scopes: num
   const roleIdByKey = new Map<string, string>()
   for (const r of systemRoles) if (r.key) roleIdByKey.set(r.key, r.id)
 
+  // ── §A2 migration: member default scope assigned → org (idempotent) ──
+  // Existing 'member' recruiters were scoped to 'assigned' by the old default;
+  // the model now grants them org-wide visibility (help each other). Only touch
+  // rows still on the OLD default 'assigned' with no explicit dept/job narrowing.
+  try {
+    const migrated = await db.execute<{ member_id: string }>(sql`
+      UPDATE member_scope ms SET scope_type = 'org', updated_at = now()
+      FROM member m
+      WHERE ms.member_id = m.id
+        AND m.role = 'member'
+        AND ms.scope_type = 'assigned'
+        AND coalesce(array_length(ms.department_ids, 1), 0) = 0
+        AND coalesce(array_length(ms.job_ids, 1), 0) = 0
+      RETURNING ms.member_id
+    `)
+    if (migrated.length > 0) {
+      await db.execute(sql`
+        UPDATE member SET permissions_version = permissions_version + 1
+        WHERE id IN ${migrated.map((r) => r.member_id)}
+      `)
+      console.log(`[Reqcore] §A2: migrated ${migrated.length} member(s) scope assigned→org`)
+    }
+  }
+  catch (err) {
+    console.error('[Reqcore] §A2 member scope migration failed (non-fatal):', err)
+  }
+
   // ── §8 migration: junior_recruiter → external_recruiter (idempotent) ──
   // Rename members' denormalized role, re-point their member_role to the new
   // preset, and retire the stale junior_recruiter role row (keep row for FK

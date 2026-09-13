@@ -72,9 +72,12 @@ function defaultScopeTypeForRole(roleKey: string): ScopeType {
       return 'hrbp'
     case 'lead_recruiter':
       return 'org'
+    case 'external_recruiter':
+      return 'assigned'
     case 'member':
     default:
-      return 'assigned'
+      // §A2: member default scope = org (sees all; narrow via scope override).
+      return 'org'
   }
 }
 

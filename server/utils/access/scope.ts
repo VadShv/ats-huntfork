@@ -24,7 +24,8 @@ import type { ActorContext } from './actorContext'
 import { job } from '../../database/schema/app'
 import { jobMember } from '../../database/schema/hm'
 import { application, candidate, document } from '../../database/schema/app'
-import { orgScopeAssignment } from '../../database/schema/rbac'
+import { orgScopeAssignment, memberScope } from '../../database/schema/rbac'
+import { member } from '../../database/schema/auth'
 
 // Roles counted as "assigned to a job" for scope 'assigned'.
 const ASSIGNED_JOB_ROLES = ['recruiter', 'hiring_manager'] as const
@@ -84,6 +85,54 @@ async function resolveHrbpJobIds(orgId: string, memberId: string): Promise<strin
 }
 
 /**
+ * Personal jobs of a user ("Мои") — jobs where they are a job_member
+ * (recruiter or hiring_manager). Independent of the wider role scope.
+ * Used by the "Мои/Все" toggle's 'mine' side for ALL roles.
+ */
+export async function getPersonalJobIds(orgId: string, userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ jobId: jobMember.jobId })
+    .from(jobMember)
+    .where(and(
+      eq(jobMember.organizationId, orgId),
+      eq(jobMember.userId, userId),
+      inArray(jobMember.memberRole, ASSIGNED_JOB_ROLES as unknown as string[]),
+    ))
+  return [...new Set(rows.map((r) => r.jobId))]
+}
+
+/** Core role-aware scope resolution shared by actor- and (orgId,userId)-paths. */
+async function scopeJobIdsCore(p: {
+  orgId: string
+  userId: string
+  memberId: string
+  roleKeys: string[]
+  scopeType: ScopeType
+  departmentIds: string[]
+}): Promise<ScopeJobIds> {
+  if (p.scopeType === 'org' || p.roleKeys.some((r) => r === 'owner' || r === 'admin')) {
+    return null
+  }
+  if (p.scopeType === 'departments') {
+    const deptIds = await expandDepartmentSubtree(p.orgId, p.departmentIds)
+    if (deptIds.length === 0) return []
+    const rows = await db.select({ id: job.id }).from(job)
+      .where(and(eq(job.organizationId, p.orgId), inArray(job.departmentId, deptIds)))
+    return rows.map((r) => r.id)
+  }
+  if (p.scopeType === 'hrbp') {
+    return resolveHrbpJobIds(p.orgId, p.memberId)
+  }
+  if (p.scopeType === 'jobs') {
+    // jobs-scope stores explicit ids on member_scope; for the (orgId,userId) path
+    // we fall back to personal job_member (hiring_manager) which is equivalent.
+    return getPersonalJobIds(p.orgId, p.userId)
+  }
+  // 'assigned' / 'own' → personal job_member jobs.
+  return getPersonalJobIds(p.orgId, p.userId)
+}
+
+/**
  * Resolve the concrete list of job ids visible to the actor.
  * Returns null when the actor is UNRESTRICTED (scope 'org' or owner/admin).
  * Returns [] when the actor legitimately sees no jobs (empty scope).
@@ -92,47 +141,78 @@ export async function getScopeJobIds(actor: ActorContext): Promise<ScopeJobIds> 
   if (_memo.has(actor)) return _memo.get(actor)!
 
   let result: ScopeJobIds
-
-  // Owner/admin or explicit org scope → unrestricted.
-  if (actor.scope.type === 'org' || actor.roleKeys.some((r) => r === 'owner' || r === 'admin')) {
-    result = null
-  }
-  else if (actor.scope.type === 'jobs') {
+  if (actor.scope.type === 'jobs') {
+    // Actor path preserves explicit member_scope.jobIds.
     result = [...new Set(actor.scope.jobIds)]
   }
-  else if (actor.scope.type === 'departments') {
-    const deptIds = await expandDepartmentSubtree(actor.orgId, actor.scope.departmentIds)
-    if (deptIds.length === 0) {
-      result = []
-    }
-    else {
-      const rows = await db
-        .select({ id: job.id })
-        .from(job)
-        .where(and(eq(job.organizationId, actor.orgId), inArray(job.departmentId, deptIds)))
-      result = rows.map((r) => r.id)
-    }
-  }
-  else if (actor.scope.type === 'hrbp') {
-    // §1: scope derived from org_scope_assignment — union of jobs in assigned
-    // companies OR in the subtree of assigned departments.
-    result = await resolveHrbpJobIds(actor.orgId, actor.memberId)
-  }
   else {
-    // 'assigned' (and 'own' fallback): jobs where the user is a job_member.
-    const rows = await db
-      .select({ jobId: jobMember.jobId })
-      .from(jobMember)
-      .where(and(
-        eq(jobMember.organizationId, actor.orgId),
-        eq(jobMember.userId, actor.userId),
-        inArray(jobMember.memberRole, ASSIGNED_JOB_ROLES as unknown as string[]),
-      ))
-    result = [...new Set(rows.map((r) => r.jobId))]
+    result = await scopeJobIdsCore({
+      orgId: actor.orgId,
+      userId: actor.userId,
+      memberId: actor.memberId,
+      roleKeys: actor.roleKeys,
+      scopeType: actor.scope.type,
+      departmentIds: actor.scope.departmentIds,
+    })
   }
 
   _memo.set(actor, result)
   return result
+}
+
+/**
+ * Role-aware full scope from (orgId, userId) WITHOUT an H3 event/ActorContext.
+ * Reads member.role + member_scope and dispatches the same way as getScopeJobIds.
+ * Used by the unified legacy resolver (resolveRecruiterScope) so lists/dashboard/
+ * analytics scope correctly for ALL roles (lead=org→null, hrbp, external=assigned).
+ * Returns null = unrestricted.
+ */
+export async function resolveUserScopeJobIds(orgId: string, userId: string): Promise<ScopeJobIds> {
+  const [row] = await db
+    .select({
+      memberId: member.id,
+      role: member.role,
+      scopeType: memberScope.scopeType,
+      departmentIds: memberScope.departmentIds,
+    })
+    .from(member)
+    .leftJoin(memberScope, eq(memberScope.memberId, member.id))
+    .where(and(eq(member.organizationId, orgId), eq(member.userId, userId)))
+    .limit(1)
+
+  if (!row) return null // unknown → don't over-restrict (auth already passed)
+
+  const roleKeys = [row.role]
+  // Effective scope type: explicit member_scope, else role default.
+  const scopeType = (row.scopeType as ScopeType | null) ?? defaultScopeForRole(row.role)
+
+  return scopeJobIdsCore({
+    orgId,
+    userId,
+    memberId: row.memberId,
+    roleKeys,
+    scopeType,
+    departmentIds: row.departmentIds ?? [],
+  })
+}
+
+/** Default scope type by role key (mirror of actorContext.defaultScopeTypeForRole). */
+function defaultScopeForRole(roleKey: string): ScopeType {
+  switch (roleKey) {
+    case 'owner':
+    case 'admin':
+    case 'lead_recruiter':
+      return 'org'
+    case 'hiring_manager':
+      return 'jobs'
+    case 'hrbp':
+      return 'hrbp'
+    case 'external_recruiter':
+      return 'assigned'
+    case 'member':
+    default:
+      return 'org' // §A2: member default → org (sees all; narrow via override)
+  }
 }
 
 /** True when the actor is unrestricted (no scope filtering needed). */

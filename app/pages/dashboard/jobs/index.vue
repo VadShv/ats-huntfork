@@ -260,6 +260,9 @@ const sortedJobs = computed(() => {
 
 // ─── Sprint 20.2: группировка по рекрутерам для owner/admin (gallery) ───
 const { role: orgRole } = usePermission({ job: ['read'] })
+// §A: тумблер «Мои/Все» для всех широких ролей (scope шире assigned).
+const WIDE_ROLES = new Set(['owner', 'admin', 'member', 'lead_recruiter', 'hrbp'])
+const showScopeToggle = computed(() => WIDE_ROLES.has(orgRole.value ?? ''))
 const groupByRecruiter = computed(() => orgRole.value === 'owner' || orgRole.value === 'admin')
 
 interface RecruiterGroup {
@@ -521,9 +524,9 @@ const sortDirOptions = computed(() => [
           />
         </div>
 
-        <!-- §4: «Мои / Все» — только для рекрутера (member). Влияет на список, не на доступ. -->
+        <!-- §A: «Мои / Все» для всех широких ролей (scope шире assigned). Вид, не доступ. -->
         <UiSegmented
-          v-if="orgRole === 'member'"
+          v-if="showScopeToggle"
           v-model="jobsScope"
           :options="[{ value: 'mine', label: 'Мои' }, { value: 'all', label: 'Все' }]"
           size="sm"

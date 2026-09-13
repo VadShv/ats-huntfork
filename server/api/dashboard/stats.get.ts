@@ -1,9 +1,12 @@
+import { z } from 'zod'
 import { eq, and, desc, sql, count, countDistinct, inArray, asc } from 'drizzle-orm'
 import { application, candidate, job, pipelineStage } from '../../database/schema'
 import { resolveRecruiterScope, getJobRecruitersMap } from '../../utils/recruiterScope'
 import { getActorContext } from '../../utils/access/actorContext'
 import { canReadContacts } from '../../utils/access/mask'
 import { getOrgStageRollup } from '../../utils/funnel-rollup'
+
+const dashboardScopeSchema = z.object({ scope: z.enum(['mine', 'all']).optional() })
 
 /**
  * GET /api/dashboard/stats
@@ -19,9 +22,10 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
   const actor = await getActorContext(event)
 
-  // ─── Sprint 20.2: скоуп «мои вакансии» для рекрутера (member) ───
+  // ─── §A: единый scope-источник + тумблер «Мои/Все» (совпадает с jobs/index) ───
   // Сентинел '__none__' даёт нулевые агрегаты без ветвления формы ответа (важно для типов useFetch)
-  const scope = await resolveRecruiterScope(orgId, session.user.id)
+  const { scope: scopeParam } = await getValidatedQuery(event, dashboardScopeSchema.parse)
+  const scope = await resolveRecruiterScope(orgId, session.user.id, scopeParam)
   const scopedIds = scope.scoped ? (scope.jobIds.length > 0 ? scope.jobIds : ['__none__']) : null
 
   const jobCond = scopedIds

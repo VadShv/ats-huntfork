@@ -27,6 +27,9 @@ onMounted(() => track('dashboard_viewed'))
 // Fetch dashboard stats
 // ─────────────────────────────────────────────
 
+// §A: «Мои/Все» — рабочий вид (дефолт «Мои»). Единый источник с jobs/index.
+const dashboardScope = ref<'mine' | 'all'>('mine')
+
 const {
   counts,
   jobsByStatus,
@@ -35,7 +38,7 @@ const {
   fetchStatus,
   error,
   refresh,
-} = useDashboard()
+} = useDashboard({ scope: dashboardScope })
 
 // ─────────────────────────────────────────────
 // Upcoming interviews (next 7 days)
@@ -63,6 +66,10 @@ const { t } = useI18n()
 // ─── Sprint 20.2: группировка вакансий по рекрутерам для owner/admin ───
 const { role: orgRole } = usePermission({ job: ['read'] })
 const groupTopJobs = computed(() => orgRole.value === 'owner' || orgRole.value === 'admin')
+
+// §A: тумблер «Мои/Все» для всех широких ролей (scope шире assigned).
+const WIDE_ROLES = new Set(['owner', 'admin', 'member', 'lead_recruiter', 'hrbp'])
+const showScopeToggle = computed(() => WIDE_ROLES.has(orgRole.value ?? ''))
 
 interface TopJobGroup {
   key: string
@@ -269,11 +276,21 @@ const isEmpty = computed(() =>
     <template v-else>
       <!-- ─── Header ─── -->
       <div class="flex items-center justify-between mb-6 sm:mb-10">
-        <div>
-          <h1 class="text-xl sm:text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">{{ $t('dashboard.index.title') }}</h1>
-          <p v-if="activeOrg" class="text-sm text-surface-400 dark:text-surface-500 mt-1">
-            {{ activeOrg.name }}
-          </p>
+        <div class="flex items-center gap-3">
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">{{ $t('dashboard.index.title') }}</h1>
+            <p v-if="activeOrg" class="text-sm text-surface-400 dark:text-surface-500 mt-1">
+              {{ activeOrg.name }}
+            </p>
+          </div>
+          <!-- §A: «Мои / Все» — рабочий вид дашборда (единый scope с списком) -->
+          <UiSegmented
+            v-if="showScopeToggle"
+            v-model="dashboardScope"
+            :options="[{ value: 'mine', label: 'Мои' }, { value: 'all', label: 'Все' }]"
+            size="sm"
+            aria-label="Дашборд: мои или все"
+          />
         </div>
         <NuxtLink
           :to="localePath('/dashboard/jobs/new')"

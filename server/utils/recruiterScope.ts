@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { member, user } from '../database/schema'
 import { jobMember } from '../database/schema/hm'
+import { resolveUserScopeJobIds, getPersonalJobIds } from './access/scope'
 
 /**
  * ─────────────────────────────────────────────
@@ -48,16 +49,31 @@ export interface RecruiterScope {
 }
 
 /**
- * Резолвит скоуп видимости вакансий.
- * @param override 'mine' | 'all' — явный выбор клиента (query-параметр `scope`).
- *   По умолчанию: member → 'mine', owner/admin → 'all'.
+ * Резолвит скоуп видимости вакансий. UNIFIED (RBAC v2 Фаза 2, Спринт A):
+ * теперь role-aware для ВСЕХ ролей через v2 `resolveUserScopeJobIds`.
+ *
+ * - `override='mine'` → личные вакансии пользователя (job_member), для ЛЮБОЙ роли.
+ * - `override='all'` ИЛИ без override → ПОЛНЫЙ scope роли:
+ *     owner/admin/member/lead (org) → unrestricted (scoped=false);
+ *     hrbp → его компании/отделы; external → assigned; hiring_manager → jobs.
+ *
+ * §A2: member дефолт scope = org (видит всё). Тумблер «Мои/Все» — это override,
+ * а не граница доступа. Единый источник для списков/дашборда/аналитики → цифры
+ * совпадают.
  */
 export async function resolveRecruiterScope(orgId: string, userId: string, override?: 'mine' | 'all'): Promise<RecruiterScope> {
   const role = await getOrgRole(orgId, userId)
-  const wantMine = override ? override === 'mine' : role === 'member'
-  if (!wantMine) return { role, scoped: false, jobIds: [] }
-  const jobIds = await getAssignedJobIds(orgId, userId)
-  return { role, scoped: true, jobIds }
+
+  // "Мои" — личные вакансии (job_member), для любой роли.
+  if (override === 'mine') {
+    const jobIds = await getPersonalJobIds(orgId, userId)
+    return { role, scoped: true, jobIds }
+  }
+
+  // Полный scope роли (default или override='all').
+  const scopeIds = await resolveUserScopeJobIds(orgId, userId)
+  if (scopeIds === null) return { role, scoped: false, jobIds: [] } // unrestricted (org)
+  return { role, scoped: true, jobIds: scopeIds }
 }
 
 /** Рекрутеры набора вакансий: jobId → [{ userId, name }] (для группировки на клиенте) */
