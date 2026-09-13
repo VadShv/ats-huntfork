@@ -12,10 +12,13 @@ export function useDashboard(options?: {
   const query = computed(() => ({
     ...(toValue(options?.scope) && { scope: toValue(options?.scope) }),
   }))
+  // §H fix: key must include scope, otherwise useFetch caches and the list does
+  // NOT refresh when toggling Мои/Все. keepPreviousData avoids a blank flash.
   const { data, status: fetchStatus, error, refresh } = useFetch('/api/dashboard/stats', {
-    key: 'dashboard-stats',
+    key: computed(() => `dashboard-stats-${toValue(options?.scope) ?? 'default'}`),
     query,
     headers: useRequestHeaders(['cookie']),
+    getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
   })
 
   /** Summary counts (open jobs, candidates, applications, unreviewed) */

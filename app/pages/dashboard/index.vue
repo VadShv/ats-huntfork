@@ -50,11 +50,14 @@ const now = new Date()
 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 const weekFromToday = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
 
+// §H: предстоящие интервью ВСЕГДА персональные (где я организатор), даже когда
+// ведущий переключает дашборд в «Все» — иначе каша чужих интервью.
 const { interviews: upcomingInterviews } = useInterviews({
   status: 'scheduled',
   from: today.toISOString(),
   to: weekFromToday.toISOString(),
   limit: 5,
+  scope: 'mine',
 })
 
 // ─────────────────────────────────────────────
@@ -65,11 +68,17 @@ const { t } = useI18n()
 
 // ─── Sprint 20.2: группировка вакансий по рекрутерам для owner/admin ───
 const { role: orgRole } = usePermission({ job: ['read'] })
-const groupTopJobs = computed(() => orgRole.value === 'owner' || orgRole.value === 'admin')
+// §H: группировка по рекрутерам — owner/admin всегда; ведущему при «Все».
+const groupTopJobs = computed(() =>
+  orgRole.value === 'owner' || orgRole.value === 'admin'
+  || (orgRole.value === 'lead_recruiter' && dashboardScope.value === 'all'))
 
-// §A: тумблер «Мои/Все» для всех широких ролей (scope шире assigned).
-const WIDE_ROLES = new Set(['owner', 'admin', 'member', 'lead_recruiter', 'hrbp'])
+// §H: тумблер «Мои/Все» — только у ролей со scope шире assigned.
+// Рекрутер (member) теперь assigned (только свои) → тумблера НЕТ.
+const WIDE_ROLES = new Set(['owner', 'admin', 'lead_recruiter', 'hrbp'])
 const showScopeToggle = computed(() => WIDE_ROLES.has(orgRole.value ?? ''))
+// Подпись дашборда: рекрутер видит «Мои вакансии».
+const isRecruiterScoped = computed(() => orgRole.value === 'member')
 
 interface TopJobGroup {
   key: string
@@ -279,7 +288,10 @@ const isEmpty = computed(() =>
         <div class="flex items-center gap-3">
           <div>
             <h1 class="text-xl sm:text-2xl font-bold text-surface-900 dark:text-surface-50 tracking-tight">{{ $t('dashboard.index.title') }}</h1>
-            <p v-if="activeOrg" class="text-sm text-surface-400 dark:text-surface-500 mt-1">
+            <p v-if="isRecruiterScoped" class="text-sm font-medium text-brand-600 dark:text-brand-400 mt-1">
+              Мои вакансии
+            </p>
+            <p v-else-if="activeOrg" class="text-sm text-surface-400 dark:text-surface-500 mt-1">
               {{ activeOrg.name }}
             </p>
           </div>
@@ -437,7 +449,7 @@ const isEmpty = computed(() =>
               </NuxtLink>
             </div>
 
-            <div v-else class="divide-y divide-surface-100 dark:divide-surface-800">
+            <div v-else class="divide-y divide-surface-100 dark:divide-surface-800 min-h-[200px] transition-opacity" :class="{ 'opacity-60': fetchStatus === 'pending' }">
               <!-- ─── Sprint 20.2: группы по рекрутерам (owner/admin) или плоский список ─── -->
               <template v-for="grp in topJobGroups" :key="grp.key">
                 <button

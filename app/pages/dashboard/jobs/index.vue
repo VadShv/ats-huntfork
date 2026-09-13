@@ -261,9 +261,12 @@ const sortedJobs = computed(() => {
 // ─── Sprint 20.2: группировка по рекрутерам для owner/admin (gallery) ───
 const { role: orgRole } = usePermission({ job: ['read'] })
 // §A: тумблер «Мои/Все» для всех широких ролей (scope шире assigned).
-const WIDE_ROLES = new Set(['owner', 'admin', 'member', 'lead_recruiter', 'hrbp'])
+// §H: тумблер только у ролей шире assigned. Рекрутер (member) — только свои, без тумблера.
+const WIDE_ROLES = new Set(['owner', 'admin', 'lead_recruiter', 'hrbp'])
 const showScopeToggle = computed(() => WIDE_ROLES.has(orgRole.value ?? ''))
-const groupByRecruiter = computed(() => orgRole.value === 'owner' || orgRole.value === 'admin')
+const groupByRecruiter = computed(() =>
+  orgRole.value === 'owner' || orgRole.value === 'admin'
+  || (orgRole.value === 'lead_recruiter' && jobsScope.value === 'all'))
 
 interface RecruiterGroup {
   key: string
@@ -524,16 +527,7 @@ const sortDirOptions = computed(() => [
           />
         </div>
 
-        <!-- §A: «Мои / Все» для всех широких ролей (scope шире assigned). Вид, не доступ. -->
-        <UiSegmented
-          v-if="showScopeToggle"
-          v-model="jobsScope"
-          :options="[{ value: 'mine', label: 'Мои' }, { value: 'all', label: 'Все' }]"
-          size="sm"
-          aria-label="Фильтр вакансий: мои или все"
-        />
-
-        <!-- Saved views menu -->
+        <!-- Saved views menu (§H: тумблер «Мои/Все» перенесён в панель фильтров) -->
         <SavedViewsMenu
           :views="views"
           :active-view-id="activeViewId"
@@ -623,6 +617,17 @@ const sortDirOptions = computed(() => [
         @save-view="onSaveView"
       >
         <div class="space-y-6">
+          <!-- §H: «Мои / Все» — фильтр вида (только для ролей шире assigned) -->
+          <div v-if="showScopeToggle">
+            <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">Область</label>
+            <UiSegmented
+              v-model="jobsScope"
+              :options="[{ value: 'mine', label: 'Мои' }, { value: 'all', label: 'Все' }]"
+              size="sm"
+              aria-label="Фильтр вакансий: мои или все"
+            />
+          </div>
+
           <!-- Status -->
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400 mb-2">{{ $t('dashboard.jobs.filter.status') }}</label>
