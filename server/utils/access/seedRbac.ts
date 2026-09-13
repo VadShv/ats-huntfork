@@ -152,21 +152,21 @@ export async function backfillMemberRbac(): Promise<{ roles: number; scopes: num
     // Only for jobs whose creator is an active member/lead. isPrimary=true only
     // when the job has no existing primary recruiter yet (partial-unique safe).
     const linked = await db.execute<{ job_id: string }>(sql`
-      INSERT INTO job_member (id, job_id, user_id, organization_id, member_role, is_primary, created_at, updated_at)
-      SELECT gen_random_uuid()::text, j.id, j.created_by, j.organization_id, 'recruiter',
+      INSERT INTO job_member (id, job_id, user_id, organization_id, member_role, is_primary, added_by_user_id, added_at)
+      SELECT gen_random_uuid()::text, j.id, j.created_by_id, j.organization_id, 'recruiter',
              NOT EXISTS (
                SELECT 1 FROM job_member jm2
                WHERE jm2.job_id = j.id AND jm2.member_role = 'recruiter' AND jm2.is_primary = true
              ),
-             now(), now()
+             j.created_by_id, now()
       FROM job j
-      JOIN member m ON m.user_id = j.created_by AND m.organization_id = j.organization_id
-      WHERE j.created_by IS NOT NULL
+      JOIN member m ON m.user_id = j.created_by_id AND m.organization_id = j.organization_id
+      WHERE j.created_by_id IS NOT NULL
         AND m.role IN ('member', 'lead_recruiter')
         AND m.status = 'active'
         AND NOT EXISTS (
           SELECT 1 FROM job_member jm
-          WHERE jm.job_id = j.id AND jm.user_id = j.created_by AND jm.member_role = 'recruiter'
+          WHERE jm.job_id = j.id AND jm.user_id = j.created_by_id AND jm.member_role = 'recruiter'
         )
       RETURNING job_id
     `)
