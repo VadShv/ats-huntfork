@@ -64,6 +64,11 @@ function toggleKey(key: string) {
 }
 
 // ── Sensitive operations (risk >= 2, or delete/export) ──
+// §I: dedicated «AI-ассистент» block — granular assistant toggles.
+const assistantKeys = computed(() =>
+  catalog.filter((c) => c.resource === 'assistant'),
+)
+
 const sensitiveKeys = computed(() =>
   catalog.filter((c) => c.riskLevel >= 2 || c.action === 'delete' || c.action === 'export'),
 )
@@ -200,6 +205,22 @@ function reset() {
           <li v-for="c in cannotList" :key="c" class="flex gap-1.5"><span class="text-surface-400">✗</span>{{ c }}</li>
         </ul>
       </aside>
+    </div>
+
+    <!-- §I: AI-ассистент — гранулярные права (отдельный блок) -->
+    <div v-if="assistantKeys.length" class="mt-4 overflow-hidden rounded-lg border border-surface-200 dark:border-surface-800">
+      <h3 class="border-b border-surface-200 bg-surface-50 px-3 py-2 text-sm font-semibold text-surface-800 dark:border-surface-800 dark:bg-surface-800/50 dark:text-surface-100">
+        AI-ассистент
+      </h3>
+      <ul class="divide-y divide-surface-100 dark:divide-surface-800/60">
+        <li v-for="p in assistantKeys" :key="p.key" class="flex items-center justify-between gap-3 px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800/40">
+          <span class="text-sm text-surface-800 dark:text-surface-200" :title="p.key">{{ p.labelRu }}</span>
+          <label class="inline-flex cursor-pointer items-center">
+            <input type="checkbox" :checked="granted.has(p.key)" :disabled="!editable" class="peer sr-only" @change="toggleKey(p.key)">
+            <span class="h-5 w-9 rounded-full bg-surface-300 transition-colors peer-checked:bg-brand-500 dark:bg-surface-700" />
+          </label>
+        </li>
+      </ul>
     </div>
 
     <!-- Fine-tuning -->

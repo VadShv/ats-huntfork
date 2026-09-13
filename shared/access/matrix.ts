@@ -58,6 +58,9 @@ export interface ResourceRow {
 export function buildMatrixRows(catalog = buildPermissionCatalog()): ResourceRow[] {
   const byResource = new Map<string, PermissionCatalogEntry[]>()
   for (const e of catalog) {
+    // §I: 'assistant' actions are flags (access/send/scopeOrg/…), not CRUD levels
+    // — they're managed by a dedicated "AI-ассистент" block, not the level matrix.
+    if (e.resource === 'assistant') continue
     const list = byResource.get(e.resource) ?? []
     list.push(e)
     byResource.set(e.resource, list)

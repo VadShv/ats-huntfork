@@ -6,6 +6,9 @@ import {
 
 definePageMeta({})
 
+// §I: integrations are org-management → owner/admin only (server: organization:update).
+const { allowed: canManageIntegrations } = usePermission({ organization: ['update'] })
+
 useSeoMeta({
   title: 'Интеграции',
   description: 'Подключайте календарь и другие сервисы',
@@ -268,6 +271,14 @@ async function handleDisconnect() {
         Подключайте внешние сервисы для эффективной работы с подбором.
       </p>
     </div>
+
+    <!-- §I: integrations management — owner/admin only -->
+    <AccessDeniedBanner
+      v-if="!canManageIntegrations"
+      message="Управление интеграциями доступно только владельцу и администратору."
+    />
+
+    <template v-if="canManageIntegrations">
 
     <!-- Success/Error Messages -->
     <Transition name="fade">
@@ -905,6 +916,7 @@ async function handleDisconnect() {
       <!-- MyMeet (транскрибация интервью через MCP) -->
       <SettingsMymeetCard />
      </div>
+    </template>
    </div>
 </template>
 
