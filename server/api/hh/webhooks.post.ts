@@ -19,7 +19,7 @@ const WEBHOOK_ACTIONS = [
 ]
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { organization: ['update'] })
   if (!isHhConfigured() || !env.HH_REDIRECT_URI) {
     throw createError({ statusCode: 400, statusMessage: 'Интеграция hh.ru не настроена' })
   }

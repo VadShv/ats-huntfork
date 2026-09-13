@@ -9,7 +9,7 @@ import { hhAccount, hhVacancyLink } from '../../../database/schema'
 import { syncVacancyLink, type SyncLinkResult } from '../../../utils/hh/sync'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { organization: ['update'] })
   const orgId = session.session.activeOrganizationId
 
   const links = await db

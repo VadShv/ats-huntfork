@@ -9,7 +9,7 @@ import { hhVacancyLink } from '../../../database/schema'
 import { syncVacancyLink } from '../../../utils/hh/sync'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { organization: ['update'] })
   const linkId = getRouterParam(event, 'linkId')
   if (!linkId) {
     throw createError({ statusCode: 400, statusMessage: 'linkId обязателен' })

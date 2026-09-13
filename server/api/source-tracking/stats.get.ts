@@ -1,8 +1,9 @@
-import { eq, and, sql, count, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, sql, count, gte, lte, desc, inArray } from 'drizzle-orm'
 import { applicationSource, application, trackingLink, job, candidate, pipelineStage } from '../../database/schema'
 import { getOrgStageRollup } from '../../utils/funnel-rollup'
 import { sourceStatsQuerySchema } from '../../utils/schemas/trackingLink'
 import { getActorContext } from '../../utils/access/actorContext'
+import { getScopeJobIds } from '../../utils/access/scope'
 import { canReadContacts } from '../../utils/access/mask'
 
 /**
@@ -23,6 +24,14 @@ export default defineEventHandler(async (event) => {
 
   // Build date range conditions
   const dateConditions = [eq(applicationSource.organizationId, orgId)]
+  // §D2: scope by the actor's visible jobs (via application.jobId). Unrestricted
+  // (owner/admin/member/lead org) → no filter; HRBP → his jobs only.
+  if (actor) {
+    const scopeJobIds = await getScopeJobIds(actor)
+    if (scopeJobIds !== null) {
+      dateConditions.push(scopeJobIds.length > 0 ? inArray(application.jobId, scopeJobIds) : sql`false`)
+    }
+  }
   if (query.jobId) {
     dateConditions.push(eq(application.jobId, query.jobId))
   }

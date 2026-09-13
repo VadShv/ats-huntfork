@@ -13,7 +13,7 @@ import { getHhAccountForUser, getValidAccessToken } from '../../utils/hh/tokens'
 import { extractVacancyId, toHuntforkForm } from '../../utils/hh/vacancyParser'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { organization: ['update'] })
 
   if (!isHhConfigured()) {
     throw createError({

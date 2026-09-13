@@ -7,7 +7,7 @@
 import { disconnectHhAccount } from '../../utils/hh/tokens'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { organization: ['update'] })
 
   const removed = await disconnectHhAccount(
     session.session.activeOrganizationId,

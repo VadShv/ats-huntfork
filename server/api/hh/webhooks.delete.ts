@@ -10,7 +10,7 @@ import { apiRequest } from '../../utils/hh/client'
 import { getHhAccountForUser, getValidAccessToken } from '../../utils/hh/tokens'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { organization: ['update'] })
 
   const account = await getHhAccountForUser(session.session.activeOrganizationId, session.user.id)
   if (!account) {

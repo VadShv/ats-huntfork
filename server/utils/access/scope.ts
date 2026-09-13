@@ -23,7 +23,7 @@ import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getActorContext, type ActorContext } from './actorContext'
 import { job } from '../../database/schema/app'
 import { jobMember } from '../../database/schema/hm'
-import { application, candidate, document, hhSavedSearch, hhSourcingCandidate } from '../../database/schema/app'
+import { application, candidate, document, hhSavedSearch, hhSourcingCandidate, trackingLink } from '../../database/schema/app'
 import { orgScopeAssignment, memberScope } from '../../database/schema/rbac'
 import { member } from '../../database/schema/auth'
 
@@ -274,6 +274,22 @@ export async function requireSourcingSearchInScope(event: import('h3').H3Event, 
   const [row] = await db.select({ jobId: hhSavedSearch.jobId }).from(hhSavedSearch)
     .where(and(eq(hhSavedSearch.id, searchId), eq(hhSavedSearch.organizationId, orgId))).limit(1)
   if (!row || !(await isJobInScope(actor, row.jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
+  }
+}
+
+/**
+ * Guard for tracking-links/[id]/*: the link's job must be in scope (§D2).
+ * A link with NO jobId (global careers-page link) is org-wide → allowed.
+ */
+export async function requireTrackingLinkInScope(event: import('h3').H3Event, linkId: string, orgId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor || (await getScopeJobIds(actor)) === null) return
+  const [row] = await db.select({ jobId: trackingLink.jobId }).from(trackingLink)
+    .where(and(eq(trackingLink.id, linkId), eq(trackingLink.organizationId, orgId))).limit(1)
+  if (!row) throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
+  if (row.jobId === null) return // global careers link → org-wide
+  if (!(await isJobInScope(actor, row.jobId))) {
     throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
   }
 }

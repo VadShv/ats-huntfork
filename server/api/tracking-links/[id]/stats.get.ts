@@ -1,4 +1,5 @@
 import { eq, and, sql, count, gte, lte, desc } from 'drizzle-orm'
+import { requireTrackingLinkInScope } from '../../../utils/access/scope'
 import { applicationSource, application, trackingLink, job, candidate, pipelineStage } from '../../../database/schema'
 import { getOrgStageRollup } from '../../../utils/funnel-rollup'
 import { trackingLinkIdSchema, sourceStatsQuerySchema } from '../../../utils/schemas/trackingLink'
@@ -20,6 +21,7 @@ export default defineEventHandler(async (event) => {
   const actor = await getActorContext(event)
 
   const { id } = await getValidatedRouterParams(event, trackingLinkIdSchema.parse)
+  await requireTrackingLinkInScope(event, id, orgId as string)
   const query = await getValidatedQuery(event, sourceStatsQuerySchema.parse)
 
   // ─── Fetch the link itself ────────────────

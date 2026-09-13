@@ -7,7 +7,7 @@
 import { removeCalendarIntegration, isGoogleCalendarConfigured } from '../../utils/google-calendar'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { organization: ['update'] })
 
   if (!isGoogleCalendarConfigured()) {
     throw createError({ statusCode: 503, statusMessage: 'Интеграция с Google Calendar не настроена' })

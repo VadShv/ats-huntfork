@@ -12,7 +12,7 @@ import { hhVacancyLink, job } from '../../database/schema'
 import { getHhAccountForUser } from '../../utils/hh/tokens'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { organization: ['update'] })
   const orgId = session.session.activeOrganizationId
 
   const body = await readBody<{

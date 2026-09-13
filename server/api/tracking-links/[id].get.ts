@@ -1,4 +1,5 @@
 import { eq, and } from 'drizzle-orm'
+import { requireTrackingLinkInScope } from '../../utils/access/scope'
 import { trackingLink } from '../../database/schema'
 import { trackingLinkIdSchema } from '../../utils/schemas/trackingLink'
 
@@ -11,6 +12,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, trackingLinkIdSchema.parse)
+  await requireTrackingLinkInScope(event, id, orgId as string)
 
   const link = await db.query.trackingLink.findFirst({
     where: and(eq(trackingLink.id, id), eq(trackingLink.organizationId, orgId)),

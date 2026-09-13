@@ -8,7 +8,7 @@ import { randomBytes } from 'node:crypto'
 import { getGoogleAuthUrl, isGoogleCalendarConfigured } from '../../../utils/google-calendar'
 
 export default defineEventHandler(async (event) => {
-  await requireAuth(event)
+  await requirePermission(event, { organization: ['update'] })
 
   if (!isGoogleCalendarConfigured()) {
     throw createError({

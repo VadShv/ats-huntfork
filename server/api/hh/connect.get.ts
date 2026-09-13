@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto'
 import { getAuthorizationUrl, isHhConfigured } from '../../utils/hh/client'
 
 export default defineEventHandler(async (event) => {
-  await requireAuth(event)
+  await requirePermission(event, { organization: ['update'] })
 
   if (!isHhConfigured()) {
     throw createError({
