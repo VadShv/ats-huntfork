@@ -17,10 +17,10 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id, commentId } = await getValidatedRouterParams(
-  await requireApplicationInScope(event, id as string, orgId as string)
     event,
     applicationCommentIdParamSchema.parse,
   )
+  await requireApplicationInScope(event, id as string, orgId as string)
 
   const app = await db.query.application.findFirst({
     where: and(eq(application.id, id), eq(application.organizationId, orgId)),

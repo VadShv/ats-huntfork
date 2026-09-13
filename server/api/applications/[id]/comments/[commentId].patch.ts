@@ -31,10 +31,10 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id, commentId } = await getValidatedRouterParams(
-  await requireApplicationInScope(event, id as string, orgId as string)
     event,
     applicationCommentIdParamSchema.parse,
   )
+  await requireApplicationInScope(event, id as string, orgId as string)
   const body = await readValidatedBody(event, updateApplicationCommentSchema.parse)
 
   // ── 1. Verify application + comment ──
