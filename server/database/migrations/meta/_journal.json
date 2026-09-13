@@ -694,6 +694,13 @@
       "when": 1801000450000,
       "tag": "0099_audit_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1801000460000,
+      "tag": "0100_candidate_created_by",
+      "breakpoints": true
     }
   ]
 }

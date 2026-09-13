@@ -19,7 +19,7 @@
  * The resolved job-id list is memoized on the ActorContext for the request.
  */
 
-import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
+import { and, eq, exists, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getActorContext, type ActorContext } from './actorContext'
 import { job } from '../../database/schema/app'
 import { jobMember } from '../../database/schema/hm'
@@ -414,18 +414,23 @@ export async function applicationScopeCondition(actor: ActorContext): Promise<SQ
 export async function candidateScopeCondition(actor: ActorContext): Promise<SQL | undefined> {
   const jobIds = await getScopeJobIds(actor)
   if (jobIds === null) return undefined
-  // §H: visible iff I ADDED the candidate (createdById) OR they applied to one
-  // of my jobs. "Added" holds even when the actor sees no jobs.
-  const mineByCreator = sql`${candidate.createdById} = ${actor.userId}`
+  // §J: visible iff I ADDED the candidate (created_by_id) OR they applied to a
+  // job in my scope. Typesafe drizzle ops (raw sql on columns rendered empty →
+  // broken SQL, the §J bug). "Added" holds even with zero visible jobs.
+  const mineByCreator = eq(candidate.createdById, actor.userId)
   if (jobIds.length === 0) {
     return mineByCreator
   }
-  return sql`(${mineByCreator} OR EXISTS (
-    SELECT 1 FROM application a
-    WHERE a.candidate_id = ${candidate.id}
-      AND a.organization_id = ${actor.orgId}
-      AND a.job_id IN ${jobIds}
-  ))`
+  const appliedToMyJob = exists(
+    db.select({ one: sql`1` })
+      .from(application)
+      .where(and(
+        eq(application.candidateId, candidate.id),
+        eq(application.organizationId, actor.orgId),
+        inArray(application.jobId, jobIds),
+      )),
+  )
+  return or(mineByCreator, appliedToMyJob)
 }
 
 /**
@@ -435,13 +440,22 @@ export async function candidateScopeCondition(actor: ActorContext): Promise<SQL 
 export async function documentScopeCondition(actor: ActorContext): Promise<SQL | undefined> {
   const jobIds = await getScopeJobIds(actor)
   if (jobIds === null) return undefined
-  if (jobIds.length === 0) return sql`false`
-  return sql`EXISTS (
-    SELECT 1 FROM application a
-    WHERE a.candidate_id = ${document.candidateId}
-      AND a.organization_id = ${actor.orgId}
-      AND a.job_id IN ${jobIds}
-  )`
+  // §J: document visible iff its candidate is in scope (added by me OR applied
+  // to my job). Typesafe drizzle ops.
+  const mineByCreator = exists(
+    db.select({ one: sql`1` }).from(candidate)
+      .where(and(eq(candidate.id, document.candidateId), eq(candidate.createdById, actor.userId))),
+  )
+  if (jobIds.length === 0) return mineByCreator
+  const appliedToMyJob = exists(
+    db.select({ one: sql`1` }).from(application)
+      .where(and(
+        eq(application.candidateId, document.candidateId),
+        eq(application.organizationId, actor.orgId),
+        inArray(application.jobId, jobIds),
+      )),
+  )
+  return or(mineByCreator, appliedToMyJob)
 }
 
 /** Is a specific job visible to the actor? (for single-resource pre-checks) */

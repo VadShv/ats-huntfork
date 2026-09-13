@@ -52,11 +52,22 @@ watchEffect(() => {
 
 const filterText = ref('')
 
-// Group by category, apply optional text filter, and order sections meaningfully.
+// §J: dedicated «ИИ-ассистент» section (assistant resource) shown separately
+// at the top, not lumped into the generic «AI и промпты» category.
+const assistantSection = computed(() => {
+  const q = filterText.value.trim().toLowerCase()
+  return (catalog.value ?? []).filter((p) =>
+    p.resource === 'assistant'
+    && (!q || p.labelRu.toLowerCase().includes(q) || p.key.toLowerCase().includes(q)),
+  )
+})
+
+// Group the REST by category, apply optional text filter, order meaningfully.
 const sections = computed(() => {
   const q = filterText.value.trim().toLowerCase()
   const by: Record<string, PermissionRow[]> = {}
   for (const p of catalog.value ?? []) {
+    if (p.resource === 'assistant') continue // shown in the dedicated block above
     if (q && !(p.labelRu.toLowerCase().includes(q) || p.key.toLowerCase().includes(q))) continue
     ;(by[p.category] ??= []).push(p)
   }
@@ -120,7 +131,45 @@ async function save() {
         </div>
 
         <div class="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-          <p v-if="sections.length === 0" class="py-6 text-center text-sm text-surface-500">
+          <!-- §J: dedicated ИИ-ассистент block -->
+          <section
+            v-if="assistantSection.length"
+            class="overflow-hidden rounded-lg border border-brand-200 dark:border-brand-900"
+          >
+            <h3 class="border-b border-brand-200 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-800 dark:border-brand-900 dark:bg-brand-950/40 dark:text-brand-200">
+              ИИ-ассистент
+            </h3>
+            <ul class="divide-y divide-surface-100 dark:divide-surface-800/60">
+              <li
+                v-for="p in assistantSection"
+                :key="p.key"
+                class="flex items-center justify-between gap-3 px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800/40"
+              >
+                <div class="min-w-0" :title="p.key">
+                  <span class="text-sm text-surface-800 dark:text-surface-200">{{ p.labelRu }}</span>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                  <span
+                    class="whitespace-nowrap text-xs"
+                    :class="roleAllows(p.key) ? 'text-success-600 dark:text-success-400' : 'text-surface-400'"
+                    :title="roleAllows(p.key) ? 'Роль разрешает это право' : 'Роль не даёт это право'"
+                  >
+                    по роли: {{ roleAllows(p.key) ? '✓ разрешено' : '✗ нет' }}
+                  </span>
+                  <select
+                    v-model="state[p.key]"
+                    class="rounded-md border border-surface-300 bg-white px-2 py-1 text-xs dark:border-surface-700 dark:bg-surface-900"
+                  >
+                    <option value="">по роли</option>
+                    <option value="allow">разрешить</option>
+                    <option value="deny">запретить</option>
+                  </select>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <p v-if="sections.length === 0 && !assistantSection.length" class="py-6 text-center text-sm text-surface-500">
             Ничего не найдено.
           </p>
           <section

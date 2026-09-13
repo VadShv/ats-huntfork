@@ -268,12 +268,17 @@ export const candidate = pgTable('candidate', {
   manualReviewOnly: boolean('manual_review_only').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  // §J: who added the candidate (manual create). NULL for hh/public imports.
+  // Used by scope 'assigned' — a recruiter sees candidates they added OR who
+  // applied to one of their jobs.
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
 }, (t) => ([
   index('candidate_organization_id_idx').on(t.organizationId),
   index('candidate_gender_idx').on(t.organizationId, t.gender),
   uniqueIndex('candidate_org_email_idx').on(t.organizationId, t.email),
   index('candidate_hh_resume_id_idx').on(t.organizationId, t.hhResumeId),
   index('candidate_merge_status_idx').on(t.organizationId, t.mergeStatus),
+  index('candidate_created_by_idx').on(t.organizationId, t.createdById),
 ]))
 
 /**

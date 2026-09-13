@@ -53,6 +53,8 @@ export default defineEventHandler(async (event) => {
   // ─── 4. Создаём кандидата
   const [created] = await db.insert(candidate).values({
     organizationId: orgId,
+    // §J: record who added the candidate → they see it under scope 'assigned'.
+    createdById: session.user.id,
     firstName: body.firstName,
     lastName: body.lastName,
     displayName: body.displayName ?? null,

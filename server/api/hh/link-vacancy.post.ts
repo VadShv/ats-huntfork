@@ -9,7 +9,47 @@
  */
 import { and, eq } from 'drizzle-orm'
 import { hhVacancyLink, job } from '../../database/schema'
+import { jobMember } from '../../database/schema/hm'
 import { getHhAccountForUser } from '../../utils/hh/tokens'
+
+/**
+ * §J: ensure the linking user is a recruiter on the target job, so incoming
+ * hh.ru responses (scoped by application.jobId ∈ job_member(recruiter)) are
+ * visible to them. Idempotent; does NOT change an existing primary recruiter
+ * (linker becomes an additional recruiter if a primary already exists).
+ */
+async function ensureLinkerIsRecruiter(orgId: string, jobId: string, userId: string): Promise<void> {
+  const [existing] = await db
+    .select({ id: jobMember.id })
+    .from(jobMember)
+    .where(and(
+      eq(jobMember.organizationId, orgId),
+      eq(jobMember.jobId, jobId),
+      eq(jobMember.userId, userId),
+      eq(jobMember.memberRole, 'recruiter'),
+    ))
+    .limit(1)
+  if (existing) return
+  // Primary only if the job has no primary recruiter yet.
+  const [primary] = await db
+    .select({ id: jobMember.id })
+    .from(jobMember)
+    .where(and(
+      eq(jobMember.organizationId, orgId),
+      eq(jobMember.jobId, jobId),
+      eq(jobMember.memberRole, 'recruiter'),
+      eq(jobMember.isPrimary, true),
+    ))
+    .limit(1)
+  await db.insert(jobMember).values({
+    organizationId: orgId,
+    jobId,
+    userId,
+    memberRole: 'recruiter',
+    isPrimary: !primary,
+    addedByUserId: userId,
+  }).onConflictDoNothing({ target: [jobMember.jobId, jobMember.userId, jobMember.memberRole] })
+}
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { organization: ['update'] })
@@ -71,6 +111,7 @@ export default defineEventHandler(async (event) => {
         updatedAt: new Date(),
       })
       .where(eq(hhVacancyLink.id, existing[0]!.id))
+    await ensureLinkerIsRecruiter(orgId, jobId, session.user.id)
     return { id: existing[0]!.id, created: false }
   }
 
@@ -86,6 +127,8 @@ export default defineEventHandler(async (event) => {
       autoSyncEnabled: true,
     })
     .returning({ id: hhVacancyLink.id })
+
+  await ensureLinkerIsRecruiter(orgId, jobId, session.user.id)
 
   return { id: inserted[0]!.id, created: true }
 })
