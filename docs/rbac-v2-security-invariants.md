@@ -69,6 +69,22 @@
 | 3 (rollout #1) | 12.09.2026 | ✅ | AI chatTools наследует member-scope + masking, серверная защита от prompt-injection. Коммит ba0323f. Задеплоено. |
 | 3 (rollout #2–#6) | 12.09.2026 | ✅ | Контакт-эндпоинты (gate contacts+scope), read_resume gate, job-scope на root jobs (private jobs), masking на leak-sites, слабые guard'ы (conversations), модель «общий кандидат + приватные вакансии» (Вариант A), cross-org e2e. См. сверку ниже. |
 
+### Сверка Спринта 7 (коммиты 795d944, 2569421)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A1 orgId из сессии | ✅ | все roles-эндпоинты берут orgId из сессии; кастомные роли org-scoped |
+| B2 сервер — гейт | ✅ | правки прав через сервер (member:update); клиент-матрица косметика |
+| B3 requirePermission не ослаблен | ✅ | все roles CRUD под member:update |
+| C1 единый источник | ✅ | matrix.ts — единый маппинг уровень↔права (UI+сервер) |
+| C4 защита от самоблокировки | ✅ | системные пресеты (owner/admin и все is_system) read-only; кастомизация только клоном; нельзя удалить назначенную роль |
+| C5 инвалидация ≤60c | ✅ | PUT permissions bump-ит версию всех держателей роли |
+| E2 логирование | ✅ (частично) | role_permissions_changed/created/deleted → recordActivity + role_permission_version снапшот (hash-chain — Спринт 6) |
+| F2 миграции | ✅ | миграций нет (таблицы Спринта 1) |
+| G1 тесты | ✅ | 864 passed (+10 matrix) |
+| G2 сборка | ✅ | typecheck 0; build на ВМ |
+| G3 откат | ✅ | version-снапшоты ролей (rollback) + git reset |
+
 ### Сверка final-refinements (порции §3, §2/§9/§6, §4/§5, §7/§8, §1)
 
 | Пункт | Инвариант(ы) | Статус | Подтверждение |
