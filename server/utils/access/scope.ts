@@ -414,15 +414,18 @@ export async function applicationScopeCondition(actor: ActorContext): Promise<SQ
 export async function candidateScopeCondition(actor: ActorContext): Promise<SQL | undefined> {
   const jobIds = await getScopeJobIds(actor)
   if (jobIds === null) return undefined
+  // §H: visible iff I ADDED the candidate (createdById) OR they applied to one
+  // of my jobs. "Added" holds even when the actor sees no jobs.
+  const mineByCreator = sql`${candidate.createdById} = ${actor.userId}`
   if (jobIds.length === 0) {
-    return sql`NOT EXISTS (SELECT 1)` // always false → no candidates
+    return mineByCreator
   }
-  return sql`EXISTS (
+  return sql`(${mineByCreator} OR EXISTS (
     SELECT 1 FROM application a
     WHERE a.candidate_id = ${candidate.id}
       AND a.organization_id = ${actor.orgId}
       AND a.job_id IN ${jobIds}
-  )`
+  ))`
 }
 
 /**
@@ -448,10 +451,27 @@ export async function isJobInScope(actor: ActorContext, jobId: string): Promise<
   return jobIds.includes(jobId)
 }
 
-/** Is a specific candidate visible (has an app on a visible job)? */
+/**
+ * Is a specific candidate visible? §H: yes if the actor ADDED the candidate
+ * (candidate.createdById) OR the candidate has an application on a visible job.
+ */
 export async function isCandidateInScope(actor: ActorContext, candidateId: string): Promise<boolean> {
   const jobIds = await getScopeJobIds(actor)
   if (jobIds === null) return true
+
+  // (a) I added this candidate.
+  const [own] = await db
+    .select({ id: candidate.id })
+    .from(candidate)
+    .where(and(
+      eq(candidate.id, candidateId),
+      eq(candidate.organizationId, actor.orgId),
+      eq(candidate.createdById, actor.userId),
+    ))
+    .limit(1)
+  if (own) return true
+
+  // (b) candidate applied to one of my jobs.
   if (jobIds.length === 0) return false
   const rows = await db
     .select({ id: application.id })
