@@ -9,6 +9,7 @@
  * Ответ: { ok, map: { profileSummary, donors[], hypotheses[], queries[], antiKeywords[] }, meta }
  */
 import { and, eq } from 'drizzle-orm'
+import { requireJobInScope } from '../../utils/access/scope'
 import { z } from 'zod'
 import { job } from '../../database/schema'
 import { loadAiConfig } from '../../utils/ai/loadConfig'
@@ -57,6 +58,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { candidate: ['read'] })
   const orgId = session.session.activeOrganizationId
   const body = await readValidatedBody(event, bodySchema.parse)
+  if (body.jobId) await requireJobInScope(event, body.jobId) // H: sourcing on own job only
 
   let title = body.title ?? ''
   let description = body.description ?? ''

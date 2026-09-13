@@ -18,6 +18,7 @@
  * Отказ поиска не ломает карту — расширение показывает состояние ошибки.
  */
 import { z } from 'zod'
+import { requireJobInScope } from '../../utils/access/scope'
 import { createRateLimiter } from '../../utils/rateLimit'
 import { runSearch } from '../../utils/search/gateway'
 import { cacheKey } from '../../utils/search/normalize'
@@ -45,6 +46,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const body = await readValidatedBody(event, bodySchema.parse)
+  if (body.jobId) await requireJobInScope(event, body.jobId) // H: sourcing on own job only
 
   const req: SearchRequest = {
     query: body.query,

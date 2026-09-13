@@ -19,6 +19,8 @@
 import { and, asc, eq, gte, isNull, lte } from 'drizzle-orm'
 import { z } from 'zod'
 import { candidate, candidateDuplicateCandidate } from '../../database/schema'
+import { getActorContext } from '../../utils/access/actorContext'
+import { candidateScopeCondition } from '../../utils/access/scope'
 import { arbitrateDuplicatePair } from '../../utils/dedup/ai-arbiter'
 
 const bodySchema = z.object({
@@ -50,6 +52,10 @@ export default defineEventHandler(async (event): Promise<BatchArbitrateResponse>
   const minScore = body?.minScore ?? 85
   const maxScore = body?.maxScore ?? 94
 
+  // §H: recruiter (assigned) arbitrates only pairs whose candidate is in scope.
+  const actor = await getActorContext(event)
+  const scopeCond = actor ? await candidateScopeCondition(actor) : undefined
+
   // Выбираем pending pairs где AI ещё не выдал вердикт.
   // Cross-org пары не арбитрируем: фильтруем по candidateA.organizationId,
   // т.к. fuzzy-pipeline кладёт «свою» сторону в A.
@@ -66,6 +72,7 @@ export default defineEventHandler(async (event): Promise<BatchArbitrateResponse>
       gte(candidateDuplicateCandidate.score, minScore),
       lte(candidateDuplicateCandidate.score, maxScore),
       eq(candidate.organizationId, orgId),
+      ...(scopeCond ? [scopeCond] : []),
     ))
     .orderBy(asc(candidateDuplicateCandidate.score))
     .limit(limit)

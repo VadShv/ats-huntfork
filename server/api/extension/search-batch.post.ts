@@ -17,6 +17,7 @@
  * Rate limit: 60 запросов/мин на пользователя (общий с search-run).
  */
 import { z } from 'zod'
+import { requireJobInScope } from '../../utils/access/scope'
 import { createRateLimiter } from '../../utils/rateLimit'
 import { runSearch } from '../../utils/search/gateway'
 import { batchStore, type BatchState } from '../../utils/search/batchStore'
@@ -49,6 +50,7 @@ export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(event, bodySchema.parse)
 
   const { queries, jobId } = body
+  await requireJobInScope(event, jobId) // H: sourcing on own job only
 
   // Синхронный режим: ≤ 5 запросов
   if (queries.length <= 5) {
