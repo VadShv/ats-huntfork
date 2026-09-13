@@ -1,6 +1,8 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { commsConversation, commsMessage } from '../../../../database/schema'
+import { requireConversationInScope, requireConversationWrite } from '../../../../utils/access/scope'
+import { getActorContext } from '../../../../utils/access/actorContext'
 import { sendConversationMessage } from '../../../../utils/comms/commsService'
 
 const paramsSchema = z.object({ id: z.string().min(1), draftId: z.string().min(1) })
@@ -20,6 +22,8 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
   const { id, draftId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireConversationInScope(event, id, orgId) // G2 read-scope
+  await requireConversationWrite(await getActorContext(event), id, orgId) // G2 write
   const body = await readValidatedBody(event, bodySchema.parse)
 
   const conv = await db.query.commsConversation.findFirst({

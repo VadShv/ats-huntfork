@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { application, candidate, commsConversation, job } from '../../../database/schema'
 import { getActorContext } from '../../../utils/access/actorContext'
-import { applicationScopeCondition } from '../../../utils/access/scope'
+import { applicationScopeCondition, requireConversationInScope } from '../../../utils/access/scope'
 import { canReadContacts } from '../../../utils/access/mask'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
   const actor = await getActorContext(event)
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireConversationInScope(event, id, orgId) // G2 read-scope
   const { q } = await getValidatedQuery(event, querySchema.parse)
 
   const conv = await db.query.commsConversation.findFirst({

@@ -1,5 +1,7 @@
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { commsConversation } from '../../database/schema'
+import { getActorContext } from '../../utils/access/actorContext'
+import { getScopeJobIds } from '../../utils/access/scope'
 import { subscribeUnread } from '../../utils/comms/unreadBus'
 
 /**
@@ -13,6 +15,10 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
 
+  // §G2: resolve the actor's visible jobs once (stream reuses it every tick).
+  const actor = await getActorContext(event)
+  const scopeJobIds = actor ? await getScopeJobIds(actor) : null
+
   const res = event.node.res
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
@@ -23,10 +29,16 @@ export default defineEventHandler(async (event) => {
   let closed = false
 
   async function currentUnread(): Promise<number> {
+    let where = eq(commsConversation.organizationId, orgId)
+    if (scopeJobIds !== null) {
+      where = scopeJobIds.length === 0
+        ? and(eq(commsConversation.organizationId, orgId), isNull(commsConversation.jobId))!
+        : and(eq(commsConversation.organizationId, orgId), or(isNull(commsConversation.jobId), inArray(commsConversation.jobId, scopeJobIds)))!
+    }
     const [row] = await db
       .select({ unread: sql<number>`coalesce(sum(${commsConversation.unreadCount}), 0)::int` })
       .from(commsConversation)
-      .where(eq(commsConversation.organizationId, orgId))
+      .where(where)
     return row?.unread ?? 0
   }
 

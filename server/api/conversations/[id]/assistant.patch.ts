@@ -1,4 +1,6 @@
 import { and, eq } from 'drizzle-orm'
+import { requireConversationInScope, requireConversationWrite } from '../../../utils/access/scope'
+import { getActorContext } from '../../../utils/access/actorContext'
 import { z } from 'zod'
 import { commsConversation } from '../../../database/schema'
 
@@ -16,6 +18,8 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireConversationInScope(event, id, orgId) // G2 read-scope
+  await requireConversationWrite(await getActorContext(event), id, orgId) // G2 write: lead-on-job or owner/admin
   const body = await readValidatedBody(event, bodySchema.parse)
 
   const conv = await db.query.commsConversation.findFirst({

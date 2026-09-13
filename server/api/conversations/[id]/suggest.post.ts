@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireConversationInScope } from '../../../utils/access/scope'
 import { z } from 'zod'
 import { commsConversation } from '../../../database/schema'
 import { requireAssistantConfig } from '../../../utils/comms/assistant'
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { assistant: ['suggest'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireConversationInScope(event, id, orgId) // G2 read-scope
 
   const conv = await db.query.commsConversation.findFirst({
     where: and(eq(commsConversation.id, id), eq(commsConversation.organizationId, orgId)),
