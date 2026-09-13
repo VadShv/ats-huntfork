@@ -168,6 +168,20 @@ export async function backfillMemberRbac(): Promise<{ roles: number; scopes: num
     console.error('[Reqcore] §A2 member scope migration failed (non-fatal):', err)
   }
 
+  // ── §E migration: org-preset 'recruiter' → 'member' (idempotent) ──
+  // Collapse the synonym preset. Members on role 'recruiter' become 'member';
+  // the stale role row is retired. (Job-role 'recruiter' in job_member is a
+  // different entity and untouched.)
+  const memberRoleId = roleIdByKey.get('member')
+  if (memberRoleId) {
+    const recruiterRow = systemRoles.find((r) => r.key === 'recruiter')
+    await db.update(member).set({ role: 'member' }).where(eq(member.role, 'recruiter'))
+    if (recruiterRow) {
+      await db.update(memberRole).set({ roleId: memberRoleId }).where(eq(memberRole.roleId, recruiterRow.id)).catch(() => {})
+      await db.update(role).set({ isAssignable: false, isSystem: false, key: 'recruiter_deprecated' }).where(eq(role.id, recruiterRow.id)).catch(() => {})
+    }
+  }
+
   // ── §8 migration: junior_recruiter → external_recruiter (idempotent) ──
   // Rename members' denormalized role, re-point their member_role to the new
   // preset, and retire the stale junior_recruiter role row (keep row for FK

@@ -10,7 +10,7 @@ const paramsSchema = z.object({ id: z.string().min(1) })
  * Чат 2.0: фронт опрашивает этот эндпоинт, пока черновик в статусе generating.
  */
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { assistant: ['suggest'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
 

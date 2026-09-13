@@ -45,6 +45,8 @@ const atsStatements = {
   // §7: narrow "add hiring manager" capability (declared so requirePermission
   // types it). Grants live in role presets (DB), not the static AC.
   hiringManager: ['create'],
+  // §E: AI reply assistant ("суфлёр"). Declared for types; granted in presets.
+  assistant: ['suggest'],
 } as const
 
 // ─── Merged statement (Better Auth defaults + ATS resources) ───────

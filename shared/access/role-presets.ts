@@ -59,9 +59,11 @@ const PII_SALARY = 'candidate:read:salary'
 // behavior where these roles see contacts/salary.
 // §7: narrow "add hiring manager" capability (NOT full member:create).
 const HM_CREATE = 'hiringManager:create'
+// §E: AI reply assistant ("суфлёр") — owner/admin by default; lead via matrix.
+const ASSISTANT = 'assistant:suggest'
 
-const ownerCaps = [...expandRoleCapabilities('owner'), PII_CONTACTS, PII_SALARY, HM_CREATE]
-const adminCaps = [...expandRoleCapabilities('admin'), PII_CONTACTS, PII_SALARY, HM_CREATE]
+const ownerCaps = [...expandRoleCapabilities('owner'), PII_CONTACTS, PII_SALARY, HM_CREATE, ASSISTANT]
+const adminCaps = [...expandRoleCapabilities('admin'), PII_CONTACTS, PII_SALARY, HM_CREATE, ASSISTANT]
 // member (recruiter) can add hiring managers, but NOT create members/admins.
 const memberCaps = [...expandRoleCapabilities('member'), PII_CONTACTS, PII_SALARY, HM_CREATE]
 const hiringManagerCaps = Array.from(expandRoleCapabilities('hiring_manager'))
@@ -69,7 +71,7 @@ const hiringManagerCaps = Array.from(expandRoleCapabilities('hiring_manager'))
 // ── recruiter: same as current member (recruiter) ──
 // The current 'member' role IS the recruiter. We keep 'member' for parity and
 // add 'recruiter' as an explicit synonym preset for the new naming.
-const recruiterCaps = [...memberCaps]
+
 
 // ── external_recruiter (§8, was junior_recruiter): minimal — agencies/contractors.
 // Only assigned jobs; NO AI at all (no scoring/assistant), NO PII by default,
@@ -164,13 +166,9 @@ export const ROLE_PRESETS: RolePreset[] = [
     defaultScope: 'org', isAssignable: true, sortOrder: 30,
     capabilities: memberCaps,
   },
-  {
-    key: 'recruiter',
-    nameRu: 'Рекрутер', nameEn: 'Recruiter',
-    descriptionRu: 'Синоним роли «Рекрутер» в новой номенклатуре (тот же набор прав, что member).',
-    defaultScope: 'assigned', isAssignable: false, sortOrder: 31,
-    capabilities: recruiterCaps,
-  },
+  // §E: org-preset synonym 'recruiter' collapsed into 'member' (see seed
+  // migration). NOTE: the job-role 'recruiter' (job_member.member_role) is a
+  // different entity and is NOT affected.
   {
     key: 'external_recruiter',
     nameRu: 'Внешний рекрутер', nameEn: 'External Recruiter',

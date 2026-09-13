@@ -127,8 +127,14 @@ async function handleDeleteOrg() {
       </p>
     </div>
 
+    <!-- §E: only owner/admin (organization:update) manage the organization -->
+    <AccessDeniedBanner
+      v-if="!canUpdateOrg"
+      message="Настройки организации доступны только владельцу и администратору."
+    />
+
     <!-- Organization profile -->
-    <section class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden">
+    <section v-if="canUpdateOrg" class="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden">
       <div class="px-4 sm:px-6 py-5 border-b border-surface-200 dark:border-surface-800">
         <div class="flex items-center gap-3">
           <div class="flex items-center justify-center size-10 shrink-0 rounded-lg bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400">

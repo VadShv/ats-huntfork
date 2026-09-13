@@ -15,8 +15,9 @@ describe('preset ⇄ static AC parity', () => {
   // modeled. Parity = static ∪ these extras.
   const PII = ['candidate:read:contacts', 'candidate:read:salary']
   const HM = ['hiringManager:create']
+  const ASSIST = ['assistant:suggest'] // §E: owner/admin only
   const extra: Record<string, string[]> = {
-    owner: [...PII, ...HM], admin: [...PII, ...HM], member: [...PII, ...HM], hiring_manager: [],
+    owner: [...PII, ...HM, ...ASSIST], admin: [...PII, ...HM, ...ASSIST], member: [...PII, ...HM], hiring_manager: [],
   }
   for (const key of ['owner', 'admin', 'member', 'hiring_manager']) {
     it(`${key} preset capabilities == static expansion (+extras where applicable)`, () => {
@@ -25,6 +26,14 @@ describe('preset ⇄ static AC parity', () => {
       expect(preset).toEqual(expected)
     })
   }
+
+  it('§E: suffler (assistant:suggest) — owner/admin only by default; member/lead/external NOT', () => {
+    expect(new Set(ROLE_PRESET_BY_KEY.owner.capabilities).has('assistant:suggest')).toBe(true)
+    expect(new Set(ROLE_PRESET_BY_KEY.admin.capabilities).has('assistant:suggest')).toBe(true)
+    expect(new Set(ROLE_PRESET_BY_KEY.member.capabilities).has('assistant:suggest')).toBe(false)
+    expect(new Set(ROLE_PRESET_BY_KEY.lead_recruiter.capabilities).has('assistant:suggest')).toBe(false)
+    expect(new Set(ROLE_PRESET_BY_KEY.external_recruiter.capabilities).has('assistant:suggest')).toBe(false)
+  })
 
   it('§7: owner/admin/member/lead can add hiring managers; external cannot', () => {
     for (const k of ['owner', 'admin', 'member', 'lead_recruiter']) {

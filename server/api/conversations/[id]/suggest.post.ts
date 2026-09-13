@@ -15,7 +15,7 @@ const paramsSchema = z.object({ id: z.string().min(1) })
  * генерации идемпотентен — вернётся тот же черновик.
  */
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  const session = await requirePermission(event, { assistant: ['suggest'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
 

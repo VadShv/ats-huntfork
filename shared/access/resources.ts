@@ -86,6 +86,15 @@ export const RESOURCES = {
     scopeStrategy: 'orgOnly',
     category: 'members',
   },
+  // §E: AI reply assistant ("суфлёр") — advanced lead feature, OFF by default.
+  // Granted to owner/admin in presets; enabled for lead explicitly via the matrix.
+  assistant: {
+    table: 'comms_conversation',
+    actions: ['suggest'],
+    scopeStrategy: 'orgOnly',
+    sensitive: true,
+    category: 'ai',
+  },
   job: {
     table: 'job',
     actions: ['create', 'read', 'update', 'delete'],

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Save, RotateCcw, AlertTriangle, ShieldCheck, Lock } from 'lucide-vue-next'
+import { Save, RotateCcw, AlertTriangle, ShieldCheck, Lock, Info } from 'lucide-vue-next'
 import {
   buildMatrixRows, keysForLevel, levelFromGrants, isExactLevel,
   MATRIX_LEVELS, type MatrixLevel, type ResourceRow,
@@ -139,6 +139,16 @@ function reset() {
     <div v-if="!editable" class="mb-4 flex items-center gap-2 rounded-lg border border-surface-200 bg-surface-50 px-4 py-3 text-sm text-surface-600 dark:border-surface-800 dark:bg-surface-800/50 dark:text-surface-300">
       <Lock class="size-4 shrink-0" />
       Системная роль — только просмотр. Чтобы настроить права, склонируйте её в свою роль.
+    </div>
+
+    <!-- §E: scope hint — «что можно» (права) vs «где видно» (scope) -->
+    <div class="mb-4 flex items-start gap-2 rounded-lg border border-info-200 bg-info-50 px-4 py-3 text-sm text-info-700 dark:border-info-900 dark:bg-info-950/40 dark:text-info-300">
+      <Info class="mt-0.5 size-4 shrink-0" />
+      <span>
+        Здесь настраивается <strong>что можно</strong> (права роли). <strong>Где видно</strong>
+        (вся организация / юрлицо / отдел) — это <em>scope</em>, он настраивается у каждого
+        участника во вкладке <strong>«Доступы»</strong>.
+      </span>
     </div>
 
     <div class="grid gap-4 lg:grid-cols-[1fr_18rem]">

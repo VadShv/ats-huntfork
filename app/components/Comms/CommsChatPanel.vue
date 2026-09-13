@@ -18,6 +18,9 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+// §E: суфлёр (assistant:suggest) — продвинутая функция, по умолчанию только
+// owner/admin; для lead включается явно в матрице. member/external — нет.
+const { allowed: canSuffle } = usePermission({ assistant: ['suggest'] })
 const { track } = useTrack()
 
 interface ChatMessage {
@@ -713,7 +716,9 @@ onBeforeUnmount(() => {
             class="flex-1 resize-none rounded-xl border border-surface-200/80 dark:border-surface-700/60 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-800 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             @keydown.enter.exact.prevent="sendChatMessage()"
           />
+          <!-- §E: суфлёр — только с правом assistant:suggest (lead/owner/admin) -->
           <UiButton
+            v-if="canSuffle"
             variant="secondary"
             icon-only
             :icon-left="Sparkles"
