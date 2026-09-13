@@ -7,6 +7,7 @@
  */
 import { Filter as FilterIcon } from 'lucide-vue-next'
 import { useAnalyticsFilters } from '~/composables/useAnalyticsFilters'
+import { usePermission } from '~/composables/usePermission'
 
 withDefaults(defineProps<{
   showJob?: boolean
@@ -16,7 +17,15 @@ withDefaults(defineProps<{
   showSource: false,
 })
 
-const { jobId, source } = useAnalyticsFilters()
+const { jobId, source, analyticsScope } = useAnalyticsFilters()
+
+// §C4: тумблер «Мои / Все» аналитики. Для member/lead «Все» = вся компания;
+// для HRBP «Все» = его юрлица (не вся org — сервер режет по scope). external
+// сюда не попадает (нет sourceTracking:read). Показываем широким ролям.
+const { role: orgRole } = usePermission({ application: ['read'] })
+const WIDE_ANALYTICS_ROLES = new Set(['owner', 'admin', 'member', 'lead_recruiter', 'hrbp'])
+const showScopeToggle = computed(() => WIDE_ANALYTICS_ROLES.has(orgRole.value ?? ''))
+const allLabel = computed(() => (orgRole.value === 'hrbp' ? 'Все' : 'Вся компания'))
 
 const { data: jobsData } = useFetch('/api/jobs', {
   key: 'analytics-filterbar-jobs',
@@ -38,6 +47,15 @@ const sourceOptions = [
       <FilterIcon class="w-4 h-4 text-surface-400 shrink-0" />
 
       <AnalyticsDateRangePicker />
+
+      <!-- §C4: «Мои / Все(Вся компания)» — сервер режет по scope роли -->
+      <UiSegmented
+        v-if="showScopeToggle"
+        v-model="analyticsScope"
+        :options="[{ value: 'mine', label: 'Мои' }, { value: 'all', label: allLabel }]"
+        size="sm"
+        aria-label="Аналитика: мои или все"
+      />
 
       <slot name="extra" />
 

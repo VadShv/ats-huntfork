@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
   const jobId = getRouterParam(event, 'id')!
 
-  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
   if (scope.scoped && !scope.jobIds.includes(jobId)) {
     throw createError({ statusCode: 403, statusMessage: 'Вакансия не в вашем скоупе' })
   }

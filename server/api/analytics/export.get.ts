@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   const report = getQuery(event).report as string ?? 'jobs'
   const q = await getValidatedQuery(event, analyticsQuerySchema.parse)
   const period = resolvePeriod(q)
-  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
 
   if (report === 'jobs') {
     const jobConds: any[] = [eq(job.organizationId, orgId)]

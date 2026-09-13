@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const { from, to } = resolvePeriod(q)
   const offset = (q.page - 1) * q.limit
 
-  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
   const scopeCond = scope.jobIdCondition('v')
   const conds = mvFilterConditions('v', orgId, q)
   if (scopeCond) conds.push(scopeCond)

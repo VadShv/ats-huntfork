@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   const period = resolvePeriod(q)
   const groupBy = q.groupBy ?? 'week'
 
-  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
 
   // Когорта: отклики, созданные в периоде + фильтры + scope. Бакет — по created_at.
   const cohortConds = [

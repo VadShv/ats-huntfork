@@ -24,6 +24,8 @@ export const analyticsQuerySchema = z.object({
   /** Гранулярность трендов (временных рядов). */
   groupBy: z.enum(['day', 'week', 'month']).optional(),
   compare: z.enum(['prev']).optional(),
+  /** §C4: 'mine' (личные вакансии) | 'all' (весь scope роли). Тумблер аналитики. */
+  scope: z.enum(['mine', 'all']).optional(),
 })
 
 export type AnalyticsQuery = z.infer<typeof analyticsQuerySchema>

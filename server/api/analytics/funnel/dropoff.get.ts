@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   const offset = (q.page - 1) * q.limit
 
   // Scope: member видит только свои вакансии.
-  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
 
   // Когортная семантика (согласовано с funnel.get.ts rejectedFromStage[X]):
   // отклики когорты (created_at ∈ период), достигшие root-этапа stageId

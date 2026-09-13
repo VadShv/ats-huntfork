@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   const period = resolvePeriod(q)
   const sort = getQuery(event).sort as string ?? 'daysOpen'
 
-  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
 
   // Базовые условия выборки вакансий
   const jobConds: any[] = [eq(job.organizationId, orgId)]

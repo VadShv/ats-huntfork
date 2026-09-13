@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   const period = resolvePeriod(q)
 
   // Скоуп: member видит только свои вакансии.
-  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
   const scopeCond = scope.jobIdCondition('v')
 
   // ── Целевая воронка ────────────────────────────────────────────────────────

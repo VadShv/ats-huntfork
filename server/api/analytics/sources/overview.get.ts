@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const q = await getValidatedQuery(event, analyticsQuerySchema.parse)
   const { from, to } = resolvePeriod(q)
 
-  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
   const scopedJobIds = scope.scoped ? scope.jobIds : null
 
   // Базовые условия (период + scope + опц. jobId)

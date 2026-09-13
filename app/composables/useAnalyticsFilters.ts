@@ -14,6 +14,9 @@ export function useAnalyticsFilters() {
   const source = useState<string | undefined>('analytics-source', () => undefined)
   const recruiterId = useState<string | undefined>('analytics-recruiter', () => undefined)
   const departmentId = useState<string | undefined>('analytics-department', () => undefined)
+  // §C4: 'mine' (личные вакансии) | 'all' (весь scope роли). Дефолт «all» —
+  // для member/lead это вся компания, для HRBP — все его юрлица (не вся org).
+  const analyticsScope = useState<'mine' | 'all'>('analytics-scope', () => 'all')
   const groupBy = useState<'day' | 'week' | 'month'>('analytics-groupby', () => 'week')
   const compare = useState<boolean>('analytics-compare', () => true)
 
@@ -77,6 +80,7 @@ export function useAnalyticsFilters() {
     if (departmentId.value) q.departmentId = departmentId.value
     if (groupBy.value) q.groupBy = groupBy.value
     if (compare.value) q.compare = 'prev'
+    if (analyticsScope.value === 'mine') q.scope = 'mine'
     return q
   })
 
@@ -107,5 +111,5 @@ export function useAnalyticsFilters() {
     departmentId.value = f.departmentId || undefined
   }
 
-  return { periodPreset, customFrom, customTo, jobId, source, recruiterId, departmentId, groupBy, compare, from, to, query, serialize, applyPreset }
+  return { periodPreset, customFrom, customTo, jobId, source, recruiterId, departmentId, analyticsScope, groupBy, compare, from, to, query, serialize, applyPreset }
 }

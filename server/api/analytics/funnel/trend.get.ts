@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
 
   const workingRoots = roots.filter(r => r.bucket === 'working' && !r.isHidden)
 
-  const scope = await resolveAnalyticsScope(orgId, session.user.id)
+  const scope = await resolveAnalyticsScope(orgId, session.user.id, q.scope)
 
   const { from, to } = period
 
