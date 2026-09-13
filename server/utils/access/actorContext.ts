@@ -26,6 +26,7 @@ import {
   type Capability,
   type ScopeType,
 } from '../../../shared/access/capabilities'
+import { defaultScopeForRoleKey } from '../../../shared/access/role-presets'
 import {
   resolveMemberCapabilities,
   resolveMemberOverrides,
@@ -60,25 +61,9 @@ export interface ActorContext {
   mustChangePassword: boolean
 }
 
-/** Дефолтный scope-тип по роли (временный маппинг Sprint 0.5). */
+/** §K: единый источник истины — role-presets. Локальный switch удалён. */
 function defaultScopeTypeForRole(roleKey: string): ScopeType {
-  switch (roleKey) {
-    case 'owner':
-    case 'admin':
-      return 'org'
-    case 'hiring_manager':
-      return 'jobs'
-    case 'hrbp':
-      return 'hrbp'
-    case 'lead_recruiter':
-      return 'org'
-    case 'external_recruiter':
-      return 'assigned'
-    case 'member':
-    default:
-      // §H: member default scope = assigned (only own jobs). Trusted → lead (org).
-      return 'assigned'
-  }
+  return defaultScopeForRoleKey(roleKey)
 }
 
 /**

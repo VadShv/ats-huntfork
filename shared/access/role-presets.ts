@@ -199,3 +199,9 @@ export const ROLE_PRESETS: RolePreset[] = [
 export const ROLE_PRESET_BY_KEY: Record<string, RolePreset> = Object.fromEntries(
   ROLE_PRESETS.map((p) => [p.key, p]),
 )
+
+// ── ЕДИНЫЙ источник истины scope-дефолта по роли (Спринт K, инвариант C1) ──
+// Неизвестная роль → 'assigned' (deny-safe: уже, не шире; никогда не 'org').
+export function defaultScopeForRoleKey(roleKey: string): ScopeType {
+  return ROLE_PRESET_BY_KEY[roleKey]?.defaultScope ?? 'assigned'
+}

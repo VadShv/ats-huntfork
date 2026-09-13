@@ -26,6 +26,7 @@ import { jobMember } from '../../database/schema/hm'
 import { application, candidate, document, hhSavedSearch, hhSourcingCandidate, trackingLink, interview, commsConversation } from '../../database/schema/app'
 import { orgScopeAssignment, memberScope } from '../../database/schema/rbac'
 import { member } from '../../database/schema/auth'
+import { defaultScopeForRoleKey } from '../../../shared/access/role-presets'
 
 // Roles counted as "assigned to a job" for scope 'assigned'.
 const ASSIGNED_JOB_ROLES = ['recruiter', 'hiring_manager'] as const
@@ -196,23 +197,9 @@ export async function resolveUserScopeJobIds(orgId: string, userId: string): Pro
   })
 }
 
-/** Default scope type by role key (mirror of actorContext.defaultScopeTypeForRole). */
+/** §K: single source of truth — delegates to role-presets. Локальный switch удалён. */
 function defaultScopeForRole(roleKey: string): ScopeType {
-  switch (roleKey) {
-    case 'owner':
-    case 'admin':
-    case 'lead_recruiter':
-      return 'org'
-    case 'hiring_manager':
-      return 'jobs'
-    case 'hrbp':
-      return 'hrbp'
-    case 'external_recruiter':
-      return 'assigned'
-    case 'member':
-    default:
-      return 'org' // §A2: member default → org (sees all; narrow via override)
-  }
+  return defaultScopeForRoleKey(roleKey)
 }
 
 /** True when the actor is unrestricted (no scope filtering needed). */
