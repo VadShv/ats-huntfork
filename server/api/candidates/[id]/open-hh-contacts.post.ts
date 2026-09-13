@@ -34,6 +34,7 @@ import {
 } from '../../../../shared/hh-placeholders'
 import { getActorContext } from '../../../utils/access/actorContext'
 import { isCandidateInScope } from '../../../utils/access/scope'
+import { recordActivity } from '../../../utils/recordActivity'
 import { canReadContacts } from '../../../utils/access/mask'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
@@ -361,6 +362,17 @@ export default defineEventHandler(async (event) => {
   // Sprint 11: обновляем full-text индекс поиска (приехало новое hh_resume_raw + реальное имя).
   refreshCandidateSearchTsv({ orgId, candidateId: id }).catch((err) => {
     console.error('[open-hh-contacts] search_tsv refresh failed:', err)
+  })
+
+  // §7.4: log PII access (contacts revealed — paid quota spent).
+  recordActivity({
+    organizationId: orgId,
+    actorId: session.user.id,
+    action: 'contacts_viewed',
+    resourceType: 'candidate',
+    resourceId: id,
+    riskLevel: 2,
+    fieldSet: 'contacts',
   })
 
   return {

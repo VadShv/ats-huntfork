@@ -46,10 +46,11 @@ export default defineEventHandler(async (event) => {
   recordActivity({
     organizationId: orgId,
     actorId: session.user.id,
-    action: 'updated',
+    action: 'view_as_started',
     resourceType: 'member',
     resourceId: memberId,
-    metadata: { event: 'view_as_started', targetName: target.name, targetRole: target.role },
+    riskLevel: 1,
+    metadata: { targetName: target.name, targetRole: target.role },
   })
 
   return { ok: true, memberId, targetName: target.name }

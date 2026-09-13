@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { and, eq, isNull, or } from 'drizzle-orm'
 import { role, rolePermission, rolePermissionVersion } from '../../../database/schema/rbac'
+import { recordActivity } from '../../../utils/recordActivity'
 
 const bodySchema = z.object({
   name: z.string().min(1).max(100),
@@ -58,6 +59,16 @@ export default defineEventHandler(async (event) => {
     snapshot: sourcePerms,
     changedBy: session.user.id,
     changeNote: body.cloneFromKey ? `Клонирована из ${body.cloneFromKey}` : 'Создана',
+  })
+
+  recordActivity({
+    organizationId: orgId,
+    actorId: session.user.id,
+    action: 'role_created',
+    resourceType: 'role',
+    resourceId: created.id,
+    riskLevel: 1,
+    metadata: { name: body.name, cloneFrom: body.cloneFromKey ?? null },
   })
 
   return { id: created.id, name: body.name }

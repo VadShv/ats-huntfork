@@ -54,10 +54,11 @@ export default defineEventHandler(async (event) => {
   recordActivity({
     organizationId: orgId,
     actorId: session.user.id,
-    action: 'updated',
+    action: 'role_updated',
     resourceType: 'role',
     resourceId: roleId,
-    metadata: { event: 'role_permissions_changed', name: r.name, count: desired.length, affected: holders.length },
+    riskLevel: 1,
+    metadata: { name: r.name, count: desired.length, affected: holders.length },
   })
 
   return { ok: true, roleId, count: desired.length, affected: holders.length }

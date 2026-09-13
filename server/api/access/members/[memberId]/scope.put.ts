@@ -60,10 +60,11 @@ export default defineEventHandler(async (event) => {
   recordActivity({
     organizationId: orgId,
     actorId: session.user.id,
-    action: 'updated',
+    action: 'member_scope_changed',
     resourceType: 'member',
     resourceId: memberId,
-    metadata: { field: 'scope', scopeType: body.scopeType },
+    riskLevel: 1,
+    after: { scopeType: body.scopeType, departmentIds: body.departmentIds, jobIds: body.jobIds },
   })
 
   return { ok: true, memberId, scopeType: body.scopeType }

@@ -33,9 +33,10 @@ export default defineEventHandler(async (event) => {
   recordActivity({
     organizationId: orgId,
     actorId: session.user.id,
-    action: 'deleted',
+    action: 'role_deleted',
     resourceType: 'role',
     resourceId: roleId,
+    riskLevel: 1,
     metadata: { name: r.name },
   })
 

@@ -4,6 +4,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { document } from '../../../database/schema'
 import { getActorContext } from '../../../utils/access/actorContext'
 import { isCandidateInScope } from '../../../utils/access/scope'
+import { recordActivity } from '../../../utils/recordActivity'
 
 /**
  * GET /api/documents/:id/download
@@ -49,6 +50,16 @@ export default defineEventHandler(async (event) => {
   if (actor && !(await isCandidateInScope(actor, doc.candidateId))) {
     throw createError({ statusCode: 404, statusMessage: 'Документ не найден' })
   }
+
+  // §7.4: log resume/document download (PII access).
+  recordActivity({
+    organizationId: orgId,
+    actorId: actor?.userId ?? null,
+    action: 'resume_downloaded',
+    resourceType: 'document',
+    resourceId: documentId,
+    riskLevel: 1,
+  })
 
   // Fetch the object from S3
   const s3Response = await s3Client.send(

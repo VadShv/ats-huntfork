@@ -3,6 +3,7 @@ import {
   text,
   timestamp,
   integer,
+  smallint,
   boolean,
   jsonb,
   pgEnum,
@@ -877,6 +878,11 @@ export const activityActionEnum = pgEnum('activity_action', [
   'scored', 'stage_changed',
   // Спринт 20.3: решения НМ по кандидату
   'hm_approved', 'hm_rejected', 'hm_cancelled',
+  // RBAC v2 audit v2 (Sprint 6) — security-relevant actions
+  'role_created', 'role_updated', 'role_deleted',
+  'member_scope_changed', 'member_override_set', 'member_suspended', 'member_revoked',
+  'contacts_viewed', 'resume_downloaded', 'list_exported', 'bulk_action',
+  'view_as_started', 'permission_denied', 'login', 'logout',
 ])
 
 // ─────────────────────────────────────────────
@@ -905,11 +911,26 @@ export const activityLog = pgTable('activity_log', {
   resourceId: text('resource_id').notNull(),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  // ── RBAC v2 audit v2 (Sprint 6) ──
+  actorEmail: text('actor_email'),
+  before: jsonb('before').$type<Record<string, unknown>>(),
+  after: jsonb('after').$type<Record<string, unknown>>(),
+  ip: text('ip'),
+  userAgent: text('user_agent'),
+  /** 'allow' | 'deny' — for access decisions */
+  decision: text('decision'),
+  policyReason: text('policy_reason'),
+  riskLevel: smallint('risk_level').notNull().default(0),
+  fieldSet: text('field_set'),
+  /** Hash-chain (per-org): entry_hash = sha256(prev_hash || canonical_json) */
+  prevHash: text('prev_hash'),
+  entryHash: text('entry_hash'),
 }, (t) => ([
   index('activity_log_organization_id_idx').on(t.organizationId),
   index('activity_log_actor_id_idx').on(t.actorId),
   index('activity_log_resource_idx').on(t.resourceType, t.resourceId),
   index('activity_log_created_at_idx').on(t.createdAt),
+  index('activity_log_risk_idx').on(t.riskLevel),
 ]))
 
 // ─────────────────────────────────────────────

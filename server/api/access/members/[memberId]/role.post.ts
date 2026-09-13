@@ -73,10 +73,12 @@ export default defineEventHandler(async (event) => {
   recordActivity({
     organizationId: orgId,
     actorId: session.user.id,
-    action: 'updated',
+    action: 'member_role_changed',
     resourceType: 'member',
     resourceId: memberId,
-    metadata: { field: 'role', from: target.role, to: roleKey },
+    riskLevel: 1,
+    before: { role: target.role },
+    after: { role: roleKey },
   })
 
   return { ok: true, memberId, roleKey }

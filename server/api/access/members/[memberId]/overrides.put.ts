@@ -65,10 +65,11 @@ export default defineEventHandler(async (event) => {
   recordActivity({
     organizationId: orgId,
     actorId: session.user.id,
-    action: 'updated',
+    action: 'member_override_set',
     resourceType: 'member',
     resourceId: memberId,
-    metadata: { field: 'overrides', count: body.overrides.length },
+    riskLevel: 1,
+    after: { overrides: body.overrides },
   })
 
   return { ok: true, memberId, count: body.overrides.length }
