@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Globe, GitBranch, Bot, Landmark, Network, Sparkles,
+  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Shield, Globe, GitBranch, Bot, Landmark, Network, Sparkles,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -30,9 +30,16 @@ const settingsNav = [
   },
   {
     label: 'Доступы',
-    description: 'Роли, scope, права',
+    description: 'Участники, scope, права',
     to: '/dashboard/settings/access',
     icon: ShieldCheck,
+    exact: true,
+  },
+  {
+    label: 'Роли',
+    description: 'Матрица прав ролей',
+    to: '/dashboard/settings/access-roles',
+    icon: Shield,
     exact: true,
   },
   {
