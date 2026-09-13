@@ -1,6 +1,7 @@
 import { and, eq, desc } from 'drizzle-orm'
 import { candidate, candidateResumeVersion, resumeRisk } from '../../../database/schema'
 import { candidateIdParamSchema } from '../../../utils/schemas/risk'
+import { requireCandidateInScope } from '../../../utils/access/scope'
 
 /**
  * GET /api/candidates/:id/risk-profile
@@ -14,6 +15,9 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // Phase 2 B: out-of-scope candidate -> 404
+  await requireCandidateInScope(event, id)
 
   const candidateRow = await db.query.candidate.findFirst({
     where: and(eq(candidate.id, id), eq(candidate.organizationId, orgId)),

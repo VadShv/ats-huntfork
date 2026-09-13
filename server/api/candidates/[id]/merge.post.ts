@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { requireCandidateInScope } from '../../../utils/access/scope'
 import { mergeCandidates } from '../../../utils/dedup/merge'
 
 const bodySchema = z.object({
@@ -17,6 +18,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { candidate: ['update'] })
   const primaryId = getRouterParam(event, 'id')
   if (!primaryId) throw createError({ statusCode: 400, statusMessage: 'id обязателен' })
+  await requireCandidateInScope(event, primaryId) // §B: out-of-scope target → 404
 
   const body = await readValidatedBody(event, bodySchema.parse)
   if (primaryId === body.mergedCandidateId) {

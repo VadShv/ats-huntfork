@@ -1,6 +1,7 @@
 import { and, eq, desc } from 'drizzle-orm'
 import { candidate, candidateResumeVersion } from '../../../database/schema'
 import { candidateIdParamSchema, triggerRiskSchema } from '../../../utils/schemas/risk'
+import { requireCandidateInScope } from '../../../utils/access/scope'
 import { enqueueResumeRisk } from '../../../utils/risk/worker'
 import { createRateLimiter } from '../../../utils/rateLimit'
 
@@ -22,6 +23,9 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // Phase 2 B: out-of-scope candidate -> 404
+  await requireCandidateInScope(event, id)
   const body = await readValidatedBody(event, triggerRiskSchema.parse)
 
   const candidateRow = await db.query.candidate.findFirst({

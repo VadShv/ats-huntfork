@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { requireCandidateInScope } from '../../../utils/access/scope'
 import { and, eq } from 'drizzle-orm'
 import { candidate } from '../../../database/schema'
 
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const id = getRouterParam(event, 'id')
+  if (id) await requireCandidateInScope(event, id) // §B: out-of-scope → 404
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: 'id обязателен' })
   }

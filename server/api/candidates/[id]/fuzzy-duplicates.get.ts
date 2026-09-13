@@ -2,6 +2,7 @@ import { and, desc, eq, or } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { candidate, candidateDuplicateCandidate } from '../../../database/schema'
 import { candidateIdParamSchema } from '../../../utils/schemas/candidate'
+import { requireCandidateInScope } from '../../../utils/access/scope'
 
 /**
  * GET /api/candidates/:id/fuzzy-duplicates
@@ -13,6 +14,9 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { candidate: ['read'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // Phase 2 B: out-of-scope candidate -> 404
+  await requireCandidateInScope(event, id)
 
   // Проверяем, что кандидат принадлежит активной организации
   const me = await db.query.candidate.findFirst({

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { candidate } from '../../../database/schema'
 import { candidateIdParamSchema } from '../../../utils/schemas/candidate'
+import { requireCandidateInScope } from '../../../utils/access/scope'
 import { setFraudFlagManually } from '../../../utils/fraud/detect'
 
 const bodySchema = z.object({
@@ -25,6 +26,9 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
   const userId = session.user.id
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // Phase 2 B: out-of-scope candidate -> 404
+  await requireCandidateInScope(event, id)
   const body = await readValidatedBody(event, bodySchema.parse)
 
   // Проверка принадлежности

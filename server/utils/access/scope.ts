@@ -20,7 +20,7 @@
  */
 
 import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
-import type { ActorContext } from './actorContext'
+import { getActorContext, type ActorContext } from './actorContext'
 import { job } from '../../database/schema/app'
 import { jobMember } from '../../database/schema/hm'
 import { application, candidate, document } from '../../database/schema/app'
@@ -218,6 +218,29 @@ function defaultScopeForRole(roleKey: string): ScopeType {
 /** True when the actor is unrestricted (no scope filtering needed). */
 export function isUnrestricted(jobIds: ScopeJobIds): jobIds is null {
   return jobIds === null
+}
+
+/**
+ * Guard: the candidate must be within the actor's scope, else 404 (do not
+ * confirm existence). Loads the actor from the event. No-op for unrestricted
+ * actors. Reusable one-liner for candidates/[id]/* endpoints (Phase 2 §B).
+ */
+export async function requireCandidateInScope(event: import('h3').H3Event, candidateId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (actor && !(await isCandidateInScope(actor, candidateId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
+  }
+}
+
+/**
+ * Guard: the job must be within the actor's scope, else 404. Reusable for
+ * applications/[id]/* and jobs/[id]/* endpoints (Phase 2 §C).
+ */
+export async function requireJobInScope(event: import('h3').H3Event, jobId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (actor && !(await isJobInScope(actor, jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
+  }
 }
 
 /**

@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireCandidateInScope } from '../../../../../utils/access/scope'
 import { z } from 'zod'
 import { candidate } from '../../../../../database/schema'
 import { parseHhResume } from '../../../../../utils/hh/resume-render'
@@ -35,6 +36,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id, docId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireCandidateInScope(event, id) // §B: out-of-scope → 404
 
   // Флаг «Переструктурировать через ИИ»: пропустить rule-based/гибрид, сразу сильный LLM.
   // Рекрутер жмёт его в карточке, если авто-структура вышла кривой (сложный макет).

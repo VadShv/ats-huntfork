@@ -1,4 +1,5 @@
 import { eq, and } from 'drizzle-orm'
+import { requireCandidateInScope } from '../../../../utils/access/scope'
 import { z } from 'zod'
 import { candidate, document } from '../../../../database/schema'
 import {
@@ -39,6 +40,7 @@ export default defineEventHandler(async (event) => {
   // ─────────────────────────────────────────────
 
   const { id: candidateId } = await getValidatedRouterParams(event, z.object({ id: z.string().uuid() }).parse)
+  await requireCandidateInScope(event, candidateId) // §B: out-of-scope → 404
 
   const existingCandidate = await db.query.candidate.findFirst({
     where: and(

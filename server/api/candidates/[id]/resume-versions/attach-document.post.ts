@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { candidate, document } from '../../../../database/schema'
 import { structureDocumentIntoVersion } from '../../../../utils/resume-version/structure-from-document'
+import { requireCandidateInScope } from '../../../../utils/access/scope'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 const bodySchema = z.object({ documentId: z.string().uuid() })
@@ -22,6 +23,10 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
+
+  // §B: out-of-scope candidate → 404.
+  await requireCandidateInScope(event, id)
+
   const { documentId } = await readValidatedBody(event, bodySchema.parse)
 
   // Целевой кандидат принадлежит org.

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { candidate } from '../../../database/schema'
 import { candidateIdParamSchema } from '../../../utils/schemas/candidate'
+import { requireCandidateInScope } from '../../../utils/access/scope'
 import { loadAiConfig } from '../../../utils/ai/loadConfig'
 import { generateStructuredOutput } from '../../../utils/ai/provider'
 import { parseHhResume } from '../../../utils/hh/resume-render'
@@ -30,6 +31,9 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // Phase 2 B: out-of-scope candidate -> 404
+  await requireCandidateInScope(event, id)
 
   const row = await db.query.candidate.findFirst({
     where: and(eq(candidate.id, id), eq(candidate.organizationId, orgId)),

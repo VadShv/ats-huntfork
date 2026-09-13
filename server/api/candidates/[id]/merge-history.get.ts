@@ -1,4 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm'
+import { requireCandidateInScope } from '../../../utils/access/scope'
 import { candidateMergeLog, user } from '../../../database/schema'
 
 /**
@@ -14,6 +15,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
   const candidateId = getRouterParam(event, 'id')
   if (!candidateId) throw createError({ statusCode: 400, statusMessage: 'Не указан ID кандидата' })
+  await requireCandidateInScope(event, candidateId) // §B: out-of-scope → 404
 
   const rows = await db
     .select({

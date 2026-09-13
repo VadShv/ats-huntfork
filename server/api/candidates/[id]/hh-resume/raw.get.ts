@@ -1,6 +1,10 @@
 import { and, eq } from 'drizzle-orm'
 import { candidate } from '../../../../database/schema'
 import { candidateIdParamSchema } from '../../../../utils/schemas/candidate'
+import { getActorContext } from '../../../../utils/access/actorContext'
+import { requireCandidateInScope } from '../../../../utils/access/scope'
+import { canReadContacts } from '../../../../utils/access/mask'
+import { recordActivity } from '../../../../utils/recordActivity'
 
 /**
  * GET /api/candidates/:id/hh-resume/raw
@@ -17,6 +21,12 @@ export default defineEventHandler(async (event) => {
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
 
+  // §B: scope guard + contacts gate (raw resume = full PII download).
+  await requireCandidateInScope(event, id)
+  if (!canReadContacts(await getActorContext(event))) {
+    throw createError({ statusCode: 403, statusMessage: 'Нет доступа: резюме содержит контакты' })
+  }
+
   const row = await db.query.candidate.findFirst({
     where: and(eq(candidate.id, id), eq(candidate.organizationId, orgId)),
     columns: { firstName: true, lastName: true, hhResumeId: true, hhResumeRaw: true },
@@ -24,6 +34,17 @@ export default defineEventHandler(async (event) => {
 
   if (!row) throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
   if (!row.hhResumeRaw) throw createError({ statusCode: 404, statusMessage: 'Нет снимка резюме из hh.ru' })
+
+  // §7.4: raw resume download is a PII export → audit.
+  recordActivity({
+    organizationId: orgId,
+    actorId: session.user.id,
+    action: 'resume_downloaded',
+    resourceType: 'candidate',
+    resourceId: id,
+    riskLevel: 1,
+    fieldSet: 'contacts',
+  })
 
   const safeName = `${row.lastName}-${row.firstName}-hh-${row.hhResumeId ?? 'resume'}`
     .replace(/[^a-zA-Zа-яА-Я0-9_\-]+/gu, '_')

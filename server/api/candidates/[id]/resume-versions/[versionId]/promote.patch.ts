@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireCandidateInScope } from '../../../../../utils/access/scope'
 import { z } from 'zod'
 import { candidate, candidateResumeVersion } from '../../../../../database/schema'
 import { refreshCandidateSearchTsv } from '../../../../../utils/candidateSearchText'
@@ -25,6 +26,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id, versionId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireCandidateInScope(event, id) // Phase 2 B: out-of-scope -> 404
 
   // Кандидат принадлежит org.
   const cand = await db.query.candidate.findFirst({

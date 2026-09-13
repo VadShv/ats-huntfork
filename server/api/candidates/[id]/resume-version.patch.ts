@@ -3,6 +3,7 @@ import { candidate, candidateResumeVersion } from '../../../database/schema'
 import { candidateIdParamSchema, editResumeVersionSchema } from '../../../utils/schemas/resumeVersionEdit'
 import { appendResumeVersionIfChanged } from '../../../utils/resume-version/append'
 import { refreshCandidateSearchTsv } from '../../../utils/candidateSearchText'
+import { requireCandidateInScope } from '../../../utils/access/scope'
 
 /**
  * PATCH /api/candidates/:id/resume-version
@@ -16,6 +17,10 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id: candidateId } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // §B: out-of-scope candidate → 404.
+  await requireCandidateInScope(event, candidateId)
+
   const body = await readValidatedBody(event, editResumeVersionSchema.parse)
 
   // Verify candidate ∈ org.

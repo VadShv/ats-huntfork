@@ -2,6 +2,9 @@ import { and, eq } from 'drizzle-orm'
 import { candidate } from '../../../database/schema'
 import { candidateIdParamSchema } from '../../../utils/schemas/candidate'
 import { parseHhResume } from '../../../utils/hh/resume-render'
+import { getActorContext } from '../../../utils/access/actorContext'
+import { requireCandidateInScope } from '../../../utils/access/scope'
+import { canReadContacts } from '../../../utils/access/mask'
 
 /**
  * GET /api/candidates/:id/hh-resume
@@ -14,6 +17,12 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // §B: scope guard (out-of-scope → 404) + contacts gate (resume contains PII).
+  await requireCandidateInScope(event, id)
+  if (!canReadContacts(await getActorContext(event))) {
+    throw createError({ statusCode: 403, statusMessage: 'Нет доступа: резюме содержит контакты' })
+  }
 
   const row = await db.query.candidate.findFirst({
     where: and(eq(candidate.id, id), eq(candidate.organizationId, orgId)),

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { candidate, candidateResumeVersion } from '../../../../database/schema'
 import { parseHhResume } from '../../../../utils/hh/resume-render'
+import { requireCandidateInScope } from '../../../../utils/access/scope'
 
 const paramsSchema = z.object({
   id: z.string().min(1),
@@ -19,6 +20,9 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id, versionId } = await getValidatedRouterParams(event, paramsSchema.parse)
+
+  // §B: out-of-scope candidate → 404.
+  await requireCandidateInScope(event, id)
 
   // Проверяем доступ к кандидату
   const candidateRow = await db.query.candidate.findFirst({

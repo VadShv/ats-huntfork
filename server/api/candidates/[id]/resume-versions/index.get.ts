@@ -2,6 +2,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { candidate, candidateResumeVersion } from '../../../../database/schema'
 import { candidateIdParamSchema } from '../../../../utils/schemas/candidate'
 import { formatResumeDeltaRu, type ResumeDelta } from '../../../../utils/resume-version/delta'
+import { requireCandidateInScope } from '../../../../utils/access/scope'
 
 /**
  * GET /api/candidates/:id/resume-versions
@@ -14,6 +15,9 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, candidateIdParamSchema.parse)
+
+  // §B: out-of-scope candidate → 404.
+  await requireCandidateInScope(event, id)
 
   // Сначала проверяем, что кандидат принадлежит активной организации
   const candidateRow = await db.query.candidate.findFirst({
