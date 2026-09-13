@@ -146,10 +146,10 @@ const mainNav = computed<Array<{ label: string; to: string; icon: typeof Briefca
   { label: t('dashboard.nav.settings'), to: '/dashboard/settings', icon: Settings, exact: false },
 ])
 
-// §5: the assistant requires an AI permission (scoring). Roles without AI
-// (external_recruiter) don't see the link — matches server-side gating in
+// §I: the assistant requires assistant:access (decoupled from scoring). Roles
+// without it (member/hrbp/external/hm by default) don't see the link — matches
 // requireChatbotAccess. Client gate is cosmetic; the server enforces.
-const { allowed: hasAi } = usePermission({ scoring: ['read'] })
+const { allowed: hasAi } = usePermission({ assistant: ['access'] })
 
 // Assistant is inserted right after AI Analysis when the user has AI.
 const navItems = computed(() => {

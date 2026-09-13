@@ -14,6 +14,15 @@ definePageMeta({
   fullbleed: true,
 })
 
+// §I: granular assistant capabilities (server enforces; UI reflects).
+const { can } = usePermissions()
+const canAssistant = computed(() => can({ assistant: ['access'] }))
+const canSend = computed(() => can({ assistant: ['send'] }))
+const canScopeOrg = computed(() => can({ assistant: ['scopeOrg'] }))
+const canReasoning = computed(() => can({ assistant: ['reasoning'] }))
+const canAgents = computed(() => can({ assistant: ['agents'] }))
+const canSelectModel = computed(() => can({ assistant: ['selectModel'] }))
+
 useSeoMeta({
   title: () => t('assistant.title'),
   robots: 'noindex, nofollow',
@@ -106,6 +115,15 @@ function onClickOutside(e: MouseEvent) {
 onMounted(() => document.addEventListener('click', onClickOutside))
 onUnmounted(() => document.removeEventListener('click', onClickOutside))
 
+// §I: without scopeOrg, never keep the "whole organization" context — fall back
+// to the first available job (server also 403s; this keeps UX consistent).
+watch([canScopeOrg, () => scope.value.kind, jobs], () => {
+  if (!canScopeOrg.value && scope.value.kind === 'organization') {
+    const firstJob = jobs.value?.[0]
+    if (firstJob) selectScope('job', firstJob.id)
+  }
+}, { immediate: true })
+
 function selectScope(kind: 'organization' | 'job', jobId?: string) {
   scope.value = kind === 'organization' ? { kind } : { kind, jobId }
   showScopePicker.value = false
@@ -125,7 +143,7 @@ function autoResize() {
 watch(draft, () => nextTick(autoResize))
 
 async function handleSubmit() {
-  if (isStreaming.value) return
+  if (isStreaming.value || !canSend.value) return // §I: no send without permission
   const content = draft.value
   draft.value = ''
   await nextTick(autoResize)
@@ -220,9 +238,14 @@ async function startNew() {
 </script>
 
 <template>
-  <div class="flex h-full overflow-hidden bg-white dark:bg-surface-950">
+  <!-- §I: fully closed assistant → banner, no chat UI -->
+  <div v-if="!canAssistant" class="mx-auto max-w-lg p-8">
+    <AccessDeniedBanner message="Доступ к ИИ-ассистенту закрыт. Обратитесь к владельцу или администратору организации." />
+  </div>
+
+  <div v-else class="flex h-full overflow-hidden bg-white dark:bg-surface-950">
     <!-- Left rail: folders + conversations -->
-    <ChatbotSidebar @open-agents="agentsOpen = true" />
+    <ChatbotSidebar @open-agents="canAgents && (agentsOpen = true)" />
 
     <!-- Center: chat -->
     <main class="flex flex-1 min-w-0 flex-col">
@@ -271,6 +294,7 @@ async function startNew() {
                   </p>
                 </div>
                 <button
+                  v-if="canScopeOrg"
                   class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-brand-50 dark:hover:bg-brand-950/30 cursor-pointer border-0 bg-transparent"
                   @click="selectScope('organization')"
                 >
@@ -303,8 +327,9 @@ async function startNew() {
             </Transition>
           </div>
 
-          <!-- Thinking toggle -->
+          <!-- Thinking toggle (§I: reasoning permission) -->
           <button
+            v-if="canReasoning"
             class="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer"
             :class="thinking
               ? 'border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300'
@@ -543,8 +568,9 @@ async function startNew() {
               ref="composer"
               v-model="draft"
               rows="1"
-              :placeholder="t('assistant.composer.placeholder')"
-              class="block w-full resize-none border-0 bg-transparent px-4 pt-3 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-0"
+              :disabled="!canSend"
+              :placeholder="canSend ? t('assistant.composer.placeholder') : 'Отправка сообщений недоступна (только просмотр истории)'"
+              class="block w-full resize-none border-0 bg-transparent px-4 pt-3 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-0 disabled:opacity-60"
               @keydown="onKeyDown"
             />
 
@@ -569,8 +595,9 @@ async function startNew() {
                   @click="fileInputRef?.click()"
                 />
 
-                <ChatbotAgentPicker @manage="agentsOpen = true" />
-                <ChatbotModelPicker @manage="navigateTo('/dashboard/settings/ai')" />
+                <!-- §I: agents / model picker gated by permission -->
+                <ChatbotAgentPicker v-if="canAgents" @manage="agentsOpen = true" />
+                <ChatbotModelPicker v-if="canSelectModel" @manage="navigateTo('/dashboard/settings/ai')" />
               </div>
 
               <div class="flex items-center gap-2">
@@ -587,7 +614,8 @@ async function startNew() {
                   v-else
                   size="sm"
                   :icon-left="Send"
-                  :disabled="!draft.trim() && pendingAttachments.length === 0"
+                  :disabled="!canSend || (!draft.trim() && pendingAttachments.length === 0)"
+                  :title="!canSend ? 'Отправка сообщений недоступна' : undefined"
                   @click="handleSubmit"
                 >
                   {{ t('assistant.composer.send') }}
