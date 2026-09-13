@@ -103,8 +103,8 @@ describe('lead_recruiter default (AI view-only example)', () => {
     expect(caps.has('scoring:create')).toBe(false)
   })
 
-  it('member also defaults to org scope (§A2 — sees all, narrow via override)', () => {
-    expect(ROLE_PRESET_BY_KEY.member.defaultScope).toBe('org')
+  it('member defaults to assigned scope (§H — only own jobs)', () => {
+    expect(ROLE_PRESET_BY_KEY.member.defaultScope).toBe('assigned')
   })
 
   it('external_recruiter stays assigned (strict)', () => {

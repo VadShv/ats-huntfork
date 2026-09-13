@@ -141,17 +141,46 @@ export async function backfillMemberRbac(): Promise<{ roles: number; scopes: num
   const roleIdByKey = new Map<string, string>()
   for (const r of systemRoles) if (r.key) roleIdByKey.set(r.key, r.id)
 
-  // ── §A2 migration: member default scope assigned → org (idempotent) ──
-  // Existing 'member' recruiters were scoped to 'assigned' by the old default;
-  // the model now grants them org-wide visibility (help each other). Only touch
-  // rows still on the OLD default 'assigned' with no explicit dept/job narrowing.
+  // ── §H migration: member default scope org → assigned (idempotent) ──
+  // Recruiters (member) are now scoped to their OWN jobs. Two steps:
+  //  (a) ensure each recruiter/lead is job_member(recruiter, primary) on jobs
+  //      they created, so they don't lose visibility of their own vacancies;
+  //  (b) flip member_scope 'org' → 'assigned' for members still on the default
+  //      (no explicit dept/job narrowing); bump versions.
   try {
+    // (a) createdBy → job_member(recruiter, isPrimary=true) if missing.
+    // Only for jobs whose creator is an active member/lead. isPrimary=true only
+    // when the job has no existing primary recruiter yet (partial-unique safe).
+    const linked = await db.execute<{ job_id: string }>(sql`
+      INSERT INTO job_member (id, job_id, user_id, organization_id, member_role, is_primary, created_at, updated_at)
+      SELECT gen_random_uuid()::text, j.id, j.created_by, j.organization_id, 'recruiter',
+             NOT EXISTS (
+               SELECT 1 FROM job_member jm2
+               WHERE jm2.job_id = j.id AND jm2.member_role = 'recruiter' AND jm2.is_primary = true
+             ),
+             now(), now()
+      FROM job j
+      JOIN member m ON m.user_id = j.created_by AND m.organization_id = j.organization_id
+      WHERE j.created_by IS NOT NULL
+        AND m.role IN ('member', 'lead_recruiter')
+        AND m.status = 'active'
+        AND NOT EXISTS (
+          SELECT 1 FROM job_member jm
+          WHERE jm.job_id = j.id AND jm.user_id = j.created_by AND jm.member_role = 'recruiter'
+        )
+      RETURNING job_id
+    `)
+    if (linked.length > 0) {
+      console.log(`[Reqcore] §H: linked ${linked.length} job creator(s) as recruiter`)
+    }
+
+    // (b) member_scope org → assigned for default 'member' rows.
     const migrated = await db.execute<{ member_id: string }>(sql`
-      UPDATE member_scope ms SET scope_type = 'org', updated_at = now()
+      UPDATE member_scope ms SET scope_type = 'assigned', updated_at = now()
       FROM member m
       WHERE ms.member_id = m.id
         AND m.role = 'member'
-        AND ms.scope_type = 'assigned'
+        AND ms.scope_type = 'org'
         AND coalesce(array_length(ms.department_ids, 1), 0) = 0
         AND coalesce(array_length(ms.job_ids, 1), 0) = 0
       RETURNING ms.member_id
@@ -161,11 +190,11 @@ export async function backfillMemberRbac(): Promise<{ roles: number; scopes: num
         UPDATE member SET permissions_version = permissions_version + 1
         WHERE id IN ${migrated.map((r) => r.member_id)}
       `)
-      console.log(`[Reqcore] §A2: migrated ${migrated.length} member(s) scope assigned→org`)
+      console.log(`[Reqcore] §H: migrated ${migrated.length} member(s) scope org→assigned`)
     }
   }
   catch (err) {
-    console.error('[Reqcore] §A2 member scope migration failed (non-fatal):', err)
+    console.error('[Reqcore] §H member scope migration failed (non-fatal):', err)
   }
 
   // ── §E migration: org-preset 'recruiter' → 'member' (idempotent) ──

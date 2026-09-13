@@ -161,9 +161,9 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'member',
     nameRu: 'Рекрутер', nameEn: 'Recruiter',
-    descriptionRu: 'Видит все вакансии организации (помогаем друг другу). Тумблер «Мои/Все» — рабочий вид. Ограничение — точечно через scope.',
-    // §A2: member default scope = org (sees all like lead); narrow via override.
-    defaultScope: 'org', isAssignable: true, sortOrder: 30,
+    descriptionRu: 'Базовая роль: видит только свои вакансии (где назначен рекрутером или создатель) и их кандидатов/отклики/интервью. Чужое закрыто. Ведущий (lead) видит всё.',
+    // §H: member default scope = assigned (only own jobs). Trusted → lead (org).
+    defaultScope: 'assigned', isAssignable: true, sortOrder: 30,
     capabilities: memberCaps,
   },
   // §E: org-preset synonym 'recruiter' collapsed into 'member' (see seed

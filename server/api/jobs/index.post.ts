@@ -119,6 +119,8 @@ export default defineEventHandler(async (event) => {
         jobId: created.id,
         userId: session.user.id,
         memberRole: 'recruiter',
+        // §H: создатель — основной рекрутер вакансии (видит её под scope assigned).
+        isPrimary: true,
         addedByUserId: session.user.id,
       })
       .onConflictDoNothing({ target: [jobMember.jobId, jobMember.userId, jobMember.memberRole] })

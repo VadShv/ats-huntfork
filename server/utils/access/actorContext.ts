@@ -76,8 +76,8 @@ function defaultScopeTypeForRole(roleKey: string): ScopeType {
       return 'assigned'
     case 'member':
     default:
-      // §A2: member default scope = org (sees all; narrow via scope override).
-      return 'org'
+      // §H: member default scope = assigned (only own jobs). Trusted → lead (org).
+      return 'assigned'
   }
 }
 
