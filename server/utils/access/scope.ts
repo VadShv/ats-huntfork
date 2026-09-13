@@ -27,6 +27,7 @@ import { application, candidate, document, hhSavedSearch, hhSourcingCandidate, t
 import { orgScopeAssignment, memberScope } from '../../database/schema/rbac'
 import { member } from '../../database/schema/auth'
 import { defaultScopeForRoleKey } from '../../../shared/access/role-presets'
+import { type AccessScope, type ScopeType } from '../../../shared/access/capabilities'
 
 // Roles counted as "assigned to a job" for scope 'assigned'.
 const ASSIGNED_JOB_ROLES = ['recruiter', 'hiring_manager'] as const
@@ -162,44 +163,60 @@ export async function getScopeJobIds(actor: ActorContext): Promise<ScopeJobIds> 
 }
 
 /**
+ * §K: единая функция чтения эффективного scope — «есть строка member_scope →
+ * её scopeType/departmentIds/jobIds; иначе defaultScopeForRoleKey(role)».
+ * Единый источник; actorContext.resolveMemberScope и resolveUserScopeJobIds
+ * вызывают её (не дублируют fallback-логику). Инвариант C1.
+ */
+export async function resolveEffectiveScope(memberId: string, roleKey: string): Promise<AccessScope> {
+  try {
+    const [row] = await db
+      .select({
+        scopeType: memberScope.scopeType,
+        departmentIds: memberScope.departmentIds,
+        jobIds: memberScope.jobIds,
+      })
+      .from(memberScope)
+      .where(eq(memberScope.memberId, memberId))
+      .limit(1)
+    if (row) {
+      return {
+        type: row.scopeType as ScopeType,
+        departmentIds: row.departmentIds ?? [],
+        jobIds: row.jobIds ?? [],
+      }
+    }
+  }
+  catch { /* pre-migration */ }
+  return { type: defaultScopeForRoleKey(roleKey), departmentIds: [], jobIds: [] }
+}
+
+/**
  * Role-aware full scope from (orgId, userId) WITHOUT an H3 event/ActorContext.
- * Reads member.role + member_scope and dispatches the same way as getScopeJobIds.
- * Used by the unified legacy resolver (resolveRecruiterScope) so lists/dashboard/
- * analytics scope correctly for ALL roles (lead=org→null, hrbp, external=assigned).
- * Returns null = unrestricted.
+ * Reads member.role + member_scope (via resolveEffectiveScope) and dispatches
+ * the same way as getScopeJobIds. Used by the unified legacy resolver
+ * (resolveRecruiterScope) so lists/dashboard/analytics scope correctly for ALL
+ * roles (lead=org→null, hrbp, external=assigned). Returns null = unrestricted.
  */
 export async function resolveUserScopeJobIds(orgId: string, userId: string): Promise<ScopeJobIds> {
   const [row] = await db
-    .select({
-      memberId: member.id,
-      role: member.role,
-      scopeType: memberScope.scopeType,
-      departmentIds: memberScope.departmentIds,
-    })
+    .select({ memberId: member.id, role: member.role })
     .from(member)
-    .leftJoin(memberScope, eq(memberScope.memberId, member.id))
     .where(and(eq(member.organizationId, orgId), eq(member.userId, userId)))
     .limit(1)
 
   if (!row) return null // unknown → don't over-restrict (auth already passed)
 
-  const roleKeys = [row.role]
-  // Effective scope type: explicit member_scope, else role default.
-  const scopeType = (row.scopeType as ScopeType | null) ?? defaultScopeForRole(row.role)
+  const scope = await resolveEffectiveScope(row.memberId, row.role)
 
   return scopeJobIdsCore({
     orgId,
     userId,
     memberId: row.memberId,
-    roleKeys,
-    scopeType,
-    departmentIds: row.departmentIds ?? [],
+    roleKeys: [row.role],
+    scopeType: scope.type,
+    departmentIds: scope.departmentIds,
   })
-}
-
-/** §K: single source of truth — delegates to role-presets. Локальный switch удалён. */
-function defaultScopeForRole(roleKey: string): ScopeType {
-  return defaultScopeForRoleKey(roleKey)
 }
 
 /** True when the actor is unrestricted (no scope filtering needed). */

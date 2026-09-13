@@ -19,14 +19,12 @@
 import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 import { member, user as userTable } from '../../database/schema/auth'
-import { memberScope } from '../../database/schema/rbac'
 import {
   type AccessScope,
   type AccessSnapshot,
   type Capability,
-  type ScopeType,
 } from '../../../shared/access/capabilities'
-import { defaultScopeForRoleKey } from '../../../shared/access/role-presets'
+import { resolveEffectiveScope } from './scope'
 import {
   resolveMemberCapabilities,
   resolveMemberOverrides,
@@ -59,11 +57,6 @@ export interface ActorContext {
   // ── Обратная совместимость с текущими хелперами HM ──
   canViewSalary: boolean
   mustChangePassword: boolean
-}
-
-/** §K: единый источник истины — role-presets. Локальный switch удалён. */
-function defaultScopeTypeForRole(roleKey: string): ScopeType {
-  return defaultScopeForRoleKey(roleKey)
 }
 
 /**
@@ -155,7 +148,7 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
   const [baseCaps, overrides, scope] = await Promise.all([
     resolveMemberCapabilities(row.id, orgId, row.role, permissionsVersion),
     resolveMemberOverrides(row.id),
-    resolveMemberScope(row.id, row.role),
+    resolveEffectiveScope(row.id, row.role),
   ])
   const permissions = applyOverrides(baseCaps, overrides)
 
@@ -185,30 +178,6 @@ export async function getActorContext(event: H3Event): Promise<ActorContext | nu
 
   ;(event.context as { actor?: ActorContext | null }).actor = actor
   return actor
-}
-
-/** Read the member's scope from member_scope, falling back to the role default. */
-async function resolveMemberScope(memberId: string, roleKey: string): Promise<AccessScope> {
-  try {
-    const [row] = await db
-      .select({
-        scopeType: memberScope.scopeType,
-        departmentIds: memberScope.departmentIds,
-        jobIds: memberScope.jobIds,
-      })
-      .from(memberScope)
-      .where(eq(memberScope.memberId, memberId))
-      .limit(1)
-    if (row) {
-      return {
-        type: row.scopeType as ScopeType,
-        departmentIds: row.departmentIds ?? [],
-        jobIds: row.jobIds ?? [],
-      }
-    }
-  }
-  catch { /* pre-migration */ }
-  return { type: defaultScopeTypeForRole(roleKey), departmentIds: [], jobIds: [] }
 }
 
 /**

@@ -14,6 +14,10 @@ import { resolveUserScopeJobIds, getPersonalJobIds } from './access/scope'
  *
  * Это НЕ граница безопасности (member имеет job:read на всю организацию),
  * а дефолтный фильтр видимости для рабочих экранов.
+ *
+ * §K: дефолт scope — из defaultScopeForRoleKey (shared/access/role-presets).
+ * СВОЙ switch дефолта НЕ определять — инвариант C1 (единый источник истины).
+ * Этот файл резолвит через resolveUserScopeJobIds → resolveEffectiveScope.
  */
 
 /** Org-роль пользователя в организации (owner | admin | member | hiring_manager) */
@@ -54,12 +58,13 @@ export interface RecruiterScope {
  *
  * - `override='mine'` → личные вакансии пользователя (job_member), для ЛЮБОЙ роли.
  * - `override='all'` ИЛИ без override → ПОЛНЫЙ scope роли:
- *     owner/admin/member/lead (org) → unrestricted (scoped=false);
- *     hrbp → его компании/отделы; external → assigned; hiring_manager → jobs.
+ *     owner/admin/lead (org) → unrestricted (scoped=false);
+ *     member/external → assigned (свои вакансии); hrbp → его компании/отделы;
+ *     hiring_manager → jobs.
  *
- * §A2: member дефолт scope = org (видит всё). Тумблер «Мои/Все» — это override,
- * а не граница доступа. Единый источник для списков/дашборда/аналитики → цифры
- * совпадают.
+ * §K: member дефолт scope = assigned (видит свои вакансии). Тумблер «Мои/Все» —
+ * это override вида, а не граница доступа. Единый источник для списков/дашборда/
+ * аналитики → цифры совпадают. Дефолт — из defaultScopeForRoleKey (не хардкод).
  */
 export async function resolveRecruiterScope(orgId: string, userId: string, override?: 'mine' | 'all'): Promise<RecruiterScope> {
   const role = await getOrgRole(orgId, userId)

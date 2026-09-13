@@ -10,6 +10,10 @@ import { resolveRecruiterScope, type RecruiterScope } from '../recruiterScope'
  * Это дефолтный фильтр видимости рабочих экранов, а не граница безопасности
  * (member имеет application:read на всю орг). Но для аналитики мы намеренно
  * сужаем выдачу, чтобы рекрутер видел «свою» картину.
+ *
+ * §K: дефолт scope — из defaultScopeForRoleKey (shared/access/role-presets).
+ * СВОЙ switch дефолта НЕ определять — инвариант C1 (единый источник истины).
+ * Этот файл резолвит через resolveRecruiterScope → resolveUserScopeJobIds.
  */
 
 export interface AnalyticsScope extends RecruiterScope {
