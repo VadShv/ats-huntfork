@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { requireApplicationInScope } from '../../../utils/access/scope'
+import { requireApplicationInScope, canWriteConversation } from '../../../utils/access/scope'
+import { getActorContext } from '../../../utils/access/actorContext'
 import { and, eq } from 'drizzle-orm'
 import { application, commsConversation, commsTelegramBusinessConnection } from '../../../database/schema'
 import {
@@ -65,6 +66,11 @@ export default defineEventHandler(async (event) => {
   else if (requestedChannel === 'hh') active = hhConv
   else active = hhConv ?? tgConv ?? null
 
+  // §G2: RBAC write flag — writing to a candidate chat is allowed only for
+  // owner/admin or a lead_recruiter who is job_member(recruiter) on the job.
+  // The effective canWrite = channel-canWrite AND rbacCanWrite.
+  const rbacCanWrite = active ? await canWriteConversation(await getActorContext(event), active.id, orgId) : false
+
   const channels = [hhConv, tgConv]
     .filter((c): c is CommsConversationRow => Boolean(c))
     .map(c => ({
@@ -125,8 +131,11 @@ export default defineEventHandler(async (event) => {
     conversation: {
       id: fresh?.id ?? active.id,
       channel: fresh?.channel ?? active.channel,
-      canWrite: fresh?.canWrite ?? active.canWrite,
-      canWriteReason: fresh?.canWriteReason ?? active.canWriteReason,
+      canWrite: (fresh?.canWrite ?? active.canWrite) && rbacCanWrite,
+      canWriteReason: !rbacCanWrite
+        ? 'Писать в чат может ведущий рекрутер, назначенный на эту вакансию'
+        : (fresh?.canWriteReason ?? active.canWriteReason),
+      rbacCanWrite,
       unreadCount: fresh?.unreadCount ?? active.unreadCount,
       assistantMode: fresh?.assistantMode ?? active.assistantMode,
       lastSyncedAt: fresh?.lastSyncedAt ?? null,
