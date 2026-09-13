@@ -69,6 +69,20 @@
 | 3 (rollout #1) | 12.09.2026 | ✅ | AI chatTools наследует member-scope + masking, серверная защита от prompt-injection. Коммит ba0323f. Задеплоено. |
 | 3 (rollout #2–#6) | 12.09.2026 | ✅ | Контакт-эндпоинты (gate contacts+scope), read_resume gate, job-scope на root jobs (private jobs), masking на leak-sites, слабые guard'ы (conversations), модель «общий кандидат + приватные вакансии» (Вариант A), cross-org e2e. См. сверку ниже. |
 
+### Сверка final-refinements (порции §3, §2/§9/§6, §4/§5, §7/§8, §1)
+
+| Пункт | Инвариант(ы) | Статус | Подтверждение |
+|---|---|---|---|
+| §3 view-as ловушка НМ | B5, навигация | ✅ | middleware пропускает HM-редирект при isViewAs; баннер выхода на всех layout |
+| §2 lead→org | C3 | ✅ | defaultScope org; проверено в БД ВМ |
+| §9 бейдж «по роли» | UX | ✅ | overrides.get отдаёт roleCapabilities |
+| §6 баннеры «нет прав» | B2 | ✅ | AccessDeniedBanner на «Доступы»+ИИ; данные грузятся только при праве |
+| §4 фильтры мои/все | view-only (A2/C3 не затронуты) | ✅ | scope=mine\|all на jobs/interviews; фильтр не ограничивает доступ к карточкам |
+| §5 ассистент | B3, D2 | ✅ | история per-user (было); гейт `scoring:read` (external без ассистента); nav скрыт без ИИ |
+| §7 hiringManager:create | C4, B3 | ✅ | узкое право (не member:create); HM-invite/create перегейчены; список рекрутеров только owner/admin. Проверено в БД: право у owner/admin/member/lead/recruiter/hrbp, НЕ у external/HM |
+| §8 external_recruiter | D2, §5-ИИ | ✅ | min-права, interview CRU, без ИИ/PII/journal; не видит внутр. комменты; junior→external миграция (junior=0 в БД) |
+| §1 HRBP | A2/A3/C3/C4/C5/D2/F2 | ✅ | org_scope_assignment (m2m), scope из оргструктуры (company∪subtree(dept)); фикс-пресет hrbp; bump версии при назначении; миграция 0098 применена, бэкап снят |
+
 ### Сверка Спринта 5 (коммиты 25125c3, 41c76c1, c40cac8)
 
 | Инвариант | Статус | Подтверждение |
