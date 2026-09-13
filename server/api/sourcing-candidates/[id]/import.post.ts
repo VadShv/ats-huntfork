@@ -94,6 +94,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
   const userId = session.user.id
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireSourcingCandidateInScope(event, id, orgId as string)
 
   // 1. Грузим сорсинг-кандидата
   const sc = await db.query.hhSourcingCandidate.findFirst({

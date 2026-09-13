@@ -45,6 +45,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['update'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireSourcingCandidateInScope(event, id, orgId as string)
 
   const sc = await db.query.hhSourcingCandidate.findFirst({
     where: and(eq(hhSourcingCandidate.id, id), eq(hhSourcingCandidate.organizationId, orgId)),

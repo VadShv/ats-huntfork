@@ -1,4 +1,5 @@
 import { eq, and } from 'drizzle-orm'
+import { requireJobInScope } from '../../../utils/access/scope'
 import { job, pipeline } from '../../../database/schema'
 import { idParamSchema } from '../../../utils/schemas/job'
 import { countActiveApplicationsForJob } from '../../../utils/pipeline-helpers'
@@ -20,6 +21,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
+  await requireJobInScope(event, id as string)
 
   // Load the job with its pipeline info
   const existingJob = await db.query.job.findFirst({

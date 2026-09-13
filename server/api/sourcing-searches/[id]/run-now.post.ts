@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['update'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireSourcingSearchInScope(event, id, orgId as string)
 
   const existing = await db.query.hhSavedSearch.findFirst({
     where: and(eq(hhSavedSearch.id, id), eq(hhSavedSearch.organizationId, orgId)),

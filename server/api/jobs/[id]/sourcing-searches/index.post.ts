@@ -69,6 +69,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id: jobId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireJobInScope(event, jobId as string)
   const body = await readValidatedBody(event, bodySchema.parse)
 
   // Проверяем вакансию

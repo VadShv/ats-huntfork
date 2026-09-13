@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['read'] })
   const orgId = session.session.activeOrganizationId
   const { id: jobId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireJobInScope(event, jobId as string)
 
   // Проверка владения вакансией
   const jobRow = await db.query.job.findFirst({

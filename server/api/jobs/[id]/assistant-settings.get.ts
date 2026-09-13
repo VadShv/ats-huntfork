@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireJobInScope } from '../../../utils/access/scope'
 import { job } from '../../../database/schema'
 import { idParamSchema } from '../../../utils/schemas/job'
 import { getJobAssistantSettings } from '../../../utils/comms/assistant'
@@ -12,6 +13,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { job: ['read'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
+  await requireJobInScope(event, id as string)
 
   const existingJob = await db.query.job.findFirst({
     where: and(eq(job.id, id), eq(job.organizationId, orgId)),

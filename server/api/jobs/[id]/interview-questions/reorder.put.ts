@@ -1,4 +1,5 @@
 import { eq, and } from 'drizzle-orm'
+import { requireJobInScope } from '../../../../utils/access/scope'
 import { job, jobInterviewQuestion } from '../../../../database/schema'
 import { jobIdParamSchema, reorderInterviewQuestionsSchema } from '../../../../utils/schemas/interviewQuestion'
 
@@ -10,6 +11,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id: jobId } = await getValidatedRouterParams(event, jobIdParamSchema.parse)
+  await requireJobInScope(event, jobId as string)
   const body = await readValidatedBody(event, reorderInterviewQuestionsSchema.parse)
 
   const existingJob = await db.query.job.findFirst({

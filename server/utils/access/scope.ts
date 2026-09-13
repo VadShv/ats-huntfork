@@ -23,7 +23,7 @@ import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getActorContext, type ActorContext } from './actorContext'
 import { job } from '../../database/schema/app'
 import { jobMember } from '../../database/schema/hm'
-import { application, candidate, document } from '../../database/schema/app'
+import { application, candidate, document, hhSavedSearch, hhSourcingCandidate } from '../../database/schema/app'
 import { orgScopeAssignment, memberScope } from '../../database/schema/rbac'
 import { member } from '../../database/schema/auth'
 
@@ -264,6 +264,28 @@ export async function requireApplicationInScope(
   // Not found in org, or its job is out of scope → 404 (don't confirm existence).
   if (!row || !(await isJobInScope(actor, row.jobId))) {
     throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
+  }
+}
+
+/** Guard for sourcing-searches/[id]/*: the search's job must be in scope (§C3). */
+export async function requireSourcingSearchInScope(event: import('h3').H3Event, searchId: string, orgId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor || (await getScopeJobIds(actor)) === null) return
+  const [row] = await db.select({ jobId: hhSavedSearch.jobId }).from(hhSavedSearch)
+    .where(and(eq(hhSavedSearch.id, searchId), eq(hhSavedSearch.organizationId, orgId))).limit(1)
+  if (!row || !(await isJobInScope(actor, row.jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
+  }
+}
+
+/** Guard for sourcing-candidates/[id]/*: the candidate's job must be in scope (§C3). */
+export async function requireSourcingCandidateInScope(event: import('h3').H3Event, sourcingId: string, orgId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor || (await getScopeJobIds(actor)) === null) return
+  const [row] = await db.select({ jobId: hhSourcingCandidate.jobId }).from(hhSourcingCandidate)
+    .where(and(eq(hhSourcingCandidate.id, sourcingId), eq(hhSourcingCandidate.organizationId, orgId))).limit(1)
+  if (!row || !(await isJobInScope(actor, row.jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
   }
 }
 

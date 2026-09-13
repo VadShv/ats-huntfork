@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireJobInScope } from '../../../../utils/access/scope'
 import { job } from '../../../../database/schema/app'
 import { jobMember } from '../../../../database/schema/hm'
 import { member } from '../../../../database/schema/auth'
@@ -20,6 +21,7 @@ export default defineEventHandler(async (event) => {
   const actorId = session.user.id
 
   const { id: jobId } = await getValidatedRouterParams(event, idParamSchema.parse)
+  await requireJobInScope(event, jobId as string)
   const body = await readValidatedBody(event, addJobMemberSchema.parse)
 
   // ── job принадлежит org ──

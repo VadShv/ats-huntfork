@@ -16,6 +16,7 @@ import { application, hhActionLog, hhVacancyLink, job } from '../../../database/
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const jobId = getRouterParam(event, 'id')
+  await requireJobInScope(event, jobId as string)
   if (!jobId) {
     throw createError({ statusCode: 400, statusMessage: 'id обязателен' })
   }

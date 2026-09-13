@@ -1,4 +1,5 @@
 import { eq, and } from 'drizzle-orm'
+import { requireJobInScope } from '../../../../utils/access/scope'
 import { jobQuestion } from '../../../../database/schema'
 import { questionIdParamSchema, updateQuestionSchema } from '../../../../utils/schemas/jobQuestion'
 
@@ -7,6 +8,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id: jobId, questionId } = await getValidatedRouterParams(event, questionIdParamSchema.parse)
+  await requireJobInScope(event, jobId as string)
   const body = await readValidatedBody(event, updateQuestionSchema.parse)
 
   const [updated] = await db.update(jobQuestion)

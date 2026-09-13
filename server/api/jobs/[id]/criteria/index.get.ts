@@ -1,4 +1,5 @@
 import { eq, and, asc } from 'drizzle-orm'
+import { requireJobInScope } from '../../../../utils/access/scope'
 import { scoringCriterion, job } from '../../../../database/schema'
 import { z } from 'zod'
 
@@ -12,6 +13,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { scoring: ['read'] })
   const orgId = session.session.activeOrganizationId
   const { id: jobId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireJobInScope(event, jobId as string)
 
   // Verify job belongs to org
   const jobRecord = await db.query.job.findFirst({

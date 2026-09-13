@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { requireJobInScope } from '../../../utils/access/scope'
 import { eq, and, asc, isNotNull } from 'drizzle-orm'
 import { application, job, pipelineStage } from '../../../database/schema'
 import { idParamSchema } from '../../../utils/schemas/job'
@@ -43,6 +44,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, idParamSchema.parse)
+  await requireJobInScope(event, id as string)
   const body = await readValidatedBody(event, bodySchema.parse)
 
   // Verify job
