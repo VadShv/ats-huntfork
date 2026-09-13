@@ -6,6 +6,7 @@ import {
 } from '../../../../database/schema'
 import { applicationIdParamSchema, generateSetSchema } from '../../../../utils/schemas/candidateQuestions'
 import { assembleCandidateQuestions, type RiskFindingLite } from '../../../../utils/risk/buildCandidateQuestions'
+import { normalizeQuestion } from '../../../../utils/text/normalizeQuestion'
 
 /**
  * POST /api/applications/:id/question-set/generate
@@ -105,10 +106,10 @@ export default defineEventHandler(async (event) => {
     }
 
     // Existing texts (kept) → avoid duplicates when inserting fresh ones.
-    const keptNorm = new Set(kept.filter(i => keepIds.has(i.id)).map(i => i.text.toLowerCase().replace(/\s+/g, ' ').trim()))
+    const keptNorm = new Set(kept.filter(i => keepIds.has(i.id)).map(i => normalizeQuestion(i.text)))
     let order = kept.filter(i => keepIds.has(i.id)).length
     const rows = assembled
-      .filter(a => !keptNorm.has(a.text.toLowerCase().replace(/\s+/g, ' ').trim()))
+      .filter(a => !keptNorm.has(normalizeQuestion(a.text)))
       .map(a => ({
         organizationId: orgId,
         setId: set!.id,

@@ -36,10 +36,10 @@ export interface AssembledItem {
   displayOrder: number
 }
 
-/** Нормализация текста вопроса для дедупа. */
-export function normalizeQuestion(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, ' ').replace(/[«»"'.,;:!?()]/g, '').trim()
-}
+// Реэкспорт из единого util (Спринт 0). Оставлен для обратной совместимости
+// существующих импортов `normalizeQuestion` из этого модуля.
+export { normalizeQuestion } from '../text/normalizeQuestion'
+import { normalizeQuestion } from '../text/normalizeQuestion'
 
 const SEVERITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 
