@@ -69,6 +69,21 @@
 | 3 (rollout #1) | 12.09.2026 | ✅ | AI chatTools наследует member-scope + masking, серверная защита от prompt-injection. Коммит ba0323f. Задеплоено. |
 | 3 (rollout #2–#6) | 12.09.2026 | ✅ | Контакт-эндпоинты (gate contacts+scope), read_resume gate, job-scope на root jobs (private jobs), masking на leak-sites, слабые guard'ы (conversations), модель «общий кандидат + приватные вакансии» (Вариант A), cross-org e2e. См. сверку ниже. |
 
+### Сверка Фазы 2 · Спринт A — единый scope-резолвер (коммит 7e01bc5)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A2 скоуп по оргу | ✅ | единый `resolveRecruiterScope`→v2; списки/дашборд/аналитика из одного источника |
+| A3 cross-org/scope | ✅ (усилено) | legacy-резолвер теперь role-aware: hrbp→company/dept, external→assigned (был баг — видели чужое) |
+| C3 роль-потолок/scope-охват | ✅ | тумблер «Мои/Все» = override вида, не граница; сервер режет по роли |
+| B2/B3 | ✅ | enforcement не тронут |
+| F2 миграции | ✅ | идемпотентная миграция данных member assigned→org (0 строк на ВМ); бэкап `rbac_pre_pA_*` |
+| G1 тесты | ✅ | 864 passed (+2 default-scope) |
+| G2 сборка | ✅ | typecheck 0; build+deploy на ВМ; presets в БД: member=org, external=assigned |
+| G3 откат | ✅ | git reset + restore дампа |
+
+**Проверено на ВМ:** member preset default_scope=org, external=assigned; дашборд и список — единый scope-источник (структурный фикс «2 vs 6»). member-role участников на ВМ нет → миграция 0 строк (логика на месте).
+
 ### Сверка Спринта 6 — Аудит v2 (коммиты 997b32e, dc3f7de)
 
 | Инвариант | Статус | Подтверждение |
