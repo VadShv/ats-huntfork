@@ -69,6 +69,25 @@
 | 3 (rollout #1) | 12.09.2026 | ✅ | AI chatTools наследует member-scope + masking, серверная защита от prompt-injection. Коммит ba0323f. Задеплоено. |
 | 3 (rollout #2–#6) | 12.09.2026 | ✅ | Контакт-эндпоинты (gate contacts+scope), read_resume gate, job-scope на root jobs (private jobs), masking на leak-sites, слабые guard'ы (conversations), модель «общий кандидат + приватные вакансии» (Вариант A), cross-org e2e. См. сверку ниже. |
 
+### Сверка Фазы 2 · Спринты B–E (коммиты aa29b28, c0a5bb9, 6f5c19e, ef31f81, 6119a57, c2c3e34)
+
+| Инвариант | Статус | Подтверждение |
+|---|---|---|
+| A3 cross-org/scope → 404 | ✅ | B: candidates/[id]/* (все); C1: applications/[id]/* (42); C2: jobs/[id]/* (36); C3: sourcing; D2: tracking-links/[id]. Out-of-scope → 404 |
+| A4 дочерние по родителю | ✅ | application→job, sourcing→job, tracking-link→job, candidate→application→job |
+| D1/D2 masking | ✅ | резюме/контакты гейтятся candidate:read:contacts (B); tracking/source-stats маскированы + scoped |
+| B3 requirePermission не ослаблен | ✅ (усилено) | D1: интеграции hh/calendar mgmt → organization:update (был requireAuth); суфлёр → assistant:suggest (был requireAuth) |
+| C3 роль-потолок/scope-охват | ✅ | C4: аналитика по scope; HRBP «Все» = его юрлица (не org); тумблер не расширяет за scope |
+| C4 самоблокировка | ✅ | E: recruiter-синоним схлопнут в member; матрица — подсказка про scope |
+| C1 единый источник | ✅ | все гарды через getScopeJobIds/requireXInScope; assistant/recruiter — в реестре/пресетах |
+| F1 webhook-и по секрету не тронуты | ✅ | webhooks/*/[secret], calendar/webhook (X-Goog), renew (CRON), OAuth-callbacks — без изменений (docs/rbac-v2-org-wide-endpoints.md) |
+| E (суфлёр) member НЕ имеет | ✅ | assistant:suggest только owner/admin по умолчанию; member/lead/external — нет (тест) |
+| G1 тесты | ✅ | 867 passed |
+| G2 сборка | ✅ | typecheck 0; деплой B/C1/C2C3/C4/D на ВМ |
+| G3 откат | ✅ | git reset + restore дампа; seed-миграции идемпотентны |
+
+**Org-wide by design** зафиксировано в `docs/rbac-v2-org-wide-endpoints.md` (прозрачность §D2).
+
 ### Сверка Фазы 2 · Спринт A — единый scope-резолвер (коммит 7e01bc5)
 
 | Инвариант | Статус | Подтверждение |
