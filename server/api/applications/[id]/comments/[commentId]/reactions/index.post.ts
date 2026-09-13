@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../../../utils/access/scope'
 import {
   application,
   applicationComment,
@@ -35,6 +36,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id, commentId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId as string)
   const { emoji } = await readValidatedBody(event, bodySchema.parse)
 
   // ── verify application + comment ──

@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../utils/access/scope'
 import { application, applicationComment } from '../../../../database/schema/app'
 import { member } from '../../../../database/schema/auth'
 import { applicationCommentIdParamSchema } from '../../../../utils/schemas/applicationComment'
@@ -16,6 +17,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id, commentId } = await getValidatedRouterParams(
+  await requireApplicationInScope(event, id as string, orgId as string)
     event,
     applicationCommentIdParamSchema.parse,
   )

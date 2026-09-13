@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import { eq, and, asc } from 'drizzle-orm'
 import { application, applicationStageHistory, job, pipelineStage } from '../../../database/schema'
 import { moveApplicationStage } from '../../../utils/pipeline-move'
@@ -29,6 +30,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId)
   const body = await readValidatedBody(event, transferBodySchema.parse)
 
   const appRow = await db.query.application.findFirst({

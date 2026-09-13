@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
   const { id: applicationId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireApplicationInScope(event, applicationId as string, orgId)
 
   const bot = await getTelegramBotForOrg(orgId)
   if (!bot || !bot.enabled) {

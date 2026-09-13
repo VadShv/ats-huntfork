@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import { z } from 'zod'
 import { application } from '../../../database/schema/app'
 import { hmDecision } from '../../../database/schema/hm'
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id: applicationId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireApplicationInScope(event, applicationId as string, orgId)
 
   const [app] = await db
     .select({ id: application.id })

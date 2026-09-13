@@ -244,6 +244,30 @@ export async function requireJobInScope(event: import('h3').H3Event, jobId: stri
 }
 
 /**
+ * Guard for applications/[id]/*: loads the application's jobId (org-scoped) and
+ * checks it is within the actor's scope, else 404. One-liner for the 42 nested
+ * application endpoints (Phase 2 §C1). No-op for unrestricted actors.
+ * @param orgId active org (from session) — the application must belong to it.
+ */
+export async function requireApplicationInScope(
+  event: import('h3').H3Event,
+  applicationId: string,
+  orgId: string,
+): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor || (await getScopeJobIds(actor)) === null) return // unrestricted
+  const [row] = await db
+    .select({ jobId: application.jobId })
+    .from(application)
+    .where(and(eq(application.id, applicationId), eq(application.organizationId, orgId)))
+    .limit(1)
+  // Not found in org, or its job is out of scope → 404 (don't confirm existence).
+  if (!row || !(await isJobInScope(actor, row.jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
+  }
+}
+
+/**
  * WHERE fragment scoping `application` rows by the actor's visible jobs.
  * Returns undefined when unrestricted. Returns an always-false fragment when
  * the actor sees no jobs (so callers get an empty result, not everything).

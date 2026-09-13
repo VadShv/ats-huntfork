@@ -1,4 +1,5 @@
 import { and, eq, asc } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../utils/access/scope'
 import { application, applicationQuestionSet, applicationQuestionItem } from '../../../../database/schema'
 import { applicationIdParamSchema } from '../../../../utils/schemas/candidateQuestions'
 
@@ -11,6 +12,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id: applicationId } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, applicationId as string, orgId)
 
   const app = await db.query.application.findFirst({
     where: and(eq(application.id, applicationId), eq(application.organizationId, orgId)),

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import { and, eq } from 'drizzle-orm'
 import { application, commsConversation, commsTelegramBusinessConnection } from '../../../database/schema'
 import {
@@ -24,6 +25,7 @@ export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
   const { id: applicationId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireApplicationInScope(event, applicationId as string, orgId)
   const { channel: requestedChannel } = await getValidatedQuery(event, querySchema.parse)
 
   // hh-диалог (ленивая инициализация, как раньше)

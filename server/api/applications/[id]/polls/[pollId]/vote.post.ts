@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../../utils/access/scope'
 import { z } from 'zod'
 import { commentPoll, commentPollVote, applicationComment, application } from '../../../../../database/schema/app'
 import { notifyThreadChanged } from '../../../../../utils/comments/threadBus'
@@ -17,6 +18,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
   const pollId = getRouterParam(event, 'pollId')!
   const id = getRouterParam(event, 'id')!
+  await requireApplicationInScope(event, id as string, orgId as string)
   const body = await readValidatedBody(event, voteSchema.parse)
 
   // Verify poll belongs to this application + org (via comment → application chain)

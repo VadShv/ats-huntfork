@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../../utils/access/scope'
 import { application, applicationComment } from '../../../../../database/schema/app'
 import { notifyThreadChanged } from '../../../../../utils/comments/threadBus'
 
@@ -32,6 +33,7 @@ export default defineEventHandler(async (event) => {
     .where(eq(applicationComment.id, commentId))
 
   const appId = getRouterParam(event, 'id')!
+  await requireApplicationInScope(event, appId as string, orgId as string)
   notifyThreadChanged(appId)
 
   return { id: commentId, isPinned: newPinned }

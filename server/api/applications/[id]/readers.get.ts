@@ -1,4 +1,5 @@
 import { and, eq, desc } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import { application, threadReadState } from '../../../database/schema/app'
 import { user } from '../../../database/schema/auth'
 import { applicationIdParamSchema } from '../../../utils/schemas/application'
@@ -11,6 +12,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'] })
   const orgId = session.session.activeOrganizationId
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId)
 
   const readers = await db
     .select({

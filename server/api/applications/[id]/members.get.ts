@@ -1,4 +1,5 @@
 import { and, eq, ilike, or } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import { application } from '../../../database/schema/app'
 import { member, user } from '../../../database/schema/auth'
 import { applicationIdParamSchema } from '../../../utils/schemas/application'
@@ -14,6 +15,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId)
   const query = await getValidatedQuery(event, orgMemberSearchSchema.parse)
 
   // Verify the application exists in this org (avoids info-leak via blind member lookup)

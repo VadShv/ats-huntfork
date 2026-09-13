@@ -1,4 +1,5 @@
 import { eq, and } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import {
   application, scoringCriterion, criterionScore,
   analysisRun, document, candidate,
@@ -31,6 +32,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { scoring: ['create'] })
   const orgId = session.session.activeOrganizationId
   const { id: applicationId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireApplicationInScope(event, applicationId as string, orgId)
   // Body is optional — GET-style "just run with defaults" stays valid.
   const body = await readBody(event).catch(() => null)
   const parsedBody = body ? bodySchema.parse(body) : null

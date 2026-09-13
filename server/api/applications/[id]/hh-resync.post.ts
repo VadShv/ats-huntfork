@@ -1,4 +1,5 @@
 import { eq, and } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import { application } from '../../../database/schema'
 import { pushStageChangeToHh, getHhSyncStatus } from '../../../utils/hh/sourcing/pushAction'
 import { applicationIdParamSchema } from '../../../utils/schemas/application'
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId)
 
   const appRow = await db.query.application.findFirst({
     where: and(eq(application.id, id), eq(application.organizationId, orgId)),

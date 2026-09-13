@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../utils/access/scope'
 import {
   application,
   applicationComment,
@@ -28,6 +29,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId)
   const query = await getValidatedQuery(event, applicationCommentQuerySchema.parse)
 
   // ── 1. Verify application belongs to org ──

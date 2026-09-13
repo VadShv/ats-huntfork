@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../../../utils/access/scope'
 import { z } from 'zod'
 import { fileTypeFromBuffer } from 'file-type'
 import {
@@ -62,6 +63,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id, commentId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId as string)
 
   // ── verify application & comment ──
   const app = await db.query.application.findFirst({

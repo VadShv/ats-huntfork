@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../../../utils/access/scope'
 import { z } from 'zod'
 import {
   application,
@@ -24,6 +25,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id, commentId, attachmentId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId as string)
 
   // ── verify application & comment ──
   const app = await db.query.application.findFirst({

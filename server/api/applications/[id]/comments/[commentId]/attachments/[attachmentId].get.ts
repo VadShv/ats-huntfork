@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../../../utils/access/scope'
 import { z } from 'zod'
 import { GetObjectCommand } from '@aws-sdk/client-s3'
 import {
@@ -25,6 +26,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id, commentId, attachmentId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId as string)
   const { inline } = await getValidatedQuery(
     event,
     z.object({ inline: z.coerce.boolean().optional() }).parse,

@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../utils/access/scope'
 import { application, applicationWatcher } from '../../../../database/schema/app'
 import { watcherIdParamSchema } from '../../../../utils/schemas/applicationComment'
 
@@ -14,6 +15,7 @@ export default defineEventHandler(async (event) => {
   const actorId = session.user.id
 
   const { id, userId } = await getValidatedRouterParams(event, watcherIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId as string)
 
   // Confirm app belongs to org
   const app = await db.query.application.findFirst({

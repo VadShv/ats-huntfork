@@ -1,4 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../utils/access/scope'
 import { z } from 'zod'
 import {
   application,
@@ -40,6 +41,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId)
   const { kind } = await readValidatedBody(event, bodySchema.parse)
 
   // ── Verify application ──

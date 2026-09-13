@@ -1,4 +1,5 @@
 import { and, desc, eq, isNull } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../../utils/access/scope'
 import { generateText } from 'ai'
 import {
   application,
@@ -33,6 +34,7 @@ export default defineEventHandler(async (event) => {
   const userId = session.user.id
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId)
 
   // ── Rate-limit ──
   const now = Date.now()

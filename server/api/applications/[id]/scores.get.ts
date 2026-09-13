@@ -1,4 +1,5 @@
 import { eq, and, desc } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import { application, criterionScore, analysisRun, scoringCriterion } from '../../../database/schema'
 import { z } from 'zod'
 
@@ -13,6 +14,7 @@ export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { scoring: ['read'] })
   const orgId = session.session.activeOrganizationId
   const { id: applicationId } = await getValidatedRouterParams(event, paramsSchema.parse)
+  await requireApplicationInScope(event, applicationId as string, orgId)
 
   // Verify application belongs to org
   const app = await db.query.application.findFirst({

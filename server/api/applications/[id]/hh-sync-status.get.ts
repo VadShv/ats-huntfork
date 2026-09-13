@@ -1,4 +1,5 @@
 import { getHhSyncStatus } from '../../../utils/hh/sourcing/pushAction'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import { applicationIdParamSchema } from '../../../utils/schemas/application'
 
 /**
@@ -15,6 +16,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId)
 
   return await getHhSyncStatus({ organizationId: orgId, applicationId: id })
 })

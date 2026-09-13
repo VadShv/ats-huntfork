@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { requireApplicationInScope } from '../../../../utils/access/scope'
 import { and, eq } from 'drizzle-orm'
 import { application, applicationComment, commentPoll } from '../../../../database/schema/app'
 import { renderMarkdown } from '../../../../utils/comments/sanitize'
@@ -27,6 +28,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
   const userId = session.user.id
   const id = getRouterParam(event, 'id')!
+  await requireApplicationInScope(event, id as string, orgId as string)
   const body = await readValidatedBody(event, createPollSchema.parse)
 
   // Get candidateId from application (scoped to org)

@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { requireApplicationInScope } from '../../../utils/access/scope'
 import { application } from '../../../database/schema/app'
 import { applicationIdParamSchema } from '../../../utils/schemas/application'
 import { subscribeThread } from '../../../utils/comments/threadBus'
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event) => {
   const orgId = session.session.activeOrganizationId
 
   const { id } = await getValidatedRouterParams(event, applicationIdParamSchema.parse)
+  await requireApplicationInScope(event, id as string, orgId)
 
   // Проверка принадлежности отклика организации (без утечки чужих тредов).
   const app = await db.query.application.findFirst({
