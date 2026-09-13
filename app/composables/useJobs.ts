@@ -17,7 +17,6 @@ export function useJobs(options?: {
   }))
 
   const { data, status: fetchStatus, error, refresh } = useFetch('/api/jobs', {
-    key: 'jobs',
     query,
     headers: useRequestHeaders(['cookie']),
   })
