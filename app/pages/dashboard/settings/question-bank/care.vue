@@ -130,7 +130,7 @@ async function submitTriggers() {
         hint="Плейсхолдеры {{name}} подставляются при генерации."
       />
       <div v-if="currentPrompt?.variables?.length" class="text-xs text-surface-500">
-        Переменные: <span v-for="v in currentPrompt.variables" :key="v.name" class="font-mono">{{ '{{' + v.name + '}}' }} </span>
+        Переменные: <span v-for="v in currentPrompt.variables" :key="v.name" class="font-mono">{{ '{' + '{' + v.name + '}' + '}' }} </span>
       </div>
       <UiInput v-if="canManage" v-model="promptChangeNote" label="Что изменилось" placeholder="необязательно" />
       <div v-if="canManage" class="flex justify-end">
