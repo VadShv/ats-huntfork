@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
   if (!app) throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
 
   const set = await db.query.applicationQuestionSet.findFirst({
-    where: and(eq(applicationQuestionSet.applicationId, applicationId), eq(applicationQuestionSet.organizationId, orgId)),
+    where: and(eq(applicationQuestionSet.applicationId, applicationId), eq(applicationQuestionSet.organizationId, orgId), eq(applicationQuestionSet.isSnapshot, false)),
     columns: { id: true },
   })
   if (!set) throw createError({ statusCode: 404, statusMessage: 'Набор вопросов не найден' })
@@ -41,6 +41,7 @@ export default defineEventHandler(async (event) => {
       ...(body.listenFor !== undefined ? { listenFor: body.listenFor ?? null } : {}),
       ...(body.askStatus !== undefined ? { askStatus: body.askStatus } : {}),
       ...(body.answerNote !== undefined ? { answerNote: body.answerNote ?? null } : {}),
+      ...(body.priority !== undefined ? { priority: body.priority } : {}),
       ...(body.displayOrder !== undefined ? { displayOrder: body.displayOrder } : {}),
       updatedAt: new Date(),
     })

@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
       eq(jobInterviewQuestion.isArchived, false),
     ),
     orderBy: [asc(jobInterviewQuestion.displayOrder), asc(jobInterviewQuestion.createdAt)],
-    columns: { id: true, text: true, category: true, rationale: true },
+    columns: { id: true, text: true, category: true, rationale: true, criterionId: true, goodAnswer: true },
   })
 
   // Risk findings of the candidate's current resume version.
@@ -66,27 +66,38 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const budgetMax = body.budgetMax ?? 15
   const assembled = assembleCandidateQuestions({
-    bank: bank.map(b => ({ id: b.id, text: b.text, category: b.category, rationale: b.rationale })),
+    bank: bank.map(b => ({
+      id: b.id, text: b.text, category: b.category, rationale: b.rationale,
+      // topicId у jobInterviewQuestion нет напрямую; criterionId используется как сигнал.
+      criterionId: b.criterionId, expectedSignal: b.goodAnswer,
+    })),
     findings,
     perBankCategory: body.perBankCategory,
+    budgetMax,
   })
 
   // Upsert the set; preserve manual items + filled answers on regenerate.
   const now = new Date()
   const result = await db.transaction(async (tx) => {
+    // Активный черновик (не snapshot). Snapshot-версии не трогаем.
     let set = await tx.query.applicationQuestionSet.findFirst({
-      where: and(eq(applicationQuestionSet.applicationId, applicationId), eq(applicationQuestionSet.organizationId, orgId)),
+      where: and(
+        eq(applicationQuestionSet.applicationId, applicationId),
+        eq(applicationQuestionSet.organizationId, orgId),
+        eq(applicationQuestionSet.isSnapshot, false),
+      ),
       columns: { id: true },
     })
     if (set) {
       await tx.update(applicationQuestionSet)
-        .set({ basedOnResumeRiskId, generatedAt: now, createdById: session.user.id })
+        .set({ basedOnResumeRiskId, generatedAt: now, createdById: session.user.id, isStale: false, budgetMax })
         .where(eq(applicationQuestionSet.id, set.id))
     }
     else {
       const [created] = await tx.insert(applicationQuestionSet)
-        .values({ organizationId: orgId, applicationId, basedOnResumeRiskId, createdById: session.user.id })
+        .values({ organizationId: orgId, applicationId, basedOnResumeRiskId, createdById: session.user.id, budgetMax })
         .returning({ id: applicationQuestionSet.id })
       set = created!
     }
@@ -119,6 +130,8 @@ export default defineEventHandler(async (event) => {
         origin: a.origin,
         sourceRef: a.sourceRef,
         rationale: a.rationale,
+        priority: a.priority,
+        topicId: a.topicId,
         displayOrder: order++,
       }))
     if (rows.length) await tx.insert(applicationQuestionItem).values(rows)
