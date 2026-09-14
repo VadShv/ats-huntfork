@@ -55,8 +55,10 @@ export const candidateQuestionCategoryEnum = pgEnum('candidate_question_category
   'hard_skill', 'soft_skill', 'experience', 'motivation', 'culture', 'logistics', 'risk_probe', 'verification', 'other',
 ])
 export const candidateQuestionOriginEnum = pgEnum('candidate_question_origin', [
-  'from_job_bank', 'risk_derived', 'manual',
+  'from_job_bank', 'risk_derived', 'manual', 'personalized',
 ])
+// Спринт 4: приоритет вопроса персонального опросника.
+export const itemPriorityEnum = pgEnum('item_priority', ['must_ask', 'should_ask', 'optional'])
 export const candidateQuestionAskStatusEnum = pgEnum('candidate_question_ask_status', [
   'pending', 'asked', 'skipped',
 ])
@@ -2022,9 +2024,21 @@ export const applicationQuestionSet = pgTable('application_question_set', {
   basedOnResumeRiskId: text('based_on_resume_risk_id'),
   generatedAt: timestamp('generated_at').notNull().defaultNow(),
   createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  // Спринт 4: версионирование + snapshot-иммутабельность + персонализация.
+  version: integer('version').notNull().default(1),
+  isSnapshot: boolean('is_snapshot').notNull().default(false),
+  confirmedAt: timestamp('confirmed_at'),
+  confirmedById: text('confirmed_by_id').references(() => user.id, { onDelete: 'set null' }),
+  sourceSnapshot: jsonb('source_snapshot'),
+  personalizedAt: timestamp('personalized_at'),
+  personalizeModel: text('personalize_model'),
+  isStale: boolean('is_stale').notNull().default(false),
+  budgetMax: integer('budget_max').notNull().default(15),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ([
-  uniqueIndex('application_question_set_application_id_unique').on(t.applicationId),
+  // Один АКТИВНЫЙ черновик (не snapshot) на отклик; snapshot-версии хранятся рядом.
+  uniqueIndex('application_question_set_active_unique').on(t.applicationId).where(sql`is_snapshot = false`),
+  index('application_question_set_application_id_idx').on(t.applicationId),
   index('application_question_set_organization_id_idx').on(t.organizationId),
 ]))
 
@@ -2041,12 +2055,24 @@ export const applicationQuestionItem = pgTable('application_question_item', {
   rationale: text('rationale'),
   askStatus: candidateQuestionAskStatusEnum('ask_status').notNull().default('pending'),
   answerNote: text('answer_note'),
+  // Спринт 4: probe/CARE-структура + приоритеты + персонализация.
+  parentItemId: text('parent_item_id'),
+  careElement: careElementEnum('care_element'),
+  priority: itemPriorityEnum('priority').notNull().default('should_ask'),
+  topicId: text('topic_id'),
+  scaleId: text('scale_id'),
+  expectedEvidence: jsonb('expected_evidence').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  greenFlags: jsonb('green_flags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  redFlags: jsonb('red_flags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  isPersonalized: boolean('is_personalized').notNull().default(false),
+  originalText: text('original_text'),
   displayOrder: integer('display_order').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   index('application_question_item_set_id_idx').on(t.setId),
   index('application_question_item_organization_id_idx').on(t.organizationId),
+  index('application_question_item_parent_idx').on(t.parentItemId),
 ]))
 
 export const applicationQuestionSetRelations = relations(applicationQuestionSet, ({ one, many }) => ({
