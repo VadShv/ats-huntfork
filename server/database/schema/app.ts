@@ -64,7 +64,11 @@ export const candidateQuestionAskStatusEnum = pgEnum('candidate_question_ask_sta
 ])
 export const candidateQuestionSetStatusEnum = pgEnum('candidate_question_set_status', ['draft', 'ready'])
 // MyMeet-интеграция (Этап 5).
-export const meetingReportStatusEnum = pgEnum('meeting_report_status', ['importing', 'completed', 'failed'])
+export const meetingReportStatusEnum = pgEnum('meeting_report_status', ['importing', 'completed', 'failed', 'generating'])
+// Модуль вопросов — Спринт 5: отчёты по интервью.
+export const reportTemplateKindEnum = pgEnum('report_template_kind', ['standard', 'executive', 'screening', 'technical', 'custom'])
+export const reportSourceEnum = pgEnum('report_source', ['mymeet', 'assistant'])
+export const answerConfidenceEnum = pgEnum('answer_confidence', ['low', 'medium', 'high'])
 export const dateFormatEnum = pgEnum('date_format', ['mdy', 'dmy', 'ymd'])
 
 // ─────────────────────────────────────────────
@@ -2066,6 +2070,9 @@ export const applicationQuestionItem = pgTable('application_question_item', {
   redFlags: jsonb('red_flags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   isPersonalized: boolean('is_personalized').notNull().default(false),
   originalText: text('original_text'),
+  // Спринт 5: метки автозаполнения из отчёта (write-back).
+  answerAutoFilled: boolean('answer_auto_filled').notNull().default(false),
+  answerConfidence: answerConfidenceEnum('answer_confidence'),
   displayOrder: integer('display_order').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -2123,11 +2130,24 @@ export const meetingReport = pgTable('meeting_report', {
   errorMessage: text('error_message'),
   importedById: text('imported_by_id').references(() => user.id, { onDelete: 'set null' }),
   importedAt: timestamp('imported_at'),
+  // Спринт 5: источник отчёта + генерация нашим ассистентом (поток Б).
+  source: reportSourceEnum('source').notNull().default('mymeet'),
+  reportTemplateId: text('report_template_id'),
+  templateVersion: integer('template_version'),
+  templateName: text('template_name'),
+  reportMarkdown: text('report_markdown'),
+  questionAnswerMap: jsonb('question_answer_map'),
+  generatedByModel: text('generated_by_model'),
+  aiProvider: text('ai_provider'),
+  usageInputTokens: integer('usage_input_tokens'),
+  usageOutputTokens: integer('usage_output_tokens'),
+  mymeetTemplate: text('mymeet_template'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ([
   uniqueIndex('meeting_report_org_external_unique').on(t.organizationId, t.externalMeetingId),
   index('meeting_report_interview_id_idx').on(t.interviewId),
   index('meeting_report_organization_id_idx').on(t.organizationId),
+  index('meeting_report_application_id_idx').on(t.applicationId),
 ]))
 
 export const mymeetAccountRelations = relations(mymeetAccount, ({ one }) => ({
@@ -2137,6 +2157,36 @@ export const mymeetAccountRelations = relations(mymeetAccount, ({ one }) => ({
 export const meetingReportRelations = relations(meetingReport, ({ one }) => ({
   interview: one(interview, { fields: [meetingReport.interviewId], references: [interview.id] }),
   application: one(application, { fields: [meetingReport.applicationId], references: [application.id] }),
+}))
+
+// ═════════════════════════════════════════════════════════════════
+// Модуль вопросов — Спринт 5: Библиотека шаблонов отчёта по интервью
+// docs/tz-questions-05-mymeet-reports.md
+// ═════════════════════════════════════════════════════════════════
+
+/** Именованный org-шаблон промпта генерации отчёта. Один isDefault среди активных. */
+export const reportTemplate = pgTable('report_template', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  kind: reportTemplateKindEnum('kind').notNull().default('standard'),
+  promptText: text('prompt_text').notNull(),
+  preferredAiConfigId: text('preferred_ai_config_id').references(() => aiConfig.id, { onDelete: 'set null' }),
+  isDefault: boolean('is_default').notNull().default(false),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(1),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  updatedById: text('updated_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('report_template_org_idx').on(t.organizationId),
+  index('report_template_org_active_idx').on(t.organizationId, t.isActive),
+]))
+
+export const reportTemplateRelations = relations(reportTemplate, ({ one }) => ({
+  organization: one(organization, { fields: [reportTemplate.organizationId], references: [organization.id] }),
 }))
 
 // ─── Fuzzy-дубли (Этап 3) ──────────────────────────────────────────────────────
