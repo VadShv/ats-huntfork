@@ -8,19 +8,12 @@ const { questions, isLoading } = useBankQuestions(() => ({ status: 'draft', limi
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
-    <div class="mb-6">
-      <h1 class="text-lg font-semibold text-surface-900 dark:text-surface-50">Песочница</h1>
-      <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">Черновики вопросов до публикации.</p>
-    </div>
-
-    <QuestionBankSubNav />
-
-    <div v-if="isLoading" class="py-12 text-center text-sm text-surface-400 mt-6">Загрузка…</div>
-    <div v-else-if="!questions.length" class="py-12 text-center text-sm text-surface-500 dark:text-surface-400 mt-6">
+  <div>
+    <div v-if="isLoading" class="py-12 text-center text-sm text-surface-400">Загрузка…</div>
+    <div v-else-if="!questions.length" class="py-12 text-center text-sm text-surface-500 dark:text-surface-400">
       Черновиков нет. Создайте вопрос на вкладке «Вопросы» или сгенерируйте по теме.
     </div>
-    <div v-else class="space-y-2 mt-6">
+    <div v-else class="space-y-2">
       <NuxtLink
         v-for="q in questions" :key="q.id"
         :to="`/dashboard/settings/question-bank/questions`"

@@ -46,23 +46,17 @@ function coverage(t: AssessmentTopic) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-lg font-semibold text-surface-900 dark:text-surface-50">Темы оценки</h1>
-        <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">Компетенции, ценности, зоны риска + BARS-якоря.</p>
-      </div>
+  <div>
+    <div class="mb-4 flex items-center justify-end">
       <UiButton v-if="canManage" variant="primary" size="sm" :icon-left="Plus" @click="openCreate">Тема</UiButton>
     </div>
 
-    <QuestionBankSubNav />
-
-    <div v-if="isLoading" class="py-12 text-center text-sm text-surface-400 mt-6">Загрузка…</div>
-    <div v-else-if="!topics.length" class="py-12 text-center mt-6">
+    <div v-if="isLoading" class="py-12 text-center text-sm text-surface-400">Загрузка…</div>
+    <div v-else-if="!topics.length" class="py-12 text-center">
       <p class="text-sm text-surface-500 dark:text-surface-400 mb-3">Пока нет тем оценки.</p>
       <UiButton v-if="canManage" variant="primary" size="sm" :icon-left="Plus" @click="openCreate">Создать первую тему</UiButton>
     </div>
-    <div v-else class="space-y-2 mt-6">
+    <div v-else class="space-y-2">
       <UiCard v-for="t in topics" :key="t.id" interactive @click="openEdit(t)">
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">

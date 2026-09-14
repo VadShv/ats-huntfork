@@ -6,6 +6,8 @@ export type BankQuestionType =
 export type BankQuestionStatus = 'draft' | 'published' | 'archived'
 export type InterviewStage = 'screening' | 'recruiter' | 'hiring_manager' | 'final' | 'expert' | 'full_cycle'
 export type QuestionComplexity = 'low' | 'medium' | 'high'
+/** Алиас для совместимости (labels-словарь). */
+export type Complexity = QuestionComplexity
 
 export interface BankQuestionProbe {
   id: string

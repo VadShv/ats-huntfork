@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Library, ListChecks, FileQuestion, Layers, FlaskConical } from 'lucide-vue-next'
+import { ListChecks, FileQuestion, Layers, FlaskConical } from 'lucide-vue-next'
 import { useBankQuestions } from '~/composables/useBankQuestions'
 import { useAssessmentTopics } from '~/composables/useAssessmentTopics'
 
@@ -23,20 +23,8 @@ const stats = computed(() => [
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
-    <div class="mb-6 flex items-center gap-2">
-      <Library :size="20" class="text-brand-500" />
-      <div>
-        <h1 class="text-lg font-semibold text-surface-900 dark:text-surface-50">Банк вопросов</h1>
-        <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">
-          Корпоративный стандарт: темы оценки, эталонные вопросы, методология.
-        </p>
-      </div>
-    </div>
-
-    <QuestionBankSubNav />
-
-    <div class="grid grid-cols-2 gap-3 mt-6">
+  <div>
+    <div class="grid grid-cols-2 gap-3">
       <NuxtLink v-for="s in stats" :key="s.label" :to="s.to">
         <UiCard interactive class="h-full">
           <div class="flex items-center gap-3">

@@ -74,6 +74,16 @@ async function doPublish() {
   else { publishIssues.value = null; drawerOpen.value = false }
 }
 
+// Быстрая публикация из карточки списка; при 422 открываем вопрос с деталями.
+async function quickPublish(id: string) {
+  const res = await publishQuestion(id)
+  if (!res.ok) {
+    const q = questions.value.find(x => x.id === id)
+    if (q) openEdit(q)
+    publishIssues.value = { blocking: res.blocking, warnings: res.warnings }
+  }
+}
+
 // ── Генерация ──
 const genOpen = ref(false)
 const genTopic = ref('')
@@ -89,24 +99,11 @@ async function doGenerate() {
   finally { genBusy.value = false }
 }
 
-function statusTone(s: BankQuestionStatus) {
-  return s === 'published' ? 'success' : s === 'archived' ? 'neutral' : 'warning'
-}
-function statusLabel(s: BankQuestionStatus) {
-  return s === 'published' ? 'Опубликован' : s === 'archived' ? 'Архив' : 'Черновик'
-}
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
-    <div class="mb-6">
-      <h1 class="text-lg font-semibold text-surface-900 dark:text-surface-50">Банк вопросов</h1>
-      <p class="text-sm text-surface-500 dark:text-surface-400 mt-0.5">Эталонные вопросы организации.</p>
-    </div>
-
-    <QuestionBankSubNav />
-
-    <div class="flex flex-wrap items-center gap-2 mt-6 mb-4">
+  <div>
+    <div class="flex flex-wrap items-center gap-2 mb-4">
       <div class="flex-1 min-w-[180px]">
         <UiInput v-model="search" :icon-left="Search" placeholder="Поиск по тексту вопроса" size="sm" />
       </div>
@@ -122,19 +119,17 @@ function statusLabel(s: BankQuestionStatus) {
       <UiButton v-if="canCreate" variant="primary" size="sm" :icon-left="Plus" @click="openCreate">Создать первый вопрос</UiButton>
     </div>
     <div v-else class="space-y-2">
-      <UiCard v-for="q in questions" :key="q.id" interactive @click="openEdit(q)">
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <p class="text-sm text-surface-900 dark:text-surface-100">{{ q.text }}</p>
-            <div class="flex flex-wrap items-center gap-1.5 mt-2">
-              <UiBadge v-if="q.primaryTopic" tone="info">{{ q.primaryTopic.name }}</UiBadge>
-              <UiBadge :tone="statusTone(q.status)">{{ statusLabel(q.status) }}</UiBadge>
-              <UiBadge v-if="q.careReady" tone="accent">CARE</UiBadge>
-              <UiBadge v-if="q.code" tone="neutral" variant="outline">{{ q.code }}</UiBadge>
-            </div>
-          </div>
-        </div>
-      </UiCard>
+      <QuestionBankBankQuestionCard
+        v-for="q in questions"
+        :key="q.id"
+        :question="q"
+        :can-edit="true"
+        :can-publish="canPublish"
+        :can-archive="canPublish"
+        @edit="openEdit"
+        @publish="q => quickPublish(q.id)"
+        @archive="q => archiveQuestion(q.id)"
+      />
     </div>
 
     <!-- Drawer: форма вопроса -->
