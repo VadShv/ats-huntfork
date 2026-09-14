@@ -20,6 +20,13 @@ const {
 } = useInterviewQuestions(jobId)
 const { allowed: canEdit } = usePermission({ job: ['update'] })
 
+// Спринт 3: обновить список вопросов после импорта пресета/синхронизации.
+async function onImported() {
+  // useInterviewQuestions экспортирует refresh через status-driven useFetch;
+  // повторный вызов через глобальный refreshNuxtData по ключу списка.
+  await refreshNuxtData(`job-iq-${jobId}`)
+}
+
 useSeoMeta({
   title: computed(() =>
     job.value ? `${t('dashboard.jobs.questions.pageTitle')} — ${job.value.title}` : t('dashboard.jobs.questions.pageTitle'),
@@ -130,6 +137,9 @@ function sourceLabel(s: InterviewQuestion['source']) {
     <p v-if="!canEdit" class="mb-4 rounded-lg bg-surface-50 px-3 py-2 text-xs text-surface-500 dark:bg-surface-800/50 dark:text-surface-400">
       {{ t('dashboard.jobs.questions.readOnlyHint') }}
     </p>
+
+    <!-- Пресеты + матрица покрытия (Спринт 3) -->
+    <JobQuestionnairePanel :job-id="jobId" :can-edit="canEdit" @imported="onImported" />
 
     <!-- Prompt + generate -->
     <section v-if="canEdit" class="mb-6 rounded-lg border border-surface-200 bg-white p-5 dark:border-surface-800 dark:bg-surface-900">
