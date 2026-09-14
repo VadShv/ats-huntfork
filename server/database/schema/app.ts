@@ -92,6 +92,12 @@ export const bankQuestionSourceEnum = pgEnum('bank_question_source', [
   'manual', 'ai_generated', 'imported', 'from_vacancy',
 ])
 export const bankQuestionComplexityEnum = pgEnum('bank_question_complexity', ['low', 'medium', 'high'])
+
+// ── Модуль вопросов — Спринт 2: Методология CARE (enums) ──
+export const carePromptKindEnum = pgEnum('care_prompt_kind', [
+  'structure_question', 'personalize_questionnaire', 'generate_report',
+])
+export const probeSourceEnum = pgEnum('probe_source', ['ai_structured', 'manual', 'trigger'])
 export const pipelineStageTypeEnum = pgEnum('pipeline_stage_type', [
   // ── Working bucket (canonical hh.ru-style phases) ──
   'new',           // Неразобранные (entry point)
@@ -3229,6 +3235,11 @@ export const bankQuestion = pgTable('bank_question', {
   version: integer('version').notNull().default(1),
   source: bankQuestionSourceEnum('source').notNull().default('manual'),
   careReady: boolean('care_ready').notNull().default(false),
+  // Спринт 2 (CARE): снимок версии методики + результат разложения.
+  structuredWithVersion: integer('structured_with_version'),
+  structuredAt: timestamp('structured_at'),
+  structuredById: text('structured_by_id').references(() => user.id, { onDelete: 'set null' }),
+  careBreakdown: jsonb('care_breakdown'),
   publishedAt: timestamp('published_at'),
   publishedById: text('published_by_id').references(() => user.id, { onDelete: 'set null' }),
   ownerId: text('owner_id').references(() => user.id, { onDelete: 'set null' }),
@@ -3250,6 +3261,9 @@ export const bankQuestionProbe = pgTable('bank_question_probe', {
   careElement: careElementEnum('care_element').notNull(),
   text: text('text').notNull(),
   sufficientSignal: text('sufficient_signal'),
+  // Спринт 2: источник probe + связь с триггером.
+  probeSource: probeSourceEnum('probe_source').notNull().default('manual'),
+  triggerId: text('trigger_id'),
   displayOrder: integer('display_order').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -3285,4 +3299,80 @@ export const bankQuestionRelations = relations(bankQuestion, ({ one, many }) => 
 export const bankQuestionProbeRelations = relations(bankQuestionProbe, ({ one }) => ({
   organization: one(organization, { fields: [bankQuestionProbe.organizationId], references: [organization.id] }),
   bankQuestion: one(bankQuestion, { fields: [bankQuestionProbe.bankQuestionId], references: [bankQuestion.id] }),
+}))
+
+// ═════════════════════════════════════════════════════════════════
+// Модуль вопросов — Спринт 2: Методология CARE
+// docs/tz-questions-02-care.md
+// ═════════════════════════════════════════════════════════════════
+
+/** Редактируемая методика CARE (версионируемая, ровно одна активная на org). */
+export const careMethodology = pgTable('care_methodology', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull(),
+  isActive: boolean('is_active').notNull().default(false),
+  title: text('title').notNull().default('CARE'),
+  description: text('description'),
+  interviewerInstruction: text('interviewer_instruction'),
+  sufficiencyCriteria: jsonb('sufficiency_criteria').notNull().default(sql`'{}'::jsonb`),
+  probeRules: jsonb('probe_rules').notNull().default(sql`'[]'::jsonb`),
+  probeLimitPerElement: integer('probe_limit_per_element').notNull().default(3),
+  probeLimitPerQuestion: integer('probe_limit_per_question').notNull().default(6),
+  changeNote: text('change_note'),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  publishedAt: timestamp('published_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('care_methodology_org_idx').on(t.organizationId),
+  uniqueIndex('care_methodology_org_version_unique').on(t.organizationId, t.version),
+]))
+
+/** Редактируемые промпты CARE (прод-источник для structure/personalize/report). */
+export const carePrompt = pgTable('care_prompt', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  kind: carePromptKindEnum('kind').notNull(),
+  promptText: text('prompt_text').notNull(),
+  variables: jsonb('variables').notNull().default(sql`'[]'::jsonb`),
+  version: integer('version').notNull(),
+  isActive: boolean('is_active').notNull().default(false),
+  methodologyVersion: integer('methodology_version').notNull(),
+  changeNote: text('change_note'),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  publishedAt: timestamp('published_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('care_prompt_org_idx').on(t.organizationId),
+  uniqueIndex('care_prompt_org_kind_version_unique').on(t.organizationId, t.kind, t.version),
+]))
+
+/** Живой справочник probe-триггеров (снимок уходит в care_methodology.probeRules). */
+export const careProbeTrigger = pgTable('care_probe_trigger', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  trigger: text('trigger').notNull(),
+  recommendedProbe: text('recommended_probe').notNull(),
+  careElement: careElementEnum('care_element'),
+  isBuiltin: boolean('is_builtin').notNull().default(false),
+  isActive: boolean('is_active').notNull().default(true),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('care_probe_trigger_org_idx').on(t.organizationId),
+  index('care_probe_trigger_org_order_idx').on(t.organizationId, t.displayOrder),
+]))
+
+export const careMethodologyRelations = relations(careMethodology, ({ one }) => ({
+  organization: one(organization, { fields: [careMethodology.organizationId], references: [organization.id] }),
+}))
+export const carePromptRelations = relations(carePrompt, ({ one }) => ({
+  organization: one(organization, { fields: [carePrompt.organizationId], references: [organization.id] }),
+}))
+export const careProbeTriggerRelations = relations(careProbeTrigger, ({ one }) => ({
+  organization: one(organization, { fields: [careProbeTrigger.organizationId], references: [organization.id] }),
 }))
