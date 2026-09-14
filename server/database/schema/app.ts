@@ -98,6 +98,10 @@ export const carePromptKindEnum = pgEnum('care_prompt_kind', [
   'structure_question', 'personalize_questionnaire', 'generate_report',
 ])
 export const probeSourceEnum = pgEnum('probe_source', ['ai_structured', 'manual', 'trigger'])
+
+// ── Модуль вопросов — Спринт 3: Пресеты + карта вакансии (enums) ──
+export const presetStatusEnum = pgEnum('preset_status', ['draft', 'published', 'archived'])
+export const questionLinkModeEnum = pgEnum('question_link_mode', ['linked', 'copy', 'linked_with_overrides'])
 export const pipelineStageTypeEnum = pgEnum('pipeline_stage_type', [
   // ── Working bucket (canonical hh.ru-style phases) ──
   'new',           // Неразобранные (entry point)
@@ -611,12 +615,25 @@ export const jobInterviewQuestion = pgTable('job_interview_question', {
   source: interviewQuestionSourceEnum('source').notNull().default('manual'),
   displayOrder: integer('display_order').notNull().default(0),
   isArchived: boolean('is_archived').notNull().default(false),
+  // Спринт 3: связь с банком/пресетом/критерием (provenance + матрица покрытия).
+  // FK на bank_question/question_preset/scoring_criterion объявлены в миграции 0103
+  // (forward-refs: эти таблицы определены ниже/в другом месте файла).
+  sourceBankQuestionId: text('source_bank_question_id'),
+  linkMode: questionLinkModeEnum('link_mode').notNull().default('copy'),
+  overriddenFields: jsonb('overridden_fields').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  criterionId: text('criterion_id'),
+  presetId: text('preset_id'),
+  sectionRef: text('section_ref'),
+  sourceVersion: integer('source_version'),
   createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   index('job_interview_question_organization_id_idx').on(t.organizationId),
   index('job_interview_question_job_id_idx').on(t.jobId),
+  index('job_interview_question_source_bank_idx').on(t.sourceBankQuestionId),
+  index('job_interview_question_criterion_idx').on(t.criterionId),
+  index('job_interview_question_preset_idx').on(t.presetId),
 ]))
 
 // Сохранённая инструкция генерации вопросов (1:1 к job).
@@ -3375,4 +3392,111 @@ export const carePromptRelations = relations(carePrompt, ({ one }) => ({
 }))
 export const careProbeTriggerRelations = relations(careProbeTrigger, ({ one }) => ({
   organization: one(organization, { fields: [careProbeTrigger.organizationId], references: [organization.id] }),
+}))
+
+// ═════════════════════════════════════════════════════════════════
+// Модуль вопросов — Спринт 3: Пресеты опросных карт + карта вакансии
+// docs/tz-questions-03-presets-vacancy.md
+// ═════════════════════════════════════════════════════════════════
+
+/** Пресет опросной карты (org) — именованный набор разделов. */
+export const questionPreset = pgTable('question_preset', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  code: text('code'),
+  name: text('name').notNull(),
+  description: text('description'),
+  interviewType: interviewStageEnum('interview_type').notNull().default('full_cycle'),
+  targetRoles: jsonb('target_roles').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  seniority: jsonb('seniority').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  isDefault: boolean('is_default').notNull().default(false),
+  status: presetStatusEnum('status').notNull().default('draft'),
+  version: integer('version').notNull().default(1),
+  ownerId: text('owner_id').references(() => user.id, { onDelete: 'set null' }),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  publishedAt: timestamp('published_at'),
+  publishedById: text('published_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('question_preset_org_idx').on(t.organizationId),
+  uniqueIndex('question_preset_org_code_unique').on(t.organizationId, t.code),
+  index('question_preset_status_idx').on(t.status),
+]))
+
+/** Раздел пресета (1 тема оценки). */
+export const presetSection = pgTable('preset_section', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  presetId: text('preset_id').notNull().references(() => questionPreset.id, { onDelete: 'cascade' }),
+  topicId: text('topic_id').notNull().references(() => assessmentTopic.id, { onDelete: 'restrict' }),
+  title: text('title').notNull(),
+  goal: text('goal'),
+  weight: integer('weight').notNull().default(50),
+  minQuestions: integer('min_questions').notNull().default(0),
+  maxQuestions: integer('max_questions').notNull().default(0),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('preset_section_org_idx').on(t.organizationId),
+  index('preset_section_preset_idx').on(t.presetId),
+  index('preset_section_topic_idx').on(t.topicId),
+]))
+
+/** Ссылка раздела пресета на вопрос банка. */
+export const presetSectionQuestion = pgTable('preset_section_question', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  sectionId: text('section_id').notNull().references(() => presetSection.id, { onDelete: 'cascade' }),
+  bankQuestionId: text('bank_question_id').notNull().references(() => bankQuestion.id, { onDelete: 'restrict' }),
+  displayOrder: integer('display_order').notNull().default(0),
+  isRequired: boolean('is_required').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('preset_section_question_org_idx').on(t.organizationId),
+  index('preset_section_question_section_idx').on(t.sectionId),
+  index('preset_section_question_bank_idx').on(t.bankQuestionId),
+  uniqueIndex('preset_section_question_unique').on(t.sectionId, t.bankQuestionId),
+]))
+
+/** Лёгкий мета-слой провенанса карты вопросов вакансии (1:1 к job). */
+export const jobQuestionnaireMeta = pgTable('job_questionnaire_meta', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  presetId: text('preset_id').references(() => questionPreset.id, { onDelete: 'set null' }),
+  presetVersion: integer('preset_version'),
+  importedAt: timestamp('imported_at'),
+  importedById: text('imported_by_id').references(() => user.id, { onDelete: 'set null' }),
+  adaptedAt: timestamp('adapted_at'),
+  adaptationModel: text('adaptation_model'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('job_questionnaire_meta_job_unique').on(t.jobId),
+  index('job_questionnaire_meta_org_idx').on(t.organizationId),
+  index('job_questionnaire_meta_preset_idx').on(t.presetId),
+]))
+
+export const questionPresetRelations = relations(questionPreset, ({ one, many }) => ({
+  organization: one(organization, { fields: [questionPreset.organizationId], references: [organization.id] }),
+  sections: many(presetSection),
+}))
+export const presetSectionRelations = relations(presetSection, ({ one, many }) => ({
+  organization: one(organization, { fields: [presetSection.organizationId], references: [organization.id] }),
+  preset: one(questionPreset, { fields: [presetSection.presetId], references: [questionPreset.id] }),
+  topic: one(assessmentTopic, { fields: [presetSection.topicId], references: [assessmentTopic.id] }),
+  questions: many(presetSectionQuestion),
+}))
+export const presetSectionQuestionRelations = relations(presetSectionQuestion, ({ one }) => ({
+  organization: one(organization, { fields: [presetSectionQuestion.organizationId], references: [organization.id] }),
+  section: one(presetSection, { fields: [presetSectionQuestion.sectionId], references: [presetSection.id] }),
+  bankQuestion: one(bankQuestion, { fields: [presetSectionQuestion.bankQuestionId], references: [bankQuestion.id] }),
+}))
+export const jobQuestionnaireMetaRelations = relations(jobQuestionnaireMeta, ({ one }) => ({
+  organization: one(organization, { fields: [jobQuestionnaireMeta.organizationId], references: [organization.id] }),
+  job: one(job, { fields: [jobQuestionnaireMeta.jobId], references: [job.id] }),
+  preset: one(questionPreset, { fields: [jobQuestionnaireMeta.presetId], references: [questionPreset.id] }),
 }))
