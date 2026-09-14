@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Shield, ScrollText, Globe, GitBranch, Bot, Landmark, Network, Sparkles,
+  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Shield, ScrollText, Globe, GitBranch, Bot, Landmark, Network, Sparkles, Library,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -68,6 +68,13 @@ const settingsNav = [
     description: 'Этапы найма',
     to: '/dashboard/settings/pipelines',
     icon: GitBranch,
+    exact: false,
+  },
+  {
+    label: 'Банк вопросов',
+    description: 'Темы, вопросы, методология',
+    to: '/dashboard/settings/question-bank',
+    icon: Library,
     exact: false,
   },
   {
