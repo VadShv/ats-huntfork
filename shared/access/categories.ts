@@ -20,6 +20,7 @@ export const PERMISSION_CATEGORIES: CategoryMeta[] = [
   { key: 'documents', labelRu: 'Документы', order: 50 },
   { key: 'comments', labelRu: 'Комментарии', order: 60 },
   { key: 'scoring', labelRu: 'Оценка и скоринг', order: 70 },
+  { key: 'question-bank', labelRu: 'Банк вопросов', order: 75 },
   { key: 'ai', labelRu: 'AI и промпты', order: 80 },
   { key: 'integrations', labelRu: 'Интеграции', order: 90 },
   { key: 'sourcing', labelRu: 'Источники и трекинг', order: 100 },

@@ -20,6 +20,7 @@ export const itemParamSchema = z.object({
 /** Generate/regenerate the set. perBankCategory caps how many bank questions per category. */
 export const generateSetSchema = z.object({
   perBankCategory: z.number().int().min(0).max(10).default(3),
+  budgetMax: z.number().int().min(1).max(50).default(15),
 })
 
 /** Add a manual item. */
@@ -36,5 +37,6 @@ export const updateItemSchema = z.object({
   listenFor: z.string().max(2000).nullish(),
   askStatus: z.enum(['pending', 'asked', 'skipped']).optional(),
   answerNote: z.string().max(4000).nullish(),
+  priority: z.enum(['must_ask', 'should_ask', 'optional']).optional(),
   displayOrder: z.number().int().min(0).optional(),
 })

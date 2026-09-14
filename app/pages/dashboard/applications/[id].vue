@@ -473,6 +473,11 @@ function formatResponseValue(value: unknown): string {
         />
       </div>
 
+      <!-- Отчёт по интервью (Спринт 5): MyMeet hr-interview / наш ассистент на BARS -->
+      <div class="mb-4">
+        <ApplicationInterviewReportPanel :application-id="applicationId" />
+      </div>
+
       <!-- Collaboration Hub: обсуждение с вкладками по откликам кандидата -->
       <div class="mt-4 mb-4" data-comment-composer>
         <CandidateDiscussionTabs

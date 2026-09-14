@@ -20,8 +20,13 @@ export default defineEventHandler(async (event) => {
   })
   if (!app) throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
 
+  // Активный черновик (не snapshot) — рабочая версия опросника.
   const set = await db.query.applicationQuestionSet.findFirst({
-    where: and(eq(applicationQuestionSet.applicationId, applicationId), eq(applicationQuestionSet.organizationId, orgId)),
+    where: and(
+      eq(applicationQuestionSet.applicationId, applicationId),
+      eq(applicationQuestionSet.organizationId, orgId),
+      eq(applicationQuestionSet.isSnapshot, false),
+    ),
   })
   if (!set) return { set: null, items: [] }
 

@@ -169,6 +169,15 @@ export const RESOURCES = {
     scopeStrategy: 'byJob',
     category: 'ai',
   },
+  // Модуль вопросов (org-уровень): Банк вопросов, темы/шкалы/BARS, методика CARE,
+  // библиотека шаблонов отчётов. Нестандартный набор действий (не CRUD).
+  // table указывает на основную таблицу банка; scope — org-only.
+  questionBank: {
+    table: 'bank_question',
+    actions: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
+    scopeStrategy: 'orgOnly',
+    category: 'question-bank',
+  },
   sourceTracking: {
     table: 'tracking_link',
     actions: ['create', 'read', 'update', 'delete'],

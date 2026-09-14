@@ -701,6 +701,41 @@
       "when": 1801000460000,
       "tag": "0100_candidate_created_by",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1801000461000,
+      "tag": "0101_question_bank",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1801000462000,
+      "tag": "0102_care_methodology",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1801000463000,
+      "tag": "0103_question_presets",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1801000464000,
+      "tag": "0104_candidate_questionnaire",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1801000465000,
+      "tag": "0105_interview_reports",
+      "breakpoints": true
     }
   ]
 }

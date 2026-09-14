@@ -6,17 +6,13 @@ import { generateInterviewQuestions } from '../../../../utils/ai/generateIntervi
 import type { SupportedProvider } from '../../../../utils/ai/provider'
 import { loadAiConfig } from '../../../../utils/ai/loadConfig'
 import { createRateLimiter } from '../../../../utils/rateLimit'
+import { normalizeQuestion as norm } from '../../../../utils/text/normalizeQuestion'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
   maxRequests: 10,
   message: 'Слишком много запросов на генерацию вопросов. Повторите позже',
 })
-
-/** Normalize question text for de-dup comparison. */
-function norm(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, ' ').replace(/[«»"'.,;:!?()]/g, '').trim()
-}
 
 /**
  * POST /api/jobs/:id/interview-questions/generate

@@ -47,6 +47,9 @@ const atsStatements = {
   hiringManager: ['create'],
   // §E/§I: AI assistant — granular actions. Declared for types; granted in presets.
   assistant: ['access', 'send', 'scopeOrg', 'reasoning', 'agents', 'selectModel', 'suggest'],
+  // Модуль вопросов (org-уровень): Банк вопросов, темы/шкалы/BARS, методика CARE,
+  // библиотека шаблонов отчётов. См. docs/tz-questions-90-cross-cutting.md §2.
+  questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
 } as const
 
 // ─── Merged statement (Better Auth defaults + ATS resources) ───────
@@ -87,6 +90,7 @@ export const ownerAtsStatements = {
   pipeline: ['create', 'read', 'update', 'delete'],
   company: ['create', 'read', 'update', 'delete'],
   department: ['create', 'read', 'update', 'delete'],
+  questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
 } as const
 
 export const adminAtsStatements = {
@@ -104,6 +108,7 @@ export const adminAtsStatements = {
   pipeline: ['create', 'read', 'update', 'delete'],
   company: ['create', 'read', 'update', 'delete'],
   department: ['create', 'read', 'update', 'delete'],
+  questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
 } as const
 
 export const memberAtsStatements = {
@@ -125,6 +130,10 @@ export const memberAtsStatements = {
   // Справочники оргструктуры ведут owner/admin; рекрутер только читает (селекты в вакансии).
   company: ['read'],
   department: ['read'],
+  // Банк вопросов: рекрутер смотрит и создаёт черновики; публикация/архив/методика/
+  // темы/шаблоны отчётов — только owner/admin. Правка «своего» черновика —
+  // ABAC-проверка владения в хендлере поверх create_draft (см. cross-cutting §2.2).
+  questionBank: ['view', 'create_draft', 'edit_draft'],
 } as const
 
 export const owner = ac.newRole({
@@ -162,6 +171,7 @@ export const hiringManagerAtsStatements = {
   pipeline: ['read'],
   company: ['read'],
   department: ['read'],
+  questionBank: ['view'],
 } as const
 
 export const hiringManager = ac.newRole({

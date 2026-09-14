@@ -40,8 +40,11 @@ describe('expandRoleCapabilities', () => {
 
   it('hiring_manager is read-only across ATS resources', () => {
     const caps = expandRoleCapabilities('hiring_manager')
+    // Read-only = немутирующие действия: `:read` (CRUD-ресурсы) или `:view`
+    // (Банк вопросов использует `view` как своё read-действие). Обе — просмотр.
     for (const cap of caps) {
-      expect(cap.endsWith(':read')).toBe(true)
+      const readOnly = cap.endsWith(':read') || cap.endsWith(':view')
+      expect(readOnly, `HM capability must be read-only: ${cap}`).toBe(true)
     }
   })
 

@@ -111,6 +111,9 @@ const leadRecruiterCaps = caps({
   pipeline: ['read'],
   company: ['read'],
   department: ['read'],
+  // Банк вопросов: ведущий рекрутер смотрит и создаёт черновики (методология —
+  // owner/admin).
+  questionBank: ['view', 'create_draft', 'edit_draft'],
 })
 // lead_recruiter sees candidate PII (contacts + salary) within its scope, may
 // add hiring managers (§7), and has FULL assistant access (§I — trusted role).
@@ -134,6 +137,8 @@ const hrbpCaps = caps({
   pipeline: ['read'],
   company: ['read'],
   department: ['read'],
+  // Банк вопросов: HRBP смотрит и создаёт черновики.
+  questionBank: ['view', 'create_draft', 'edit_draft'],
 })
 // HRBP sees candidate PII within its scope and may add hiring managers.
 hrbpCaps.push(PII_CONTACTS, PII_SALARY, HM_CREATE)
