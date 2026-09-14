@@ -13,14 +13,22 @@ const bankQuestionTypes = [
 ] as const
 export type GeneratedBankQuestionType = (typeof bankQuestionTypes)[number]
 
+const questionItemSchema = z.preprocess((val) => {
+  if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+    const v = val as Record<string, unknown>
+    if (v.text === undefined && v.question !== undefined) v.text = v.question
+  }
+  return val
+}, z.object({
+  text: z.string().catch('').default(''),
+  type: z.enum(bankQuestionTypes).catch('behavioral').default('behavioral'),
+  goal: z.string().catch('').default(''),
+  assesses: z.string().catch('').default(''),
+  expectedSignal: z.string().catch('').default(''),
+}))
+
 const generatedSchema = z.object({
-  questions: z.array(z.object({
-    text: z.string(),
-    type: z.enum(bankQuestionTypes).catch('behavioral').default('behavioral'),
-    goal: z.string().catch('').default(''),
-    assesses: z.string().catch('').default(''),
-    expectedSignal: z.string().catch('').default(''),
-  })),
+  questions: z.array(questionItemSchema),
 })
 
 export interface GeneratedBankQuestion {

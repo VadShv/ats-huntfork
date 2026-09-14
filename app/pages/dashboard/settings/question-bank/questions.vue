@@ -3,6 +3,10 @@ import { Search, Plus, Sparkles, Wand2 } from 'lucide-vue-next'
 import { useBankQuestions, type BankQuestion, type BankQuestionStatus, type QualityIssue } from '~/composables/useBankQuestions'
 import { useAssessmentTopics } from '~/composables/useAssessmentTopics'
 import { useCare } from '~/composables/useCare'
+import BankQuestionForm from '~/components/questionBank/BankQuestionForm.vue'
+import BankQuestionCard from '~/components/questionBank/BankQuestionCard.vue'
+import CareBreakdown from '~/components/questionBank/CareBreakdown.vue'
+import QualityWarnings from '~/components/questionBank/QualityWarnings.vue'
 
 definePageMeta({})
 useSeoMeta({ title: 'Банк вопросов — Вопросы' })
@@ -139,7 +143,7 @@ async function doGenerate() {
       <UiButton v-if="canCreate" variant="primary" size="sm" :icon-left="Plus" @click="openCreate">Создать первый вопрос</UiButton>
     </div>
     <div v-else class="space-y-2">
-      <QuestionBankBankQuestionCard
+      <BankQuestionCard
         v-for="q in questions"
         :key="q.id"
         :question="q"
@@ -159,7 +163,7 @@ async function doGenerate() {
       </template>
 
       <div class="space-y-4">
-        <QuestionBankBankQuestionForm
+        <BankQuestionForm
           v-model="editing"
           :topics="topics"
           :readonly="editing.status === 'published'"
@@ -177,10 +181,10 @@ async function doGenerate() {
               {{ editing.careReady ? 'Переразложить' : 'Разложить по CARE' }}
             </UiButton>
           </div>
-          <QuestionBankCareBreakdown v-if="editing.careBreakdown" :breakdown="editing.careBreakdown" class="mt-3" />
+          <CareBreakdown v-if="editing.careBreakdown" :breakdown="editing.careBreakdown" class="mt-3" />
         </div>
 
-        <QuestionBankQualityWarnings v-if="publishIssues" :blocking="publishIssues.blocking" :warnings="publishIssues.warnings" />
+        <QualityWarnings v-if="publishIssues" :blocking="publishIssues.blocking" :warnings="publishIssues.warnings" />
       </div>
 
       <template #footer>

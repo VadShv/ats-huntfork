@@ -39,3 +39,6 @@ __pycache__/
 
 # Kilo AI assistant state
 .kilo/
+
+# Astra Code marker
+.astracode

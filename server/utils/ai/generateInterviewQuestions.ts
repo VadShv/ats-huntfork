@@ -18,13 +18,21 @@ const interviewQuestionCategories = [
 ] as const
 export type InterviewQuestionCategory = (typeof interviewQuestionCategories)[number]
 
+const interviewQuestionItemSchema = z.preprocess((val) => {
+  if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+    const v = val as Record<string, unknown>
+    if (v.text === undefined && v.question !== undefined) v.text = v.question
+  }
+  return val
+}, z.object({
+  text: z.string().catch('').default(''),
+  category: z.enum(interviewQuestionCategories).catch('other').default('other'),
+  rationale: z.string().catch('').default(''),
+  goodAnswer: z.string().catch('').default(''),
+}))
+
 const generatedQuestionsSchema = z.object({
-  questions: z.array(z.object({
-    text: z.string(),
-    category: z.enum(interviewQuestionCategories).catch('other').default('other'),
-    rationale: z.string().catch('').default(''),
-    goodAnswer: z.string().catch('').default(''),
-  })),
+  questions: z.array(interviewQuestionItemSchema),
 })
 
 export interface GeneratedInterviewQuestion {
