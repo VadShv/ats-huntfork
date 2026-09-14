@@ -73,11 +73,37 @@ export function resolveToolName(tools: McpTool[], candidates: string[]): string 
 }
 
 // Кандидаты имён tools (уточняются после discovery — см. mymeet_account.last_tools_json).
+// Спринт 5: добавлены status/search/download/record/regenerate_template для
+// связки hr-interview и генерации нашего отчёта из транскрипта.
 export const TOOL_CANDIDATES = {
-  listMeetings: ['list_meetings', 'meetings', 'list_recordings', 'recordings'],
-  getReport: ['get_report', 'report', 'get_meeting', 'meeting'],
-  getTranscript: ['get_transcript', 'transcript'],
+  listMeetings: ['mymeet_list_meetings', 'list_meetings', 'meetings', 'list_recordings', 'recordings'],
+  getReport: ['mymeet_get_meeting_report', 'get_report', 'report', 'get_meeting', 'meeting'],
+  getTranscript: ['mymeet_get_transcript', 'get_transcript', 'transcript'],
+  getStatus: ['mymeet_get_meeting_status', 'get_meeting_status', 'status'],
+  searchMeetings: ['mymeet_search_meetings', 'search_meetings', 'search'],
+  downloadMeeting: ['mymeet_download_meeting', 'download_meeting', 'download'],
+  recordMeeting: ['mymeet_record_meeting', 'record_meeting', 'record'],
+  regenerateTemplate: ['mymeet_regenerate_template', 'regenerate_template', 'regenerate'],
 } as const
+
+/**
+ * Высокоуровневый вызов tool по ключу-кандидату: делает discovery (или берёт
+ * переданный список), резолвит имя, вызывает, возвращает извлечённый контент.
+ * Спринт 5: используется генерацией отчёта (транскрипт) и связкой hr-interview.
+ */
+export async function callMymeetByKey(
+  apiKey: string,
+  key: keyof typeof TOOL_CANDIDATES,
+  args: Record<string, unknown>,
+  toolsCache?: McpTool[],
+): Promise<{ text: string, json: unknown, toolName: string } | null> {
+  const tools = toolsCache ?? await listMymeetTools(apiKey)
+  const name = resolveToolName(tools, [...TOOL_CANDIDATES[key]])
+  if (!name) return null
+  const raw = await callMymeetTool(apiKey, name, args)
+  const { text, json } = extractToolContent(raw)
+  return { text, json, toolName: name }
+}
 
 /** Извлекает «сырой» текстовый/структурный контент из MCP CallToolResult. */
 export function extractToolContent(result: unknown): { text: string, json: unknown } {
