@@ -64,6 +64,34 @@ export const candidateQuestionSetStatusEnum = pgEnum('candidate_question_set_sta
 // MyMeet-интеграция (Этап 5).
 export const meetingReportStatusEnum = pgEnum('meeting_report_status', ['importing', 'completed', 'failed'])
 export const dateFormatEnum = pgEnum('date_format', ['mdy', 'dmy', 'ymd'])
+
+// ─────────────────────────────────────────────
+// Модуль вопросов — Спринт 1: Org Банк вопросов (enums)
+// Конвенция имён: БД snake_case БЕЗ суффикса _enum; Drizzle-alias camelCase+Enum.
+// Источник правды: docs/tz-questions-90-cross-cutting.md §7a/§7c.
+// ─────────────────────────────────────────────
+export const assessmentTopicTypeEnum = pgEnum('assessment_topic_type', [
+  'value', 'soft_skill', 'management', 'professional', 'motivation', 'expectations',
+  'factcheck', 'achievement_scale', 'career_logic', 'risk_zone', 'culture', 'custom',
+])
+export const topicStatusEnum = pgEnum('topic_status', ['draft', 'active', 'archived'])
+export const scaleTypeEnum = pgEnum('scale_type', [
+  'numeric_5', 'numeric_4', 'numeric_3', 'match_3', 'verify_3', 'level_5', 'custom',
+])
+export const bankQuestionTypeEnum = pgEnum('bank_question_type', [
+  'behavioral', 'situational', 'motivational', 'factual', 'verification',
+  'reflective', 'professional', 'control', 'ai_personal',
+])
+export const bankQuestionStatusEnum = pgEnum('bank_question_status', ['draft', 'published', 'archived'])
+// Общий enum этапа интервью — переиспользуется как тип пресета (S3) + full_cycle.
+export const interviewStageEnum = pgEnum('interview_stage', [
+  'screening', 'recruiter', 'hiring_manager', 'final', 'expert', 'full_cycle',
+])
+export const careElementEnum = pgEnum('care_element', ['context', 'action', 'result', 'evaluate'])
+export const bankQuestionSourceEnum = pgEnum('bank_question_source', [
+  'manual', 'ai_generated', 'imported', 'from_vacancy',
+])
+export const bankQuestionComplexityEnum = pgEnum('bank_question_complexity', ['low', 'medium', 'high'])
 export const pipelineStageTypeEnum = pgEnum('pipeline_stage_type', [
   // ── Working bucket (canonical hh.ru-style phases) ──
   'new',           // Неразобранные (entry point)
@@ -3106,4 +3134,155 @@ export const promptSandboxRelations = relations(promptSandbox, ({ one }) => ({
   organization: one(organization, { fields: [promptSandbox.organizationId], references: [organization.id] }),
   user: one(user, { fields: [promptSandbox.userId], references: [user.id] }),
   aiConfig: one(aiConfig, { fields: [promptSandbox.aiConfigId], references: [aiConfig.id] }),
+}))
+
+// ═════════════════════════════════════════════════════════════════
+// Модуль вопросов — Спринт 1: Org Банк вопросов
+// docs/tz-questions-01-org-bank.md · docs/tz-questions-90-cross-cutting.md §7a
+// ═════════════════════════════════════════════════════════════════
+
+/** Тема оценки — смысловая ось банка (компетенция/ценность/риск/фактчек). */
+export const assessmentTopic = pgTable('assessment_topic', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  code: text('code'), // человекочитаемый "TOPIC-0042" (уникален в орг); авто-генерация
+  name: text('name').notNull(),
+  shortName: text('short_name'),
+  type: assessmentTopicTypeEnum('type').notNull().default('custom'),
+  definition: text('definition'),
+  goal: text('goal'),
+  positiveIndicators: jsonb('positive_indicators').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  negativeIndicators: jsonb('negative_indicators').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  parentTopicId: text('parent_topic_id').references((): AnyPgColumn => assessmentTopic.id, { onDelete: 'set null' }),
+  targetRoles: jsonb('target_roles').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  tags: jsonb('tags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  status: topicStatusEnum('status').notNull().default('active'),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('assessment_topic_org_idx').on(t.organizationId),
+  uniqueIndex('assessment_topic_org_code_unique').on(t.organizationId, t.code),
+  index('assessment_topic_parent_idx').on(t.parentTopicId),
+  index('assessment_topic_status_idx').on(t.status),
+]))
+
+/** Шкала оценки темы (numeric_5, verify_3, level_5, …). Одна isDefault на тему. */
+export const assessmentScale = pgTable('assessment_scale', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  topicId: text('topic_id').notNull().references(() => assessmentTopic.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  type: scaleTypeEnum('type').notNull().default('numeric_5'),
+  minValue: integer('min_value'),
+  maxValue: integer('max_value'),
+  allowInsufficientData: boolean('allow_insufficient_data').notNull().default(true),
+  isDefault: boolean('is_default').notNull().default(false),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('assessment_scale_org_idx').on(t.organizationId),
+  index('assessment_scale_topic_idx').on(t.topicId),
+]))
+
+/** BARS-якорь: наблюдаемое поведение для конкретного балла шкалы. */
+export const barsAnchor = pgTable('bars_anchor', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  scaleId: text('scale_id').notNull().references(() => assessmentScale.id, { onDelete: 'cascade' }),
+  value: text('value').notNull(), // балл/значение шкалы ("1".."5" | "verified")
+  anchorText: text('anchor_text').notNull(),
+  positiveExamples: jsonb('positive_examples').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  negativeExamples: jsonb('negative_examples').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('bars_anchor_org_idx').on(t.organizationId),
+  index('bars_anchor_scale_idx').on(t.scaleId),
+  uniqueIndex('bars_anchor_scale_value_unique').on(t.scaleId, t.value),
+]))
+
+/** Вопрос банка (org) — эталон формулировки. НЕ путать с job_question / job_interview_question. */
+export const bankQuestion = pgTable('bank_question', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  code: text('code'), // "Q-001245" (уникален в орг); авто-генерация
+  primaryTopicId: text('primary_topic_id').notNull().references(() => assessmentTopic.id, { onDelete: 'restrict' }),
+  type: bankQuestionTypeEnum('type').notNull().default('behavioral'),
+  text: text('text').notNull(),
+  goal: text('goal'),
+  assesses: text('assesses'),
+  recommendedStage: interviewStageEnum('recommended_stage'),
+  expectedSignal: text('expected_signal'),
+  strongIndicators: jsonb('strong_indicators').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  weakIndicators: jsonb('weak_indicators').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  durationMin: integer('duration_min'),
+  complexity: bankQuestionComplexityEnum('complexity'),
+  secondaryTopicIds: jsonb('secondary_topic_ids').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  scaleIdOverride: text('scale_id_override').references((): AnyPgColumn => assessmentScale.id, { onDelete: 'set null' }),
+  targetRoles: jsonb('target_roles').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  tags: jsonb('tags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  status: bankQuestionStatusEnum('status').notNull().default('draft'),
+  version: integer('version').notNull().default(1),
+  source: bankQuestionSourceEnum('source').notNull().default('manual'),
+  careReady: boolean('care_ready').notNull().default(false),
+  publishedAt: timestamp('published_at'),
+  publishedById: text('published_by_id').references(() => user.id, { onDelete: 'set null' }),
+  ownerId: text('owner_id').references(() => user.id, { onDelete: 'set null' }),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('bank_question_org_idx').on(t.organizationId),
+  uniqueIndex('bank_question_org_code_unique').on(t.organizationId, t.code),
+  index('bank_question_primary_topic_idx').on(t.primaryTopicId),
+  index('bank_question_status_idx').on(t.status),
+]))
+
+/** probe-уточнение по CARE (наполняется в Спринте 2). */
+export const bankQuestionProbe = pgTable('bank_question_probe', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  bankQuestionId: text('bank_question_id').notNull().references(() => bankQuestion.id, { onDelete: 'cascade' }),
+  careElement: careElementEnum('care_element').notNull(),
+  text: text('text').notNull(),
+  sufficientSignal: text('sufficient_signal'),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('bank_question_probe_org_idx').on(t.organizationId),
+  index('bank_question_probe_question_idx').on(t.bankQuestionId),
+]))
+
+export const assessmentTopicRelations = relations(assessmentTopic, ({ one, many }) => ({
+  organization: one(organization, { fields: [assessmentTopic.organizationId], references: [organization.id] }),
+  parent: one(assessmentTopic, { fields: [assessmentTopic.parentTopicId], references: [assessmentTopic.id], relationName: 'topic_parent' }),
+  scales: many(assessmentScale),
+  questions: many(bankQuestion),
+}))
+
+export const assessmentScaleRelations = relations(assessmentScale, ({ one, many }) => ({
+  organization: one(organization, { fields: [assessmentScale.organizationId], references: [organization.id] }),
+  topic: one(assessmentTopic, { fields: [assessmentScale.topicId], references: [assessmentTopic.id] }),
+  anchors: many(barsAnchor),
+}))
+
+export const barsAnchorRelations = relations(barsAnchor, ({ one }) => ({
+  organization: one(organization, { fields: [barsAnchor.organizationId], references: [organization.id] }),
+  scale: one(assessmentScale, { fields: [barsAnchor.scaleId], references: [assessmentScale.id] }),
+}))
+
+export const bankQuestionRelations = relations(bankQuestion, ({ one, many }) => ({
+  organization: one(organization, { fields: [bankQuestion.organizationId], references: [organization.id] }),
+  primaryTopic: one(assessmentTopic, { fields: [bankQuestion.primaryTopicId], references: [assessmentTopic.id] }),
+  probes: many(bankQuestionProbe),
+}))
+
+export const bankQuestionProbeRelations = relations(bankQuestionProbe, ({ one }) => ({
+  organization: one(organization, { fields: [bankQuestionProbe.organizationId], references: [organization.id] }),
+  bankQuestion: one(bankQuestion, { fields: [bankQuestionProbe.bankQuestionId], references: [bankQuestion.id] }),
 }))
