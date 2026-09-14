@@ -16,6 +16,7 @@ const subNav = [
   { label: 'Обзор', to: '/dashboard/settings/question-bank', exact: true },
   { label: 'Вопросы', to: '/dashboard/settings/question-bank/questions', exact: false },
   { label: 'Темы', to: '/dashboard/settings/question-bank/topics', exact: false },
+  { label: 'Методология CARE', to: '/dashboard/settings/question-bank/care', exact: false },
   { label: 'Песочница', to: '/dashboard/settings/question-bank/sandbox', exact: false },
 ]
 

@@ -40,6 +40,8 @@ export interface BankQuestion {
   version: number
   source: 'manual' | 'ai_generated' | 'imported' | 'from_vacancy'
   careReady: boolean
+  careBreakdown?: unknown
+  structuredWithVersion?: number | null
   createdAt: string
   updatedAt: string
   probes?: BankQuestionProbe[]

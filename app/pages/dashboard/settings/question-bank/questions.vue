@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { Search, Plus, Sparkles } from 'lucide-vue-next'
+import { Search, Plus, Sparkles, Wand2 } from 'lucide-vue-next'
 import { useBankQuestions, type BankQuestion, type BankQuestionStatus, type QualityIssue } from '~/composables/useBankQuestions'
 import { useAssessmentTopics } from '~/composables/useAssessmentTopics'
+import { useCare } from '~/composables/useCare'
 
 definePageMeta({})
 useSeoMeta({ title: 'Банк вопросов — Вопросы' })
 
 const { allowed: canCreate } = usePermission({ questionBank: ['create_draft'] })
 const { allowed: canPublish } = usePermission({ questionBank: ['publish'] })
+const { allowed: canManageCare } = usePermission({ questionBank: ['manage_care'] })
+const { structureCare } = useCare()
 
 const search = ref('')
 const statusFilter = ref<BankQuestionStatus | ''>('')
@@ -20,7 +23,7 @@ const filters = computed(() => ({
   limit: 100,
 }))
 
-const { questions, isLoading, createQuestion, updateQuestion, publishQuestion, archiveQuestion, generateQuestions } = useBankQuestions(filters)
+const { questions, isLoading, refresh, createQuestion, updateQuestion, publishQuestion, archiveQuestion, generateQuestions } = useBankQuestions(filters)
 const { topics } = useAssessmentTopics(() => ({ status: 'active', limit: 100 }))
 
 const topicOptions = computed(() => [
@@ -84,6 +87,23 @@ async function quickPublish(id: string) {
   }
 }
 
+// ── Конструктор CARE ──
+const structuring = ref(false)
+async function doStructure() {
+  if (!editingId.value) return
+  structuring.value = true
+  try {
+    await structureCare(editingId.value)
+    // Перечитать вопрос с обновлённым careBreakdown.
+    const fresh = questions.value.find(q => q.id === editingId.value)
+    if (fresh) editing.value = { ...editing.value, careReady: true }
+    await refresh()
+    const updated = questions.value.find(q => q.id === editingId.value)
+    if (updated) editing.value = { ...updated }
+  }
+  finally { structuring.value = false }
+}
+
 // ── Генерация ──
 const genOpen = ref(false)
 const genTopic = ref('')
@@ -144,6 +164,22 @@ async function doGenerate() {
           :topics="topics"
           :readonly="editing.status === 'published'"
         />
+
+        <div v-if="editingId && canManageCare" class="rounded-lg border border-surface-200 dark:border-surface-800 p-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <p class="text-sm font-medium">Конструктор CARE</p>
+              <p class="text-xs text-surface-500">
+                {{ editing.careReady ? 'Вопрос разложен по CARE' : 'Разложить вопрос на Context / Action / Result / Evaluate' }}
+              </p>
+            </div>
+            <UiButton variant="secondary" size="sm" :icon-left="Wand2" :loading="structuring" @click="doStructure">
+              {{ editing.careReady ? 'Переразложить' : 'Разложить по CARE' }}
+            </UiButton>
+          </div>
+          <QuestionBankCareBreakdown v-if="editing.careBreakdown" :breakdown="editing.careBreakdown" class="mt-3" />
+        </div>
+
         <QuestionBankQualityWarnings v-if="publishIssues" :blocking="publishIssues.blocking" :warnings="publishIssues.warnings" />
       </div>
 
