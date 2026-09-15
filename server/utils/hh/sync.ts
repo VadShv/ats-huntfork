@@ -27,6 +27,7 @@ import { resolveHhConfig } from './config'
 import { getValidAccessToken } from './tokens'
 import { getEntryStageForPipeline } from '../pipeline-helpers'
 import { autoScoreApplication } from '../ai/autoScore'
+import { evaluateAutoRespond } from './autoRespond'
 import { extractIdentitiesFromHhResume } from '../dedup/extract'
 import { getOrgGroupId, resolveCandidateBySignals, upsertCandidateIdentities } from '../dedup/resolve'
 import { appendResumeVersionIfChanged } from '../resume-version/append'
@@ -584,6 +585,19 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
     for (const appId of newApplicationIds) {
       autoScoreApplication(appId, link.organizationId).catch((e) => {
         console.error('hh sync: autoScore failed for', appId, e)
+      })
+    }
+  }
+
+  // ── 5b. Auto-Respond (если включён на link) ──────────────────────────
+  if (link.autoRespondEnabled && newApplicationIds.length > 0) {
+    for (const appId of newApplicationIds) {
+      evaluateAutoRespond({
+        orgId: link.organizationId,
+        applicationId: appId,
+        hhAccountId: link.hhAccountId,
+      }).catch((e) => {
+        console.error('hh sync: autoRespond failed for', appId, e)
       })
     }
   }

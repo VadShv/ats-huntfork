@@ -1608,6 +1608,8 @@ export const hhVacancyLink = pgTable('hh_vacancy_link', {
   autoSyncEnabled: boolean('auto_sync_enabled').notNull().default(true),
   /** Спринт 12.2: пушить ли смену этапа в системе обратно на hh.ru */
   pushSyncEnabled: boolean('push_sync_enabled').notNull().default(true),
+  /** #4 Auto-Respond: отправлять ли авто-сообщения новым кандидатам */
+  autoRespondEnabled: boolean('auto_respond_enabled').notNull().default(false),
   importedCount: integer('imported_count').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -1895,6 +1897,47 @@ export const hhStatsSnapshot = pgTable('hh_stats_snapshot', {
 export const hhStatsSnapshotRelations = relations(hhStatsSnapshot, ({ one }) => ({
   organization: one(organization, { fields: [hhStatsSnapshot.organizationId], references: [organization.id] }),
   vacancyLink: one(hhVacancyLink, { fields: [hhStatsSnapshot.vacancyLinkId], references: [hhVacancyLink.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// HH auto-respond rules — automatic messages to new candidates
+// ─────────────────────────────────────────────
+
+/**
+ * Rule for sending an automatic message when a new negotiation arrives
+ * from hh.ru in a specific collection (e.g. 'response'). Evaluated by
+ * the sync engine after importing a new application.
+ */
+export const hhAutoRespondRule = pgTable('hh_auto_respond_rule', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdByUserId: text('created_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  /** hh.ru collection that triggers this rule (e.g. 'response', 'consider'). */
+  triggerCollection: text('trigger_collection').notNull(),
+  /** Delay before sending (minutes). 0 = immediate. */
+  triggerDelayMinutes: integer('trigger_delay_minutes').notNull().default(0),
+  /** Optional filter conditions. */
+  condition: jsonb('condition').$type<{
+    areaIds?: string[]
+    profAreaIds?: string[]
+    salaryMin?: number
+    resumeKeywords?: string[]
+  }>(),
+  /** Message text with {{candidateName}}, {{vacancyName}}, {{recruiterName}} variables. */
+  messageTemplate: text('message_template').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  /** Lower = higher priority. First matching rule wins. */
+  priority: integer('priority').notNull().default(100),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_ar_org_active_idx').on(t.organizationId, t.isActive),
+]))
+
+export const hhAutoRespondRuleRelations = relations(hhAutoRespondRule, ({ one }) => ({
+  organization: one(organization, { fields: [hhAutoRespondRule.organizationId], references: [organization.id] }),
+  createdBy: one(user, { fields: [hhAutoRespondRule.createdByUserId], references: [user.id] }),
 }))
 
 
