@@ -1940,6 +1940,86 @@ export const hhAutoRespondRuleRelations = relations(hhAutoRespondRule, ({ one })
   createdBy: one(user, { fields: [hhAutoRespondRule.createdByUserId], references: [user.id] }),
 }))
 
+// ─────────────────────────────────────────────
+// HH bulk actions — mass operations on negotiations
+// ─────────────────────────────────────────────
+
+/**
+ * Tracks a batch operation on multiple hh.ru negotiations.
+ * Processed asynchronously by a pg-boss worker with rate limiting.
+ */
+export const hhBulkAction = pgTable('hh_bulk_action', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  initiatedByUserId: text('initiated_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+
+  actionType: text('action_type').notNull(),
+  targetType: text('target_type').notNull(),
+
+  itemIds: text('item_ids').array(),
+  filter: jsonb('filter').$type<{
+    vacancyId?: string
+    collections?: string[]
+    areaIds?: string[]
+    dateFrom?: string
+    dateTo?: string
+  }>(),
+  params: jsonb('params').$type<{
+    collection?: string
+    messageText?: string
+  }>(),
+
+  status: text('status').notNull().default('pending'),
+  totalItems: integer('total_items').notNull().default(0),
+  processedItems: integer('processed_items').notNull().default(0),
+  succeededItems: integer('succeeded_items').notNull().default(0),
+  failedItems: integer('failed_items').notNull().default(0),
+
+  results: jsonb('results').$type<Array<{ itemId: string, status: 'success' | 'failed', error?: string }>>(),
+
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_ba_org_status_idx').on(t.organizationId, t.status),
+]))
+
+export const hhBulkActionRelations = relations(hhBulkAction, ({ one }) => ({
+  organization: one(organization, { fields: [hhBulkAction.organizationId], references: [organization.id] }),
+  initiatedBy: one(user, { fields: [hhBulkAction.initiatedByUserId], references: [user.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// HH coverage gaps — отклики on hh.ru not imported into Huntfork
+// ─────────────────────────────────────────────
+
+/**
+ * Cached gap detection: negotiations that exist on hh.ru but are
+ * not imported into the local DB. Refreshed by a scheduled task.
+ */
+export const hhCoverageGap = pgTable('hh_coverage_gap', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  vacancyLinkId: text('vacancy_link_id').notNull().references(() => hhVacancyLink.id, { onDelete: 'cascade' }),
+  hhNegotiationId: text('hh_negotiation_id').notNull(),
+
+  gapReason: text('gap_reason').notNull(),
+  hhCollection: text('hh_collection'),
+  hhCandidateName: text('hh_candidate_name'),
+  hhCreatedAt: timestamp('hh_created_at'),
+
+  detectedAt: timestamp('detected_at').notNull().defaultNow(),
+  resolvedAt: timestamp('resolved_at'),
+}, (t) => ([
+  index('hh_cg_link_idx').on(t.vacancyLinkId),
+  index('hh_cg_org_unresolved_idx').on(t.organizationId, t.resolvedAt),
+]))
+
+export const hhCoverageGapRelations = relations(hhCoverageGap, ({ one }) => ({
+  organization: one(organization, { fields: [hhCoverageGap.organizationId], references: [organization.id] }),
+  vacancyLink: one(hhVacancyLink, { fields: [hhCoverageGap.vacancyLinkId], references: [hhVacancyLink.id] }),
+}))
+
 
 // ─────────────────────────────────────────────
 // Дедупликация — фундамент
