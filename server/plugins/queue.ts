@@ -17,6 +17,7 @@ import { MYMEET_IMPORT_QUEUE, processMymeetImportJob } from '../utils/mymeet/wor
 import { INTERVIEW_REPORT_QUEUE, processInterviewReportJob } from '../utils/mymeet/interviewReportWorker'
 import { AI_THREAD_RESP_QUEUE, handleAiThreadResponse } from '../utils/comments/ai-thread-worker'
 import { HH_BULK_ACTION_QUEUE, processBulkAction } from '../utils/hh/bulkActions'
+import { HH_OUTBOUND_SYNC_QUEUE, processOutboundSync } from '../utils/hh/twoWaySync'
 import { getBoss, stopBoss } from '../utils/queue/boss'
 
 /**
@@ -236,6 +237,25 @@ export default defineNitroPlugin(async (nitroApp) => {
     )
 
     logInfo('queue.workers_registered', { queue: HH_BULK_ACTION_QUEUE })
+
+    // ── hh.ru two-way sync — outbound change queue ──
+    try {
+      await boss.createQueue(HH_OUTBOUND_SYNC_QUEUE)
+    }
+    catch (err) {
+      logDebug('queue.create_queue_skipped', {
+        queue: HH_OUTBOUND_SYNC_QUEUE,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    await boss.work(
+      HH_OUTBOUND_SYNC_QUEUE,
+      { batchSize: 1, teamSize: 3, teamConcurrency: 3 } as any,
+      async (job: any) => { await processOutboundSync(job.data.queueItemId) } as any,
+    )
+
+    logInfo('queue.workers_registered', { queue: HH_OUTBOUND_SYNC_QUEUE })
 
     // Graceful shutdown
     nitroApp.hooks.hook('close', async () => {

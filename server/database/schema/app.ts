@@ -1610,6 +1610,8 @@ export const hhVacancyLink = pgTable('hh_vacancy_link', {
   pushSyncEnabled: boolean('push_sync_enabled').notNull().default(true),
   /** #4 Auto-Respond: отправлять ли авто-сообщения новым кандидатам */
   autoRespondEnabled: boolean('auto_respond_enabled').notNull().default(false),
+  /** #2 Two-Way Sync: use queue-based outbound sync with status tracking */
+  twoWaySyncEnabled: boolean('two_way_sync_enabled').notNull().default(false),
   importedCount: integer('imported_count').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -1639,6 +1641,11 @@ export const hhNegotiation = pgTable('hh_negotiation', {
   rawNegotiationJson: jsonb('raw_negotiation_json'),
   importedAt: timestamp('imported_at').notNull().defaultNow(),
   lastSeenAt: timestamp('last_seen_at').notNull().defaultNow(),
+  /** #2 Two-Way Sync: outbound tracking */
+  syncDirection: text('sync_direction').notNull().default('inbound'),
+  lastOutboundSyncAt: timestamp('last_outbound_sync_at'),
+  lastOutboundSyncStatus: text('last_outbound_sync_status'),
+  outboundSyncError: text('outbound_sync_error'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   index('hh_negotiation_org_idx').on(t.organizationId),
@@ -2018,6 +2025,43 @@ export const hhCoverageGap = pgTable('hh_coverage_gap', {
 export const hhCoverageGapRelations = relations(hhCoverageGap, ({ one }) => ({
   organization: one(organization, { fields: [hhCoverageGap.organizationId], references: [organization.id] }),
   vacancyLink: one(hhVacancyLink, { fields: [hhCoverageGap.vacancyLinkId], references: [hhVacancyLink.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// HH two-way sync — outbound change queue
+// ─────────────────────────────────────────────
+
+/**
+ * Outbound sync queue: changes made in Huntfork that need to be
+ * pushed to hh.ru. Processed asynchronously by a pg-boss worker.
+ */
+export const hhSyncQueue = pgTable('hh_sync_queue', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+
+  negotiationId: text('negotiation_id').notNull(),
+  hhNegotiationId: text('hh_negotiation_id').notNull(),
+
+  actionType: text('action_type').notNull(),
+  payload: jsonb('payload').$type<{
+    collection?: string
+    messageText?: string
+    stageId?: string
+  }>(),
+
+  status: text('status').notNull().default('pending'),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  processedAt: timestamp('processed_at'),
+}, (t) => ([
+  index('hh_sq_status_idx').on(t.status, t.createdAt),
+  index('hh_sq_negotiation_idx').on(t.negotiationId),
+]))
+
+export const hhSyncQueueRelations = relations(hhSyncQueue, ({ one }) => ({
+  organization: one(organization, { fields: [hhSyncQueue.organizationId], references: [organization.id] }),
 }))
 
 

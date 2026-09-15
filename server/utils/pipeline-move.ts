@@ -359,6 +359,42 @@ export async function moveApplicationStage(opts: MoveStageOptions): Promise<Move
         })
       }
     })()
+
+    // 8b. #2 Two-Way Sync: enqueue outbound change when twoWaySyncEnabled.
+    void (async () => {
+      try {
+        const { enqueueOutboundChange, mapStageToCollection } = await import('./hh/twoWaySync')
+        const { hhNegotiation, hhVacancyLink } = await import('../database/schema')
+        const { eq, and } = await import('drizzle-orm')
+
+        const [nego] = await db
+          .select()
+          .from(hhNegotiation)
+          .where(eq(hhNegotiation.applicationId, applicationId))
+          .limit(1)
+        if (!nego) return
+
+        const [link] = await db
+          .select()
+          .from(hhVacancyLink)
+          .where(eq(hhVacancyLink.id, nego.hhVacancyLinkId))
+          .limit(1)
+        if (!link?.twoWaySyncEnabled) return
+
+        const collection = await mapStageToCollection(toStageId, organizationId)
+        if (!collection) return
+
+        await enqueueOutboundChange({
+          orgId: organizationId,
+          negotiationId: nego.id,
+          actionType: 'move_collection',
+          payload: { collection },
+        })
+      }
+      catch {
+        // best-effort — не ломаем основной flow
+      }
+    })()
   }
 
   // 9. PostHog — fire-and-forget, работает и вне HTTP-контекста (авто-отказ).
