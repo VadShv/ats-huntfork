@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
 
   // 2. Merge overrides
   const body = await readBody<{ overrides?: Record<string, unknown> }>(event)
-  const vacancyBody = { ...tpl.vacancyData, ...(body?.overrides ?? {}) }
+  const vacancyBody = { ...(tpl.vacancyData as Record<string, unknown>), ...(body?.overrides ?? {}) }
 
   // 3. Get hh.ru session
   let hh
