@@ -230,10 +230,11 @@ export default defineNitroPlugin(async (nitroApp) => {
       })
     }
 
+    const bulkActionHandler = async (job: any) => { await processBulkAction(job.data.bulkActionId) }
     await boss.work(
       HH_BULK_ACTION_QUEUE,
       { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
-      async (job: any) => { await processBulkAction(job.data.bulkActionId) } as any,
+      bulkActionHandler as any,
     )
 
     logInfo('queue.workers_registered', { queue: HH_BULK_ACTION_QUEUE })
@@ -249,10 +250,11 @@ export default defineNitroPlugin(async (nitroApp) => {
       })
     }
 
+    const outboundSyncHandler = async (job: any) => { await processOutboundSync(job.data.queueItemId) }
     await boss.work(
       HH_OUTBOUND_SYNC_QUEUE,
       { batchSize: 1, teamSize: 3, teamConcurrency: 3 } as any,
-      async (job: any) => { await processOutboundSync(job.data.queueItemId) } as any,
+      outboundSyncHandler as any,
     )
 
     logInfo('queue.workers_registered', { queue: HH_OUTBOUND_SYNC_QUEUE })
