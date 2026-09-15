@@ -274,6 +274,8 @@ export default defineNuxtConfig({
       '* * * * *': ['hh:sourcing'],
       // По понедельникам 03:00: недельный тик рангов (промо/decay/placement)
       '0 3 * * 1': ['rank:weekly'],
+      // Ежедневно 02:00: снимок метрик hh.ru для графиков
+      '0 2 * * *': ['hh:stats'],
     },
     routeRules: {
       "/**": {

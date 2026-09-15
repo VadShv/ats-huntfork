@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
   numeric,
+  date,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { relations, sql } from 'drizzle-orm'
@@ -1856,6 +1857,44 @@ export const hhVacancyTemplate = pgTable('hh_vacancy_template', {
 export const hhVacancyTemplateRelations = relations(hhVacancyTemplate, ({ one }) => ({
   organization: one(organization, { fields: [hhVacancyTemplate.organizationId], references: [organization.id] }),
   createdBy: one(user, { fields: [hhVacancyTemplate.createdByUserId], references: [user.id] }),
+}))
+
+// ─────────────────────────────────────────────
+// HH stats snapshots — daily funnel metrics for trend charts
+// ─────────────────────────────────────────────
+
+/**
+ * Daily snapshot of hh.ru funnel metrics. One row per vacancy per day
+ * (snapshotType='vacancy_daily') or one row per org per day
+ * (snapshotType='org_daily'). Used for trend charts in the analytics UI.
+ */
+export const hhStatsSnapshot = pgTable('hh_stats_snapshot', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  vacancyLinkId: text('vacancy_link_id').references(() => hhVacancyLink.id, { onDelete: 'cascade' }),
+  snapshotType: text('snapshot_type').notNull(),
+  totalResponses: integer('total_responses').notNull().default(0),
+  inConsider: integer('in_consider').notNull().default(0),
+  inInterview: integer('in_interview').notNull().default(0),
+  inOffer: integer('in_offer').notNull().default(0),
+  hired: integer('hired').notNull().default(0),
+  discarded: integer('discarded').notNull().default(0),
+  avgTimeToResponse: integer('avg_time_to_response'),
+  avgTimeToInterview: integer('avg_time_to_interview'),
+  avgTimeToOffer: integer('avg_time_to_offer'),
+  avgTimeToHire: integer('avg_time_to_hire'),
+  conversionRate: integer('conversion_rate'),
+  sourceBreakdown: jsonb('source_breakdown'),
+  snapshotDate: date('snapshot_date').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_ss_org_date_idx').on(t.organizationId, t.snapshotDate),
+  index('hh_ss_link_date_idx').on(t.vacancyLinkId, t.snapshotDate),
+]))
+
+export const hhStatsSnapshotRelations = relations(hhStatsSnapshot, ({ one }) => ({
+  organization: one(organization, { fields: [hhStatsSnapshot.organizationId], references: [organization.id] }),
+  vacancyLink: one(hhVacancyLink, { fields: [hhStatsSnapshot.vacancyLinkId], references: [hhVacancyLink.id] }),
 }))
 
 
