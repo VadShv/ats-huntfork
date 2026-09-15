@@ -6,18 +6,21 @@
  * recruiter to hh.ru's consent screen.
  */
 import { randomBytes } from 'node:crypto'
-import { getAuthorizationUrl, isHhConfigured } from '../../utils/hh/client'
+import { getAuthorizationUrl } from '../../utils/hh/client'
+import { isHhConfiguredForOrg, resolveHhConfig } from '../../utils/hh/config'
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, { organization: ['update'] })
+  const session = await requirePermission(event, { organization: ['update'] })
 
-  if (!isHhConfigured()) {
+  const orgId = session.session.activeOrganizationId
+  if (!(await isHhConfiguredForOrg(orgId))) {
     throw createError({
       statusCode: 503,
       statusMessage: 'Интеграция с hh.ru не настроена',
     })
   }
 
+  const config = await resolveHhConfig(orgId)
   const stateToken = randomBytes(32).toString('hex')
   setCookie(event, 'hh_oauth_state', stateToken, {
     httpOnly: true,
@@ -27,5 +30,5 @@ export default defineEventHandler(async (event) => {
     path: '/api/hh/callback',
   })
 
-  return sendRedirect(event, getAuthorizationUrl(stateToken))
+  return sendRedirect(event, getAuthorizationUrl(stateToken, config))
 })

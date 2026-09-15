@@ -10,6 +10,7 @@
  *   - https://github.com/hhru/api/blob/master/docs/employer_negotiations.md
  */
 import { env } from '../env'
+import type { HhConfig } from './config'
 
 export interface HhTokenResponse {
   access_token: string
@@ -40,17 +41,37 @@ export function isHhConfigured(): boolean {
 }
 
 /**
+ * Resolve effective config: an explicitly passed `config` (from DB) wins,
+ * otherwise fall back to env vars. Returns null if neither is available.
+ */
+function effectiveConfig(config?: HhConfig | null): HhConfig | null {
+  if (config) return config
+  if (isHhConfigured()) {
+    return {
+      clientId: env.HH_CLIENT_ID!,
+      clientSecret: env.HH_CLIENT_SECRET!,
+      redirectUri: env.HH_REDIRECT_URI!,
+      oauthBase: env.HH_OAUTH_BASE,
+      apiBase: env.HH_API_BASE,
+      userAgent: env.HH_USER_AGENT,
+    }
+  }
+  return null
+}
+
+/**
  * Build the URL to redirect the user to for the OAuth authorization step.
  * `state` must be an unguessable random value bound to the user's session.
  */
-export function getAuthorizationUrl(state: string): string {
-  if (!isHhConfigured()) {
+export function getAuthorizationUrl(state: string, config?: HhConfig | null): string {
+  const cfg = effectiveConfig(config)
+  if (!cfg) {
     throw new Error('hh.ru integration is not configured')
   }
-  const u = new URL(`${env.HH_OAUTH_BASE}/authorize`)
+  const u = new URL(`${cfg.oauthBase}/authorize`)
   u.searchParams.set('response_type', 'code')
-  u.searchParams.set('client_id', env.HH_CLIENT_ID!)
-  u.searchParams.set('redirect_uri', env.HH_REDIRECT_URI!)
+  u.searchParams.set('client_id', cfg.clientId)
+  u.searchParams.set('redirect_uri', cfg.redirectUri)
   u.searchParams.set('state', state)
   return u.toString()
 }
@@ -58,22 +79,23 @@ export function getAuthorizationUrl(state: string): string {
 /**
  * Exchange the authorization `code` returned by hh.ru for access + refresh tokens.
  */
-export async function exchangeCodeForTokens(code: string): Promise<HhTokenResponse> {
-  if (!isHhConfigured()) {
+export async function exchangeCodeForTokens(code: string, config?: HhConfig | null): Promise<HhTokenResponse> {
+  const cfg = effectiveConfig(config)
+  if (!cfg) {
     throw new Error('hh.ru integration is not configured')
   }
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
-    client_id: env.HH_CLIENT_ID!,
-    client_secret: env.HH_CLIENT_SECRET!,
-    redirect_uri: env.HH_REDIRECT_URI!,
+    client_id: cfg.clientId,
+    client_secret: cfg.clientSecret,
+    redirect_uri: cfg.redirectUri,
     code,
   })
-  const res = await fetch(`${env.HH_OAUTH_BASE}/token`, {
+  const res = await fetch(`${cfg.oauthBase}/token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': env.HH_USER_AGENT,
+      'User-Agent': cfg.userAgent,
     },
     body,
   })
@@ -89,19 +111,20 @@ export async function exchangeCodeForTokens(code: string): Promise<HhTokenRespon
  * NOTE: hh.ru rotates refresh tokens — the response contains a NEW refresh_token
  * and the old one is invalidated. The caller must persist both new values.
  */
-export async function refreshAccessToken(refreshToken: string): Promise<HhTokenResponse> {
-  if (!isHhConfigured()) {
+export async function refreshAccessToken(refreshToken: string, config?: HhConfig | null): Promise<HhTokenResponse> {
+  const cfg = effectiveConfig(config)
+  if (!cfg) {
     throw new Error('hh.ru integration is not configured')
   }
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
   })
-  const res = await fetch(`${env.HH_OAUTH_BASE}/token`, {
+  const res = await fetch(`${cfg.oauthBase}/token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': env.HH_USER_AGENT,
+      'User-Agent': cfg.userAgent,
     },
     body,
   })
@@ -125,8 +148,12 @@ export async function apiGet<T = unknown>(
   path: string,
   accessToken: string,
   query?: HhQueryParams,
+  config?: HhConfig | null,
 ): Promise<T> {
-  const url = new URL(path.startsWith('http') ? path : `${env.HH_API_BASE}${path}`)
+  const cfg = effectiveConfig(config)
+  const apiBase = cfg?.apiBase ?? env.HH_API_BASE
+  const userAgent = cfg?.userAgent ?? env.HH_USER_AGENT
+  const url = new URL(path.startsWith('http') ? path : `${apiBase}${path}`)
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v === undefined) continue
@@ -144,7 +171,7 @@ export async function apiGet<T = unknown>(
   const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'User-Agent': env.HH_USER_AGENT,
+      'User-Agent': userAgent,
       Accept: 'application/json',
     },
   })
@@ -158,8 +185,8 @@ export async function apiGet<T = unknown>(
 }
 
 /** Convenience wrapper: GET /me with the given access token. */
-export function getMe(accessToken: string): Promise<HhMeResponse> {
-  return apiGet<HhMeResponse>('/me', accessToken)
+export function getMe(accessToken: string, config?: HhConfig | null): Promise<HhMeResponse> {
+  return apiGet<HhMeResponse>('/me', accessToken, undefined, config)
 }
 
 /**
@@ -172,8 +199,12 @@ export async function apiRequest<T = unknown>(
   path: string,
   accessToken: string,
   options?: { query?: HhQueryParams, body?: unknown, contentType?: 'json' | 'form' },
+  config?: HhConfig | null,
 ): Promise<{ status: number, body: T | null }> {
-  const url = new URL(path.startsWith('http') ? path : `${env.HH_API_BASE}${path}`)
+  const cfg = effectiveConfig(config)
+  const apiBase = cfg?.apiBase ?? env.HH_API_BASE
+  const userAgent = cfg?.userAgent ?? env.HH_USER_AGENT
+  const url = new URL(path.startsWith('http') ? path : `${apiBase}${path}`)
   if (options?.query) {
     for (const [k, v] of Object.entries(options.query)) {
       if (v === undefined) continue
@@ -190,7 +221,7 @@ export async function apiRequest<T = unknown>(
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
-    'User-Agent': env.HH_USER_AGENT,
+    'User-Agent': userAgent,
     Accept: 'application/json',
   }
 

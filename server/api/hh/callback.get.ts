@@ -7,6 +7,7 @@
  */
 import { timingSafeEqual } from 'node:crypto'
 import { exchangeCodeForTokens, getMe } from '../../utils/hh/client'
+import { resolveHhConfig } from '../../utils/hh/config'
 import { upsertHhAccount } from '../../utils/hh/tokens'
 
 export default defineEventHandler(async (event) => {
@@ -50,8 +51,9 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const tokens = await exchangeCodeForTokens(code)
-    const me = await getMe(tokens.access_token)
+    const config = await resolveHhConfig(session.session.activeOrganizationId)
+    const tokens = await exchangeCodeForTokens(code, config)
+    const me = await getMe(tokens.access_token, config)
 
     await upsertHhAccount({
       organizationId: session.session.activeOrganizationId,

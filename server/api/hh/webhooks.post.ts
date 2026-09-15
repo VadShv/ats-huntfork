@@ -8,8 +8,8 @@
 import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { hhAccount } from '../../database/schema'
-import { env } from '../../utils/env'
-import { apiGet, apiRequest, isHhConfigured } from '../../utils/hh/client'
+import { apiGet, apiRequest } from '../../utils/hh/client'
+import { isHhConfiguredForOrg, resolveHhConfig } from '../../utils/hh/config'
 import { getHhAccountForUser, getValidAccessToken } from '../../utils/hh/tokens'
 
 const WEBHOOK_ACTIONS = [
@@ -20,11 +20,13 @@ const WEBHOOK_ACTIONS = [
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { organization: ['update'] })
-  if (!isHhConfigured() || !env.HH_REDIRECT_URI) {
+  const orgId = session.session.activeOrganizationId
+  const config = await resolveHhConfig(orgId)
+  if (!config) {
     throw createError({ statusCode: 400, statusMessage: 'Интеграция hh.ru не настроена' })
   }
 
-  const account = await getHhAccountForUser(session.session.activeOrganizationId, session.user.id)
+  const account = await getHhAccountForUser(orgId, session.user.id)
   if (!account || !account.isActive) {
     throw createError({ statusCode: 400, statusMessage: 'Аккаунт hh.ru не подключён' })
   }
@@ -32,7 +34,7 @@ export default defineEventHandler(async (event) => {
   const accessToken = await getValidAccessToken(account.id)
 
   const secret = account.webhookSecret ?? randomBytes(24).toString('hex')
-  const baseUrl = new URL(env.HH_REDIRECT_URI).origin
+  const baseUrl = new URL(config.redirectUri).origin
   const url = `${baseUrl}/api/webhooks/hh/${secret}`
 
   let subscriptionId = account.webhookSubscriptionId
@@ -42,16 +44,16 @@ export default defineEventHandler(async (event) => {
       // Обновляем существующую подписку (идемпотентно)
       await apiRequest('PUT', `/webhook/subscriptions/${subscriptionId}`, accessToken, {
         body: { url, actions: WEBHOOK_ACTIONS },
-      })
+      }, config)
     }
     else {
       const created = await apiRequest<{ id?: string | number }>('POST', '/webhook/subscriptions', accessToken, {
         body: { url, actions: WEBHOOK_ACTIONS },
-      })
+      }, config)
       subscriptionId = created.body?.id != null ? String(created.body.id) : null
       if (!subscriptionId) {
         // Некоторые ответы hh не содержат тело — добираем из списка подписок
-        const list = await apiGet<{ items?: Array<{ id?: string | number }> }>('/webhook/subscriptions', accessToken)
+        const list = await apiGet<{ items?: Array<{ id?: string | number }> }>('/webhook/subscriptions', accessToken, undefined, config)
         subscriptionId = list?.items?.[0]?.id != null ? String(list.items[0].id) : null
       }
     }

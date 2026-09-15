@@ -11,6 +11,7 @@ import { and, eq } from 'drizzle-orm'
 import { hhAccount } from '../../database/schema'
 import { decrypt, encrypt } from '../encryption'
 import { env } from '../env'
+import { resolveHhConfig } from './config'
 import type { HhTokenResponse } from './client'
 import { refreshAccessToken } from './client'
 
@@ -142,7 +143,8 @@ export async function getValidAccessToken(
 
   let fresh: HhTokenResponse
   try {
-    fresh = await refreshAccessToken(refreshPlain)
+    const config = await resolveHhConfig(acc.organizationId)
+    fresh = await refreshAccessToken(refreshPlain, config)
   }
   catch (err) {
     await db

@@ -23,6 +23,7 @@ import {
   hhNegotiation, hhVacancyLink, job,
 } from '../../database/schema'
 import { apiGet } from './client'
+import { resolveHhConfig } from './config'
 import { getValidAccessToken } from './tokens'
 import { getEntryStageForPipeline } from '../pipeline-helpers'
 import { autoScoreApplication } from '../ai/autoScore'
@@ -157,6 +158,8 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
   const link = linkRows[0]
   if (!link) throw new Error(`hh_vacancy_link ${linkId} not found`)
 
+  const hhConfig = await resolveHhConfig(link.organizationId)
+
   const result: SyncLinkResult = {
     linkId: link.id,
     jobId: link.jobId,
@@ -231,7 +234,7 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
             vacancy_id: link.hhVacancyId,
             page,
             per_page: perPage,
-          })
+          }, hhConfig)
         }
         catch (innerErr) {
           // 404/403 на коллекции — возможно она недоступна для тарифа.
@@ -334,7 +337,7 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
       // Подтянем резюме
       let resume: HhResumeApi
       try {
-        resume = await apiGet<HhResumeApi>(`/resumes/${resumeId}`, token)
+        resume = await apiGet<HhResumeApi>(`/resumes/${resumeId}`, token, undefined, hhConfig)
       }
       catch {
         result.failed += 1

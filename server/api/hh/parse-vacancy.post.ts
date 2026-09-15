@@ -8,14 +8,16 @@
  * Тело запроса: { url: string }
  * Ответ: ParsedHhVacancy
  */
-import { apiGet, isHhConfigured, type HhVacancyApi } from '../../utils/hh/client'
+import { apiGet } from '../../utils/hh/client'
+import { isHhConfiguredForOrg, resolveHhConfig } from '../../utils/hh/config'
 import { getHhAccountForUser, getValidAccessToken } from '../../utils/hh/tokens'
-import { extractVacancyId, toHuntforkForm } from '../../utils/hh/vacancyParser'
+import { extractVacancyId, toHuntforkForm, type HhVacancyApi } from '../../utils/hh/vacancyParser'
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { organization: ['update'] })
 
-  if (!isHhConfigured()) {
+  const orgId = session.session.activeOrganizationId
+  if (!(await isHhConfiguredForOrg(orgId))) {
     throw createError({
       statusCode: 503,
       statusMessage: 'Интеграция с hh.ru не настроена',
@@ -63,7 +65,8 @@ export default defineEventHandler(async (event) => {
 
   let raw: HhVacancyApi
   try {
-    raw = await apiGet<HhVacancyApi>(`/vacancies/${vacancyId}`, accessToken)
+    const config = await resolveHhConfig(orgId)
+    raw = await apiGet<HhVacancyApi>(`/vacancies/${vacancyId}`, accessToken, undefined, config)
   }
   catch (err) {
     const status = (err as Error & { status?: number }).status ?? 502

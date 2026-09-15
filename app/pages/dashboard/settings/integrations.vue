@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   Calendar, Check, X, AlertTriangle, ExternalLink, Loader2,
-  RefreshCw, Unplug, Shield, Clock, Briefcase, Bot,
+  RefreshCw, Unplug, Shield, Clock, Briefcase, Bot, Key, Eye, EyeOff, ChevronDown,
 } from 'lucide-vue-next'
 
 definePageMeta({})
@@ -15,6 +15,7 @@ useSeoMeta({
 })
 
 const route = useRoute()
+const requestUrl = useRequestURL()
 const { calendarStatus, isConnected, isAvailable, connect, disconnect, refresh, status } = useCalendarIntegration()
 
 const isDisconnecting = ref(false)
@@ -24,6 +25,11 @@ const showDisconnectConfirm = ref(false)
 interface HhStatusResponse {
   configured: boolean
   connected: boolean
+  configSource?: 'db' | 'env' | 'none'
+  envAvailable?: boolean
+  dbAvailable?: boolean
+  clientIdMasked?: string | null
+  redirectUri?: string | null
   account?: {
     hhUserId: string
     hhEmployerId: string | null
@@ -44,8 +50,86 @@ const { data: hhStatus, refresh: refreshHh, status: hhStatusReq } = await useFet
 })
 const hhConnected = computed(() => Boolean(hhStatus.value?.connected))
 const hhAvailable = computed(() => Boolean(hhStatus.value?.configured))
+const hhConfigSource = computed(() => hhStatus.value?.configSource ?? 'none')
 const hhIsDisconnecting = ref(false)
 const hhShowDisconnectConfirm = ref(false)
+
+// ── hh.ru OAuth credentials form (UI-entered, stored in DB) ──
+const hhShowCredentialsForm = ref(false)
+const hhCredBusy = ref(false)
+const hhCredError = ref('')
+const hhShowSecret = ref(false)
+const hhCredForm = ref({
+  clientId: '',
+  clientSecret: '',
+  redirectUri: '',
+})
+const hhShowAdvanced = ref(false)
+const hhCredAdvanced = ref({
+  oauthBase: '',
+  apiBase: '',
+  userAgent: '',
+})
+
+function startEditCredentials() {
+  hhCredForm.value = {
+    clientId: '',
+    clientSecret: '',
+    redirectUri: hhStatus.value?.redirectUri ?? '',
+  }
+  hhCredError.value = ''
+  hhShowSecret.value = false
+  hhShowCredentialsForm.value = true
+}
+
+async function saveHhCredentials() {
+  if (hhCredBusy.value) return
+  hhCredError.value = ''
+  if (!hhCredForm.value.clientId.trim() || !hhCredForm.value.clientSecret.trim() || !hhCredForm.value.redirectUri.trim()) {
+    hhCredError.value = 'Заполните Client ID, Client Secret и Redirect URI.'
+    return
+  }
+  hhCredBusy.value = true
+  try {
+    await $fetch('/api/hh/config', {
+      method: 'PUT',
+      body: {
+        clientId: hhCredForm.value.clientId.trim(),
+        clientSecret: hhCredForm.value.clientSecret.trim(),
+        redirectUri: hhCredForm.value.redirectUri.trim(),
+        oauthBase: hhCredAdvanced.value.oauthBase.trim() || null,
+        apiBase: hhCredAdvanced.value.apiBase.trim() || null,
+        userAgent: hhCredAdvanced.value.userAgent.trim() || null,
+      },
+    })
+    hhShowCredentialsForm.value = false
+    successMessage.value = 'Учётные данные hh.ru сохранены. Теперь можно подключить аккаунт.'
+    await refreshHh()
+  }
+  catch (err: any) {
+    hhCredError.value = err?.data?.statusMessage ?? 'Не удалось сохранить учётные данные hh.ru.'
+  }
+  finally {
+    hhCredBusy.value = false
+  }
+}
+
+async function clearHhCredentials() {
+  if (hhCredBusy.value) return
+  hhCredBusy.value = true
+  try {
+    await $fetch('/api/hh/config', { method: 'DELETE' })
+    hhShowCredentialsForm.value = false
+    successMessage.value = 'Учётные данные hh.ru удалены. Используется env-конфигурация (если задана).'
+    await refreshHh()
+  }
+  catch {
+    errorMessage.value = 'Не удалось удалить учётные данные hh.ru.'
+  }
+  finally {
+    hhCredBusy.value = false
+  }
+}
 
 function connectHh() {
   window.location.href = '/api/hh/connect'
@@ -567,14 +651,122 @@ async function handleDisconnect() {
           <Loader2 class="size-5 text-surface-400 animate-spin" />
         </div>
 
-        <div v-else-if="!hhAvailable" class="space-y-3">
-          <p class="text-sm text-surface-600 dark:text-surface-400">
-            Интеграция с hh.ru требует настройки на стороне сервера. Администратор должен задать
-            <code class="text-xs bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded font-mono">HH_CLIENT_ID</code>,
-            <code class="text-xs bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded font-mono">HH_CLIENT_SECRET</code>
-            и
-            <code class="text-xs bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded font-mono">HH_REDIRECT_URI</code>.
-          </p>
+        <div v-else-if="!hhAvailable" class="space-y-4">
+          <!-- Credentials form (UI-entered, stored in DB) -->
+          <div v-if="hhShowCredentialsForm" class="space-y-4">
+            <p class="text-sm text-surface-600 dark:text-surface-400">
+              Зарегистрируйте приложение на <a href="https://dev.hh.ru" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">dev.hh.ru</a>
+              и укажите его реквизиты здесь. После сохранения кнопка «Подключить hh.ru» станет активной.
+            </p>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">
+                  Client ID
+                </label>
+                <input
+                  v-model="hhCredForm.clientId"
+                  type="text"
+                  autocomplete="off"
+                  placeholder="ID приложения hh.ru"
+                  class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono"
+                >
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">
+                  Client Secret
+                </label>
+                <div class="relative">
+                  <input
+                    v-model="hhCredForm.clientSecret"
+                    :type="hhShowSecret ? 'text' : 'password'"
+                    autocomplete="new-password"
+                    placeholder="Секрет приложения"
+                    class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 pr-9 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono"
+                  >
+                  <button
+                    type="button"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
+                    @click="hhShowSecret = !hhShowSecret"
+                  >
+                    <Eye v-if="!hhShowSecret" class="size-4" />
+                    <EyeOff v-else class="size-4" />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">
+                  Redirect URI
+                </label>
+                <input
+                  v-model="hhCredForm.redirectUri"
+                  type="url"
+                  autocomplete="off"
+                  :placeholder="`${requestUrl?.protocol}//${requestUrl?.host}/api/hh/callback`"
+                  class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono"
+                >
+                <p class="mt-1 text-[11px] text-surface-400 dark:text-surface-500">
+                  Должен точно совпадать с URI, указанным в настройках приложения на dev.hh.ru.
+                  Подсказка: <code class="bg-surface-100 dark:bg-surface-800 px-1 rounded">{{ requestUrl?.protocol }}//{{ requestUrl?.host }}/api/hh/callback</code>
+                </p>
+              </div>
+
+              <!-- Advanced (optional overrides) -->
+              <div class="pt-1">
+                <button
+                  type="button"
+                  class="text-xs text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 inline-flex items-center gap-1"
+                  @click="hhShowAdvanced = !hhShowAdvanced"
+                >
+                  <ChevronDown class="size-3.5 transition-transform" :class="{ 'rotate-180': hhShowAdvanced }" />
+                  Дополнительные настройки
+                </button>
+                <div v-if="hhShowAdvanced" class="mt-2 space-y-3 rounded-lg border border-surface-200 dark:border-surface-700 p-3">
+                  <div>
+                    <label class="block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">OAuth Base URL</label>
+                    <input v-model="hhCredAdvanced.oauthBase" type="url" placeholder="https://hh.ru/oauth" class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">API Base URL</label>
+                    <input v-model="hhCredAdvanced.apiBase" type="url" placeholder="https://api.hh.ru" class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">User-Agent</label>
+                    <input v-model="hhCredAdvanced.userAgent" type="text" placeholder="Huntfork/1.0" class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p v-if="hhCredError" class="text-sm text-danger-600 dark:text-danger-400">{{ hhCredError }}</p>
+
+            <div class="flex items-center gap-2">
+              <UiButton :loading="hhCredBusy" :icon-left="Key" @click="saveHhCredentials">
+                Сохранить
+              </UiButton>
+              <UiButton variant="ghost" @click="hhShowCredentialsForm = false">
+                Отмена
+              </UiButton>
+            </div>
+          </div>
+
+          <!-- Not configured: prompt to set up via UI or env -->
+          <div v-else class="space-y-3">
+            <p class="text-sm text-surface-600 dark:text-surface-400">
+              Интеграция с hh.ru не настроена. Введите реквизиты приложения прямо здесь —
+              или задайте переменные окружения на сервере.
+            </p>
+            <UiButton :icon-left="Key" @click="startEditCredentials">
+              Настроить hh.ru
+            </UiButton>
+            <div class="rounded-lg bg-surface-50 dark:bg-surface-800/50 p-3 text-xs text-surface-500 dark:text-surface-400">
+              <p>Альтернатива (для самохостинга): задайте env-переменные</p>
+              <p class="mt-1 font-mono">
+                <code class="bg-surface-100 dark:bg-surface-800 px-1 rounded">HH_CLIENT_ID</code>,
+                <code class="bg-surface-100 dark:bg-surface-800 px-1 rounded">HH_CLIENT_SECRET</code>,
+                <code class="bg-surface-100 dark:bg-surface-800 px-1 rounded">HH_REDIRECT_URI</code>
+              </p>
+            </div>
+          </div>
         </div>
 
         <div v-else-if="hhConnected" class="space-y-4">
@@ -643,6 +835,9 @@ async function handleDisconnect() {
             <div class="flex items-center gap-1.5 text-xs text-surface-400 dark:text-surface-500">
               <Shield class="size-3.5" />
               Токены зашифрованы на диске
+              <span class="mx-1">·</span>
+              <span v-if="hhConfigSource === 'db'">реквизиты через UI</span>
+              <span v-else-if="hhConfigSource === 'env'">реквизиты через env</span>
             </div>
             <div class="flex items-center gap-2">
               <UiButton
@@ -678,6 +873,15 @@ async function handleDisconnect() {
         </div>
 
         <div v-else class="space-y-4">
+          <!-- Config source badge -->
+          <div class="flex items-center gap-2 text-xs text-surface-400 dark:text-surface-500">
+            <Shield class="size-3.5" />
+            <span v-if="hhConfigSource === 'db'">
+              Настроено через UI{{ hhStatus?.clientIdMasked ? ` · Client ID ${hhStatus.clientIdMasked}` : '' }}
+            </span>
+            <span v-else-if="hhConfigSource === 'env'">Настроено через переменные окружения сервера</span>
+          </div>
+
           <p class="text-sm text-surface-600 dark:text-surface-400">
             Подключите свой аккаунт hh.ru — появится возможность создавать вакансию в Huntfork из ссылки hh.ru
             и автоматически загружать отклики для последующего скоринга.
@@ -696,12 +900,52 @@ async function handleDisconnect() {
               Токены зашифрованы, отключить можно в любой момент
             </div>
           </div>
-          <UiButton
-            :icon-left="Briefcase"
-            @click="connectHh"
-          >
-            Подключить hh.ru
-          </UiButton>
+          <div class="flex flex-wrap items-center gap-2">
+            <UiButton
+              :icon-left="Briefcase"
+              @click="connectHh"
+            >
+              Подключить hh.ru
+            </UiButton>
+            <UiButton
+              v-if="hhConfigSource === 'db'"
+              variant="ghost"
+              size="sm"
+              :icon-left="Key"
+              @click="startEditCredentials"
+            >
+              Изменить реквизиты
+            </UiButton>
+          </div>
+          <!-- Inline credentials edit form -->
+          <div v-if="hhShowCredentialsForm && hhConfigSource !== 'none'" class="mt-2 space-y-4 rounded-lg border border-surface-200 dark:border-surface-700 p-4">
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">Client ID</label>
+                <input v-model="hhCredForm.clientId" type="text" autocomplete="off" placeholder="ID приложения hh.ru" class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">Client Secret</label>
+                <div class="relative">
+                  <input v-model="hhCredForm.clientSecret" :type="hhShowSecret ? 'text' : 'password'" autocomplete="new-password" placeholder="Новый секрет (оставьте пустым — не менять)" class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 pr-9 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+                  <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300" @click="hhShowSecret = !hhShowSecret">
+                    <Eye v-if="!hhShowSecret" class="size-4" />
+                    <EyeOff v-else class="size-4" />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">Redirect URI</label>
+                <input v-model="hhCredForm.redirectUri" type="url" autocomplete="off" class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+              </div>
+            </div>
+            <p v-if="hhCredError" class="text-sm text-danger-600 dark:text-danger-400">{{ hhCredError }}</p>
+            <div class="flex items-center gap-2">
+              <UiButton :loading="hhCredBusy" size="sm" @click="saveHhCredentials">Сохранить</UiButton>
+              <UiButton variant="ghost" size="sm" @click="hhShowCredentialsForm = false">Отмена</UiButton>
+              <UiButton variant="ghost" size="sm" class="text-danger-600 dark:text-danger-400" :disabled="hhCredBusy" @click="clearHhCredentials">Удалить</UiButton>
+            </div>
+          </div>
         </div>
       </div>
     </div>

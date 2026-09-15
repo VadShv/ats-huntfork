@@ -1561,6 +1561,34 @@ export const hhAccount = pgTable('hh_account', {
 ]))
 
 /**
+ * Org-level hh.ru OAuth application credentials, entered via UI
+ * (Settings → Integrations). When present, these take precedence over the
+ * HH_CLIENT_ID / HH_CLIENT_SECRET / HH_REDIRECT_URI env vars, letting an
+ * admin connect hh.ru without server access. The client secret is
+ * AES-256-GCM encrypted at rest (same scheme as hh_account tokens).
+ */
+export const hhOauthConfig = pgTable('hh_oauth_config', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  /** hh.ru OAuth Client ID (from dev.hh.ru application registration). */
+  clientId: text('client_id').notNull(),
+  /** hh.ru OAuth Client Secret — encrypted at rest. */
+  clientSecretEncrypted: text('client_secret_encrypted').notNull(),
+  /** OAuth redirect URI — must exactly match the one registered in dev.hh.ru. */
+  redirectUri: text('redirect_uri').notNull(),
+  /** Base URL for hh.ru OAuth endpoints. Defaults to https://hh.ru/oauth when null. */
+  oauthBase: text('oauth_base'),
+  /** Base URL for hh.ru REST API. Defaults to https://api.hh.ru when null. */
+  apiBase: text('api_base'),
+  /** User-Agent header for hh.ru API requests. Defaults to Huntfork/1.0 when null. */
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('hh_oauth_config_org_idx').on(t.organizationId),
+]))
+
+/**
  * Links a Huntfork job to a specific hh.ru vacancy.
  * A job can have at most one hh link (enforced in app logic);
  * a single hh vacancy can be linked only once per organization.
@@ -1617,6 +1645,10 @@ export const hhNegotiation = pgTable('hh_negotiation', {
 ]))
 
 // Relations for ergonomics in queries
+export const hhOauthConfigRelations = relations(hhOauthConfig, ({ one }) => ({
+  organization: one(organization, { fields: [hhOauthConfig.organizationId], references: [organization.id] }),
+}))
+
 export const hhAccountRelations = relations(hhAccount, ({ one, many }) => ({
   organization: one(organization, { fields: [hhAccount.organizationId], references: [organization.id] }),
   user: one(user, { fields: [hhAccount.userId], references: [user.id] }),
