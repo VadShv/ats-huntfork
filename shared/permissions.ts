@@ -50,6 +50,12 @@ const atsStatements = {
   // Модуль вопросов (org-уровень): Банк вопросов, темы/шкалы/BARS, методика CARE,
   // библиотека шаблонов отчётов. См. docs/tz-questions-90-cross-cutting.md §2.
   questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
+  // hh.ru integration extensions — see docs/hh-extensions-architecture.md
+  hhTemplate: ['create', 'read', 'update', 'delete'],
+  hhStats: ['read', 'refresh'],
+  hhNegotiation: ['read', 'sync', 'import'],
+  hhAutoRespond: ['read', 'create', 'update', 'delete'],
+  hhBulkAction: ['execute'],
 } as const
 
 // ─── Merged statement (Better Auth defaults + ATS resources) ───────
@@ -91,6 +97,11 @@ export const ownerAtsStatements = {
   company: ['create', 'read', 'update', 'delete'],
   department: ['create', 'read', 'update', 'delete'],
   questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
+  hhTemplate: ['create', 'read', 'update', 'delete'],
+  hhStats: ['read', 'refresh'],
+  hhNegotiation: ['read', 'sync', 'import'],
+  hhAutoRespond: ['create', 'read', 'update', 'delete'],
+  hhBulkAction: ['execute'],
 } as const
 
 export const adminAtsStatements = {
@@ -109,6 +120,11 @@ export const adminAtsStatements = {
   company: ['create', 'read', 'update', 'delete'],
   department: ['create', 'read', 'update', 'delete'],
   questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
+  hhTemplate: ['create', 'read', 'update', 'delete'],
+  hhStats: ['read', 'refresh'],
+  hhNegotiation: ['read', 'sync', 'import'],
+  hhAutoRespond: ['create', 'read', 'update', 'delete'],
+  hhBulkAction: ['execute'],
 } as const
 
 export const memberAtsStatements = {
@@ -134,6 +150,11 @@ export const memberAtsStatements = {
   // темы/шаблоны отчётов — только owner/admin. Правка «своего» черновика —
   // ABAC-проверка владения в хендлере поверх create_draft (см. cross-cutting §2.2).
   questionBank: ['view', 'create_draft', 'edit_draft'],
+  hhTemplate: ['create', 'read', 'update'],
+  hhStats: ['read'],
+  hhNegotiation: ['read', 'sync', 'import'],
+  hhAutoRespond: ['read'],
+  hhBulkAction: ['execute'],
 } as const
 
 export const owner = ac.newRole({
@@ -172,6 +193,9 @@ export const hiringManagerAtsStatements = {
   company: ['read'],
   department: ['read'],
   questionBank: ['view'],
+  hhTemplate: ['read'],
+  hhStats: ['read'],
+  hhNegotiation: ['read'],
 } as const
 
 export const hiringManager = ac.newRole({

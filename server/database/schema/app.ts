@@ -1823,6 +1823,41 @@ export const hhActionLogRelations = relations(hhActionLog, ({ one }) => ({
   sourcingCandidate: one(hhSourcingCandidate, { fields: [hhActionLog.sourcingCandidateId], references: [hhSourcingCandidate.id] }),
 }))
 
+// ─────────────────────────────────────────────
+// HH vacancy templates — reusable vacancy drafts
+// ─────────────────────────────────────────────
+
+/**
+ * Reusable hh.ru vacancy template. Stores the full /vacancies POST body
+ * as JSON so it can be published with overrides (different area, salary, etc.).
+ * Shared within the organization; private templates are scoped to createdBy.
+ */
+export const hhVacancyTemplate = pgTable('hh_vacancy_template', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdByUserId: text('created_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  /** Full hh.ru /vacancies POST body (snapshot at creation time). */
+  vacancyData: jsonb('vacancy_data').notNull(),
+  /** Cached hh.ru area ID for filtering. */
+  hhAreaId: text('hh_area_id'),
+  /** Cached professional area IDs for filtering. */
+  hhProfArea: text('hh_prof_area').array(),
+  isShared: boolean('is_shared').notNull().default(true),
+  lastUsedAt: timestamp('last_used_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_tpl_org_idx').on(t.organizationId),
+  index('hh_tpl_org_shared_idx').on(t.organizationId, t.isShared),
+]))
+
+export const hhVacancyTemplateRelations = relations(hhVacancyTemplate, ({ one }) => ({
+  organization: one(organization, { fields: [hhVacancyTemplate.organizationId], references: [organization.id] }),
+  createdBy: one(user, { fields: [hhVacancyTemplate.createdByUserId], references: [user.id] }),
+}))
+
 
 // ─────────────────────────────────────────────
 // Дедупликация — фундамент
