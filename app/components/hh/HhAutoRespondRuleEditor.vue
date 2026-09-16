@@ -228,9 +228,9 @@ async function save() {
           required
         />
         <p class="mt-1.5 text-xs text-surface-400 dark:text-surface-500">
-          Доступные переменные: <code class="text-brand-600 dark:text-brand-400">{{ '{{candidateName}}' }}</code>,
-          <code class="text-brand-600 dark:text-brand-400">{{ '{{vacancyName}}' }}</code>,
-          <code class="text-brand-600 dark:text-brand-400">{{ '{{recruiterName}}' }}</code>
+          Доступные переменные: <code class="text-brand-600 dark:text-brand-400" v-pre>{{candidateName}}</code>,
+          <code class="text-brand-600 dark:text-brand-400" v-pre>{{vacancyName}}</code>,
+          <code class="text-brand-600 dark:text-brand-400" v-pre>{{recruiterName}}</code>
         </p>
       </div>
 
