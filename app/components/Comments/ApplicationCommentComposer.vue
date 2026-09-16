@@ -30,7 +30,7 @@ const { createComment, uploadAttachment, searchMembers, attachSnapshot, summariz
 
 const body = ref('')
 const isInternal = ref(false)
-const sendToHh = ref(true)
+const sendToHh = ref(false)
 const submitting = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -454,8 +454,9 @@ async function onSlashSelect(cmd: SlashCommand) {
         </div>
         <div class="flex items-center gap-2">
           <button
-            v-if="hhLinked && !isInternal"
+            v-if="hhLinked"
             type="button"
+            title="Внутренний комментарий на hh.ru — виден коллегам, не виден кандидату"
             class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors cursor-pointer border-0 bg-transparent"
             :class="sendToHh
               ? 'text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20'

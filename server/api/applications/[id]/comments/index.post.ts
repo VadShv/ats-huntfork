@@ -4,6 +4,7 @@ import {
   application,
   applicationComment,
   applicationWatcher,
+  candidate,
   commentMention,
 } from '../../../../database/schema/app'
 import { user } from '../../../../database/schema/auth'
@@ -12,8 +13,10 @@ import { createApplicationCommentSchema } from '../../../../utils/schemas/applic
 import { parseMentionTokens, resolveMentions, containsAiMention, extractAiQuestion } from '../../../../utils/comments/mention-parser'
 import { ensureWatcher } from '../../../../utils/comments/ensure-watcher'
 import { renderMarkdown } from '../../../../utils/comments/sanitize'
-import { sendNegotiationMessage } from '../../../../utils/hh/sourcing/pushAction'
+import { createApplicantComment, extractApplicantId } from '../../../../utils/hh/applicantComments'
 import { resolveHhAccountForJob } from '../../../../utils/hh/link'
+import { resolveHhConfig } from '../../../../utils/hh/config'
+import { getValidAccessToken } from '../../../../utils/hh/tokens'
 import {
   createNotification,
   createNotificationsBulk,
@@ -91,7 +94,7 @@ export default defineEventHandler(async (event) => {
 
   // ── 4. INSERT comment ──
   const hhLinked = app.source === 'hh' && !!app.externalId
-  const shouldSyncToHh = hhLinked && !body.hhLocalOnly && !(body.isInternal ?? false)
+  const shouldSyncToHh = hhLinked && !body.hhLocalOnly
 
   const [created] = await db
     .insert(applicationComment)
@@ -124,35 +127,38 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Не удалось создать комментарий' })
   }
 
-  // ── 4a. Fire-and-forget: send to hh.ru if pending ──
+  // ── 4a. Fire-and-forget: push to hh.ru applicant_comments if pending ──
   if (created.hhSyncStatus === 'pending') {
     void (async () => {
       if (_hhSendInFlight >= HH_SEND_CONCURRENCY) {
-        // Too many concurrent sends — leave as 'pending', sync endpoint will pick it up
         return
       }
       _hhSendInFlight++
       try {
         const hhAccountId = await resolveHhAccountForJob(orgId, app.jobId)
-        await sendNegotiationMessage({
-          organizationId: orgId,
-          hhAccountId,
-          negotiationId: app.externalId!,
-          messageText: body.body,
-          userId,
-          applicationId: id,
+        const token = await getValidAccessToken(hhAccountId)
+        const config = await resolveHhConfig(orgId)
+
+        const cand = await db.query.candidate.findFirst({
+          where: eq(candidate.id, app.candidateId),
+          columns: { hhApplicantId: true, hhResumeRaw: true },
         })
+        const applicantId = cand?.hhApplicantId ?? extractApplicantId(cand?.hhResumeRaw)
+        if (!applicantId) {
+          throw new Error('Нет applicant_id (резюме без owner.id)')
+        }
+
+        const hhComment = await createApplicantComment(applicantId, body.body, token, config)
+        await db.update(applicationComment).set({
+          hhSyncStatus: 'synced',
+          hhSyncedAt: new Date(),
+          hhCommentId: hhComment.id,
+          hhApplicantId: applicantId,
+        }).where(eq(applicationComment.id, created.id))
       } catch {
         await db.update(applicationComment).set({ hhSyncStatus: 'failed' }).where(eq(applicationComment.id, created.id))
-        return
       } finally {
         _hhSendInFlight--
-      }
-      // Best-effort status update — send succeeded
-      try {
-        await db.update(applicationComment).set({ hhSyncStatus: 'synced', hhSyncedAt: new Date() }).where(eq(applicationComment.id, created.id))
-      } catch {
-        // Send succeeded but status update failed — leave as 'pending'
       }
     })()
   }

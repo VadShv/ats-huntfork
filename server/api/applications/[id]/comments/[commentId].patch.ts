@@ -3,6 +3,7 @@ import { requireApplicationInScope } from '../../../../utils/access/scope'
 import {
   application,
   applicationComment,
+  candidate,
   commentMention,
 } from '../../../../database/schema/app'
 import { user } from '../../../../database/schema/auth'
@@ -15,6 +16,10 @@ import { ensureWatcher } from '../../../../utils/comments/ensure-watcher'
 import { renderMarkdown } from '../../../../utils/comments/sanitize'
 import { createNotification } from '../../../../utils/comments/notifications'
 import { notifyThreadChanged } from '../../../../utils/comments/threadBus'
+import { updateApplicantComment, extractApplicantId } from '../../../../utils/hh/applicantComments'
+import { resolveHhAccountForJob } from '../../../../utils/hh/link'
+import { resolveHhConfig } from '../../../../utils/hh/config'
+import { getValidAccessToken } from '../../../../utils/hh/tokens'
 
 /**
  * PATCH /api/applications/:id/comments/:commentId
@@ -40,7 +45,7 @@ export default defineEventHandler(async (event) => {
   // ── 1. Verify application + comment ──
   const app = await db.query.application.findFirst({
     where: and(eq(application.id, id), eq(application.organizationId, orgId)),
-    columns: { id: true },
+    columns: { id: true, candidateId: true, jobId: true, source: true },
   })
   if (!app) throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
 
@@ -50,7 +55,7 @@ export default defineEventHandler(async (event) => {
       eq(applicationComment.applicationId, id),
       eq(applicationComment.organizationId, orgId),
     ),
-    columns: { id: true, authorUserId: true, deletedAt: true },
+    columns: { id: true, authorUserId: true, deletedAt: true, hhCommentId: true, hhDirection: true, hhApplicantId: true },
   })
   if (!existing) throw createError({ statusCode: 404, statusMessage: 'Комментарий не найден' })
   if (existing.deletedAt) {
@@ -79,6 +84,29 @@ export default defineEventHandler(async (event) => {
       createdAt: applicationComment.createdAt,
       updatedAt: applicationComment.updatedAt,
     })
+
+  // ── 2a. Fire-and-forget: sync edit to hh.ru applicant_comments ──
+  if (existing.hhCommentId && existing.hhDirection === 'outbound' && app.source === 'hh') {
+    void (async () => {
+      try {
+        const hhAccountId = await resolveHhAccountForJob(orgId, app.jobId)
+        const token = await getValidAccessToken(hhAccountId)
+        const config = await resolveHhConfig(orgId)
+
+        const applicantId = existing.hhApplicantId ?? extractApplicantId(
+          (await db.query.candidate.findFirst({
+            where: eq(candidate.id, app.candidateId),
+            columns: { hhResumeRaw: true },
+          }))?.hhResumeRaw,
+        )
+        if (!applicantId) return
+
+        await updateApplicantComment(applicantId, existing.hhCommentId, body.body, token, config)
+      } catch {
+        // Best-effort — local edit already succeeded
+      }
+    })()
+  }
 
   // ── 3. Diff mentions ──
   const tokens = parseMentionTokens(body.body)

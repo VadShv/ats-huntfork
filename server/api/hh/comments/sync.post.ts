@@ -1,34 +1,26 @@
 /**
  * POST /api/hh/comments/sync  body: { applicationId }
  *
- * Bidirectional sync of application comments with hh.ru negotiations:
- *   - INBOUND:  pull applicant messages from hh.ru, dedup by hhMessageId, insert locally.
- *   - OUTBOUND: find comments with hhSyncStatus='pending', send them to hh.ru.
+ * Bidirectional sync of application comments with hh.ru applicant_comments:
+ *   - INBOUND:  pull applicant comments from hh.ru, dedup by hhCommentId, insert locally.
+ *   - OUTBOUND: find comments with hhSyncStatus='pending', push them to hh.ru applicant_comments.
  */
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import {
   application,
   applicationComment,
+  candidate,
 } from '../../../database/schema/app'
-import { apiGet } from '../../../utils/hh/client'
 import { resolveHhConfig } from '../../../utils/hh/config'
 import { getValidAccessToken } from '../../../utils/hh/tokens'
-import { sendNegotiationMessage } from '../../../utils/hh/sourcing/pushAction'
+import {
+  createApplicantComment,
+  listApplicantComments,
+  extractApplicantId,
+} from '../../../utils/hh/applicantComments'
 import { renderMarkdown } from '../../../utils/comments/sanitize'
 import { stripHtml } from '../../../utils/hh/vacancyParser'
 import { resolveHhAccountForJob } from '../../../utils/hh/link'
-
-interface HhMessage {
-  id: string
-  text?: string
-  author?: { type?: string }
-  created_at?: string
-}
-
-interface HhMessagesResponse {
-  items?: HhMessage[]
-  found?: number
-}
 
 const _syncRateLimit = new Map<string, number>()
 function syncRateLimitOk(key: string): boolean {
@@ -74,49 +66,51 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // ── 2a. Resolve applicant_id ──
+  const cand = await db.query.candidate.findFirst({
+    where: eq(candidate.id, app.candidateId),
+    columns: { hhApplicantId: true, hhResumeRaw: true },
+  })
+  const applicantId = cand?.hhApplicantId ?? extractApplicantId(cand?.hhResumeRaw)
+  if (!applicantId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Нет applicant_id (резюме без owner.id) — синхронизация невозможна',
+    })
+  }
+
   const errors: string[] = []
   let inboundCount = 0
   let outboundCount = 0
 
-  // ── 3. INBOUND: fetch messages from hh.ru ──
+  // ── 3. INBOUND: fetch applicant comments from hh.ru ──
   if (syncRateLimitOk(app.id)) {
     try {
-      const data = await apiGet<HhMessagesResponse>(
-        `/negotiations/${app.externalId}/messages`,
-        token,
-        undefined,
-        config,
-      )
-      const messages = data.items ?? []
+      const data = await listApplicantComments(applicantId, token, config)
+      const comments = data.items ?? []
 
-      // Batch dedup: collect applicant message IDs and query once
-      const applicantMsgIds = messages
-        .filter(m => m.author?.type === 'applicant' && m.id)
-        .map(m => m.id!) as string[]
-      const existingIds = applicantMsgIds.length > 0
+      // Batch dedup: collect comment IDs and query once
+      const commentIds = comments.filter(c => c.id).map(c => c.id!) as string[]
+      const existingIds = commentIds.length > 0
         ? new Set((await db
-            .select({ hhMessageId: applicationComment.hhMessageId })
+            .select({ hhCommentId: applicationComment.hhCommentId })
             .from(applicationComment)
             .where(and(
               eq(applicationComment.applicationId, app.id),
-              inArray(applicationComment.hhMessageId, applicantMsgIds),
+              inArray(applicationComment.hhCommentId, commentIds),
             )))
-            .map(r => r.hhMessageId))
+            .map(r => r.hhCommentId))
         : new Set<string | null>([])
 
-      for (const msg of messages) {
-        // Only import messages from the applicant (incoming)
-        if (!msg.author || msg.author.type !== 'applicant') continue
-        if (!msg.id) continue
+      for (const c of comments) {
+        if (!c.id) continue
+        if (existingIds.has(c.id)) continue
 
-        // Dedup: skip if already imported
-        if (existingIds.has(msg.id)) continue
-
-        const rawText = msg.text ?? ''
+        const rawText = c.text ?? ''
         const plainBody = stripHtml(rawText)
         if (!plainBody) continue
 
-        const now = new Date(msg.created_at ?? Date.now())
+        const now = new Date(c.created_at ?? Date.now())
         try {
           await db.insert(applicationComment).values({
             organizationId: orgId,
@@ -126,7 +120,8 @@ export default defineEventHandler(async (event) => {
             body: plainBody,
             bodyHtml: renderMarkdown(plainBody),
             isInternal: false,
-            hhMessageId: msg.id,
+            hhCommentId: c.id,
+            hhApplicantId: applicantId,
             hhDirection: 'incoming',
             hhSyncStatus: 'synced',
             hhSyncedAt: now,
@@ -134,15 +129,15 @@ export default defineEventHandler(async (event) => {
           })
           inboundCount++
         } catch (err) {
-          errors.push(`Не удалось импортировать сообщение ${msg.id}: ${err instanceof Error ? err.message : String(err)}`)
+          errors.push(`Не удалось импортировать комментарий ${c.id}: ${err instanceof Error ? err.message : String(err)}`)
         }
       }
     } catch (err) {
-      errors.push(`Ошибка загрузки сообщений: ${err instanceof Error ? err.message : String(err)}`)
+      errors.push(`Ошибка загрузки комментариев: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
-  // ── 4. OUTBOUND: send pending comments to hh.ru ──
+  // ── 4. OUTBOUND: push pending comments to hh.ru applicant_comments ──
   const pendingComments = await db
     .select({
       id: applicationComment.id,
@@ -157,26 +152,17 @@ export default defineEventHandler(async (event) => {
 
   for (const comment of pendingComments) {
     try {
-      await sendNegotiationMessage({
-        organizationId: orgId,
-        hhAccountId,
-        negotiationId: app.externalId,
-        messageText: comment.body,
-        userId,
-        applicationId: app.id,
-      })
+      const hhComment = await createApplicantComment(applicantId, comment.body, token, config)
+      await db.update(applicationComment).set({
+        hhSyncStatus: 'synced',
+        hhSyncedAt: new Date(),
+        hhCommentId: hhComment.id,
+        hhApplicantId: applicantId,
+      }).where(eq(applicationComment.id, comment.id))
       outboundCount++
     } catch (err) {
       await db.update(applicationComment).set({ hhSyncStatus: 'failed' }).where(eq(applicationComment.id, comment.id))
       errors.push(`Не удалось отправить: ${err instanceof Error ? err.message : String(err)}`)
-      continue
-    }
-    // Best-effort status update — don't mark as failed if this throws
-    try {
-      await db.update(applicationComment).set({ hhSyncStatus: 'synced', hhSyncedAt: new Date() }).where(eq(applicationComment.id, comment.id))
-    } catch {
-      // Send succeeded but status update failed — log but don't mark as failed
-      errors.push(`Отправлено, но не удалось обновить статус комментария ${comment.id}`)
     }
   }
 

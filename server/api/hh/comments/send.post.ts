@@ -8,9 +8,12 @@ import { and, eq } from 'drizzle-orm'
 import {
   application,
   applicationComment,
+  candidate,
 } from '../../../database/schema/app'
-import { sendNegotiationMessage } from '../../../utils/hh/sourcing/pushAction'
+import { createApplicantComment, extractApplicantId } from '../../../utils/hh/applicantComments'
 import { resolveHhAccountForJob } from '../../../utils/hh/link'
+import { resolveHhConfig } from '../../../utils/hh/config'
+import { getValidAccessToken } from '../../../utils/hh/tokens'
 
 export default defineEventHandler(async (event) => {
   const { session, user } = await requirePermission(event, { hhComment: ['sync'] })
@@ -33,7 +36,7 @@ export default defineEventHandler(async (event) => {
   // ── 2. Load application (verify org + hh-linked) ──
   const app = await db.query.application.findFirst({
     where: and(eq(application.id, comment.applicationId), eq(application.organizationId, orgId)),
-    columns: { id: true, source: true, externalId: true, jobId: true },
+    columns: { id: true, source: true, externalId: true, jobId: true, candidateId: true },
   })
   if (!app) throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
   if (app.source !== 'hh' || !app.externalId) {
@@ -47,19 +50,24 @@ export default defineEventHandler(async (event) => {
   // ── 3. Resolve hhVacancyLink → hhAccountId ──
   const hhAccountId = await resolveHhAccountForJob(orgId, app.jobId)
 
-  // ── 4. Send to hh.ru ──
+  // ── 4. Push to hh.ru applicant_comments ──
   try {
-    await sendNegotiationMessage({
-      organizationId: orgId,
-      hhAccountId,
-      negotiationId: app.externalId,
-      messageText: comment.body,
-      userId,
-      applicationId: app.id,
+    const token = await getValidAccessToken(hhAccountId)
+    const config = await resolveHhConfig(orgId)
+
+    const cand = await db.query.candidate.findFirst({
+      where: eq(candidate.id, app.candidateId),
+      columns: { hhApplicantId: true, hhResumeRaw: true },
     })
+    const applicantId = cand?.hhApplicantId ?? extractApplicantId(cand?.hhResumeRaw)
+    if (!applicantId) {
+      throw new Error('Нет applicant_id (резюме без owner.id)')
+    }
+
+    const hhComment = await createApplicantComment(applicantId, comment.body, token, config)
     await db
       .update(applicationComment)
-      .set({ hhSyncStatus: 'synced', hhSyncedAt: new Date() })
+      .set({ hhSyncStatus: 'synced', hhSyncedAt: new Date(), hhCommentId: hhComment.id, hhApplicantId: applicantId })
       .where(eq(applicationComment.id, commentId))
     return { sent: true }
   } catch (err) {

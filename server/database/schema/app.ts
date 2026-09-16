@@ -288,6 +288,8 @@ export const candidate = pgTable('candidate', {
   // ─── hh.ru resume snapshot ('бэкап резюме' — даже если кандидат удалил его на hh) ───
   /** Id резюме на hh.ru — последний пришедший для этого кандидата. */
   hhResumeId: text('hh_resume_id'),
+  /** Id соискателя на hh.ru (applicant account id) — извлекается из hh_resume_raw.owner.id. Для applicant_comments API. */
+  hhApplicantId: text('hh_applicant_id'),
   /** Сырой JSON-payload резюме с hh.ru. Используется для красивого рендера + PDF-экспорта. */
   hhResumeRaw: jsonb('hh_resume_raw').$type<Record<string, unknown> | null>(),
   /** Когда последний раз обновляли hh_resume_raw. */
@@ -2603,12 +2605,15 @@ export const applicationComment = pgTable(
     hhDirection:     text('hh_direction'),
     hhSyncStatus:    text('hh_sync_status').notNull().default('local'),
     hhSyncedAt:       timestamp('hh_synced_at', { withTimezone: true, mode: 'date' }),
+    hhCommentId:     text('hh_comment_id'),
+    hhApplicantId:   text('hh_applicant_id'),
   },
   (t) => ({
     applicationIdx: index('idx_app_comment_application_id').on(t.applicationId),
     orgIdx:         index('idx_app_comment_organization_id').on(t.organizationId),
     authorIdx:      index('idx_app_comment_author').on(t.authorUserId),
     hhMsgIdx:       uniqueIndex('idx_app_comment_hh_message_id').on(t.applicationId, t.hhMessageId),
+    hhCommentIdx:   uniqueIndex('idx_app_comment_hh_comment_id').on(t.applicationId, t.hhCommentId),
   }),
 )
 
