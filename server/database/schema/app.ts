@@ -2607,6 +2607,7 @@ export const applicationComment = pgTable(
     hhSyncedAt:       timestamp('hh_synced_at', { withTimezone: true, mode: 'date' }),
     hhCommentId:     text('hh_comment_id'),
     hhApplicantId:   text('hh_applicant_id'),
+    hhAuthorName:    text('hh_author_name'),
   },
   (t) => ({
     applicationIdx: index('idx_app_comment_application_id').on(t.applicationId),

@@ -4,7 +4,6 @@ import {
   application,
   applicationComment,
   applicationWatcher,
-  candidate,
   commentMention,
 } from '../../../../database/schema/app'
 import { user } from '../../../../database/schema/auth'
@@ -13,10 +12,6 @@ import { createApplicationCommentSchema } from '../../../../utils/schemas/applic
 import { parseMentionTokens, resolveMentions, containsAiMention, extractAiQuestion } from '../../../../utils/comments/mention-parser'
 import { ensureWatcher } from '../../../../utils/comments/ensure-watcher'
 import { renderMarkdown } from '../../../../utils/comments/sanitize'
-import { createApplicantComment, extractApplicantId } from '../../../../utils/hh/applicantComments'
-import { resolveHhAccountForJob } from '../../../../utils/hh/link'
-import { resolveHhConfig } from '../../../../utils/hh/config'
-import { getValidAccessToken } from '../../../../utils/hh/tokens'
 import {
   createNotification,
   createNotificationsBulk,
@@ -34,9 +29,6 @@ function aiRateLimitOk(key: string): boolean {
   _aiRateLimit.set(key, now)
   return true
 }
-
-let _hhSendInFlight = 0
-const HH_SEND_CONCURRENCY = 3
 
 /**
  * POST /api/applications/:id/comments
@@ -93,9 +85,6 @@ export default defineEventHandler(async (event) => {
   const now = new Date()
 
   // ── 4. INSERT comment ──
-  const hhLinked = app.source === 'hh' && !!app.externalId
-  const shouldSyncToHh = hhLinked && !body.hhLocalOnly
-
   const [created] = await db
     .insert(applicationComment)
     .values({
@@ -107,9 +96,6 @@ export default defineEventHandler(async (event) => {
       bodyHtml,
       isInternal: body.isInternal ?? false,
       parentCommentId: body.parentCommentId ?? null,
-      ...(shouldSyncToHh
-        ? { hhSyncStatus: 'pending' as const, hhDirection: 'outbound' as const }
-        : {}),
     })
     .returning({
       id: applicationComment.id,
@@ -125,42 +111,6 @@ export default defineEventHandler(async (event) => {
 
   if (!created) {
     throw createError({ statusCode: 500, statusMessage: 'Не удалось создать комментарий' })
-  }
-
-  // ── 4a. Fire-and-forget: push to hh.ru applicant_comments if pending ──
-  if (created.hhSyncStatus === 'pending') {
-    void (async () => {
-      if (_hhSendInFlight >= HH_SEND_CONCURRENCY) {
-        return
-      }
-      _hhSendInFlight++
-      try {
-        const hhAccountId = await resolveHhAccountForJob(orgId, app.jobId)
-        const token = await getValidAccessToken(hhAccountId)
-        const config = await resolveHhConfig(orgId)
-
-        const cand = await db.query.candidate.findFirst({
-          where: eq(candidate.id, app.candidateId),
-          columns: { hhApplicantId: true, hhResumeRaw: true },
-        })
-        const applicantId = cand?.hhApplicantId ?? extractApplicantId(cand?.hhResumeRaw)
-        if (!applicantId) {
-          throw new Error('Нет applicant_id (резюме без owner.id)')
-        }
-
-        const hhComment = await createApplicantComment(applicantId, body.body, token, config)
-        await db.update(applicationComment).set({
-          hhSyncStatus: 'synced',
-          hhSyncedAt: new Date(),
-          hhCommentId: hhComment.id,
-          hhApplicantId: applicantId,
-        }).where(eq(applicationComment.id, created.id))
-      } catch {
-        await db.update(applicationComment).set({ hhSyncStatus: 'failed' }).where(eq(applicationComment.id, created.id))
-      } finally {
-        _hhSendInFlight--
-      }
-    })()
   }
 
   // ── 5. Parse mentions ──

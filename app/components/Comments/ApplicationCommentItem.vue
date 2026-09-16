@@ -105,12 +105,17 @@ const isSnapshot = computed(() =>
 const isAiResponse = computed(() => props.comment.kind === 'ai_response')
 const isSelf = computed(() => props.comment.author.id === props.currentUserId)
 const isAuthor = computed(() => props.comment.author.id === props.currentUserId)
+const isHhIncoming = computed(() => props.comment.hhDirection === 'incoming')
 // Снимки и AI-ответы нельзя редактировать (зафиксированные данные), но можно удалить.
-const canEdit = computed(() => !props.readOnly && !isSnapshot.value && !isAiResponse.value && isAuthor.value)
-const canDelete = computed(() => !props.readOnly && (isAuthor.value || props.canDeleteAny))
+const canEdit = computed(() => !props.readOnly && !isSnapshot.value && !isAiResponse.value && !isHhIncoming.value && isAuthor.value)
+const canDelete = computed(() => !props.readOnly && !isHhIncoming.value && (isAuthor.value || props.canDeleteAny))
 
 const initial = computed(() => (props.comment.author.name ?? props.comment.author.email ?? '?').slice(0, 1).toUpperCase())
-const displayName = computed(() => isAiResponse.value ? t('comments.ai_assistant') : (props.comment.author.name || props.comment.author.email))
+const displayName = computed(() => {
+  if (isAiResponse.value) return t('comments.ai_assistant')
+  if (isHhIncoming.value && props.comment.hhAuthorName) return props.comment.hhAuthorName
+  return props.comment.author.name || props.comment.author.email
+})
 
 function formatDate(d: string | Date) {
   const date = typeof d === 'string' ? new Date(d) : d
@@ -228,7 +233,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           {{ hhBadge.text }}
         </span>
         <button
-          v-if="hhBadge?.tone === 'danger' && !readOnly"
+          v-if="hhBadge?.tone === 'danger' && !readOnly && !isHhIncoming"
           type="button"
           :disabled="hhRetrying"
           class="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 disabled:opacity-50 cursor-pointer"

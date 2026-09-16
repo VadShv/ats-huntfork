@@ -83,6 +83,8 @@ export interface ThreadComment {
   hhDirection?: string | null
   /** hh.ru message ID (for dedup) */
   hhMessageId?: string | null
+  /** hh.ru author display name (for incoming comments) */
+  hhAuthorName?: string | null
 }
 
 export interface OrgMember {

@@ -1,11 +1,9 @@
 /**
  * POST /api/hh/comments/sync  body: { applicationId }
  *
- * Bidirectional sync of application comments with hh.ru applicant_comments:
- *   - INBOUND:  pull applicant comments from hh.ru, dedup by hhCommentId, insert locally.
- *   - OUTBOUND: find comments with hhSyncStatus='pending', push them to hh.ru applicant_comments.
+ * Inbound sync: pull applicant comments from hh.ru, dedup by hhCommentId, insert locally.
  */
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import {
   application,
   applicationComment,
@@ -14,7 +12,6 @@ import {
 import { resolveHhConfig } from '../../../utils/hh/config'
 import { getValidAccessToken } from '../../../utils/hh/tokens'
 import {
-  createApplicantComment,
   listApplicantComments,
   extractApplicantId,
 } from '../../../utils/hh/applicantComments'
@@ -81,7 +78,6 @@ export default defineEventHandler(async (event) => {
 
   const errors: string[] = []
   let inboundCount = 0
-  let outboundCount = 0
 
   // ── 3. INBOUND: fetch applicant comments from hh.ru ──
   if (syncRateLimitOk(app.id)) {
@@ -122,6 +118,7 @@ export default defineEventHandler(async (event) => {
             isInternal: false,
             hhCommentId: c.id,
             hhApplicantId: applicantId,
+            hhAuthorName: c.author?.name ?? null,
             hhDirection: 'incoming',
             hhSyncStatus: 'synced',
             hhSyncedAt: now,
@@ -137,34 +134,5 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // ── 4. OUTBOUND: push pending comments to hh.ru applicant_comments ──
-  const pendingComments = await db
-    .select({
-      id: applicationComment.id,
-      body: applicationComment.body,
-    })
-    .from(applicationComment)
-    .where(and(
-      eq(applicationComment.applicationId, app.id),
-      eq(applicationComment.hhSyncStatus, 'pending'),
-      isNull(applicationComment.deletedAt),
-    ))
-
-  for (const comment of pendingComments) {
-    try {
-      const hhComment = await createApplicantComment(applicantId, comment.body, token, config)
-      await db.update(applicationComment).set({
-        hhSyncStatus: 'synced',
-        hhSyncedAt: new Date(),
-        hhCommentId: hhComment.id,
-        hhApplicantId: applicantId,
-      }).where(eq(applicationComment.id, comment.id))
-      outboundCount++
-    } catch (err) {
-      await db.update(applicationComment).set({ hhSyncStatus: 'failed' }).where(eq(applicationComment.id, comment.id))
-      errors.push(`Не удалось отправить: ${err instanceof Error ? err.message : String(err)}`)
-    }
-  }
-
-  return { inboundCount, outboundCount, errors }
+  return { inboundCount, errors }
 })

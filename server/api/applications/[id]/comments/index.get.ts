@@ -72,6 +72,7 @@ export default defineEventHandler(async (event) => {
       hhSyncStatus: applicationComment.hhSyncStatus,
       hhDirection: applicationComment.hhDirection,
       hhMessageId: applicationComment.hhMessageId,
+      hhAuthorName: applicationComment.hhAuthorName,
     })
     .from(applicationComment)
     .innerJoin(user, eq(user.id, applicationComment.authorUserId))
@@ -173,6 +174,7 @@ export default defineEventHandler(async (event) => {
     hhSyncStatus: c.hhSyncStatus,
     hhDirection: c.hhDirection,
     hhMessageId: c.hhMessageId,
+    hhAuthorName: c.hhAuthorName,
   }))
 
   return { data, total: totalRow, page: query.page, limit: query.limit }
