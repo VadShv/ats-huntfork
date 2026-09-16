@@ -2,12 +2,12 @@
 import {
   Briefcase, Plus, Bell,
   Kanban, FileText, LogOut, Table2,
-  Sun, Moon, MessageSquarePlus, Settings,
+  Sun, Moon, MessageSquarePlus, MessageSquare, Settings,
   ChevronDown, Menu, X, Users, ChevronLeft,
   LayoutDashboard, Calendar, ArrowUpCircle,
   Cloud, Server, Sparkles, Radio, History, ChartNoAxesCombined,
   MessageCircle, MoreHorizontal, GitMerge, History as HistoryIcon, Upload,
-  Inbox, Bot, ClipboardList, MessageCircleQuestion, BookOpen,
+  Inbox, Bot, ClipboardList, MessageCircleQuestion, BookOpen, BarChart3,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -119,6 +119,8 @@ const jobTabs = computed(() => {
     { label: t('dashboard.jobs.tabs.applicationForm'), to: `${base}/application-form`, icon: FileText, exact: true },
     { label: t('dashboard.jobs.tabs.aiAnalysis'), to: `${base}/ai-analysis`, icon: Sparkles, exact: true },
     { label: t('dashboard.jobs.tabs.aiChat'), to: `${base}/ai-chat`, icon: Bot, exact: true }, // Чат 2.0
+    { label: t('dashboard.jobs.tabs.stats'), to: `${base}/stats`, icon: BarChart3, exact: true },
+    { label: 'Переговоры hh', to: `${base}/negotiations`, icon: MessageSquare, exact: true },
     { label: t('dashboard.jobs.tabs.settings'), to: `${base}/settings`, icon: Settings, exact: true },
   ]
 })

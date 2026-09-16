@@ -32,6 +32,8 @@ interface DiscussionTab {
   jobId: string
   jobTitle: string | null
   jobStatus: string | null
+  source: string | null
+  externalId: string | null
   stage: DiscussionTabStage | null
   commentCount: number
   createdAt: string
@@ -59,6 +61,10 @@ const activeId = ref(props.currentApplicationId)
 
 const isReadOnly = computed(() => activeId.value !== props.currentApplicationId)
 const hasMultiple = computed(() => tabs.value.length > 1)
+const activeHhLinked = computed(() => {
+  const tab = tabs.value.find(t => t.id === activeId.value)
+  return tab?.source === 'hh' && !!tab?.externalId
+})
 
 async function fetchTabs() {
   loading.value = true
@@ -78,6 +84,8 @@ async function fetchTabs() {
         jobId: '',
         jobTitle: null,
         jobStatus: null,
+        source: null,
+        externalId: null,
         stage: null,
         commentCount: 0,
         createdAt: new Date().toISOString(),
@@ -91,6 +99,8 @@ async function fetchTabs() {
       jobId: '',
       jobTitle: null,
       jobStatus: null,
+      source: null,
+      externalId: null,
       stage: null,
       commentCount: 0,
       createdAt: new Date().toISOString(),
@@ -230,6 +240,7 @@ function openRisk() {
           :application-id="activeId"
           :read-only="isReadOnly"
           :compact="compact"
+          :hh-linked="activeHhLinked"
           class="!border-0"
         />
       </div>

@@ -485,6 +485,18 @@ const createdJobId = ref('')
 const finalApplicationLink = ref('')
 const linkCopiedFinal = ref(false)
 
+// Save as hh.ru template
+const templateEditorShow = ref(false)
+const templatePrefill = computed(() => ({
+  vacancyName: form.value.title,
+  vacancyDescription: form.value.description,
+  area: form.value.location,
+  employmentType: form.value.type === 'full_time' ? 'full'
+    : form.value.type === 'part_time' ? 'part'
+      : form.value.type === 'contract' ? 'project'
+        : form.value.type === 'internship' ? 'probation' : 'full',
+}))
+
 // Distribution channels for quick tracking link creation
 const distributionChannels = [
   { channel: 'linkedin', name: 'LinkedIn', description: 'Опубликуйте в LinkedIn Jobs или поделитесь в ленте', category: 'job_board' },
@@ -2266,6 +2278,15 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
               </NuxtLink>
 
              <div class="flex items-center gap-3">
+              <UiButton
+                v-if="currentStep > 1"
+                variant="ghost"
+                size="sm"
+                :icon-left="FileText"
+                @click="templateEditorShow = true"
+              >
+                {{ t('dashboard.settings.hhTemplates.saveAsTemplate') }}
+              </UiButton>
               <button
                 v-if="currentStep > 1"
                 type="button"
@@ -2381,6 +2402,11 @@ const questionTypeLabels = computed<Record<QuestionType, string>>(() => ({
       </aside>
     </div>
   </div>
+
+  <HhTemplateEditor
+    v-model:show="templateEditorShow"
+    :prefill="templatePrefill"
+  />
 </template>
 
 <style scoped>

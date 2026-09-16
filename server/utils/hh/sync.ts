@@ -23,6 +23,7 @@ import {
   hhNegotiation, hhVacancyLink, job,
 } from '../../database/schema'
 import { apiGet } from './client'
+import { EMPLOYER_COLLECTIONS } from './collections'
 import { resolveHhConfig } from './config'
 import { getValidAccessToken } from './tokens'
 import { getEntryStageForPipeline } from '../pipeline-helpers'
@@ -207,18 +208,6 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
   // У работодателя hh.ru отклики разнесены по коллекциям. Чистый
   // GET /negotiations?vacancy_id=... ничего не возвращает — нужно ходить
   // в GET /negotiations/<collection>?vacancy_id=... для каждой коллекции.
-  const EMPLOYER_COLLECTIONS = [
-    'response',
-    'consider',
-    'phone_interview',
-    'assessment',
-    'interview',
-    'offer',
-    'hired',
-    'discard_by_employer',
-    'discard_visible_by_opponent',
-    'discard_after_interview',
-  ] as const
   const collected: HhNegotiationItem[] = []
   const collectionStats: Record<string, number> = {}
   try {

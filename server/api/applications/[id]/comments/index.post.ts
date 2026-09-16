@@ -12,6 +12,8 @@ import { createApplicationCommentSchema } from '../../../../utils/schemas/applic
 import { parseMentionTokens, resolveMentions, containsAiMention, extractAiQuestion } from '../../../../utils/comments/mention-parser'
 import { ensureWatcher } from '../../../../utils/comments/ensure-watcher'
 import { renderMarkdown } from '../../../../utils/comments/sanitize'
+import { sendNegotiationMessage } from '../../../../utils/hh/sourcing/pushAction'
+import { resolveHhAccountForJob } from '../../../../utils/hh/link'
 import {
   createNotification,
   createNotificationsBulk,
@@ -29,6 +31,9 @@ function aiRateLimitOk(key: string): boolean {
   _aiRateLimit.set(key, now)
   return true
 }
+
+let _hhSendInFlight = 0
+const HH_SEND_CONCURRENCY = 3
 
 /**
  * POST /api/applications/:id/comments
@@ -55,7 +60,7 @@ export default defineEventHandler(async (event) => {
   // ── 1. Verify application ──
   const app = await db.query.application.findFirst({
     where: and(eq(application.id, id), eq(application.organizationId, orgId)),
-    columns: { id: true, candidateId: true },
+    columns: { id: true, candidateId: true, source: true, externalId: true, jobId: true },
   })
   if (!app) throw createError({ statusCode: 404, statusMessage: 'Отклик не найден' })
 
@@ -85,6 +90,9 @@ export default defineEventHandler(async (event) => {
   const now = new Date()
 
   // ── 4. INSERT comment ──
+  const hhLinked = app.source === 'hh' && !!app.externalId
+  const shouldSyncToHh = hhLinked && !body.hhLocalOnly && !(body.isInternal ?? false)
+
   const [created] = await db
     .insert(applicationComment)
     .values({
@@ -96,6 +104,9 @@ export default defineEventHandler(async (event) => {
       bodyHtml,
       isInternal: body.isInternal ?? false,
       parentCommentId: body.parentCommentId ?? null,
+      ...(shouldSyncToHh
+        ? { hhSyncStatus: 'pending' as const, hhDirection: 'outbound' as const }
+        : {}),
     })
     .returning({
       id: applicationComment.id,
@@ -103,12 +114,47 @@ export default defineEventHandler(async (event) => {
       bodyHtml: applicationComment.bodyHtml,
       isInternal: applicationComment.isInternal,
       parentCommentId: applicationComment.parentCommentId,
+      hhSyncStatus: applicationComment.hhSyncStatus,
+      hhDirection: applicationComment.hhDirection,
       createdAt: applicationComment.createdAt,
       updatedAt: applicationComment.updatedAt,
     })
 
   if (!created) {
     throw createError({ statusCode: 500, statusMessage: 'Не удалось создать комментарий' })
+  }
+
+  // ── 4a. Fire-and-forget: send to hh.ru if pending ──
+  if (created.hhSyncStatus === 'pending') {
+    void (async () => {
+      if (_hhSendInFlight >= HH_SEND_CONCURRENCY) {
+        // Too many concurrent sends — leave as 'pending', sync endpoint will pick it up
+        return
+      }
+      _hhSendInFlight++
+      try {
+        const hhAccountId = await resolveHhAccountForJob(orgId, app.jobId)
+        await sendNegotiationMessage({
+          organizationId: orgId,
+          hhAccountId,
+          negotiationId: app.externalId!,
+          messageText: body.body,
+          userId,
+          applicationId: id,
+        })
+      } catch {
+        await db.update(applicationComment).set({ hhSyncStatus: 'failed' }).where(eq(applicationComment.id, created.id))
+        return
+      } finally {
+        _hhSendInFlight--
+      }
+      // Best-effort status update — send succeeded
+      try {
+        await db.update(applicationComment).set({ hhSyncStatus: 'synced', hhSyncedAt: new Date() }).where(eq(applicationComment.id, created.id))
+      } catch {
+        // Send succeeded but status update failed — leave as 'pending'
+      }
+    })()
   }
 
   // ── 5. Parse mentions ──
@@ -230,5 +276,6 @@ export default defineEventHandler(async (event) => {
     mentions: mentionedUserIds.map(uid => ({ userId: uid })),
     reactions: [],
     attachments: [],
+    hhLocalOnly: body.hhLocalOnly ?? false,
   }
 })

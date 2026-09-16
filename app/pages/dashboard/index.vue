@@ -20,6 +20,7 @@ const { activeOrg } = useCurrentOrg()
 const localePath = useLocalePath()
 const { track } = useTrack()
 const { formatPersonName } = useOrgSettings()
+const { connected: hhConnected } = useHhStatus()
 
 onMounted(() => track('dashboard_viewed'))
 
@@ -618,6 +619,8 @@ const isEmpty = computed(() =>
         <!-- ─── Right column (1/3) ─── -->
         <div class="space-y-6">
           <!-- Геймификация вынесена в Настройки → «Лига рекрутеров» -->
+          <!-- ─── hh.ru stats widget ─── -->
+          <HhStatsWidget v-if="hhConnected" />
           <!-- ─── Upcoming interviews ─── -->
           <div class="rounded-2xl border border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-xs dark:shadow-none">
             <div class="flex items-center justify-between px-5 py-4 border-b border-surface-100 dark:border-surface-800">

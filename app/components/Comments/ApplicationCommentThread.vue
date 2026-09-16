@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, computed, nextTick } from 'vue'
-import { MessageSquare, Users, Eye, Bot, ShieldAlert, ArrowDown, Search } from 'lucide-vue-next'
+import { MessageSquare, Users, Eye, Bot, ShieldAlert, ArrowDown, Search, RefreshCw } from 'lucide-vue-next'
 import ApplicationCommentItem from './ApplicationCommentItem.vue'
 import ApplicationCommentComposer from './ApplicationCommentComposer.vue'
 import ThreadStageEvent from './ThreadStageEvent.vue'
@@ -26,8 +26,10 @@ const props = withDefaults(
      * Запись возможна только в текущий (активный) отклик.
      */
     readOnly?: boolean
+    /** Application is linked to hh.ru — show sync button + composer toggle */
+    hhLinked?: boolean
   }>(),
-  { compact: false, readOnly: false },
+  { compact: false, readOnly: false, hhLinked: false },
 )
 
 const { t } = useI18n()
@@ -61,6 +63,28 @@ const {
 const toast = useToast()
 const pinning = ref(false)
 const summarizing = ref(false)
+const hhSyncing = ref(false)
+
+async function onHhSync() {
+  if (hhSyncing.value) return
+  hhSyncing.value = true
+  try {
+    const res = await $fetch<{ inboundCount: number; outboundCount: number; errors: string[] }>(
+      '/api/hh/comments/sync',
+      { method: 'POST', body: { applicationId: props.applicationId } },
+    )
+    const parts: string[] = []
+    if (res.inboundCount > 0) parts.push(`получено ${res.inboundCount}`)
+    if (res.outboundCount > 0) parts.push(`отправлено ${res.outboundCount}`)
+    if (res.errors.length > 0) parts.push(`ошибок: ${res.errors.length}`)
+    toast.success('Синхронизация hh.ru', { message: parts.length > 0 ? parts.join(', ') : 'нет новых сообщений' })
+    await fetchComments()
+  } catch (e: any) {
+    toast.error('Не удалось синхронизировать', { message: e?.data?.statusMessage ?? e?.message })
+  } finally {
+    hhSyncing.value = false
+  }
+}
 
 async function onAttachSnapshot(kind: 'ai_screening_snapshot' | 'risk_snapshot') {
   if (pinning.value) return
@@ -238,6 +262,18 @@ const watchersOpen = ref(false)
           @click="focusSearch"
         >
           <Search class="size-3.5" />
+        </button>
+        <!-- hh.ru comment sync -->
+        <button
+          v-if="hhLinked"
+          type="button"
+          :disabled="hhSyncing"
+          class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-info-600 dark:text-info-400 hover:bg-info-50 dark:hover:bg-info-900/20 disabled:opacity-50 cursor-pointer transition-colors"
+          :title="hhSyncing ? 'Синхронизация…' : 'Синхронизировать с hh.ru'"
+          @click="onHhSync"
+        >
+          <RefreshCw class="size-3.5" :class="hhSyncing ? 'animate-spin' : ''" />
+          <span class="hidden sm:inline">Синхр. hh</span>
         </button>
         <!-- AI-резюме (accent = AI) -->
         <button
@@ -470,6 +506,7 @@ const watchersOpen = ref(false)
           :application-id="applicationId"
           :can-mark-internal="canSeeInternal"
           :parent-comment-id="replyTo"
+          :hh-linked="hhLinked"
           @submitted="onSubmitted"
           @cancel="onCancelReply"
         />

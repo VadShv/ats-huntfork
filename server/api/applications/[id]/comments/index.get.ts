@@ -69,6 +69,9 @@ export default defineEventHandler(async (event) => {
       authorName: user.name,
       authorEmail: user.email,
       authorImage: user.image,
+      hhSyncStatus: applicationComment.hhSyncStatus,
+      hhDirection: applicationComment.hhDirection,
+      hhMessageId: applicationComment.hhMessageId,
     })
     .from(applicationComment)
     .innerJoin(user, eq(user.id, applicationComment.authorUserId))
@@ -167,6 +170,9 @@ export default defineEventHandler(async (event) => {
     mentions: mentionsByComment.get(c.id) ?? [],
     reactions: Array.from(reactionsByComment.get(c.id)?.values() ?? []),
     attachments: attachmentsByComment.get(c.id) ?? [],
+    hhSyncStatus: c.hhSyncStatus,
+    hhDirection: c.hhDirection,
+    hhMessageId: c.hhMessageId,
   }))
 
   return { data, total: totalRow, page: query.page, limit: query.limit }

@@ -15,6 +15,8 @@ const props = defineProps<{
   /** optional reply target (parent comment id) */
   parentCommentId?: string | null
   placeholder?: string
+  /** Application is linked to hh.ru — show "Отправить на hh.ru" toggle */
+  hhLinked?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -28,6 +30,7 @@ const { createComment, uploadAttachment, searchMembers, attachSnapshot, summariz
 
 const body = ref('')
 const isInternal = ref(false)
+const sendToHh = ref(true)
 const submitting = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -227,6 +230,7 @@ async function submit() {
       body: finalBody,
       isInternal: isInternal.value,
       parentCommentId: props.parentCommentId ?? undefined,
+      hhLocalOnly: props.hhLinked ? !sendToHh.value : undefined,
     })
     if (created?.id && pendingFiles.value.length > 0) {
       // upload sequentially to keep ordering & avoid spike on the bucket
@@ -449,6 +453,25 @@ async function onSlashSelect(cmd: SlashCommand) {
           <span class="text-xs text-surface-400 hidden md:inline">{{ t('comments.hint_shortcut') }}</span>
         </div>
         <div class="flex items-center gap-2">
+          <button
+            v-if="hhLinked && !isInternal"
+            type="button"
+            class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors cursor-pointer border-0 bg-transparent"
+            :class="sendToHh
+              ? 'text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20'
+              : 'text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800'"
+            @click="sendToHh = !sendToHh"
+          >
+            <span
+              class="inline-flex size-3 items-center justify-center rounded border transition-colors"
+              :class="sendToHh
+                ? 'bg-brand-600 border-brand-600 text-white'
+                : 'border-surface-300 dark:border-surface-600'"
+            >
+              <svg v-if="sendToHh" class="size-2.5" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5L5 9l4.5-5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            </span>
+            На hh.ru
+          </button>
           <button
             v-if="parentCommentId"
             type="button"

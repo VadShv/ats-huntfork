@@ -56,6 +56,8 @@ const atsStatements = {
   hhNegotiation: ['read', 'sync', 'import'],
   hhAutoRespond: ['read', 'create', 'update', 'delete'],
   hhBulkAction: ['execute'],
+  hhSimilarVacancy: ['read'],
+  hhComment: ['read', 'sync'],
 } as const
 
 // ─── Merged statement (Better Auth defaults + ATS resources) ───────
@@ -102,6 +104,8 @@ export const ownerAtsStatements = {
   hhNegotiation: ['read', 'sync', 'import'],
   hhAutoRespond: ['create', 'read', 'update', 'delete'],
   hhBulkAction: ['execute'],
+  hhSimilarVacancy: ['read'],
+  hhComment: ['read', 'sync'],
 } as const
 
 export const adminAtsStatements = {
@@ -125,6 +129,8 @@ export const adminAtsStatements = {
   hhNegotiation: ['read', 'sync', 'import'],
   hhAutoRespond: ['create', 'read', 'update', 'delete'],
   hhBulkAction: ['execute'],
+  hhSimilarVacancy: ['read'],
+  hhComment: ['read', 'sync'],
 } as const
 
 export const memberAtsStatements = {
@@ -155,6 +161,8 @@ export const memberAtsStatements = {
   hhNegotiation: ['read', 'sync', 'import'],
   hhAutoRespond: ['read'],
   hhBulkAction: ['execute'],
+  hhSimilarVacancy: ['read'],
+  hhComment: ['read', 'sync'],
 } as const
 
 export const owner = ac.newRole({
@@ -196,6 +204,8 @@ export const hiringManagerAtsStatements = {
   hhTemplate: ['read'],
   hhStats: ['read'],
   hhNegotiation: ['read'],
+  hhSimilarVacancy: ['read'],
+  hhComment: ['read'],
 } as const
 
 export const hiringManager = ac.newRole({

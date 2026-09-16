@@ -77,6 +77,12 @@ export interface ThreadComment {
   mentions: CommentMention[]
   reactions: CommentReaction[]
   attachments: CommentAttachment[]
+  /** hh.ru comment sync state: 'local' | 'pending' | 'synced' | 'failed' */
+  hhSyncStatus?: string | null
+  /** hh.ru message direction: 'outbound' | 'incoming' */
+  hhDirection?: string | null
+  /** hh.ru message ID (for dedup) */
+  hhMessageId?: string | null
 }
 
 export interface OrgMember {
@@ -157,11 +163,11 @@ export function useApplicationComments(applicationId: string) {
     }
   }
 
-  async function createComment(payload: { body: string; isInternal?: boolean; parentCommentId?: string }) {
+  async function createComment(payload: { body: string; isInternal?: boolean; parentCommentId?: string; hhLocalOnly?: boolean }) {
     try {
       const created = await $fetch<ThreadComment>(
         `/api/applications/${applicationId}/comments`,
-        { method: 'POST', body: payload },
+        { method: 'POST', body: { ...payload, hhLocalOnly: payload.hhLocalOnly ?? false } },
       )
       comments.value.push(created)
       void fetchWatchers()

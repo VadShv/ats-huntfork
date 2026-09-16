@@ -8,6 +8,7 @@ export const createApplicationCommentSchema = z.object({
   body: z.string().min(1).max(10_000),
   isInternal: z.boolean().optional().default(false),
   parentCommentId: z.string().min(1).optional(),
+  hhLocalOnly: z.boolean().optional().default(false),
 })
 
 export const updateApplicationCommentSchema = z.object({

@@ -8,6 +8,7 @@
 import { and, eq, asc } from 'drizzle-orm'
 import {
   hhAutoRespondRule,
+  hhAutoRespondLog,
   hhNegotiation,
   hhVacancyLink,
   job,
@@ -118,6 +119,14 @@ export async function evaluateAutoRespond(args: {
   })
 
   // 6. Send via hh.ru API (reuses existing sendNegotiationMessage with dedup)
+  const logBase = {
+    organizationId: args.orgId,
+    ruleId: matchingRule.id,
+    applicationId: args.applicationId,
+    negotiationId: nego.hhNegotiationId,
+    hhAccountId: args.hhAccountId,
+  }
+
   try {
     const result = await sendNegotiationMessage({
       organizationId: args.orgId,
@@ -130,16 +139,42 @@ export async function evaluateAutoRespond(args: {
 
     if (!result.sent) {
       // Duplicate (already sent within 60s) — not an error
+      try {
+        await db.insert(hhAutoRespondLog).values({
+          ...logBase,
+          status: 'skipped',
+          messagePreview: messageText.slice(0, 200),
+        })
+      }
+      catch { /* best-effort logging */ }
       return { triggered: false }
     }
 
+    try {
+      await db.insert(hhAutoRespondLog).values({
+        ...logBase,
+        status: 'sent',
+        messagePreview: messageText.slice(0, 200),
+      })
+    }
+    catch { /* best-effort logging */ }
     return { triggered: true, ruleId: matchingRule.id }
   }
   catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    try {
+      await db.insert(hhAutoRespondLog).values({
+        ...logBase,
+        status: 'failed',
+        messagePreview: messageText.slice(0, 200),
+        error: errMsg.slice(0, 1000),
+      })
+    }
+    catch { /* best-effort logging */ }
     return {
       triggered: false,
       ruleId: matchingRule.id,
-      error: err instanceof Error ? err.message : String(err),
+      error: errMsg,
     }
   }
 }

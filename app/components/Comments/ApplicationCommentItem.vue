@@ -33,7 +33,7 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
-const { updateComment, deleteComment, deleteAttachment } = useApplicationComments(props.applicationId)
+const { updateComment, deleteComment, deleteAttachment, fetchComments } = useApplicationComments(props.applicationId)
 const { ask } = useConfirm()
 const toast = useToast()
 const route = useRoute()
@@ -43,6 +43,37 @@ const editBody = ref(props.comment.body)
 const saving = ref(false)
 const menuOpen = ref(false)
 const pinning = ref(false)
+const hhRetrying = ref(false)
+
+const hhBadge = computed(() => {
+  const s = props.comment.hhSyncStatus
+  if (!s || s === 'local') return null
+  if (s === 'synced') {
+    return props.comment.hhDirection === 'incoming'
+      ? { tone: 'info', text: 'hh.ru ←' }
+      : { tone: 'info', text: 'hh.ru ✓' }
+  }
+  if (s === 'pending') return { tone: 'warning', text: 'ожидает hh' }
+  if (s === 'failed') return { tone: 'danger', text: 'ошибка hh' }
+  return null
+})
+
+async function retryHhSend() {
+  if (hhRetrying.value) return
+  hhRetrying.value = true
+  try {
+    await $fetch('/api/hh/comments/send', {
+      method: 'POST',
+      body: { commentId: props.comment.id },
+    })
+    toast.success('Сообщение отправлено на hh.ru')
+    await fetchComments()
+  } catch (e: any) {
+    toast.error('Не удалось отправить', { message: e?.data?.statusMessage ?? e?.message })
+  } finally {
+    hhRetrying.value = false
+  }
+}
 
 async function togglePin() {
   if (pinning.value) return
@@ -185,6 +216,26 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         >
           <Lock class="size-2.5" /> {{ t('comments.internal') }}
         </span>
+        <span
+          v-if="hhBadge"
+          class="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium"
+          :class="hhBadge.tone === 'info'
+            ? 'bg-info-100 dark:bg-info-900/40 text-info-700 dark:text-info-300'
+            : hhBadge.tone === 'warning'
+              ? 'bg-warning-100 dark:bg-warning-900/50 text-warning-800 dark:text-warning-200'
+              : 'bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-300'"
+        >
+          {{ hhBadge.text }}
+        </span>
+        <button
+          v-if="hhBadge?.tone === 'danger' && !readOnly"
+          type="button"
+          :disabled="hhRetrying"
+          class="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 disabled:opacity-50 cursor-pointer"
+          @click="retryHhSend"
+        >
+          {{ hhRetrying ? '…' : 'Повторить' }}
+        </button>
       </div>
 
       <!-- Actions (для каждого сообщения, не только первого в группе) -->

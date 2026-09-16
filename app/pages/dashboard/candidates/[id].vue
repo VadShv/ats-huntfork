@@ -913,6 +913,10 @@ async function openHhContacts() {
             :resume-document-preview-available="resumeDocumentPreviewAvailable"
             @changed="refresh()"
           />
+          <HhSimilarVacancies
+            v-if="(candidate as any).hhResumeId"
+            :candidate-id="candidateId"
+          />
         </main>
 
         <!-- ╗╗╗ RIGHT COLUMN: tabs (applications, documents) ╗╗╗ -->

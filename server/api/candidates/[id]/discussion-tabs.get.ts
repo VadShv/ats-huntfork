@@ -57,6 +57,8 @@ export default defineEventHandler(async (event) => {
       stageBucket: pipelineStage.bucket,
       stageType: pipelineStage.type,
       isTerminal: pipelineStage.isTerminal,
+      source: application.source,
+      externalId: application.externalId,
       createdAt: application.createdAt,
       updatedAt: application.updatedAt,
     })
@@ -94,6 +96,8 @@ export default defineEventHandler(async (event) => {
       jobId: a.jobId,
       jobTitle: a.jobTitle,
       jobStatus: a.jobStatus,
+      source: a.source,
+      externalId: a.externalId,
       stage: a.currentStageId
         ? {
             id: a.currentStageId,

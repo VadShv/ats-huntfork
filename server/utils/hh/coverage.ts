@@ -11,24 +11,12 @@ import {
   hhVacancyLink,
 } from '../../database/schema'
 import { apiGet } from './client'
+import { EMPLOYER_COLLECTIONS } from './collections'
 import { getHhSession } from './session'
 import { withHhRetry } from './rateLimiter'
 import { resolveHhConfig } from './config'
 import { getValidAccessToken } from './tokens'
 import type { HhSession } from './session'
-
-const EMPLOYER_COLLECTIONS = [
-  'response',
-  'consider',
-  'phone_interview',
-  'assessment',
-  'interview',
-  'offer',
-  'hired',
-  'discard_by_employer',
-  'discard_visible_by_opponent',
-  'discard_after_interview',
-]
 
 interface HhNegotiationItem {
   id: string

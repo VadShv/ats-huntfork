@@ -2838,6 +2838,11 @@ function closeDocPreview() {
                 </div>
               </div>
 
+              <!-- HH SIMILAR CANDIDATES (collapsible) -->
+              <div v-if="showSection.profile" class="max-w-4xl mx-auto mt-5">
+                <HhSimilarCandidates :job-id="jobId" />
+              </div>
+
               <!-- CHAT SECTION (Спринт 18) -->
               <div v-if="showSection.chat && currentSummary" class="max-w-4xl mx-auto">
                 <CommsChatPanel

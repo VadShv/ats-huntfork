@@ -1947,6 +1947,52 @@ export const hhAutoRespondRuleRelations = relations(hhAutoRespondRule, ({ one })
   createdBy: one(user, { fields: [hhAutoRespondRule.createdByUserId], references: [user.id] }),
 }))
 
+/**
+ * Log of auto-respond rule executions. One row per evaluation that
+ * resulted in a send attempt (sent / failed) or a skip.
+ */
+export const hhAutoRespondLog = pgTable('hh_auto_respond_log', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  ruleId: text('rule_id').references(() => hhAutoRespondRule.id, { onDelete: 'set null' }),
+  applicationId: text('application_id').references(() => application.id, { onDelete: 'set null' }),
+  negotiationId: text('negotiation_id'),
+  hhAccountId: text('hh_account_id').references(() => hhAccount.id, { onDelete: 'cascade' }),
+  status: text('status').notNull(),
+  messagePreview: text('message_preview'),
+  error: text('error'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('hh_arl_org_created_idx').on(t.organizationId, t.createdAt),
+  index('hh_arl_rule_idx').on(t.ruleId),
+  index('hh_arl_app_idx').on(t.applicationId),
+]))
+
+export const hhAutoRespondLogRelations = relations(hhAutoRespondLog, ({ one }) => ({
+  organization: one(organization, { fields: [hhAutoRespondLog.organizationId], references: [organization.id] }),
+  rule: one(hhAutoRespondRule, { fields: [hhAutoRespondLog.ruleId], references: [hhAutoRespondRule.id] }),
+  application: one(application, { fields: [hhAutoRespondLog.applicationId], references: [application.id] }),
+}))
+
+/**
+ * Cache for similar-vacancies searches keyed by resume content hash.
+ * TTL ~1 hour (expiresAt). Stores the hh.ru /vacancies search results.
+ */
+export const hhSimilarVacanciesCache = pgTable('hh_similar_vacancies_cache', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  resumeHash: text('resume_hash').notNull(),
+  results: jsonb('results').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  expiresAt: timestamp('expires_at').notNull(),
+}, (t) => ([
+  uniqueIndex('hh_svc_org_hash_idx').on(t.organizationId, t.resumeHash),
+]))
+
+export const hhSimilarVacanciesCacheRelations = relations(hhSimilarVacanciesCache, ({ one }) => ({
+  organization: one(organization, { fields: [hhSimilarVacanciesCache.organizationId], references: [organization.id] }),
+}))
+
 // ─────────────────────────────────────────────
 // HH bulk actions — mass operations on negotiations
 // ─────────────────────────────────────────────
@@ -2549,15 +2595,20 @@ export const applicationComment = pgTable(
     isPinned:        boolean('is_pinned').notNull().default(false),
     pinnedById:      text('pinned_by_id').references(() => user.id, { onDelete: 'set null' }),
     pinnedAt:        timestamp('pinned_at', { withTimezone: true, mode: 'date' }),
-    editedAt:        timestamp('edited_at', { withTimezone: true, mode: 'date' }),
+    editedAt:       timestamp('edited_at', { withTimezone: true, mode: 'date' }),
     createdAt:       timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt:       timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     deletedAt:       timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+    hhMessageId:     text('hh_message_id'),
+    hhDirection:     text('hh_direction'),
+    hhSyncStatus:    text('hh_sync_status').notNull().default('local'),
+    hhSyncedAt:       timestamp('hh_synced_at', { withTimezone: true, mode: 'date' }),
   },
   (t) => ({
     applicationIdx: index('idx_app_comment_application_id').on(t.applicationId),
     orgIdx:         index('idx_app_comment_organization_id').on(t.organizationId),
     authorIdx:      index('idx_app_comment_author').on(t.authorUserId),
+    hhMsgIdx:       uniqueIndex('idx_app_comment_hh_message_id').on(t.applicationId, t.hhMessageId),
   }),
 )
 

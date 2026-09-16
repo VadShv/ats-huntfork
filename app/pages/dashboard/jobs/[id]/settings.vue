@@ -6,6 +6,7 @@ import {
 const { t } = useI18n()
 import { z } from 'zod'
 import { stageTypeToHhCollection } from '~~/shared/pipeline-stage-meta'
+import { HH_COLLECTION_LABELS } from '~~/shared/hh-collections'
 
 definePageMeta({
   layout: 'dashboard',
@@ -217,19 +218,6 @@ async function loadPipelineViewStages() {
   }
 }
 onMounted(loadPipelineViewStages)
-
-const HH_COLLECTION_LABELS: Record<string, string> = {
-  response: 'Отклики',
-  consider: 'Подумать',
-  phone_interview: 'Телефонное интервью',
-  assessment: 'Оценка',
-  interview: 'Интервью',
-  offer: 'Оффер',
-  hired: 'Выход на работу',
-  discard_by_employer: 'Отказ работодателя',
-  discard_after_interview: 'Отказ после интервью',
-  discard_visible_by_opponent: 'Отказ (виден кандидату)',
-}
 
 const showHhMapping = ref(false)
 

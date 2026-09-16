@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileText, Search, X, Briefcase, Mail, Clock, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Maximize2, Minimize2, Check, ChevronDown, Loader2 } from 'lucide-vue-next'
+import { FileText, Search, X, Briefcase, Mail, Send, Clock, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Maximize2, Minimize2, Check, ChevronDown, Loader2 } from 'lucide-vue-next'
 import { LEGACY_STATUS_TO_TYPES, type LegacyApplicationStatus } from '~~/shared/pipeline-stage-meta'
 
 definePageMeta({
@@ -625,6 +625,58 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
   }
   isBulkOperating.value = false
 }
+
+// ── hh.ru bulk actions (#7) ───────────────────────────────────────────────────
+const { allowed: canHhBulkAction } = usePermission({ hhBulkAction: ['execute'] })
+const { connected: hhConnected } = useHhStatus()
+const {
+  runBulk: runHhBulk,
+  cancelBulk: cancelHhBulk,
+  current: hhBulkCurrent,
+  progress: hhBulkProgress,
+  isRunning: hhBulkRunning,
+} = useHhBulkAction()
+
+const showHhBulkMessageModal = ref(false)
+const hhStatusMenuOpen = ref(false)
+
+const hhStatusOptions: Array<{ label: string, collection: string }> = [
+  { label: 'Отклик', collection: 'response' },
+  { label: 'Подумать', collection: 'consider' },
+  { label: 'Отказать', collection: 'discard_by_employer' },
+]
+
+async function bulkSetHhStatus(collection: string, label: string) {
+  const ids = [...selectedIds.value]
+  if (!ids.length) return
+  hhStatusMenuOpen.value = false
+  isBulkOperating.value = true
+  try {
+    const result = await runHhBulk({
+      actionType: 'move_collection',
+      targetType: 'application',
+      itemIds: ids,
+      params: { collection },
+    })
+    if (result.failedItems > 0) {
+      toast.warning(`«${label}»: успешно ${result.succeededItems}, ошибок ${result.failedItems}`)
+    } else {
+      toast.success(`«${label}»: ${result.succeededItems}`)
+    }
+    selectedIds.value = new Set()
+    await refreshNuxtData('applications')
+  } catch (err: any) {
+    toast.error('Ошибка массовой операции', { message: err?.data?.statusMessage ?? err?.message })
+  } finally {
+    isBulkOperating.value = false
+  }
+}
+
+async function handleHhMessageDone() {
+  showHhBulkMessageModal.value = false
+  selectedIds.value = new Set()
+  await refreshNuxtData('applications')
+}
 </script>
 
 <template>
@@ -1130,6 +1182,65 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
             </template>
           </div>
         </div>
+        <!-- hh.ru bulk actions (#7) — gated by permission + hh.ru connection -->
+        <template v-if="canHhBulkAction && hhConnected">
+          <template v-if="hhBulkRunning">
+            <!-- Progress bar replaces hh buttons while job runs -->
+            <div class="flex items-center gap-2">
+              <Loader2 class="size-4 animate-spin text-brand-500" />
+              <span class="text-sm text-surface-600 dark:text-surface-300 tabular-nums whitespace-nowrap">
+                {{ hhBulkCurrent?.processedItems ?? 0 }}/{{ hhBulkCurrent?.totalItems ?? 0 }}
+              </span>
+              <div class="w-32 h-2 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden">
+                <div
+                  class="h-full rounded-full bg-brand-500 transition-all duration-300"
+                  :style="{ width: `${Math.round(hhBulkProgress * 100)}%` }"
+                />
+              </div>
+              <UiButton variant="secondary" size="sm" @click="cancelHhBulk">
+                Отмена
+              </UiButton>
+            </div>
+          </template>
+          <template v-else>
+            <!-- Send message -->
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :icon-left="Send"
+              :disabled="isBulkOperating"
+              @click="showHhBulkMessageModal = true"
+            >
+              Отправить сообщение
+            </UiButton>
+            <!-- hh.ru status dropdown -->
+            <div class="relative">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-1.5 text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
+                :disabled="isBulkOperating"
+                @click="hhStatusMenuOpen = !hhStatusMenuOpen"
+              >
+                Изменить статус hh
+                <ChevronDown class="size-3.5" />
+              </button>
+              <div
+                v-if="hhStatusMenuOpen"
+                class="absolute bottom-full mb-1 left-0 min-w-[180px] rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-xl py-1 z-10"
+              >
+                <button
+                  v-for="opt in hhStatusOptions"
+                  :key="opt.collection"
+                  type="button"
+                  class="flex w-full items-center px-3 py-1.5 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                  @click="bulkSetHhStatus(opt.collection, opt.label)"
+                >
+                  {{ opt.label }}
+                </button>
+              </div>
+            </div>
+          </template>
+        </template>
         <!-- Reject all -->
         <UiButton
           variant="danger"
@@ -1144,7 +1255,7 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
         <UiButton
           variant="secondary"
           size="sm"
-          @click="selectedIds = new Set(); bulkStageMenuOpen = false"
+          @click="selectedIds = new Set(); bulkStageMenuOpen = false; hhStatusMenuOpen = false"
         >
           Отмена
         </UiButton>
@@ -1160,5 +1271,12 @@ async function bulkMoveToStage(stageId: string, stageName: string) {
     :job-title="interviewTarget.jobTitle"
     @close="interviewTarget = null"
     @scheduled="handleInterviewScheduled"
+  />
+
+  <!-- hh.ru bulk message modal (#7) -->
+  <HhBulkMessageModal
+    v-model="showHhBulkMessageModal"
+    :application-ids="[...selectedIds]"
+    @done="handleHhMessageDone"
   />
 </template>

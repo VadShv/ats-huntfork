@@ -1404,7 +1404,50 @@
         "applicationForm": "Форма заявки",
         "aiAnalysis": "ИИ-анализ",
         "settings": "Настройки",
-        "aiChat": "ИИ-чат"
+        "aiChat": "ИИ-чат",
+        "stats": "Статистика",
+        "hhNegotiations": "Отклики hh.ru"
+      },
+      "stats": {
+        "title": "Статистика hh.ru",
+        "subtitle": "Динамика откликов и конверсия по вакансии",
+        "refresh": "Обновить",
+        "refreshing": "Обновление…",
+        "refreshed": "Снимок метрик обновлён",
+        "refreshError": "Не удалось обновить статистику",
+        "notLinkedTitle": "Вакансия не опубликована на hh.ru",
+        "notLinkedDesc": "Опубликуйте вакансию на hh.ru, чтобы собирать статистику откликов.",
+        "lastUpdate": "Последнее обновление",
+        "staleBadge": "Данные могут быть устаревшими",
+        "noTrend": "Недостаточно данных для графика",
+        "metrics": {
+          "responses": "Отклики",
+          "interviews": "Собеседования",
+          "conversion": "Конверсия",
+          "hires": "Наймы"
+        },
+        "trend": {
+          "title": "Динамика за 30 дней",
+          "responses": "Отклики",
+          "hires": "Наймы"
+        },
+        "breakdown": {
+          "title": "Статусы откликов",
+          "consider": "Думают",
+          "interview": "Собеседования",
+          "offer": "Офферы",
+          "hired": "Наймы",
+          "discarded": "Отказы"
+        },
+        "widget": {
+          "title": "Статистика hh.ru",
+          "details": "Подробнее",
+          "responses": "Отклики",
+          "hires": "Наймы",
+          "conversion": "Конверсия",
+          "noData": "Недостаточно данных за период",
+          "vsPrevDay": "за день"
+        }
       },
       "aiChat": {
         "pageTitle": "ИИ-чат",
@@ -1792,6 +1835,76 @@
       "recentRuns": "Последние запуски",
       "recentRunsDesc": "Последняя активность ИИ-скоринга",
       "noRuns": "Пока нет запусков ИИ-анализа"
+    },
+    "settings": {
+      "hhTemplates": {
+        "pageTitle": "Шаблоны вакансий hh.ru",
+        "pageSubtitle": "Сохраняйте черновики вакансий для повторного использования",
+        "createButton": "Создать шаблон",
+        "emptyTitle": "Нет шаблонов",
+        "emptyDescription": "Создайте шаблон, чтобы быстро публиковать похожие вакансии на hh.ru",
+        "lastUsed": "Последнее использование",
+        "shared": "Общий",
+        "private": "Личный",
+        "useButton": "Опубликовать",
+        "editButton": "Изменить",
+        "deleteConfirmTitle": "Удалить шаблон?",
+        "deleteConfirmMessage": "Шаблон «{name}» будет удалён безвозвратно.",
+        "deleteConfirmAction": "Удалить",
+        "deleteSuccess": "Шаблон удалён",
+        "deleteError": "Не удалось удалить шаблон",
+        "accessDeniedTitle": "Нет доступа",
+        "accessDeniedMessage": "У вас нет прав для просмотра шаблонов вакансий",
+        "loadError": "Не удалось загрузить шаблоны",
+        "saveAsTemplate": "Сохранить как шаблон",
+        "editor": {
+          "titleNew": "Новый шаблон",
+          "titleEdit": "Изменение шаблона",
+          "name": "Название",
+          "namePlaceholder": "Например, Senior Frontend React",
+          "description": "Описание",
+          "descriptionPlaceholder": "Для каких позиций используется",
+          "vacancySection": "Данные вакансии hh.ru",
+          "vacancyName": "Название вакансии",
+          "vacancyNamePlaceholder": "Senior Frontend Developer",
+          "salary": "Зарплата",
+          "salaryFrom": "От",
+          "salaryTo": "До",
+          "currency": "Валюта",
+          "area": "Город (ID hh.ru)",
+          "areaPlaceholder": "1 — Москва, 2 — СПб",
+          "employmentType": "Тип занятости",
+          "vacancyDescription": "Описание вакансии",
+          "keySkills": "Ключевые навыки",
+          "keySkillPlaceholder": "Добавить навык и нажать Enter",
+          "isShared": "Доступен всем в организации",
+          "save": "Сохранить",
+          "cancel": "Отмена",
+          "nameRequired": "Укажите название шаблона",
+          "saveError": "Не удалось сохранить шаблон",
+          "saveSuccessCreate": "Шаблон создан",
+          "saveSuccessUpdate": "Шаблон обновлён"
+        },
+        "useModal": {
+          "title": "Создать вакансию из шаблона",
+          "subtitle": "Поля можно изменить перед публикацией",
+          "vacancyName": "Название вакансии",
+          "salary": "Зарплата",
+          "salaryFrom": "От",
+          "salaryTo": "До",
+          "area": "Город (ID hh.ru)",
+          "employmentType": "Тип занятости",
+          "description": "Описание вакансии",
+          "publish": "Опубликовать на hh.ru",
+          "cancel": "Отмена",
+          "close": "Закрыть",
+          "tryAgain": "Повторить",
+          "publishSuccess": "Вакансия опубликована на hh.ru",
+          "publishNoUrl": "Вакансия создана, но ссылка не возвращена",
+          "publishError": "Ошибка публикации",
+          "openOnHh": "Открыть на hh.ru"
+        }
+      }
     }
   },
   "components": {

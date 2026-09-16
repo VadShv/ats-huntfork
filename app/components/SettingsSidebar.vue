@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Shield, ScrollText, Globe, GitBranch, Bot, Landmark, Network, Sparkles, Library,
+  Building2, Users, UserCircle, ChevronLeft, Settings, Plug, Brain, ShieldCheck, Shield, ScrollText, Globe, GitBranch, Bot, Landmark, Network, Sparkles, Library, FileText, Zap,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -82,6 +82,20 @@ const settingsNav = [
     description: 'Календарь и сервисы',
     to: '/dashboard/settings/integrations',
     icon: Plug,
+    exact: true,
+  },
+  {
+    label: 'Шаблоны hh.ru',
+    description: 'Шаблоны вакансий',
+    to: '/dashboard/settings/hh-templates',
+    icon: FileText,
+    exact: true,
+  },
+  {
+    label: 'Авто-ответы',
+    description: 'Автоматические ответы кандидатам',
+    to: '/dashboard/settings/hh-auto-respond',
+    icon: Zap,
     exact: true,
   },
   {
