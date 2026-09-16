@@ -202,6 +202,55 @@ export const RESOURCES = {
     scopeStrategy: 'orgOnly',
     category: 'org-structure',
   },
+  // ── hh.ru integration extensions (see shared/permissions.ts atsStatements).
+  // Resource keys MUST match the Better Auth statement names for shadow-mode
+  // parity. These are org-scoped (every endpoint filters by organizationId).
+  // Without these entries the permission catalog omits hh:* keys, seedRbac
+  // filters them out of `desired`, role_permission never gets them, and can()
+  // denies every hh endpoint (403 "недостаточно прав") for ALL roles —
+  // including owner — in ACCESS_ENFORCEMENT='new' (the default).
+  hhTemplate: {
+    table: 'hh_vacancy_template',
+    actions: ['create', 'read', 'update', 'delete'],
+    scopeStrategy: 'orgOnly',
+    category: 'hh',
+  },
+  hhStats: {
+    table: 'hh_stats_snapshot',
+    actions: ['read', 'refresh'],
+    scopeStrategy: 'orgOnly',
+    category: 'hh',
+  },
+  hhNegotiation: {
+    table: 'hh_negotiation',
+    actions: ['read', 'sync', 'import'],
+    scopeStrategy: 'orgOnly',
+    category: 'hh',
+  },
+  hhAutoRespond: {
+    table: 'hh_auto_respond_rule',
+    actions: ['read', 'create', 'update', 'delete'],
+    scopeStrategy: 'orgOnly',
+    category: 'hh',
+  },
+  hhBulkAction: {
+    table: 'hh_bulk_action',
+    actions: ['execute'],
+    scopeStrategy: 'orgOnly',
+    category: 'hh',
+  },
+  hhSimilarVacancy: {
+    table: 'hh_similar_vacancies_cache',
+    actions: ['read'],
+    scopeStrategy: 'orgOnly',
+    category: 'hh',
+  },
+  hhComment: {
+    table: 'application_comment',
+    actions: ['read', 'sync'],
+    scopeStrategy: 'orgOnly',
+    category: 'hh',
+  },
 } as const satisfies Record<string, ResourceDef>
 
 export type ResourceKey = keyof typeof RESOURCES
