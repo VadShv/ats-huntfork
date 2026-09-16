@@ -9,11 +9,11 @@ ALTER TABLE "application_comment" ADD COLUMN IF NOT EXISTS "hh_comment_id" text;
 ALTER TABLE "application_comment" ADD COLUMN IF NOT EXISTS "hh_applicant_id" text;
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_app_comment_hh_comment_id" ON "application_comment"("application_id", "hh_comment_id");
 
--- Backfill candidate.hh_applicant_id from stored raw JSON
+-- Backfill candidate.hh_applicant_id from stored raw JSON (->> returns text without quotes)
 UPDATE "candidate"
-  SET "hh_applicant_id" = ("hh_resume_raw"->'owner'->'id')::text
+  SET "hh_applicant_id" = "hh_resume_raw"->'owner'->>'id'
   WHERE "hh_resume_raw" IS NOT NULL
-    AND ("hh_resume_raw"->'owner'->'id') IS NOT NULL
+    AND ("hh_resume_raw"->'owner'->>'id') IS NOT NULL
     AND "hh_applicant_id" IS NULL;
 
 -- Backfill application_comment.hh_applicant_id via application → candidate join

@@ -11,6 +11,15 @@
 import { apiGet, apiRequest, type HhQueryParams } from './client'
 import type { HhConfig } from './config'
 
+function normalizeApplicantId(raw: unknown): string {
+  let v = String(raw ?? '').trim()
+  v = decodeURIComponent(v).replace(/^["'\s]+|["'\s]+$/g, '')
+  if (!/^\d+$/.test(v)) {
+    throw new Error(`Invalid hh applicant_id: ${JSON.stringify(raw)}`)
+  }
+  return v
+}
+
 export interface HhApplicantComment {
   id: string
   text: string
@@ -45,9 +54,10 @@ export async function listApplicantComments(
   config?: HhConfig | null,
   page = 0,
 ): Promise<HhApplicantCommentsResponse> {
+  const id = normalizeApplicantId(applicantId)
   const query: HhQueryParams = { per_page: 50, page }
   return apiGet<HhApplicantCommentsResponse>(
-    `/applicant_comments/${applicantId}`,
+    `/applicant_comments/${id}`,
     accessToken,
     query,
     config,
@@ -60,10 +70,11 @@ export async function createApplicantComment(
   accessToken: string,
   config?: HhConfig | null,
 ): Promise<HhApplicantComment> {
+  const id = normalizeApplicantId(applicantId)
   validateText(text)
   const { body } = await apiRequest<HhApplicantComment>(
     'POST',
-    `/applicant_comments/${applicantId}`,
+    `/applicant_comments/${id}`,
     accessToken,
     {
       body: {
@@ -86,10 +97,11 @@ export async function updateApplicantComment(
   accessToken: string,
   config?: HhConfig | null,
 ): Promise<HhApplicantComment> {
+  const id = normalizeApplicantId(applicantId)
   validateText(text)
   const { body } = await apiRequest<HhApplicantComment>(
     'PUT',
-    `/applicant_comments/${applicantId}/${commentId}`,
+    `/applicant_comments/${id}/${commentId}`,
     accessToken,
     { body: { text } },
     config,
@@ -106,9 +118,10 @@ export async function deleteApplicantComment(
   accessToken: string,
   config?: HhConfig | null,
 ): Promise<void> {
+  const id = normalizeApplicantId(applicantId)
   await apiRequest(
     'DELETE',
-    `/applicant_comments/${applicantId}/${commentId}`,
+    `/applicant_comments/${id}/${commentId}`,
     accessToken,
     undefined,
     config,
@@ -122,6 +135,7 @@ export async function deleteApplicantComment(
 export function extractApplicantId(resumeRaw: Record<string, unknown> | null | undefined): string | null {
   if (!resumeRaw) return null
   const owner = resumeRaw.owner as Record<string, unknown> | undefined
-  if (!owner || typeof owner.id !== 'string') return null
-  return owner.id
+  if (!owner || owner.id == null) return null
+  const raw = String(owner.id).trim().replace(/^["'\s]+|["'\s]+$/g, '')
+  return /^\d+$/.test(raw) ? raw : null
 }
