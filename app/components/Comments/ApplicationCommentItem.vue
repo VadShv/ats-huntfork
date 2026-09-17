@@ -113,7 +113,7 @@ const canDelete = computed(() => !props.readOnly && !isHhIncoming.value && (isAu
 const initial = computed(() => (props.comment.author.name ?? props.comment.author.email ?? '?').slice(0, 1).toUpperCase())
 const displayName = computed(() => {
   if (isAiResponse.value) return t('comments.ai_assistant')
-  if (isHhIncoming.value && props.comment.hhAuthorName) return props.comment.hhAuthorName
+  if (isHhIncoming.value) return 'Система'
   return props.comment.author.name || props.comment.author.email
 })
 
@@ -178,6 +178,13 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         >
           <Bot class="size-3.5" />
         </div>
+        <!-- hh.ru import: hh-иконка -->
+        <div
+          v-else-if="isHhIncoming"
+          class="grid size-7 place-items-center rounded-full bg-info-100 dark:bg-info-900/40 text-info-600 dark:text-info-400 ring-1 ring-info-200 dark:ring-info-800/60 text-[9px] font-bold"
+        >
+          hh
+        </div>
         <!-- Обычный аватар -->
         <div
           v-else
@@ -206,6 +213,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         >
           {{ displayName }}
         </span>
+        <span v-if="isHhIncoming && comment.hhAuthorName" class="text-[10px] text-surface-500 dark:text-surface-400">{{ comment.hhAuthorName }} ·</span>
         <span class="text-[10px] text-surface-400 font-mono">{{ formatDate(comment.createdAt) }}</span>
         <span v-if="comment.editedAt" class="text-[10px] text-surface-400">· {{ t('comments.edited') }}</span>
         <span

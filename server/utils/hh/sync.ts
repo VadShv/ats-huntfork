@@ -33,6 +33,8 @@ import { extractIdentitiesFromHhResume } from '../dedup/extract'
 import { getOrgGroupId, resolveCandidateBySignals, upsertCandidateIdentities } from '../dedup/resolve'
 import { appendResumeVersionIfChanged } from '../resume-version/append'
 import { enqueueFuzzyDetect } from '../dedup/workers/fuzzy-job'
+import { enqueueCommentImport } from './commentImport'
+import { extractApplicantId } from './applicantComments'
 
 export interface HhResumeApi {
   id: string
@@ -408,6 +410,12 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
           candidateId = insCand[0]!.id
           wasJustCreated = true
         }
+      }
+
+      // ─── Background import of hh.ru applicant_comments ───
+      const _applicantId = extractApplicantId(resume as unknown as Record<string, unknown>)
+      if (_applicantId) {
+        void enqueueCommentImport(candidateId, link.organizationId)
       }
 
       // Сохраняем (или обновляем last_seen_at) все identity-сигналы для этого кандидата.

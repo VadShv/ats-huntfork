@@ -75,7 +75,7 @@ export default defineEventHandler(async (event) => {
       hhAuthorName: applicationComment.hhAuthorName,
     })
     .from(applicationComment)
-    .innerJoin(user, eq(user.id, applicationComment.authorUserId))
+    .leftJoin(user, eq(user.id, applicationComment.authorUserId))
     .where(whereClause)
     .orderBy(asc(applicationComment.createdAt))
     .limit(query.limit)

@@ -24,7 +24,9 @@ export interface HhApplicantComment {
   id: string
   text: string
   created_at: string
-  author?: { id?: string, name?: string }
+  updated_at?: string
+  is_mine?: boolean
+  author?: { full_name?: string, id?: string }
   access_type?: { id?: string, name?: string }
   applicant?: { id?: string }
 }

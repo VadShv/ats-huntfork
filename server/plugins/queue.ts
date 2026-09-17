@@ -18,6 +18,7 @@ import { INTERVIEW_REPORT_QUEUE, processInterviewReportJob } from '../utils/myme
 import { AI_THREAD_RESP_QUEUE, handleAiThreadResponse } from '../utils/comments/ai-thread-worker'
 import { HH_BULK_ACTION_QUEUE, processBulkAction } from '../utils/hh/bulkActions'
 import { HH_OUTBOUND_SYNC_QUEUE, processOutboundSync } from '../utils/hh/twoWaySync'
+import { HH_COMMENT_IMPORT_QUEUE, processCommentImportJob } from '../utils/hh/commentImport'
 import { getBoss, stopBoss } from '../utils/queue/boss'
 
 /**
@@ -258,6 +259,25 @@ export default defineNitroPlugin(async (nitroApp) => {
     )
 
     logInfo('queue.workers_registered', { queue: HH_OUTBOUND_SYNC_QUEUE })
+
+    // ── hh.ru applicant_comments import — background ──
+    try {
+      await boss.createQueue(HH_COMMENT_IMPORT_QUEUE)
+    }
+    catch (err) {
+      logDebug('queue.create_queue_skipped', {
+        queue: HH_COMMENT_IMPORT_QUEUE,
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    await boss.work(
+      HH_COMMENT_IMPORT_QUEUE,
+      { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
+      processCommentImportJob as any,
+    )
+
+    logInfo('queue.workers_registered', { queue: HH_COMMENT_IMPORT_QUEUE })
 
     // Graceful shutdown
     nitroApp.hooks.hook('close', async () => {

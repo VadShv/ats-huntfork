@@ -2578,7 +2578,7 @@ export const applicationComment = pgTable(
     organizationId:  text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
     applicationId:   text('application_id').notNull().references(() => application.id, { onDelete: 'cascade' }),
     candidateId:     text('candidate_id').notNull().references(() => candidate.id, { onDelete: 'cascade' }),
-    authorUserId:    text('author_user_id').notNull().references(() => user.id, { onDelete: 'restrict' }),
+    authorUserId:    text('author_user_id').references(() => user.id, { onDelete: 'set null' }),
     body:            text('body').notNull(),
     bodyHtml:        text('body_html'),
     isInternal:      boolean('is_internal').notNull().default(false),

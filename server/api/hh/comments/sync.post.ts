@@ -3,7 +3,7 @@
  *
  * Inbound sync: pull applicant comments from hh.ru, dedup by hhCommentId, insert locally.
  */
-import { and, eq, inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import {
   application,
   applicationComment,
@@ -79,58 +79,48 @@ export default defineEventHandler(async (event) => {
   const errors: string[] = []
   let inboundCount = 0
 
-  // ── 3. INBOUND: fetch applicant comments from hh.ru ──
+  // ── 3. INBOUND: fetch applicant comments from hh.ru (all pages) ──
   if (syncRateLimitOk(app.id)) {
-    try {
-      const data = await listApplicantComments(applicantId, token, config)
-      const comments = data.items ?? []
+    let page = 0
+    let totalPages = 1
+    while (page < totalPages) {
+      try {
+        const data = await listApplicantComments(applicantId, token, config, page)
+        totalPages = data.pages || 1
 
-      // Batch dedup: collect comment IDs and query once
-      const commentIds = comments.filter(c => c.id).map(c => c.id!) as string[]
-      const existingIds = commentIds.length > 0
-        ? new Set((await db
-            .select({ hhCommentId: applicationComment.hhCommentId })
-            .from(applicationComment)
-            .where(and(
-              eq(applicationComment.applicationId, app.id),
-              inArray(applicationComment.hhCommentId, commentIds),
-            )))
-            .map(r => r.hhCommentId))
-        : new Set<string | null>([])
+        for (const c of data.items ?? []) {
+          if (!c.id) continue
+          const plainBody = stripHtml(c.text ?? '')
+          if (!plainBody) continue
 
-      for (const c of comments) {
-        if (!c.id) continue
-        if (existingIds.has(c.id)) continue
-
-        const rawText = c.text ?? ''
-        const plainBody = stripHtml(rawText)
-        if (!plainBody) continue
-
-        const now = new Date(c.created_at ?? Date.now())
-        try {
-          await db.insert(applicationComment).values({
-            organizationId: orgId,
-            applicationId: app.id,
-            candidateId: app.candidateId,
-            authorUserId: userId,
-            body: plainBody,
-            bodyHtml: renderMarkdown(plainBody),
-            isInternal: false,
-            hhCommentId: c.id,
-            hhApplicantId: applicantId,
-            hhAuthorName: c.author?.name ?? null,
-            hhDirection: 'incoming',
-            hhSyncStatus: 'synced',
-            hhSyncedAt: now,
-            createdAt: now,
-          })
-          inboundCount++
-        } catch (err) {
-          errors.push(`Не удалось импортировать комментарий ${c.id}: ${err instanceof Error ? err.message : String(err)}`)
+          const now = new Date(c.created_at ?? Date.now())
+          try {
+            await db.insert(applicationComment).values({
+              organizationId: orgId,
+              applicationId: app.id,
+              candidateId: app.candidateId,
+              authorUserId: null,
+              body: plainBody,
+              bodyHtml: renderMarkdown(plainBody),
+              isInternal: false,
+              hhCommentId: c.id,
+              hhApplicantId: applicantId,
+              hhAuthorName: c.author?.full_name ?? null,
+              hhDirection: 'incoming',
+              hhSyncStatus: 'synced',
+              hhSyncedAt: now,
+              createdAt: now,
+            }).onConflictDoNothing()
+            inboundCount++
+          } catch {
+            // skip individual insert errors
+          }
         }
+      } catch (err) {
+        errors.push(`Ошибка загрузки комментариев (page ${page}): ${err instanceof Error ? err.message : String(err)}`)
+        break
       }
-    } catch (err) {
-      errors.push(`Ошибка загрузки комментариев: ${err instanceof Error ? err.message : String(err)}`)
+      page++
     }
   }
 
