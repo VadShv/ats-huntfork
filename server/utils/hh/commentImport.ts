@@ -102,7 +102,6 @@ async function importApplicantCommentsForCandidate(candidateId: string, orgId: s
           hhDirection: 'incoming',
           hhSyncStatus: 'synced',
           hhSyncedAt: now,
-          createdAt: now,
         }).onConflictDoNothing()
       } catch {
         // skip individual insert errors

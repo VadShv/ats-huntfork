@@ -124,6 +124,29 @@ function formatDate(d: string | Date) {
   })
 }
 
+function formatSmartDate(d: string | Date) {
+  const date = typeof d === 'string' ? new Date(d) : d
+  const now = new Date()
+  const loc = locale.value === 'ru' ? 'ru-RU' : 'en-US'
+  const time = date.toLocaleString(loc, { hour: '2-digit', minute: '2-digit' })
+  const isToday = date.toDateString() === now.toDateString()
+  if (isToday) return time
+  const weekAgo = new Date(now)
+  weekAgo.setDate(weekAgo.getDate() - 7)
+  if (date > weekAgo) {
+    const weekday = date.toLocaleString(loc, { weekday: 'short' })
+    return `${weekday} ${time}`
+  }
+  return `${date.toLocaleString(loc, { day: '2-digit', month: '2-digit', year: 'numeric' })} ${time}`
+}
+
+const displayDate = computed(() => {
+  if (isHhIncoming.value && props.comment.hhSyncedAt) {
+    return formatSmartDate(props.comment.hhSyncedAt)
+  }
+  return formatDate(props.comment.createdAt)
+})
+
 async function saveEdit() {
   if (!editBody.value.trim() || saving.value) return
   saving.value = true
@@ -214,7 +237,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           {{ displayName }}
         </span>
         <span v-if="isHhIncoming && comment.hhAuthorName" class="text-[10px] text-surface-500 dark:text-surface-400">{{ comment.hhAuthorName }} ·</span>
-        <span class="text-[10px] text-surface-400 font-mono">{{ formatDate(comment.createdAt) }}</span>
+        <span class="text-[10px] text-surface-400 font-mono">{{ displayDate }}</span>
         <span v-if="comment.editedAt" class="text-[10px] text-surface-400">· {{ t('comments.edited') }}</span>
         <span
           v-if="comment.isPinned"

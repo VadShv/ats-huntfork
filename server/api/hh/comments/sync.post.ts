@@ -109,7 +109,6 @@ export default defineEventHandler(async (event) => {
               hhDirection: 'incoming',
               hhSyncStatus: 'synced',
               hhSyncedAt: now,
-              createdAt: now,
             }).onConflictDoNothing()
             inboundCount++
           } catch {

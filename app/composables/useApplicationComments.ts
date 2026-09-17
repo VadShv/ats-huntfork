@@ -85,6 +85,8 @@ export interface ThreadComment {
   hhMessageId?: string | null
   /** hh.ru author display name (for incoming comments) */
   hhAuthorName?: string | null
+  /** hh.ru comment creation time (for incoming comments) */
+  hhSyncedAt?: string | Date | null
 }
 
 export interface OrgMember {

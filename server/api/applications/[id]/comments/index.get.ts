@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { requireApplicationInScope } from '../../../../utils/access/scope'
 import {
   application,
@@ -73,11 +73,12 @@ export default defineEventHandler(async (event) => {
       hhDirection: applicationComment.hhDirection,
       hhMessageId: applicationComment.hhMessageId,
       hhAuthorName: applicationComment.hhAuthorName,
+      hhSyncedAt: applicationComment.hhSyncedAt,
     })
     .from(applicationComment)
     .leftJoin(user, eq(user.id, applicationComment.authorUserId))
     .where(whereClause)
-    .orderBy(asc(applicationComment.createdAt))
+    .orderBy(asc(sql`COALESCE(${applicationComment.hhSyncedAt}, ${applicationComment.createdAt})`))
     .limit(query.limit)
     .offset(offset)
 
@@ -175,6 +176,7 @@ export default defineEventHandler(async (event) => {
     hhDirection: c.hhDirection,
     hhMessageId: c.hhMessageId,
     hhAuthorName: c.hhAuthorName,
+    hhSyncedAt: c.hhSyncedAt,
   }))
 
   return { data, total: totalRow, page: query.page, limit: query.limit }
