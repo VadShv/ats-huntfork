@@ -53,6 +53,10 @@ export const FEATURE_FLAGS = {
     defaultValue: false,
     description: 'New AI chatbot experience in the dashboard.',
   },
+  'search-map': {
+    defaultValue: true,
+    description: 'Search Map module — global constructor + vacancy search map. Disable to hide the tab and settings section (API stays available for tests).',
+  },
 } as const satisfies Record<string, FeatureFlagDefinition>
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS

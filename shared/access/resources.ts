@@ -178,6 +178,13 @@ export const RESOURCES = {
     scopeStrategy: 'orgOnly',
     category: 'question-bank',
   },
+  // Модуль «Карта поиска» — docs/tz-search-map.md §7
+  searchMap: {
+    table: 'job_search_map',
+    actions: ['view', 'edit', 'generate', 'add_donor', 'manage_versions', 'manage_registry'],
+    scopeStrategy: 'orgOnly',
+    category: 'search-map',
+  },
   sourceTracking: {
     table: 'tracking_link',
     actions: ['create', 'read', 'update', 'delete'],

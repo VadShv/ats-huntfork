@@ -813,6 +813,41 @@
       "when": 1801000476000,
       "tag": "0117_review_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1801000477000,
+      "tag": "0118_applicant_comments_integration",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1801000478000,
+      "tag": "0119_applicant_comment_author_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1801000479000,
+      "tag": "0120_applicant_comment_nullable_author",
+      "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1801000480000,
+      "tag": "0121_fix_incoming_comment_dates",
+      "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1801000481000,
+      "tag": "0122_search_map",
+      "breakpoints": true
     }
   ]
 }

@@ -323,6 +323,92 @@
     }
   },
   "dashboard": {
+    "searchMap": {
+      "title": "Карта поиска",
+      "empty": {
+        "title": "Карта поиска не создана",
+        "description": "Создайте карту, чтобы структурировать стратегию поиска по вакансии",
+        "create": "Создать карту"
+      },
+      "header": {
+        "version": "Версия {n}",
+        "saveVersion": "Сохранить версию",
+        "history": "История",
+        "stats": "Статистика",
+        "export": "Экспорт",
+        "archive": "Архивировать",
+        "delete": "Удалить"
+      },
+      "stale": {
+        "title": "Источники изменились",
+        "rebuild": "Пересобрать по новому брифу",
+        "acknowledge": "Актуально"
+      },
+      "sections": {
+        "types": {
+          "title_synonyms": "Тайтлы и синонимы",
+          "keywords": "Ключевые слова и навыки",
+          "geo": "География",
+          "exclusions": "Исключения",
+          "notes": "Заметки и договорённости"
+        }
+      },
+      "donors": {
+        "layers": {
+          "core": "Ядро",
+          "adjacent": "Смежный круг",
+          "school": "Школы компетенций",
+          "alumni": "Alumni",
+          "custom": "Своё"
+        },
+        "add": "Добавить компанию",
+        "suggestMore": "Предложить ещё"
+      },
+      "hypothesis": {
+        "untested": "Не проверена",
+        "in_progress": "В работе",
+        "working": "Работает",
+        "rejected": "Отклонена"
+      },
+      "priority": {
+        "high": "Высокий",
+        "medium": "Средний",
+        "low": "Низкий"
+      },
+      "segments": {
+        "add": "Сегмент",
+        "suggest": "Предложить сегменты",
+        "buildQuery": "Собрать строку",
+        "createHhSearch": "Создать поиск hh"
+      },
+      "versions": {
+        "title": "История версий",
+        "restore": "Восстановить",
+        "compare": "Сравнить с текущей",
+        "label": "Название версии",
+        "comment": "Комментарий"
+      },
+      "ai": {
+        "suggestDraft": "Собрать по брифу",
+        "fillManually": "Заполню сам",
+        "suggestMore": "Дополнить по брифу",
+        "accept": "Принять выбранное",
+        "reject": "Отклонить"
+      },
+      "stats": {
+        "title": "Статистика",
+        "segments": "Сегментов",
+        "donors": "Доноров",
+        "hhSearches": "Поисков hh",
+        "candidatesFound": "Кандидатов найдено"
+      },
+      "errors": {
+        "notCreated": "Карта поиска не создана",
+        "alreadyExists": "Карта уже существует",
+        "segmentNeedsParam": "Сегмент должен содержать хотя бы один параметр поиска",
+        "rejectedNeedsNote": "Укажите результат при отклонении"
+      }
+    },
     "inbox": {
       "title": "Входящие",
       "refresh": "Обновить",
@@ -1400,6 +1486,7 @@
         "pipeline": "Воронка",
         "table": "Таблица",
         "brief": "Бриф",
+        "searchMap": "Карта поиска",
         "questions": "Вопросы",
         "applicationForm": "Форма заявки",
         "aiAnalysis": "ИИ-анализ",
@@ -2380,6 +2467,43 @@
     "cloneNamePlaceholder": "{name} (копия)"
   },
   "settings": {
+    "searchMap": {
+      "nav": {
+        "overview": "Обзор",
+        "templates": "Шаблоны",
+        "donorCompanies": "Компании-доноры",
+        "channels": "Каналы"
+      },
+      "overview": {
+        "title": "Карта поиска",
+        "templates": "Шаблонов",
+        "donors": "Компаний-доноров",
+        "channels": "Каналов",
+        "topDonors": "Топ доноров по «работает»"
+      },
+      "templates": {
+        "title": "Шаблоны карт",
+        "create": "Создать шаблон",
+        "publish": "Опубликовать",
+        "setDefault": "По умолчанию",
+        "duplicate": "Дублировать",
+        "archive": "Архивировать",
+        "generationGuidance": "Методические подсказки для ИИ"
+      },
+      "donorCompanies": {
+        "title": "Компании-доноры",
+        "add": "Добавить компанию",
+        "search": "Поиск по названию…",
+        "merge": "Объединить",
+        "usedInMaps": "Используется в {n} картах",
+        "workingInMaps": "Работает в {n} картах"
+      },
+      "channels": {
+        "title": "Каналы поиска",
+        "add": "Добавить канал",
+        "system": "Системный"
+      }
+    },
     "mymeet": {
       "title": "MyMeet",
       "subtitle": "Импорт отчётов по интервью (транскрибация → отчёт) через MCP-сервер MyMeet. Ключ вводится вами, шифруется и не возвращается.",

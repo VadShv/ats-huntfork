@@ -22,6 +22,7 @@ const bodySchema = z
     autoRunEnabled: z.boolean().optional(),
     maxPagesPerRun: z.number().int().min(1).max(40).optional(),
     maxCandidates: z.number().int().min(1).max(500).optional(),
+    searchMapSegmentId: z.string().min(1).nullable().optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: 'Нечего обновлять' })
@@ -48,6 +49,7 @@ export default defineEventHandler(async (event) => {
   if (body.autoRunEnabled !== undefined) updates.autoRunEnabled = body.autoRunEnabled
   if (body.maxPagesPerRun !== undefined) updates.maxPagesPerRun = body.maxPagesPerRun
   if (body.maxCandidates !== undefined) updates.maxCandidates = body.maxCandidates
+  if (body.searchMapSegmentId !== undefined) updates.searchMapSegmentId = body.searchMapSegmentId
 
   // Если меняем расписание/автозапуск — пересчёт nextRunAt
   const willAuto = body.autoRunEnabled ?? existing.autoRunEnabled

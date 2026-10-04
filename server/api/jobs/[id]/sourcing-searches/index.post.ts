@@ -36,6 +36,7 @@ const bodySchema = z.discriminatedUnion('mode', [
     autoRunEnabled: z.boolean().optional(),
     maxPagesPerRun: z.number().int().min(1).max(40).optional(),
     maxCandidates: z.number().int().min(1).max(500).optional(),
+    searchMapSegmentId: z.string().min(1).optional(),
   }),
   z.object({
     mode: z.literal('url'),
@@ -45,6 +46,7 @@ const bodySchema = z.discriminatedUnion('mode', [
     autoRunEnabled: z.boolean().optional(),
     maxPagesPerRun: z.number().int().min(1).max(40).optional(),
     maxCandidates: z.number().int().min(1).max(500).optional(),
+    searchMapSegmentId: z.string().min(1).optional(),
   }),
   z.object({
     mode: z.literal('ai'),
@@ -53,6 +55,7 @@ const bodySchema = z.discriminatedUnion('mode', [
     autoRunEnabled: z.boolean().optional(),
     maxPagesPerRun: z.number().int().min(1).max(40).optional(),
     maxCandidates: z.number().int().min(1).max(500).optional(),
+    searchMapSegmentId: z.string().min(1).optional(),
   }),
 ])
 
@@ -149,6 +152,7 @@ export default defineEventHandler(async (event) => {
     maxPagesPerRun,
     maxCandidates,
     nextRunAt,
+    searchMapSegmentId: body.searchMapSegmentId ?? null,
   })
 
   return {

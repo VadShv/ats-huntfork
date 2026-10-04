@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Building2, Users, UserCircle, ChevronLeft, Plug, Brain, ShieldCheck, Shield, ScrollText, Globe, GitBranch, Landmark, Network, Sparkles, Library,
+  Building2, Users, UserCircle, ChevronLeft, Plug, Brain, ShieldCheck, Shield, ScrollText, Globe, GitBranch, Landmark, Network, Sparkles, Library, Radar,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -65,6 +65,12 @@ const settingsNav = [
     label: 'Банк вопросов',
     to: '/dashboard/settings/question-bank',
     icon: Library,
+    exact: false,
+  },
+  {
+    label: 'Карта поиска',
+    to: '/dashboard/settings/search-map',
+    icon: Radar,
     exact: false,
   },
   {

@@ -23,7 +23,7 @@ import { and, eq, exists, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { getActorContext, type ActorContext } from './actorContext'
 import { job } from '../../database/schema/app'
 import { jobMember } from '../../database/schema/hm'
-import { application, candidate, document, hhSavedSearch, hhSourcingCandidate, trackingLink, interview, commsConversation } from '../../database/schema/app'
+import { application, candidate, document, hhSavedSearch, hhSourcingCandidate, trackingLink, interview, commsConversation, jobSearchMap, donorCompany, searchMapTemplate } from '../../database/schema/app'
 import { orgScopeAssignment, memberScope } from '../../database/schema/rbac'
 import { member } from '../../database/schema/auth'
 import { defaultScopeForRoleKey } from '../../../shared/access/role-presets'
@@ -278,6 +278,39 @@ export async function requireSourcingSearchInScope(event: import('h3').H3Event, 
   const [row] = await db.select({ jobId: hhSavedSearch.jobId }).from(hhSavedSearch)
     .where(and(eq(hhSavedSearch.id, searchId), eq(hhSavedSearch.organizationId, orgId))).limit(1)
   if (!row || !(await isJobInScope(actor, row.jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
+  }
+}
+
+/** Guard for search-map/[id]/*: the map's job must be in scope (tz-search-map §8.3). */
+export async function requireSearchMapInScope(event: import('h3').H3Event, mapId: string, orgId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor || (await getScopeJobIds(actor)) === null) return
+  const [row] = await db.select({ jobId: jobSearchMap.jobId }).from(jobSearchMap)
+    .where(and(eq(jobSearchMap.id, mapId), eq(jobSearchMap.organizationId, orgId))).limit(1)
+  if (!row || !(await isJobInScope(actor, row.jobId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
+  }
+}
+
+/** Guard for donor-companies/[id]/*: org-level entity, verify org membership (tz-search-map §8.3). */
+export async function requireDonorCompanyInScope(event: import('h3').H3Event, donorId: string, orgId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor) return
+  const [row] = await db.select({ id: donorCompany.id }).from(donorCompany)
+    .where(and(eq(donorCompany.id, donorId), eq(donorCompany.organizationId, orgId))).limit(1)
+  if (!row) {
+    throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
+  }
+}
+
+/** Guard for search-map/templates/[id]/*: org-level entity, verify org membership (tz-search-map §8.3). */
+export async function requireSearchMapTemplateInScope(event: import('h3').H3Event, templateId: string, orgId: string): Promise<void> {
+  const actor = await getActorContext(event)
+  if (!actor) return
+  const [row] = await db.select({ id: searchMapTemplate.id }).from(searchMapTemplate)
+    .where(and(eq(searchMapTemplate.id, templateId), eq(searchMapTemplate.organizationId, orgId))).limit(1)
+  if (!row) {
     throw createError({ statusCode: 404, statusMessage: 'Не найдено' })
   }
 }

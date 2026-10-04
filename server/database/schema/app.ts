@@ -1714,11 +1714,13 @@ export const hhSavedSearch = pgTable('hh_saved_search', {
   lastRunNew: integer('last_run_new').notNull().default(0),
   nextRunAt: timestamp('next_run_at'),
   isArchived: boolean('is_archived').notNull().default(false),
+  searchMapSegmentId: text('search_map_segment_id').references(() => jobSearchMapSegment.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ([
   index('hh_saved_search_org_idx').on(t.organizationId),
   index('hh_saved_search_job_idx').on(t.jobId),
+  index('hh_saved_search_segment_idx').on(t.searchMapSegmentId),
 ]))
 
 /**
@@ -3905,4 +3907,298 @@ export const jobQuestionnaireMetaRelations = relations(jobQuestionnaireMeta, ({ 
   organization: one(organization, { fields: [jobQuestionnaireMeta.organizationId], references: [organization.id] }),
   job: one(job, { fields: [jobQuestionnaireMeta.jobId], references: [job.id] }),
   preset: one(questionPreset, { fields: [jobQuestionnaireMeta.presetId], references: [questionPreset.id] }),
+}))
+
+// ═════════════════════════════════════════════════════════════════
+// Модуль «Карта поиска» — docs/tz-search-map.md
+// ═════════════════════════════════════════════════════════════════
+
+export const searchMapTemplateStatusEnum = pgEnum('search_map_template_status', ['draft', 'published', 'archived'])
+export const searchMapSectionTypeEnum = pgEnum('search_map_section_type', ['title_synonyms', 'keywords', 'geo', 'exclusions', 'notes'])
+export const donorLayerEnum = pgEnum('donor_layer', ['core', 'adjacent', 'school', 'alumni', 'custom'])
+export const donorCompanyStatusEnum = pgEnum('donor_company_status', ['active', 'archived', 'merged'])
+export const hypothesisStatusEnum = pgEnum('hypothesis_status', ['untested', 'in_progress', 'working', 'rejected'])
+export const searchMapPriorityEnum = pgEnum('search_map_priority', ['high', 'medium', 'low'])
+export const searchMapOriginEnum = pgEnum('search_map_origin', ['manual', 'ai', 'template'])
+export const searchMapStatusEnum = pgEnum('search_map_status', ['draft', 'active', 'archived'])
+export const searchMapVersionTriggerEnum = pgEnum('search_map_version_trigger', ['manual', 'sources_changed', 'ai_generated', 'calibration', 'restore'])
+
+// ── Global: search_map_template ───────────────────────────────────
+
+export const searchMapTemplate = pgTable('search_map_template', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  code: text('code'),
+  name: text('name').notNull(),
+  description: text('description'),
+  targetRoles: jsonb('target_roles').$type<string[]>().notNull().default([]),
+  generationGuidance: text('generation_guidance'),
+  defaultChannelCodes: jsonb('default_channel_codes').$type<string[]>().notNull().default([]),
+  isDefault: boolean('is_default').notNull().default(false),
+  status: searchMapTemplateStatusEnum('status').notNull().default('draft'),
+  version: integer('version').notNull().default(1),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  publishedAt: timestamp('published_at'),
+  publishedById: text('published_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('search_map_template_org_idx').on(t.organizationId),
+  uniqueIndex('search_map_template_org_code_unique').on(t.organizationId, t.code),
+  index('search_map_template_default_idx').on(t.organizationId),
+]))
+
+export const searchMapTemplateSection = pgTable('search_map_template_section', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  templateId: text('template_id').notNull().references(() => searchMapTemplate.id, { onDelete: 'cascade' }),
+  sectionType: searchMapSectionTypeEnum('section_type').notNull(),
+  title: text('title').notNull(),
+  guidance: text('guidance'),
+  isRequired: boolean('is_required').notNull().default(false),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('search_map_template_section_org_idx').on(t.organizationId),
+  index('search_map_template_section_template_idx').on(t.templateId),
+  uniqueIndex('search_map_template_section_unique').on(t.templateId, t.sectionType),
+]))
+
+// ── Global: donor_company ─────────────────────────────────────────
+
+export const donorCompany = pgTable('donor_company', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  canonicalName: text('canonical_name').notNull(),
+  normalizedName: text('normalized_name').notNull(),
+  aliases: jsonb('aliases').$type<string[]>().notNull().default([]),
+  normalizedAliases: jsonb('normalized_aliases').$type<string[]>().notNull().default([]),
+  website: text('website'),
+  hhEmployerId: text('hh_employer_id'),
+  industry: text('industry'),
+  techStack: jsonb('tech_stack').$type<string[]>().notNull().default([]),
+  sizeBand: text('size_band'),
+  stage: text('stage'),
+  country: text('country'),
+  city: text('city'),
+  tags: jsonb('tags').$type<string[]>().notNull().default([]),
+  notes: text('notes'),
+  status: donorCompanyStatusEnum('status').notNull().default('active'),
+  mergedIntoId: text('merged_into_id').references((): AnyPgColumn => donorCompany.id, { onDelete: 'set null' }),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdFromJobId: text('created_from_job_id').references(() => job.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('donor_company_org_idx').on(t.organizationId),
+  uniqueIndex('donor_company_org_normalized_unique').on(t.organizationId, t.normalizedName),
+  index('donor_company_status_idx').on(t.status),
+]))
+
+// ── Global: sourcing_channel ──────────────────────────────────────
+
+export const sourcingChannel = pgTable('sourcing_channel', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  defaultPriority: searchMapPriorityEnum('default_priority').notNull().default('medium'),
+  urlTemplate: text('url_template'),
+  queryLanguageHint: text('query_language_hint'),
+  targetSite: text('target_site'),
+  isSystem: boolean('is_system').notNull().default(false),
+  isActive: boolean('is_active').notNull().default(true),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('sourcing_channel_org_idx').on(t.organizationId),
+  uniqueIndex('sourcing_channel_org_code_unique').on(t.organizationId, t.code),
+]))
+
+// ── Local: job_search_map ─────────────────────────────────────────
+
+export const jobSearchMap = pgTable('job_search_map', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => job.id, { onDelete: 'cascade' }),
+  templateId: text('template_id').references(() => searchMapTemplate.id, { onDelete: 'set null' }),
+  templateVersion: integer('template_version'),
+  status: searchMapStatusEnum('status').notNull().default('draft'),
+  currentVersionNo: integer('current_version_no').notNull().default(0),
+  sourceHashes: jsonb('source_hashes').$type<{ brief: string | null; criteria: string | null; description: string | null }>().notNull().default({}),
+  sourceHashesAt: timestamp('source_hashes_at'),
+  summary: text('summary'),
+  lastGeneratedAt: timestamp('last_generated_at'),
+  lastGenerationModel: text('last_generation_model'),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('job_search_map_job_unique').on(t.jobId),
+  index('job_search_map_org_idx').on(t.organizationId),
+  index('job_search_map_template_idx').on(t.templateId),
+]))
+
+export const jobSearchMapSection = pgTable('job_search_map_section', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  mapId: text('map_id').notNull().references(() => jobSearchMap.id, { onDelete: 'cascade' }),
+  sectionType: searchMapSectionTypeEnum('section_type').notNull(),
+  title: text('title').notNull(),
+  guidance: text('guidance'),
+  isRequired: boolean('is_required').notNull().default(false),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('job_search_map_section_org_idx').on(t.organizationId),
+  index('job_search_map_section_map_idx').on(t.mapId),
+  uniqueIndex('job_search_map_section_unique').on(t.mapId, t.sectionType),
+]))
+
+export const jobSearchMapItem = pgTable('job_search_map_item', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  mapId: text('map_id').notNull().references(() => jobSearchMap.id, { onDelete: 'cascade' }),
+  sectionId: text('section_id').notNull().references(() => jobSearchMapSection.id, { onDelete: 'cascade' }),
+  value: text('value').notNull(),
+  normalizedValue: text('normalized_value').notNull(),
+  note: text('note'),
+  origin: searchMapOriginEnum('origin').notNull().default('manual'),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('job_search_map_item_org_idx').on(t.organizationId),
+  index('job_search_map_item_section_idx').on(t.sectionId),
+  uniqueIndex('job_search_map_item_unique').on(t.sectionId, t.normalizedValue),
+]))
+
+export const jobSearchMapDonor = pgTable('job_search_map_donor', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  mapId: text('map_id').notNull().references(() => jobSearchMap.id, { onDelete: 'cascade' }),
+  donorCompanyId: text('donor_company_id').notNull().references(() => donorCompany.id, { onDelete: 'restrict' }),
+  layer: donorLayerEnum('layer').notNull().default('core'),
+  priority: searchMapPriorityEnum('priority').notNull().default('medium'),
+  hypothesisStatus: hypothesisStatusEnum('hypothesis_status').notNull().default('untested'),
+  rationale: text('rationale'),
+  resultNote: text('result_note'),
+  statusChangedAt: timestamp('status_changed_at'),
+  statusChangedById: text('status_changed_by_id').references(() => user.id, { onDelete: 'set null' }),
+  origin: searchMapOriginEnum('origin').notNull().default('manual'),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('job_search_map_donor_org_idx').on(t.organizationId),
+  index('job_search_map_donor_map_idx').on(t.mapId),
+  index('job_search_map_donor_donor_idx').on(t.donorCompanyId),
+  uniqueIndex('job_search_map_donor_unique').on(t.mapId, t.donorCompanyId),
+]))
+
+export const jobSearchMapSegment = pgTable('job_search_map_segment', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  mapId: text('map_id').notNull().references(() => jobSearchMap.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  donorLayer: donorLayerEnum('donor_layer'),
+  donorIds: jsonb('donor_ids').$type<string[]>().notNull().default([]),
+  titles: jsonb('titles').$type<string[]>().notNull().default([]),
+  keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
+  geo: jsonb('geo').$type<string[]>().notNull().default([]),
+  channelId: text('channel_id').references(() => sourcingChannel.id, { onDelete: 'set null' }),
+  queryString: text('query_string'),
+  queryUrl: text('query_url'),
+  priority: searchMapPriorityEnum('priority').notNull().default('medium'),
+  poolEstimate: integer('pool_estimate'),
+  responseLikelihood: integer('response_likelihood'),
+  accessDifficulty: integer('access_difficulty'),
+  hypothesisStatus: hypothesisStatusEnum('hypothesis_status').notNull().default('untested'),
+  rationale: text('rationale'),
+  resultNote: text('result_note'),
+  statusChangedAt: timestamp('status_changed_at'),
+  statusChangedById: text('status_changed_by_id').references(() => user.id, { onDelete: 'set null' }),
+  origin: searchMapOriginEnum('origin').notNull().default('manual'),
+  displayOrder: integer('display_order').notNull().default(0),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('job_search_map_segment_org_idx').on(t.organizationId),
+  index('job_search_map_segment_map_idx').on(t.mapId),
+  index('job_search_map_segment_channel_idx').on(t.channelId),
+  index('job_search_map_segment_status_idx').on(t.hypothesisStatus),
+]))
+
+export const jobSearchMapVersion = pgTable('job_search_map_version', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  mapId: text('map_id').notNull().references(() => jobSearchMap.id, { onDelete: 'cascade' }),
+  versionNo: integer('version_no').notNull(),
+  label: text('label').notNull(),
+  trigger: searchMapVersionTriggerEnum('trigger').notNull(),
+  snapshot: jsonb('snapshot').notNull(),
+  sourceHashes: jsonb('source_hashes').notNull(),
+  diffSummary: jsonb('diff_summary'),
+  comment: text('comment'),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('job_search_map_version_org_idx').on(t.organizationId),
+  index('job_search_map_version_map_idx').on(t.mapId),
+  uniqueIndex('job_search_map_version_unique').on(t.mapId, t.versionNo),
+]))
+
+// ── Relations ─────────────────────────────────────────────────────
+
+export const searchMapTemplateRelations = relations(searchMapTemplate, ({ one, many }) => ({
+  organization: one(organization, { fields: [searchMapTemplate.organizationId], references: [organization.id] }),
+  sections: many(searchMapTemplateSection),
+}))
+export const searchMapTemplateSectionRelations = relations(searchMapTemplateSection, ({ one }) => ({
+  organization: one(organization, { fields: [searchMapTemplateSection.organizationId], references: [organization.id] }),
+  template: one(searchMapTemplate, { fields: [searchMapTemplateSection.templateId], references: [searchMapTemplate.id] }),
+}))
+export const donorCompanyRelations = relations(donorCompany, ({ one }) => ({
+  organization: one(organization, { fields: [donorCompany.organizationId], references: [organization.id] }),
+  mergedInto: one(donorCompany, { fields: [donorCompany.mergedIntoId], references: [donorCompany.id] }),
+}))
+export const sourcingChannelRelations = relations(sourcingChannel, ({ one }) => ({
+  organization: one(organization, { fields: [sourcingChannel.organizationId], references: [organization.id] }),
+}))
+export const jobSearchMapRelations = relations(jobSearchMap, ({ one, many }) => ({
+  organization: one(organization, { fields: [jobSearchMap.organizationId], references: [organization.id] }),
+  job: one(job, { fields: [jobSearchMap.jobId], references: [job.id] }),
+  template: one(searchMapTemplate, { fields: [jobSearchMap.templateId], references: [searchMapTemplate.id] }),
+  sections: many(jobSearchMapSection),
+  donors: many(jobSearchMapDonor),
+  segments: many(jobSearchMapSegment),
+  versions: many(jobSearchMapVersion),
+}))
+export const jobSearchMapSectionRelations = relations(jobSearchMapSection, ({ one, many }) => ({
+  organization: one(organization, { fields: [jobSearchMapSection.organizationId], references: [organization.id] }),
+  map: one(jobSearchMap, { fields: [jobSearchMapSection.mapId], references: [jobSearchMap.id] }),
+  items: many(jobSearchMapItem),
+}))
+export const jobSearchMapItemRelations = relations(jobSearchMapItem, ({ one }) => ({
+  organization: one(organization, { fields: [jobSearchMapItem.organizationId], references: [organization.id] }),
+  section: one(jobSearchMapSection, { fields: [jobSearchMapItem.sectionId], references: [jobSearchMapSection.id] }),
+}))
+export const jobSearchMapDonorRelations = relations(jobSearchMapDonor, ({ one }) => ({
+  organization: one(organization, { fields: [jobSearchMapDonor.organizationId], references: [organization.id] }),
+  map: one(jobSearchMap, { fields: [jobSearchMapDonor.mapId], references: [jobSearchMap.id] }),
+  donorCompany: one(donorCompany, { fields: [jobSearchMapDonor.donorCompanyId], references: [donorCompany.id] }),
+}))
+export const jobSearchMapSegmentRelations = relations(jobSearchMapSegment, ({ one }) => ({
+  organization: one(organization, { fields: [jobSearchMapSegment.organizationId], references: [organization.id] }),
+  map: one(jobSearchMap, { fields: [jobSearchMapSegment.mapId], references: [jobSearchMap.id] }),
+  channel: one(sourcingChannel, { fields: [jobSearchMapSegment.channelId], references: [sourcingChannel.id] }),
+}))
+export const jobSearchMapVersionRelations = relations(jobSearchMapVersion, ({ one }) => ({
+  organization: one(organization, { fields: [jobSearchMapVersion.organizationId], references: [organization.id] }),
+  map: one(jobSearchMap, { fields: [jobSearchMapVersion.mapId], references: [jobSearchMap.id] }),
 }))

@@ -91,6 +91,7 @@ const externalRecruiterCaps = caps({
   company: ['read'],
   department: ['read'],
   // NO scoring (AI), NO activityLog, NO PII field-sets (contacts/salary).
+  searchMap: ['view'],
 })
 
 // ── lead_recruiter: broad default, tunable in matrix UI ──
@@ -114,6 +115,7 @@ const leadRecruiterCaps = caps({
   // Банк вопросов: ведущий рекрутер смотрит и создаёт черновики (методология —
   // owner/admin).
   questionBank: ['view', 'create_draft', 'edit_draft'],
+  searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions'],
 })
 // lead_recruiter sees candidate PII (contacts + salary) within its scope, may
 // add hiring managers (§7), and has FULL assistant access (§I — trusted role).
@@ -139,6 +141,7 @@ const hrbpCaps = caps({
   department: ['read'],
   // Банк вопросов: HRBP смотрит и создаёт черновики.
   questionBank: ['view', 'create_draft', 'edit_draft'],
+  searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions'],
 })
 // HRBP sees candidate PII within its scope and may add hiring managers.
 hrbpCaps.push(PII_CONTACTS, PII_SALARY, HM_CREATE)

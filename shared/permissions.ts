@@ -50,6 +50,8 @@ const atsStatements = {
   // Модуль вопросов (org-уровень): Банк вопросов, темы/шкалы/BARS, методика CARE,
   // библиотека шаблонов отчётов. См. docs/tz-questions-90-cross-cutting.md §2.
   questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
+  // Модуль «Карта поиска» — docs/tz-search-map.md §7
+  searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions', 'manage_registry'],
   // hh.ru integration extensions — see docs/hh-extensions-architecture.md
   hhTemplate: ['create', 'read', 'update', 'delete'],
   hhStats: ['read', 'refresh'],
@@ -99,6 +101,7 @@ export const ownerAtsStatements = {
   company: ['create', 'read', 'update', 'delete'],
   department: ['create', 'read', 'update', 'delete'],
   questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
+  searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions', 'manage_registry'],
   hhTemplate: ['create', 'read', 'update', 'delete'],
   hhStats: ['read', 'refresh'],
   hhNegotiation: ['read', 'sync', 'import'],
@@ -124,6 +127,7 @@ export const adminAtsStatements = {
   company: ['create', 'read', 'update', 'delete'],
   department: ['create', 'read', 'update', 'delete'],
   questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
+  searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions', 'manage_registry'],
   hhTemplate: ['create', 'read', 'update', 'delete'],
   hhStats: ['read', 'refresh'],
   hhNegotiation: ['read', 'sync', 'import'],
@@ -156,6 +160,7 @@ export const memberAtsStatements = {
   // темы/шаблоны отчётов — только owner/admin. Правка «своего» черновика —
   // ABAC-проверка владения в хендлере поверх create_draft (см. cross-cutting §2.2).
   questionBank: ['view', 'create_draft', 'edit_draft'],
+  searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions'],
   hhTemplate: ['create', 'read', 'update'],
   hhStats: ['read'],
   hhNegotiation: ['read', 'sync', 'import'],
@@ -201,6 +206,7 @@ export const hiringManagerAtsStatements = {
   company: ['read'],
   department: ['read'],
   questionBank: ['view'],
+  searchMap: ['view'],
   hhTemplate: ['read'],
   hhStats: ['read'],
   hhNegotiation: ['read'],
