@@ -59,7 +59,6 @@
     "p-limit": "^7.3.2",
     "papaparse": "^5.5.3",
     "pdf-parse": "^2.4.5",
-    "pdfkit": "^0.20.2",
     "pg-boss": "^10.4.2",
     "postgres": "^3.4.8",
     "posthog-node": "^5.28.0",

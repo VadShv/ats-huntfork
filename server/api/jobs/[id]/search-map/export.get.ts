@@ -5,7 +5,7 @@ import {
   donorCompany, sourcingChannel,
 } from '../../../../database/schema/app'
 import { exportMarkdown } from '../../../../utils/searchMap/exportMarkdown'
-import { exportPdf } from '../../../../utils/searchMap/exportPdf'
+import { exportPdf as exportHtml } from '../../../../utils/searchMap/exportPdf'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -76,10 +76,9 @@ export default defineEventHandler(async (event) => {
   }
 
   if (format === 'pdf') {
-    const pdfBuffer = exportPdf(exportData)
-    setResponseHeader(event, 'Content-Type', 'application/pdf')
-    setResponseHeader(event, 'Content-Disposition', `attachment; filename="search-map-${jobId}.pdf"`)
-    return pdfBuffer
+    const html = exportHtml(exportData)
+    setResponseHeader(event, 'Content-Type', 'text/html; charset=utf-8')
+    return html
   }
 
   const md = exportMarkdown(exportData)
