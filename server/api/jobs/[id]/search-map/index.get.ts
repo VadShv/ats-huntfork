@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
     .leftJoin(sourcingChannel, eq(sourcingChannel.id, jobSearchMapSegment.channelId))
     .leftJoin(hhSavedSearch, eq(hhSavedSearch.searchMapSegmentId, jobSearchMapSegment.id))
     .where(eq(jobSearchMapSegment.mapId, map.id))
-    .groupBy(jobSearchMapSegment.id)
+    .groupBy(jobSearchMapSegment.id, sourcingChannel.id, sourcingChannel.code, sourcingChannel.name, sourcingChannel.urlTemplate, sourcingChannel.targetSite)
     .orderBy(asc(jobSearchMapSegment.displayOrder))
 
   const currentHashes = await computeSourceHashes(jobId, orgId)
