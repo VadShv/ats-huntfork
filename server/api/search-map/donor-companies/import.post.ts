@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
-import { donorCompany } from '../../../../database/schema/app'
+import { donorCompany } from '../../../database/schema/app'
 import { normalizeCompanyName } from '../../../../utils/searchMap/normalizeCompanyName'
 
 const bodySchema = z.object({

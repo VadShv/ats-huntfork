@@ -1,6 +1,6 @@
 import { eq, and, desc, count } from 'drizzle-orm'
 import { z } from 'zod'
-import { donorCompany, jobSearchMapDonor } from '../../../../database/schema/app'
+import { donorCompany, jobSearchMapDonor } from '../../../database/schema/app'
 
 /**
  * GET /api/search-map/donor-companies/top — топ доноров по использованию.
