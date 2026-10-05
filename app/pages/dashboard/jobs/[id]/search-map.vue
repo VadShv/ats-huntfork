@@ -16,19 +16,28 @@ const { allowed: canView } = usePermission({ searchMap: ['view'] })
 
 const sm = useJobSearchMap(jobId)
 
+// Destructure for template auto-unwrap (nested refs are NOT auto-unwrapped)
+const { data: smData, error: smError, pending: smPending, refresh: smRefresh,
+  isStale, staleSources, hasMap, canGenerate,
+  createMap, deleteMap, addItems, addDonors, addSegments,
+  updateDonor, updateSegment, acknowledgeSources,
+} = sm
+
+const staleSourcesText = computed(() => staleSources.value.join(', '))
+
 const showEmpty = computed(() => {
-  if (sm.pending.value) return false
-  if (sm.hasMap.value) return false
-  const err = sm.error.value as any
+  if (smPending.value) return false
+  if (hasMap.value) return false
+  const err = smError.value as any
   if (err && (err.statusCode === 404 || err.status === 404)) {
     const reason = err.data?.reason ?? err.data?.data?.reason
     if (reason === 'not_created') return true
   }
   return false
 })
-const hasError = computed(() => !sm.pending.value && !sm.hasMap.value && sm.error.value && !showEmpty.value)
+const hasError = computed(() => !smPending.value && !hasMap.value && smError.value && !showEmpty.value)
 const templates = computed(() => {
-  const err = sm.error.value as any
+  const err = smError.value as any
   return err?.data?.templates ?? err?.data?.data?.templates ?? []
 })
 
@@ -49,7 +58,7 @@ const { data: channelsData } = useFetch('/api/search-map/channels', { key: 'sm-c
 const channels = computed(() => channelsData.value?.items ?? [])
 
 function onDonorClick(donorId: string) {
-  const d = sm.data.value?.donors.find((x: any) => x.donor.id === donorId)
+  const d = smData.value?.donors.find((x: any) => x.donor.id === donorId)
   if (d) {
     selectedDonor.value = d
     showDonorDrawer.value = true
@@ -57,7 +66,7 @@ function onDonorClick(donorId: string) {
 }
 
 function onSegmentClick(segmentId: string) {
-  const s = sm.data.value?.segments.find((x: any) => x.segment.id === segmentId)
+  const s = smData.value?.segments.find((x: any) => x.segment.id === segmentId)
   if (s) {
     selectedSegment.value = s
     showSegmentDrawer.value = true
@@ -72,7 +81,7 @@ async function aiGenerate() {
       body: { scope: 'full', mode: 'append' },
     })
     toast.success(`Добавлено: ${result.itemsAdded} пунктов, ${result.donorsAdded} доноров, ${result.segmentsAdded} сегментов`)
-    await sm.refresh()
+    await smRefresh()
   } catch (e: any) {
     toast.error(e?.statusMessage ?? 'Ошибка генерации')
   } finally {
@@ -96,14 +105,14 @@ async function restoreVersion(versionId: string) {
     await $fetch(`/api/jobs/${jobId.value}/search-map/versions/${versionId}/restore`, { method: 'POST' })
     toast.success('Версия восстановлена')
     showVersions.value = false
-    await sm.refresh()
+    await smRefresh()
   } catch (e: any) {
     toast.error(e?.statusMessage ?? 'Ошибка')
   }
 }
 
 async function createFromTemplate(templateId?: string) {
-  await sm.createMap(templateId)
+  await createMap(templateId)
 }
 </script>
 
@@ -118,23 +127,23 @@ async function createFromTemplate(templateId?: string) {
 
     <!-- Error (not not_created) -->
     <div v-else-if="hasError" class="rounded-lg border border-danger-300 p-8 text-center">
-      <p class="text-sm text-danger-600">{{ (sm.error.value as any)?.statusMessage ?? 'Ошибка' }}</p>
+      <p class="text-sm text-danger-600">{{ (smError as any)?.statusMessage ?? 'Ошибка' }}</p>
     </div>
 
     <!-- Loading -->
-    <div v-else-if="sm.pending.value" class="flex items-center justify-center py-12">
+    <div v-else-if="smPending" class="flex items-center justify-center py-12">
       <div class="size-6 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
     </div>
 
     <!-- Map content -->
-    <div v-else-if="sm.data.value" class="space-y-6">
+    <div v-else-if="smData" class="space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <Radar class="size-5 text-brand-600" />
           <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-50">Карта поиска</h1>
-          <UiBadge variant="surface">{{ sm.data.value.map.status }}</UiBadge>
-          <UiBadge v-if="sm.data.value.versionsCount > 0" variant="brand">v{{ sm.data.value.versionsCount }}</UiBadge>
+          <UiBadge variant="surface">{{ smData.map.status }}</UiBadge>
+          <UiBadge v-if="smData.versionsCount > 0" variant="brand">v{{ smData.versionsCount }}</UiBadge>
         </div>
         <div v-if="canEdit" class="flex gap-2">
           <UiButton size="sm" variant="ghost" :loading="generating" @click="aiGenerate">
@@ -178,12 +187,12 @@ async function createFromTemplate(templateId?: string) {
       </div>
 
       <!-- Stale banner -->
-      <div v-if="sm.isStale" class="rounded-lg border border-warning-300 bg-warning-50 p-4 dark:border-warning-700 dark:bg-warning-950">
+      <div v-if="isStale" class="rounded-lg border border-warning-300 bg-warning-50 p-4 dark:border-warning-700 dark:bg-warning-950">
         <div class="flex items-center justify-between">
           <p class="text-sm text-warning-800 dark:text-warning-200">
-            ⚠ Изменились: {{ sm.staleSources.join(', ') }}
+            ⚠ Изменились: {{ staleSourcesText }}
           </p>
-          <UiButton v-if="canEdit" size="sm" variant="ghost" @click="sm.acknowledgeSources()">
+          <UiButton v-if="canEdit" size="sm" variant="ghost" @click="acknowledgeSources().then(() => smRefresh())">
             Учтено
           </UiButton>
         </div>
@@ -195,7 +204,7 @@ async function createFromTemplate(templateId?: string) {
         <div class="space-y-4">
           <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300">Секции</h2>
           <SearchMapSectionListEditor
-            v-for="section in sm.data.value.sections"
+            v-for="section in smData.sections"
             :key="section.id"
             :section="section"
             :job-id="jobId"
@@ -216,10 +225,10 @@ async function createFromTemplate(templateId?: string) {
             <DonorCompanyPicker
               v-if="showDonorPicker && canEdit"
               :job-id="jobId"
-              @added="sm.refresh()"
+              @added="smRefresh()"
             />
             <SearchMapDonorLayerBoard
-              :donors="sm.data.value.donors"
+              :donors="smData.donors"
               :can-edit="canEdit"
               @click="onDonorClick"
             />
@@ -229,7 +238,7 @@ async function createFromTemplate(templateId?: string) {
           <div>
             <h2 class="mb-3 text-sm font-semibold text-surface-700 dark:text-surface-300">Сегменты</h2>
             <SearchMapSegmentTable
-              :segments="sm.data.value.segments"
+              :segments="smData.segments"
               :can-edit="canEdit"
               @click="onSegmentClick"
             />
@@ -243,7 +252,7 @@ async function createFromTemplate(templateId?: string) {
       v-model="showDonorDrawer"
       :donor="selectedDonor"
       :job-id="jobId"
-      @updated="sm.refresh()"
+      @updated="smRefresh()"
     />
 
     <!-- Segment drawer -->
@@ -252,15 +261,15 @@ async function createFromTemplate(templateId?: string) {
       :segment="selectedSegment"
       :job-id="jobId"
       :channels="channels"
-      :donors="sm.data.value?.donors ?? []"
-      @updated="sm.refresh()"
+      :donors="smData?.donors ?? []"
+      @updated="smRefresh()"
     />
 
     <!-- Create version modal -->
     <CreateVersionModal
       v-model="showVersionModal"
       :job-id="jobId"
-      @created="sm.refresh()"
+      @created="smRefresh()"
     />
   </div>
 </template>
