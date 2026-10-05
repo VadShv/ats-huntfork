@@ -16,8 +16,15 @@ const { allowed: canView } = usePermission({ searchMap: ['view'] })
 
 const sm = useJobSearchMap(jobId)
 
-const showEmpty = computed(() => !sm.pending.value && !sm.hasMap.value && !sm.error.value)
-const templates = computed(() => sm.error.value?.data?.templates ?? [])
+const showEmpty = computed(() => {
+  if (sm.pending.value) return false
+  if (sm.hasMap.value) return false
+  const err = sm.error.value as any
+  if (err && err.statusCode === 404 && err.data?.reason === 'not_created') return true
+  return false
+})
+const hasError = computed(() => !sm.pending.value && !sm.hasMap.value && sm.error.value && !showEmpty.value)
+const templates = computed(() => (sm.error.value as any)?.data?.templates ?? [])
 
 const generating = ref(false)
 const showVersions = ref(false)
@@ -104,8 +111,8 @@ async function createFromTemplate(templateId?: string) {
     />
 
     <!-- Error (not not_created) -->
-    <div v-else-if="sm.error.value && !showEmpty" class="rounded-lg border border-danger-300 p-8 text-center">
-      <p class="text-sm text-danger-600">{{ sm.error.value.statusMessage }}</p>
+    <div v-else-if="hasError" class="rounded-lg border border-danger-300 p-8 text-center">
+      <p class="text-sm text-danger-600">{{ (sm.error.value as any)?.statusMessage ?? 'Ошибка' }}</p>
     </div>
 
     <!-- Loading -->

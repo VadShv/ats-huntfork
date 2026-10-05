@@ -21,7 +21,7 @@ const statusColors: Record<string, string> = {
   <div>
     <div class="mb-4 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300">Шаблоны карт</h2>
-      <UiButton v-if="canManage" size="sm" @click="navigateTo(localePath('/dashboard/settings/search-map/templates'))">
+      <UiButton v-if="canManage" size="sm" @click="navigateTo('/dashboard/settings/search-map/templates/new')">
         Создать шаблон
       </UiButton>
     </div>
