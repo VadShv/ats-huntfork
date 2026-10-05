@@ -1,6 +1,6 @@
 import { eq, and, count } from 'drizzle-orm'
 import { z } from 'zod'
-import { donorCompany, jobSearchMapDonor, jobSearchMap } from '../../../../database/schema/app'
+import { donorCompany, jobSearchMapDonor, jobSearchMap } from '../../../database/schema/app'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
