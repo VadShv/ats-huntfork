@@ -146,10 +146,10 @@ async function createFromTemplate(templateId?: string) {
           <UiButton size="sm" variant="ghost" @click="loadVersions">
             История
           </UiButton>
-          <UiButton size="sm" variant="ghost" @click="navigateTo(`/api/jobs/${jobId}/search-map/export?format=md`)">
+          <UiButton size="sm" variant="ghost" @click="window.open(`/api/jobs/${jobId}/search-map/export?format=md`, '_blank')">
             .md
           </UiButton>
-          <UiButton size="sm" variant="ghost" @click="navigateTo(`/api/jobs/${jobId}/search-map/export?format=pdf`)">
+          <UiButton size="sm" variant="ghost" @click="window.open(`/api/jobs/${jobId}/search-map/export?format=pdf`, '_blank')">
             <FileDown class="mr-1 size-4" /> PDF
           </UiButton>
         </div>

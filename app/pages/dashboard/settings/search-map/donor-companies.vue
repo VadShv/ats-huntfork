@@ -13,12 +13,35 @@ const search = ref('')
 const page = ref(0)
 const limit = 50
 const showImport = ref(false)
+const showAdd = ref(false)
 const importText = ref('')
 const importing = ref(false)
+const addForm = reactive({ name: '', industry: '' })
+const adding = ref(false)
+
+async function addCompany() {
+  if (!addForm.name.trim()) return
+  adding.value = true
+  try {
+    await $fetch('/api/search-map/donor-companies', {
+      method: 'POST',
+      body: { name: addForm.name.trim(), industry: addForm.industry.trim() || undefined },
+    })
+    toast.success('Компания добавлена')
+    showAdd.value = false
+    addForm.name = ''
+    addForm.industry = ''
+    await refresh()
+  } catch (e: any) {
+    toast.error(e?.statusMessage ?? 'Ошибка')
+  } finally {
+    adding.value = false
+  }
+}
 
 const { data, refresh } = await useFetch('/api/search-map/donor-companies', {
   query: computed(() => ({
-    q: search.value || undefined,
+    search: search.value || undefined,
     limit,
     offset: page.value * limit,
   })),
@@ -61,7 +84,16 @@ async function doImport() {
         class="flex-1"
       />
       <UiButton v-if="canAddDonor" size="sm" variant="ghost" @click="showImport = !showImport">Импорт CSV</UiButton>
-      <UiButton v-if="canAddDonor" size="sm">Добавить компанию</UiButton>
+      <UiButton v-if="canAddDonor" size="sm" @click="showAdd = !showAdd">Добавить компанию</UiButton>
+    </div>
+
+    <!-- Add company form -->
+    <div v-if="showAdd && canAddDonor" class="mb-4 rounded-lg border border-surface-200 p-4 dark:border-surface-800">
+      <div class="grid grid-cols-2 gap-3">
+        <UiInput v-model="addForm.name" placeholder="Название компании" />
+        <UiInput v-model="addForm.industry" placeholder="Индустрия (необязательно)" />
+      </div>
+      <UiButton class="mt-2" size="sm" :loading="adding" @click="addCompany">Добавить</UiButton>
     </div>
 
     <!-- CSV import -->

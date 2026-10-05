@@ -6,7 +6,7 @@ export function useJobSearchMap(jobId: MaybeRefOrGetter<string>) {
   const id = computed(() => toValue(jobId))
   const toast = useToast()
 
-  const { data, error, refresh, pending } = useFetch(`/api/jobs/${id}/search-map`, {
+  const { data, error, refresh, pending } = useFetch(() => `/api/jobs/${id.value}/search-map`, {
     key: () => `search-map-${id.value}`,
   })
 

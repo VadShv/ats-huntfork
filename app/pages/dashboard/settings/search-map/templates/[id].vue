@@ -2,7 +2,7 @@
 /**
  * Шаблон карты поиска — просмотр/правка/создание.
  */
-import { ArrowLeft, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'require-org'] })
 
