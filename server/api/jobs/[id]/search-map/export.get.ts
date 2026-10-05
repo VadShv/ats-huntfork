@@ -5,7 +5,7 @@ import {
   donorCompany, sourcingChannel,
 } from '../../../../database/schema/app'
 import { exportMarkdown } from '../../../../utils/searchMap/exportMarkdown'
-import { exportPdf as exportHtml } from '../../../../utils/searchMap/exportPdf'
+import { exportHtml } from '../../../../utils/searchMap/exportPdf'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
