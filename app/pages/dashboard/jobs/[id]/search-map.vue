@@ -20,11 +20,17 @@ const showEmpty = computed(() => {
   if (sm.pending.value) return false
   if (sm.hasMap.value) return false
   const err = sm.error.value as any
-  if (err && err.statusCode === 404 && err.data?.reason === 'not_created') return true
+  if (err && (err.statusCode === 404 || err.status === 404)) {
+    const reason = err.data?.reason ?? err.data?.data?.reason
+    if (reason === 'not_created') return true
+  }
   return false
 })
 const hasError = computed(() => !sm.pending.value && !sm.hasMap.value && sm.error.value && !showEmpty.value)
-const templates = computed(() => (sm.error.value as any)?.data?.templates ?? [])
+const templates = computed(() => {
+  const err = sm.error.value as any
+  return err?.data?.templates ?? err?.data?.data?.templates ?? []
+})
 
 const generating = ref(false)
 const showVersions = ref(false)
