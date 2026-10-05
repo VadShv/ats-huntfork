@@ -70,7 +70,7 @@ async function create() {
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium">Комментарий</label>
-        <UiTextarea v-model="form.comment" rows="2" placeholder="Что изменилось?" />
+        <UiTextarea v-model="form.comment" :rows="2" placeholder="Что изменилось?" />
       </div>
     </div>
 

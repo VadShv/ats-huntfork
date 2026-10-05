@@ -19,7 +19,7 @@ const props = defineProps<{
     hhSearchesCount: number
   } | null
   jobId: string
-  channels: { id: string; code: string; name: string; targetSite?: string | null }[]
+  channels: { id: string; code: string; name: string; urlTemplate?: string | null; targetSite?: string | null }[]
   donors: { donor: { id: string }; company: { canonicalName: string } }[]
 }>()
 
@@ -38,7 +38,7 @@ const form = reactive({
   geo: [] as string[],
   channelId: '' as string,
   queryString: '',
-  priority: 'p2' as string,
+  priority: 'medium' as string,
   poolEstimate: 0 as number,
   responseLikelihood: 0 as number,
   accessDifficulty: 0 as number,
@@ -86,11 +86,13 @@ const queryUrl = computed(() => {
   if (!ch || !form.queryString) return null
   let query = form.queryString
   if (ch.targetSite) query = `site:${ch.targetSite} ${query}`
-  const template = props.segment?.channel?.urlTemplate
+  // Шаблон URL берём у выбранного канала (пользователь мог сменить канал в форме),
+  // и только потом — у канала, сохранённого в сегменте.
+  const template = ch.urlTemplate ?? props.segment?.channel?.urlTemplate
   if (!template) return null
   let url = template.replace('{query}', encodeURIComponent(query))
-  if (form.titles.length) url = url.replace('{title}', encodeURIComponent(form.titles[0]))
-  if (form.geo.length) url = url.replace('{geo}', encodeURIComponent(form.geo[0]))
+  if (form.titles.length) url = url.replace('{title}', encodeURIComponent(form.titles[0] ?? ''))
+  if (form.geo.length) url = url.replace('{geo}', encodeURIComponent(form.geo[0] ?? ''))
   return url
 })
 
@@ -178,14 +180,16 @@ const layerOptions = [
   { label: 'Ядро', value: 'core' }, { label: 'Смежный', value: 'adjacent' },
   { label: 'Школы', value: 'school' }, { label: 'Alumni', value: 'alumni' }, { label: 'Своё', value: 'custom' },
 ]
-const priorityOptions = [{ label: 'P1', value: 'p1' }, { label: 'P2', value: 'p2' }, { label: 'P3', value: 'p3' }]
+const priorityOptions = [{ label: 'Высокий', value: 'high' }, { label: 'Средний', value: 'medium' }, { label: 'Низкий', value: 'low' }]
 const statusOptions = [
   { label: 'Не проверена', value: 'untested' }, { label: 'В работе', value: 'in_progress' },
   { label: 'Работает', value: 'working' }, { label: 'Отклонена', value: 'rejected' },
 ]
 const channelOptions = computed(() => props.channels.map(c => ({ label: c.name, value: c.id })))
 const scoreOptions = [{ label: '—', value: 0 }, { label: '1', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 }]
-const isHhChannel = computed(() => selectedChannel.value?.code === 'hh_ru' || selectedChannel.value?.code === 'hh_ru_resumes')
+// Код системного канала hh — 'hh' (server/utils/searchMap/seed.ts). Раньше проверялись
+// несуществующие 'hh_ru'/'hh_ru_resumes', и кнопка «Создать поиск hh» никогда не показывалась.
+const isHhChannel = computed(() => selectedChannel.value?.code === 'hh')
 </script>
 
 <template>
@@ -217,7 +221,7 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh_ru' || se
       <div>
         <label class="mb-1 block text-sm font-medium">Тайтлы</label>
         <div class="flex flex-wrap gap-1">
-          <UiBadge v-for="(t, i) in form.titles" :key="i" variant="surface" class="cursor-pointer" @click="removeItem(form.titles, i)">{{ t }} ✕</UiBadge>
+          <UiBadge v-for="(t, i) in form.titles" :key="i" tone="neutral" class="cursor-pointer" @click="removeItem(form.titles, i)">{{ t }} ✕</UiBadge>
         </div>
         <UiInput v-model="titleInput" placeholder="Добавить тайтл…" class="mt-1" @keyup.enter="addTitle" />
       </div>
@@ -226,7 +230,7 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh_ru' || se
       <div>
         <label class="mb-1 block text-sm font-medium">Ключевые слова</label>
         <div class="flex flex-wrap gap-1">
-          <UiBadge v-for="(k, i) in form.keywords" :key="i" variant="surface" class="cursor-pointer" @click="removeItem(form.keywords, i)">{{ k }} ✕</UiBadge>
+          <UiBadge v-for="(k, i) in form.keywords" :key="i" tone="neutral" class="cursor-pointer" @click="removeItem(form.keywords, i)">{{ k }} ✕</UiBadge>
         </div>
         <UiInput v-model="keywordInput" placeholder="Добавить ключевое слово…" class="mt-1" @keyup.enter="addKeyword" />
       </div>
@@ -235,7 +239,7 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh_ru' || se
       <div>
         <label class="mb-1 block text-sm font-medium">Гео</label>
         <div class="flex flex-wrap gap-1">
-          <UiBadge v-for="(g, i) in form.geo" :key="i" variant="surface" class="cursor-pointer" @click="removeItem(form.geo, i)">{{ g }} ✕</UiBadge>
+          <UiBadge v-for="(g, i) in form.geo" :key="i" tone="neutral" class="cursor-pointer" @click="removeItem(form.geo, i)">{{ g }} ✕</UiBadge>
         </div>
         <UiInput v-model="geoInput" placeholder="Добавить гео…" class="mt-1" @keyup.enter="addGeo" />
       </div>
@@ -259,7 +263,7 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh_ru' || se
         <div v-if="selectedChannel?.targetSite" class="mb-1 rounded bg-surface-100 px-2 py-1 text-xs text-surface-500 dark:bg-surface-800">
           site:{{ selectedChannel.targetSite }} <span class="text-surface-400">(добавляется автоматически)</span>
         </div>
-        <UiTextarea v-model="form.queryString" rows="2" placeholder="boolean query…" />
+        <UiTextarea v-model="form.queryString" :rows="2" placeholder="boolean query…" />
       </div>
 
       <!-- Scores -->
@@ -287,11 +291,11 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh_ru' || se
       <!-- Rationale + Result -->
       <div>
         <label class="mb-1 block text-sm font-medium">Причина</label>
-        <UiTextarea v-model="form.rationale" rows="2" />
+        <UiTextarea v-model="form.rationale" :rows="2" />
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium">Результат</label>
-        <UiTextarea v-model="form.resultNote" rows="2" />
+        <UiTextarea v-model="form.resultNote" :rows="2" />
       </div>
 
       <!-- HH bridge -->

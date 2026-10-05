@@ -99,7 +99,7 @@ async function doImport() {
     <!-- CSV import -->
     <div v-if="showImport && canAddDonor" class="mb-4 rounded-lg border border-surface-200 p-4 dark:border-surface-800">
       <p class="mb-2 text-sm text-surface-500">Одна компания на строку: <code>Название, Индустрия</code></p>
-      <UiTextarea v-model="importText" rows="5" placeholder="Яндекс, IT&#10;Сбер, Финтех" />
+      <UiTextarea v-model="importText" :rows="5" placeholder="Яндекс, IT&#10;Сбер, Финтех" />
       <UiButton class="mt-2" size="sm" :loading="importing" @click="doImport">Импортировать</UiButton>
     </div>
 
@@ -124,7 +124,7 @@ async function doImport() {
             <td class="py-2 pr-4 text-surface-600 dark:text-surface-400">{{ donor.industry ?? '—' }}</td>
             <td class="py-2 pr-4 text-surface-600 dark:text-surface-400">{{ donor.stage ?? '—' }}</td>
             <td class="py-2 pr-4">
-              <UiBadge :variant="donor.status === 'active' ? 'success' : donor.status === 'merged' ? 'surface' : 'danger'">
+              <UiBadge :tone="donor.status === 'active' ? 'success' : donor.status === 'merged' ? 'neutral' : 'danger'">
                 {{ donor.status }}
               </UiBadge>
             </td>

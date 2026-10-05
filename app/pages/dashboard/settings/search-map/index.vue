@@ -5,7 +5,13 @@
  */
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'require-org'] })
 
-const { data: overview, refresh } = await useFetch('/api/search-map/overview')
+const { data: overview } = await useFetch('/api/search-map/overview', {
+  headers: useRequestHeaders(['cookie']),
+})
+
+const totalMaps = computed(() =>
+  Object.values((overview.value?.mapsByStatus ?? {}) as Record<string, number>).reduce((a, b) => a + (Number(b) || 0), 0),
+)
 </script>
 
 <template>
@@ -26,7 +32,7 @@ const { data: overview, refresh } = await useFetch('/api/search-map/overview')
       <UiCard class="p-4">
         <p class="text-sm text-surface-500">Карт по статусам</p>
         <p class="mt-1 text-2xl font-semibold text-surface-900 dark:text-surface-50">
-          {{ Object.values(overview?.mapsByStatus ?? {}).reduce((a: number, b: number) => a + b, 0) }}
+          {{ totalMaps }}
         </p>
       </UiCard>
     </div>
@@ -42,7 +48,7 @@ const { data: overview, refresh } = await useFetch('/api/search-map/overview')
           class="flex items-center justify-between rounded-lg border border-surface-200 px-4 py-2 dark:border-surface-800"
         >
           <span class="text-sm font-medium text-surface-900 dark:text-surface-50">{{ donor.canonicalName }}</span>
-          <UiBadge variant="success">{{ donor.workingCount }}</UiBadge>
+          <UiBadge tone="success">{{ donor.workingCount }}</UiBadge>
         </div>
       </div>
     </div>

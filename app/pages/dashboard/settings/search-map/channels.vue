@@ -122,8 +122,8 @@ const priorityOptions = [
           <div>
             <div class="flex items-center gap-2">
               <span class="font-medium text-surface-900 dark:text-surface-50">{{ channel.name }}</span>
-              <UiBadge v-if="channel.isSystem" variant="surface">Системный</UiBadge>
-              <UiBadge v-if="!channel.isActive" variant="danger">Неактивен</UiBadge>
+              <UiBadge v-if="channel.isSystem" tone="neutral">Системный</UiBadge>
+              <UiBadge v-if="!channel.isActive" tone="danger">Неактивен</UiBadge>
             </div>
             <p class="mt-0.5 text-xs text-surface-500">{{ channel.code }}</p>
           </div>

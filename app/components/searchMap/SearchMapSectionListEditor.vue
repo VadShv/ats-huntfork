@@ -47,7 +47,7 @@ async function deleteItem(itemId: string) {
         class="group flex items-center gap-2 text-sm"
       >
         <span class="flex-1 text-surface-700 dark:text-surface-300">{{ item.value }}</span>
-        <UiBadge v-if="item.origin === 'ai'" variant="brand" class="text-xs">AI</UiBadge>
+        <UiBadge v-if="item.origin === 'ai'" tone="brand" class="text-xs">AI</UiBadge>
         <button
           v-if="canEdit"
           class="opacity-0 group-hover:opacity-100 text-surface-400 hover:text-danger-600"

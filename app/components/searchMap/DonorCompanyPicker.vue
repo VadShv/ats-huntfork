@@ -15,7 +15,7 @@ const results = ref<any[]>([])
 const loading = ref(false)
 const showDropdown = ref(false)
 const selectedLayer = ref('core')
-const selectedPriority = ref('p2')
+const selectedPriority = ref('medium')
 
 const layerOptions = [
   { label: 'Ядро', value: 'core' },
@@ -25,9 +25,9 @@ const layerOptions = [
   { label: 'Своё', value: 'custom' },
 ]
 const priorityOptions = [
-  { label: 'P1', value: 'p1' },
-  { label: 'P2', value: 'p2' },
-  { label: 'P3', value: 'p3' },
+  { label: 'Высокий', value: 'high' },
+  { label: 'Средний', value: 'medium' },
+  { label: 'Низкий', value: 'low' },
 ]
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null

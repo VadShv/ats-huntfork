@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
   if (body.displayOrder !== undefined) patch.displayOrder = body.displayOrder
 
   if (body.origin !== undefined) {
-    if (existing.origin === 'ai' && (body.value !== undefined || body.titles !== undefined || body.keywords !== undefined)) {
+    if (existing.origin === 'ai' && (body.name !== undefined || body.titles !== undefined || body.keywords !== undefined)) {
       patch.origin = 'manual'
     } else if (body.origin !== undefined) {
       patch.origin = body.origin

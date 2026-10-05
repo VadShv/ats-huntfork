@@ -2,7 +2,7 @@
 const props = defineProps<{ status: string }>()
 
 const variants: Record<string, string> = {
-  untested: 'surface',
+  untested: 'neutral',
   in_progress: 'info',
   working: 'success',
   rejected: 'danger',
@@ -17,7 +17,7 @@ const labels: Record<string, string> = {
 </script>
 
 <template>
-  <UiBadge :variant="(variants[props.status] as any) ?? 'surface'">
+  <UiBadge :tone="(variants[props.status] as any) ?? 'neutral'">
     {{ labels[props.status] ?? props.status }}
   </UiBadge>
 </template>

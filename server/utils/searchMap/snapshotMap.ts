@@ -26,6 +26,9 @@ export async function snapshotMap(mapId: string) {
   return {
     summary: map.summary,
     sections: sections.map(s => ({
+      // sectionType/isRequired обязательны для восстановления (NOT NULL в job_search_map_section)
+      sectionType: s.sectionType,
+      isRequired: s.isRequired,
       title: s.title,
       guidance: s.guidance,
       displayOrder: s.displayOrder,

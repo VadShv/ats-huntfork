@@ -17,7 +17,7 @@ export function diffSnapshots(oldSnap: Snapshot, newSnap: Snapshot) {
   }
 }
 
-function diffSections(oldList: Snapshot['sections']!, newList: Snapshot['sections']!) {
+function diffSections(oldList: NonNullable<Snapshot['sections']>, newList: NonNullable<Snapshot['sections']>) {
   const result: { title: string; added: string[]; removed: string[] }[] = []
   const oldMap = new Map(oldList.map(s => [s.title, s]))
   const newMap = new Map(newList.map(s => [s.title, s]))
@@ -41,7 +41,7 @@ function diffSections(oldList: Snapshot['sections']!, newList: Snapshot['section
   return result
 }
 
-function diffDonors(oldList: Snapshot['donors']!, newList: Snapshot['donors']!) {
+function diffDonors(oldList: NonNullable<Snapshot['donors']>, newList: NonNullable<Snapshot['donors']>) {
   const oldMap = new Map(oldList.map(d => [d.donorCompanyId, d]))
   const newMap = new Map(newList.map(d => [d.donorCompanyId, d]))
   const added = newList.filter(d => !oldMap.has(d.donorCompanyId))
@@ -53,7 +53,7 @@ function diffDonors(oldList: Snapshot['donors']!, newList: Snapshot['donors']!) 
   return { added, removed, changed }
 }
 
-function diffSegments(oldList: Snapshot['segments']!, newList: Snapshot['segments']!) {
+function diffSegments(oldList: NonNullable<Snapshot['segments']>, newList: NonNullable<Snapshot['segments']>) {
   const oldMap = new Map(oldList.map(s => [s.name, s]))
   const newMap = new Map(newList.map(s => [s.name, s]))
   const added = newList.filter(s => !oldMap.has(s.name))

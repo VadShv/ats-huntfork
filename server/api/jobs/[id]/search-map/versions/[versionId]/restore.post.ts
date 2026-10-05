@@ -49,23 +49,51 @@ export default defineEventHandler(async (event) => {
   await db.delete(jobSearchMapSegment).where(eq(jobSearchMapSegment.mapId, map.id))
   await db.delete(jobSearchMapDonor).where(eq(jobSearchMapDonor.mapId, map.id))
 
-  // Restore sections + items
+  // Restore sections + items.
+  // sectionType обязателен (NOT NULL + unique(mapId, sectionType)); старые снапшоты его не хранили —
+  // для них восстанавливаем тип по заголовку, иначе берём первый свободный.
+  const SECTION_TYPES = ['title_synonyms', 'keywords', 'geo', 'exclusions', 'notes'] as const
+  type SectionType = (typeof SECTION_TYPES)[number]
+  const TITLE_TO_TYPE: Record<string, SectionType> = {
+    'тайтлы и синонимы': 'title_synonyms',
+    'ключевые слова и навыки': 'keywords',
+    'география': 'geo',
+    'исключения': 'exclusions',
+    'заметки и договорённости': 'notes',
+    'заметки': 'notes',
+  }
+  const usedTypes = new Set<SectionType>()
+  const normalizeItem = (v: string) => v.toLowerCase().trim().replace(/ё/g, 'е')
+
   for (const s of snap.sections ?? []) {
+    let sectionType: SectionType | undefined = SECTION_TYPES.includes(s.sectionType) ? s.sectionType : undefined
+    if (!sectionType) sectionType = TITLE_TO_TYPE[(s.title ?? '').toLowerCase().trim()]
+    if (!sectionType || usedTypes.has(sectionType)) sectionType = SECTION_TYPES.find(t => !usedTypes.has(t))
+    if (!sectionType) continue // все 5 типов уже восстановлены — лишнюю секцию пропускаем
+    usedTypes.add(sectionType)
+
     const sectionId = crypto.randomUUID()
     await db.insert(jobSearchMapSection).values({
       id: sectionId,
       mapId: map.id,
       organizationId: orgId as string,
+      sectionType,
+      isRequired: s.isRequired ?? false,
       title: s.title,
       guidance: s.guidance ?? null,
       displayOrder: s.displayOrder,
     })
+    const seen = new Set<string>()
     for (const item of s.items ?? []) {
+      const normalizedValue = normalizeItem(item.value)
+      if (seen.has(normalizedValue)) continue
+      seen.add(normalizedValue)
       await db.insert(jobSearchMapItem).values({
         mapId: map.id,
         sectionId,
         organizationId: orgId as string,
         value: item.value,
+        normalizedValue,
         note: item.note ?? null,
         origin: item.origin ?? 'manual',
         displayOrder: item.displayOrder,
@@ -109,7 +137,7 @@ export default defineEventHandler(async (event) => {
   await db.update(jobSearchMap).set({
     summary: snap.summary ?? null,
     currentVersionNo: restoreVersionNo,
-    sourceHashes: version.sourceHashes,
+    sourceHashes: version.sourceHashes as { brief: string | null; criteria: string | null; description: string | null },
     updatedAt: new Date(),
   }).where(eq(jobSearchMap.id, map.id))
 

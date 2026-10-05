@@ -11,13 +11,25 @@ export function buildGeneratePrompt(opts: {
   description?: string
   existingSections?: { title: string; items: string[] }[]
   existingDonors?: { name: string; layer: string }[]
+  /** Активные каналы организации — модель обязана использовать только эти channelCode */
+  channels?: { code: string; name: string }[]
   hint?: string | null
 }): { system: string; prompt: string } {
+  const channelList = (opts.channels?.length
+    ? opts.channels
+    : [{ code: 'hh', name: 'hh.ru' }, { code: 'linkedin', name: 'LinkedIn' }, { code: 'telegram', name: 'Telegram' }, { code: 'google_xray_linkedin', name: 'Google x-ray LinkedIn' }])
+    .map(c => `"${c.code}" (${c.name})`).join(', ')
+
   const system = `Ты — эксперт-сорсер по подбору IT-специалистов в России.
 Твоя задача — помочь рекрутеру построить "карту поиска" для вакансии.
 
 Карта поиска состоит из:
-1. Секции (факты о вакансии): ключевые навыки, must-have, nice-to-have, гео, формат работы, уровень, домен
+1. Секции (факты о вакансии). Допустимые sectionType — строго из списка:
+   - "title_synonyms" — как позицию называют в разных компаниях (включая англоязычные варианты)
+   - "keywords" — ключевые навыки, технологии, инструменты, домены (must-have и nice-to-have)
+   - "geo" — города, регионы, часовые пояса, формат работы и релокация
+   - "exclusions" — компании и тайтлы, которые исключаем (ложные срабатывания)
+   - "notes" — уровень, домен, ограничения и договорённости с нанимающим менеджером
 2. Компании-доноры (откуда искать кандидатов): ядро, смежный круг, школы компетенций, alumni
 3. Сегменты (гипотезы поиска): комбинация тайтлов + гео + ключевые слова + канал
 
@@ -26,9 +38,9 @@ export function buildGeneratePrompt(opts: {
 - Будь конкретен: названия компаний, тайтлы, ключевые слова
 - Для компаний-доноров указывай реальные компании на российском IT-рынке
 - Для сегментов: 3-7 тайтлов, 1-3 гео, 5-15 ключевых слов
-- channelCode: "hh_ru", "hh_ru_resumes", "google_xray_hh", "google_xray_linkedin", "telegram"
-- Приоритеты: p1 (высший), p2, p3
-- Слои доноров: core, adjacent, school, alumni, custom
+- channelCode — строго один из: ${channelList}
+- Приоритеты (priority) — строго: "high" (высший), "medium", "low"
+- Слои доноров (layer / donorLayer) — строго: "core", "adjacent", "school", "alumni", "custom"
 
 ${opts.hint ? `\nДополнительная подсказка рекрутера: ${opts.hint}` : ''}`
 

@@ -66,7 +66,7 @@ async function create() {
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium">Текст запроса</label>
-        <UiTextarea v-model="form.text" rows="3" />
+        <UiTextarea v-model="form.text" :rows="3" />
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>

@@ -70,9 +70,9 @@ const layerOptions = [
   { label: 'Своё', value: 'custom' },
 ]
 const priorityOptions = [
-  { label: 'P1 (высший)', value: 'p1' },
-  { label: 'P2', value: 'p2' },
-  { label: 'P3', value: 'p3' },
+  { label: 'Высокий', value: 'high' },
+  { label: 'Средний', value: 'medium' },
+  { label: 'Низкий', value: 'low' },
 ]
 const statusOptions = [
   { label: 'Не проверена', value: 'untested' },
@@ -104,11 +104,11 @@ const statusOptions = [
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-surface-700 dark:text-surface-300">Причина</label>
-        <UiTextarea v-model="form.rationale" rows="3" placeholder="Почему ищем здесь?" />
+        <UiTextarea v-model="form.rationale" :rows="3" placeholder="Почему ищем здесь?" />
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-surface-700 dark:text-surface-300">Результат</label>
-        <UiTextarea v-model="form.resultNote" rows="2" placeholder="Что получилось?" />
+        <UiTextarea v-model="form.resultNote" :rows="2" placeholder="Что получилось?" />
       </div>
     </div>
 

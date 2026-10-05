@@ -3,7 +3,7 @@ import { z } from 'zod'
 import {
   jobSearchMap, jobSearchMapSection, jobSearchMapItem, jobSearchMapDonor, jobSearchMapSegment,
   donorCompany, sourcingChannel, searchMapTemplate, searchMapTemplateSection,
-  hhSavedSearch, jobBrief, scoringCriterion,
+  hhSavedSearch, jobBrief, scoringCriterion, jobSearchMapVersion,
 } from '../../../../database/schema/app'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
@@ -66,8 +66,9 @@ export default defineEventHandler(async (event) => {
   const criteriaCount = await db.select({ n: count() }).from(scoringCriterion)
     .where(and(eq(scoringCriterion.jobId, jobId), eq(scoringCriterion.organizationId, orgId)))
 
-  const versionsCount = await db.select({ n: count() }).from(jobSearchMap)
-    .where(eq(jobSearchMap.id, map.id))
+  // Считаем именно версии (раньше считались строки jobSearchMap — всегда 1).
+  const versionsCount = await db.select({ n: count() }).from(jobSearchMapVersion)
+    .where(eq(jobSearchMapVersion.mapId, map.id))
 
   return {
     map,

@@ -111,8 +111,59 @@ async function restoreVersion(versionId: string) {
   }
 }
 
+const creatingMap = ref(false)
 async function createFromTemplate(templateId?: string) {
-  await createMap(templateId)
+  // Раньше ошибка POST (403/409/500) уходила в unhandled rejection — кнопка «Создать карту»
+  // выглядела неработающей. Теперь любая ошибка видна в тосте.
+  if (creatingMap.value) return
+  creatingMap.value = true
+  try {
+    await createMap(templateId)
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage ?? e?.statusMessage ?? 'Не удалось создать карту')
+  } finally {
+    creatingMap.value = false
+  }
+}
+
+// Экспорт — в script: `window` недоступен в выражениях шаблона Vue (не в whitelist глобалов),
+// поэтому @click="window.open(...)" падал с TypeError и кнопки .md/PDF не реагировали.
+function openExport(format: 'md' | 'pdf') {
+  if (!import.meta.client) return
+  window.open(`/api/jobs/${jobId.value}/search-map/export?format=${format}`, '_blank', 'noopener')
+}
+
+// Ручное создание сегмента (раньше сегменты появлялись только из AI-генерации):
+// создаём заготовку с минимальным набором полей (схема требует хотя бы один параметр поиска)
+// и сразу открываем дровер для заполнения.
+const creatingSegment = ref(false)
+async function createSegment() {
+  if (creatingSegment.value) return
+  creatingSegment.value = true
+  try {
+    const hh = channels.value.find((c: any) => c.code === 'hh')
+    const result = await addSegments([{
+      name: 'Новый сегмент',
+      donorLayer: 'core',
+      channelId: hh?.id ?? null,
+      priority: 'medium',
+    }])
+    const createdId = (result as any)?.items?.[0]?.id
+    if (createdId) onSegmentClick(createdId)
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage ?? e?.statusMessage ?? 'Не удалось создать сегмент')
+  } finally {
+    creatingSegment.value = false
+  }
+}
+
+async function onAcknowledge() {
+  try {
+    await acknowledgeSources()
+    toast.success('Изменения источников учтены')
+  } catch (e: any) {
+    toast.error(e?.statusMessage ?? 'Ошибка')
+  }
 }
 </script>
 
@@ -122,6 +173,7 @@ async function createFromTemplate(templateId?: string) {
     <SearchMapEmptyState
       v-if="showEmpty"
       :templates="templates"
+      :creating="creatingMap"
       @create="createFromTemplate"
     />
 
@@ -142,8 +194,8 @@ async function createFromTemplate(templateId?: string) {
         <div class="flex items-center gap-3">
           <Radar class="size-5 text-brand-600" />
           <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-50">Карта поиска</h1>
-          <UiBadge variant="surface">{{ smData.map.status }}</UiBadge>
-          <UiBadge v-if="smData.versionsCount > 0" variant="brand">v{{ smData.versionsCount }}</UiBadge>
+          <UiBadge tone="neutral">{{ smData.map.status }}</UiBadge>
+          <UiBadge v-if="smData.versionsCount > 0" tone="brand">v{{ smData.versionsCount }}</UiBadge>
         </div>
         <div v-if="canEdit" class="flex gap-2">
           <UiButton size="sm" variant="ghost" :loading="generating" @click="aiGenerate">
@@ -155,10 +207,10 @@ async function createFromTemplate(templateId?: string) {
           <UiButton size="sm" variant="ghost" @click="loadVersions">
             История
           </UiButton>
-          <UiButton size="sm" variant="ghost" @click="window.open(`/api/jobs/${jobId}/search-map/export?format=md`, '_blank')">
+          <UiButton size="sm" variant="ghost" @click="openExport('md')">
             .md
           </UiButton>
-          <UiButton size="sm" variant="ghost" @click="window.open(`/api/jobs/${jobId}/search-map/export?format=pdf`, '_blank')">
+          <UiButton size="sm" variant="ghost" @click="openExport('pdf')">
             <FileDown class="mr-1 size-4" /> PDF
           </UiButton>
         </div>
@@ -176,7 +228,7 @@ async function createFromTemplate(templateId?: string) {
         <div class="space-y-1">
           <div v-for="v in versions" :key="v.id" class="flex items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface-100 dark:hover:bg-surface-800">
             <div class="flex items-center gap-2">
-              <UiBadge variant="brand">v{{ v.versionNo }}</UiBadge>
+              <UiBadge tone="brand">v{{ v.versionNo }}</UiBadge>
               <span class="text-surface-700 dark:text-surface-300">{{ v.label }}</span>
               <span class="text-xs text-surface-400">{{ new Date(v.createdAt).toLocaleDateString('ru') }}</span>
             </div>
@@ -192,7 +244,7 @@ async function createFromTemplate(templateId?: string) {
           <p class="text-sm text-warning-800 dark:text-warning-200">
             ⚠ Изменились: {{ staleSourcesText }}
           </p>
-          <UiButton v-if="canEdit" size="sm" variant="ghost" @click="acknowledgeSources().then(() => smRefresh())">
+          <UiButton v-if="canEdit" size="sm" variant="ghost" @click="onAcknowledge">
             Учтено
           </UiButton>
         </div>
@@ -236,7 +288,12 @@ async function createFromTemplate(templateId?: string) {
 
           <!-- Segments -->
           <div>
-            <h2 class="mb-3 text-sm font-semibold text-surface-700 dark:text-surface-300">Сегменты</h2>
+            <div class="mb-3 flex items-center justify-between">
+              <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300">Сегменты</h2>
+              <UiButton v-if="canEdit" size="sm" variant="ghost" :loading="creatingSegment" @click="createSegment">
+                <Plus class="mr-1 size-4" /> Сегмент
+              </UiButton>
+            </div>
             <SearchMapSegmentTable
               :segments="smData.segments"
               :can-edit="canEdit"

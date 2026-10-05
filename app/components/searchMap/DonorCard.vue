@@ -30,8 +30,8 @@ const layerLabels: Record<string, string> = {
       <HypothesisStatusBadge :status="donor.donor.hypothesisStatus" />
     </div>
     <div class="mt-2 flex items-center gap-2">
-      <UiBadge variant="surface" class="text-xs">{{ layerLabels[donor.donor.layer] ?? donor.donor.layer }}</UiBadge>
-      <UiBadge variant="surface" class="text-xs">{{ donor.donor.priority }}</UiBadge>
+      <UiBadge tone="neutral" class="text-xs">{{ layerLabels[donor.donor.layer] ?? donor.donor.layer }}</UiBadge>
+      <UiBadge tone="neutral" class="text-xs">{{ donor.donor.priority }}</UiBadge>
     </div>
     <p v-if="donor.donor.rationale" class="mt-1.5 line-clamp-2 text-xs text-surface-500">
       {{ donor.donor.rationale }}

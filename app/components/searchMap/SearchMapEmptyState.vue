@@ -3,16 +3,20 @@ import { Radar } from 'lucide-vue-next'
 
 const props = defineProps<{
   templates: { id: string; name: string; isDefault?: boolean }[]
+  creating?: boolean
 }>()
 
 const emit = defineEmits<{ create: [templateId?: string] }>()
 
 const selectedTemplate = ref<string | undefined>(undefined)
 
-onMounted(() => {
-  const def = props.templates.find(t => t.isDefault)
+// Шаблоны приходят из тела 404 (not_created) и могут появиться позже первого рендера —
+// поэтому watch с immediate, а не onMounted.
+watch(() => props.templates, (list) => {
+  if (selectedTemplate.value) return
+  const def = list.find(t => t.isDefault) ?? list[0]
   if (def) selectedTemplate.value = def.id
-})
+}, { immediate: true })
 
 function create() {
   emit('create', selectedTemplate.value)
@@ -31,7 +35,7 @@ function create() {
     </div>
 
     <div class="mt-6">
-      <UiButton @click="create">Создать карту</UiButton>
+      <UiButton :loading="creating" @click="create">Создать карту</UiButton>
     </div>
   </div>
 </template>

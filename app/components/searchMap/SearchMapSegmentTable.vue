@@ -69,7 +69,7 @@ const visibleSegments = computed(() =>
             <td class="py-2 pr-4 text-surface-600 dark:text-surface-400">{{ s.segment.donorLayer ?? '—' }}</td>
             <td class="py-2 pr-4 text-surface-600 dark:text-surface-400">{{ s.channel?.name ?? '—' }}</td>
             <td class="py-2 pr-4">
-              <UiBadge variant="surface">{{ s.segment.priority }}</UiBadge>
+              <UiBadge tone="neutral">{{ s.segment.priority }}</UiBadge>
             </td>
             <td class="py-2 pr-4">
               <HypothesisStatusBadge :status="s.segment.hypothesisStatus" />
