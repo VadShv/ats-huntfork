@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
-import { jobSearchMapSegment } from '../../../../../database/schema/app'
+import { jobSearchMapSegment } from '../../../../../../database/schema/app'
 
 const paramsSchema = z.object({ id: z.string().min(1), segmentId: z.string().min(1) })
 
