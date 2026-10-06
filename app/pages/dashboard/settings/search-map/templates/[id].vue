@@ -14,6 +14,17 @@ const { allowed: canManage } = usePermission({ searchMap: ['manage_registry'] })
 const templateId = computed(() => route.params.id as string)
 const isNew = computed(() => templateId.value === 'new')
 
+// Пять типов секций — это фиксированный словарь карты (enum search_map_section_type).
+// Шаблон отвечает на вопрос «какие из них включить, как назвать и что подсказать рекрутеру»,
+// поэтому UI — чек-лист из пяти карточек, а не произвольный список «выпадашка + поле».
+const SECTION_CATALOG: { type: string; label: string; hint: string; defaultGuidance: string; defaultRequired: boolean }[] = [
+  { type: 'title_synonyms', label: 'Тайтлы и синонимы', hint: 'Как называют позицию в разных компаниях; англоязычные варианты', defaultGuidance: 'Как позицию называют в разных компаниях и сегментах рынка; добавьте англоязычные варианты', defaultRequired: true },
+  { type: 'keywords', label: 'Ключевые слова и навыки', hint: 'Технологии, инструменты, домены — то, что встречается в резюме', defaultGuidance: 'Технологии, инструменты, методологии, домены; то, что есть в резюме, а не в вакансии', defaultRequired: true },
+  { type: 'geo', label: 'География', hint: 'Города, регионы, часовые пояса, релокация, формат', defaultGuidance: 'Города, регионы, часовые пояса, релокация', defaultRequired: false },
+  { type: 'exclusions', label: 'Исключения', hint: 'Компании non-poach, ложные тайтлы, стоп-факторы', defaultGuidance: 'Компании, которые не трогаем (клиенты, партнёры, non-poach), тайтлы-ложные срабатывания', defaultRequired: false },
+  { type: 'notes', label: 'Заметки и договорённости', hint: 'Калибровка с HM, ограничения, уровень и домен', defaultGuidance: 'Калибровка с HM, что обсуждали, ограничения', defaultRequired: false },
+]
+
 const form = reactive({
   name: '',
   code: '',
@@ -24,18 +35,9 @@ const form = reactive({
 
 const saving = ref(false)
 
-// Стартовый набор секций для нового шаблона — сервер требует sections.min(1)
-// (templateInputSchema), пустой шаблон получал 400 при создании.
-const DEFAULT_SECTIONS = [
-  { sectionType: 'title_synonyms', title: 'Тайтлы и синонимы', guidance: 'Как позицию называют в разных компаниях; добавьте англоязычные варианты', isRequired: true },
-  { sectionType: 'keywords', title: 'Ключевые слова и навыки', guidance: 'Технологии, инструменты, домены — то, что есть в резюме', isRequired: true },
-  { sectionType: 'geo', title: 'География', guidance: 'Города, регионы, часовые пояса, релокация', isRequired: false },
-  { sectionType: 'exclusions', title: 'Исключения', guidance: 'Компании, которые не трогаем; тайтлы-ложные срабатывания', isRequired: false },
-  { sectionType: 'notes', title: 'Заметки и договорённости', guidance: 'Калибровка с HM, ограничения', isRequired: false },
-]
-
 if (isNew.value) {
-  form.sections = DEFAULT_SECTIONS.map(s => ({ ...s }))
+  // Новый шаблон: все пять секций включены — сервер требует хотя бы одну (sections.min(1))
+  form.sections = SECTION_CATALOG.map(c => ({ sectionType: c.type, title: c.label, guidance: c.defaultGuidance, isRequired: c.defaultRequired }))
 } else {
   const { data, error } = await useFetch(`/api/search-map/templates/${templateId.value}`, {
     headers: useRequestHeaders(['cookie']),
@@ -59,38 +61,36 @@ if (isNew.value) {
   }, { immediate: true })
 }
 
-// Строго значения enum search_map_section_type — 'custom' в БД нет, сервер отвечал 400.
-const sectionTypes = [
-  { label: 'Тайтлы и синонимы', value: 'title_synonyms' },
-  { label: 'Ключевые слова и навыки', value: 'keywords' },
-  { label: 'География', value: 'geo' },
-  { label: 'Исключения', value: 'exclusions' },
-  { label: 'Заметки', value: 'notes' },
-]
-
-function addSection() {
-  // Один тип = одна секция (unique(templateId, sectionType)) — предлагаем первый свободный тип.
-  const used = new Set(form.sections.map(s => s.sectionType))
-  const free = sectionTypes.find(t => !used.has(t.value))
-  if (!free) {
-    toast.error('Все типы секций уже добавлены')
-    return
-  }
-  form.sections.push({ sectionType: free.value, title: free.label, guidance: '', isRequired: false })
+function sectionOf(type: string) {
+  return form.sections.find(s => s.sectionType === type)
 }
+function isEnabled(type: string) {
+  return !!sectionOf(type)
+}
+function toggleSection(type: string, on: boolean) {
+  if (!canManage.value) return
+  if (on && !sectionOf(type)) {
+    const def = SECTION_CATALOG.find(c => c.type === type)!
+    form.sections.push({ sectionType: type, title: def.label, guidance: def.defaultGuidance, isRequired: def.defaultRequired })
+  } else if (!on) {
+    const idx = form.sections.findIndex(s => s.sectionType === type)
+    if (idx >= 0) form.sections.splice(idx, 1)
+  }
+}
+const enabledCount = computed(() => form.sections.length)
 
 function sectionsPayload() {
-  return form.sections.map((s, i) => ({
-    sectionType: s.sectionType,
-    title: s.title.trim() || sectionTypes.find(t => t.value === s.sectionType)?.label || 'Секция',
-    guidance: s.guidance?.trim() || null,
-    isRequired: s.isRequired,
-    displayOrder: i,
-  }))
-}
-
-function removeSection(idx: number) {
-  form.sections.splice(idx, 1)
+  // Порядок — как в каталоге, чтобы карта у рекрутера всегда читалась одинаково
+  return SECTION_CATALOG
+    .map(c => sectionOf(c.type))
+    .filter((s): s is NonNullable<typeof s> => !!s)
+    .map((s, i) => ({
+      sectionType: s.sectionType,
+      title: s.title.trim() || SECTION_CATALOG.find(c => c.type === s.sectionType)?.label || 'Секция',
+      guidance: s.guidance?.trim() || null,
+      isRequired: s.isRequired,
+      displayOrder: i,
+    }))
 }
 
 async function save() {
@@ -100,11 +100,6 @@ async function save() {
   }
   if (!form.sections.length) {
     toast.error('Добавьте хотя бы одну секцию')
-    return
-  }
-  const types = form.sections.map(s => s.sectionType)
-  if (new Set(types).size !== types.length) {
-    toast.error('Типы секций не должны повторяться')
     return
   }
   saving.value = true
@@ -188,20 +183,54 @@ async function setDefault() {
     <!-- Sections -->
     <div class="space-y-2">
       <div class="flex items-center justify-between">
-        <h2 class="text-sm font-semibold">Секции</h2>
-        <UiButton v-if="canManage" size="sm" variant="ghost" @click="addSection">+ Секция</UiButton>
-      </div>
-      <div v-for="(s, i) in form.sections" :key="i" class="space-y-2 rounded-lg border border-surface-200 p-3 dark:border-surface-800">
-        <div class="flex items-center gap-2">
-          <UiSelect v-model="s.sectionType" :options="sectionTypes" class="flex-1" :disabled="!canManage" />
-          <UiInput v-model="s.title" placeholder="Название секции" class="flex-1" :disabled="!canManage" />
-          <button v-if="canManage" class="text-danger-600" @click="removeSection(i)">✕</button>
+        <div>
+          <h2 class="text-sm font-semibold">Секции карты</h2>
+          <p class="text-xs text-surface-500">
+            Отметьте, какие блоки появятся в карте каждой вакансии, созданной по этому шаблону. Включено: {{ enabledCount }} из {{ SECTION_CATALOG.length }}.
+          </p>
         </div>
-        <UiTextarea v-model="s.guidance" :rows="2" placeholder="Подсказка для рекрутера" :disabled="!canManage" />
-        <label class="flex items-center gap-2 text-xs text-surface-500">
-          <input v-model="s.isRequired" type="checkbox" class="size-3" :disabled="!canManage" />
-          Обязательная
+      </div>
+
+      <div
+        v-for="c in SECTION_CATALOG"
+        :key="c.type"
+        class="rounded-lg border p-3 transition-colors"
+        :class="isEnabled(c.type) ? 'border-surface-200 dark:border-surface-800' : 'border-dashed border-surface-200 bg-surface-50/50 dark:border-surface-800 dark:bg-surface-900/30'"
+      >
+        <label class="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            class="mt-1 size-4"
+            :checked="isEnabled(c.type)"
+            :disabled="!canManage"
+            @change="toggleSection(c.type, ($event.target as HTMLInputElement).checked)"
+          />
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-sm font-medium text-surface-900 dark:text-surface-50">{{ c.label }}</span>
+              <code class="rounded bg-surface-100 px-1.5 py-0.5 text-[11px] text-surface-500 dark:bg-surface-800">{{ c.type }}</code>
+              <UiBadge v-if="sectionOf(c.type)?.isRequired" tone="brand">обязательная</UiBadge>
+            </div>
+            <p class="text-xs text-surface-500">{{ c.hint }}</p>
+          </div>
         </label>
+
+        <div v-if="isEnabled(c.type)" class="mt-3 grid gap-2 pl-7 sm:grid-cols-[1fr_auto]">
+          <div class="space-y-2">
+            <div>
+              <label class="mb-1 block text-xs font-medium text-surface-500">Как секция называется в карте</label>
+              <UiInput v-model="sectionOf(c.type)!.title" :placeholder="c.label" :disabled="!canManage" />
+            </div>
+            <div>
+              <label class="mb-1 block text-xs font-medium text-surface-500">Подсказка рекрутеру (видна в пустой секции и уходит ИИ при генерации)</label>
+              <UiTextarea v-model="sectionOf(c.type)!.guidance" :rows="2" :placeholder="c.defaultGuidance" :disabled="!canManage" />
+            </div>
+          </div>
+          <label class="flex items-start gap-2 pt-6 text-xs text-surface-600 dark:text-surface-300">
+            <input v-model="sectionOf(c.type)!.isRequired" type="checkbox" class="mt-0.5 size-3.5" :disabled="!canManage" />
+            <span>Обязательная<br><span class="text-surface-400">карта считается неполной, пока секция пуста</span></span>
+          </label>
+        </div>
       </div>
     </div>
 

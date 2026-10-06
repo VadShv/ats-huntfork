@@ -7,62 +7,79 @@ import {
 } from '../../../../database/schema/app'
 import { generateInputSchema } from '../../../../utils/schemas/searchMap'
 import { buildGeneratePrompt } from '../../../../utils/searchMap/buildGeneratePrompt'
+import { buildQueryUrl } from '../../../../utils/searchMap/buildQueryUrl'
 import { normalizeCompanyName } from '../../../../utils/searchMap/normalizeCompanyName'
+import {
+  SECTION_TITLES, cleanList, normalizeItemValue, normalizeLayer, normalizePriority,
+  normalizeSectionType, resolveChannel,
+} from '../../../../utils/searchMap/normalizeAiVocab'
 import { loadAiConfig } from '../../../../utils/ai/loadConfig'
 import { generateStructuredOutput, type SupportedProvider } from '../../../../utils/ai/provider'
 
-// ВАЖНО: словарь ответа ИИ обязан совпадать с enum'ами БД
-// (search_map_section_type, search_map_priority, search_map_donor_layer).
-// Раньше здесь были 'key_skills'/'p1' и т.п. — Postgres отклонял insert → 500 на «Дополнить по брифу».
-const SECTION_TYPES = ['title_synonyms', 'keywords', 'geo', 'exclusions', 'notes'] as const
-const PRIORITIES = ['high', 'medium', 'low'] as const
-const LAYERS = ['core', 'adjacent', 'school', 'alumni', 'custom'] as const
+/**
+ * POST /api/jobs/[id]/search-map/generate — AI-генерация содержимого карты.
+ * Право: searchMap:edit
+ *
+ * Устойчивость (почему так):
+ *  1. «full» разбит на ТРИ параллельных небольших вызова (секции / доноры / сегменты).
+ *     Один большой ответ у reasoning-моделей шёл минутами и упирался в 300s-таймаут
+ *     прокси/клиента; маленькие ответы быстрее и падают независимо.
+ *  2. Схема ответа принимает строки, а не z.enum: модели пишут "P1", "hh.ru", "key_skills".
+ *     Нормализация → enum'ы БД в normalizeAiVocab.ts; непонятное пропускается с warning.
+ *  3. Частичный успех: если упал один вызов — остальные применяются, ошибка в warnings.
+ *     Если упали все — 502 с текстом причины (а не безликий 500).
+ */
 
-// Та же нормализация, что в sections/[sectionId]/items.post.ts (колонка normalized_value NOT NULL,
-// без неё insert падал).
-const normalizeItemValue = (v: string) => v.toLowerCase().trim().replace(/ё/g, 'е')
+const itemSchema = z.object({ value: z.string(), note: z.string().nullish() })
 
-const SECTION_TITLES: Record<(typeof SECTION_TYPES)[number], string> = {
-  title_synonyms: 'Тайтлы и синонимы',
-  keywords: 'Ключевые слова и навыки',
-  geo: 'География',
-  exclusions: 'Исключения',
-  notes: 'Заметки',
-}
-
-const aiOutputSchema = z.object({
+const sectionsOutputSchema = z.object({
   summary: z.string().nullish(),
   sections: z.array(z.object({
-    sectionType: z.enum(SECTION_TYPES),
-    items: z.array(z.object({
-      value: z.string(),
-      note: z.string().nullish(),
-    })),
-  })).optional(),
-  donors: z.array(z.object({
-    name: z.string(),
-    layer: z.enum(LAYERS),
-    priority: z.enum(PRIORITIES),
-    rationale: z.string(),
-    industry: z.string().nullish(),
-    techStack: z.array(z.string()).optional(),
-  })).optional(),
-  segments: z.array(z.object({
-    name: z.string(),
-    donorLayer: z.enum(LAYERS).nullish(),
-    titles: z.array(z.string()),
-    keywords: z.array(z.string()),
-    geo: z.array(z.string()),
-    channelCode: z.string(),
-    queryString: z.string().nullish(),
-    priority: z.enum(PRIORITIES),
-  })).optional(),
+    sectionType: z.string(),
+    title: z.string().nullish(),
+    items: z.array(itemSchema).max(25),
+  })).max(8).default([]),
 })
 
-/**
- * POST /api/jobs/[id]/search-map/generate — AI-генерация контента карты.
- * Право: searchMap:edit
- */
+const donorsOutputSchema = z.object({
+  donors: z.array(z.object({
+    name: z.string(),
+    layer: z.string().nullish(),
+    priority: z.string().nullish(),
+    rationale: z.string().nullish(),
+    industry: z.string().nullish(),
+    techStack: z.array(z.string()).nullish(),
+  })).max(20).default([]),
+})
+
+const segmentsOutputSchema = z.object({
+  segments: z.array(z.object({
+    name: z.string(),
+    donorLayer: z.string().nullish(),
+    titles: z.array(z.string()).nullish(),
+    keywords: z.array(z.string()).nullish(),
+    geo: z.array(z.string()).nullish(),
+    channelCode: z.string().nullish(),
+    queryString: z.string().nullish(),
+    priority: z.string().nullish(),
+    rationale: z.string().nullish(),
+  })).max(10).default([]),
+})
+
+type SectionsOut = z.infer<typeof sectionsOutputSchema>
+type DonorsOut = z.infer<typeof donorsOutputSchema>
+type SegmentsOut = z.infer<typeof segmentsOutputSchema>
+
+function errorText(err: unknown): string {
+  const e = err as any
+  const msg: string = e?.message ?? String(err)
+  if (/abort|timed out/i.test(msg)) return 'модель не ответила за 300 секунд'
+  if (/No object generated|schema|JSON/i.test(msg)) return 'модель вернула ответ не по схеме'
+  if (/401|403|api key|unauthorized/i.test(msg)) return 'провайдер ИИ отклонил ключ (401/403)'
+  if (/429|rate limit/i.test(msg)) return 'провайдер ИИ ограничил частоту запросов (429)'
+  return msg.slice(0, 200)
+}
+
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { searchMap: ['edit'] })
   const orgId = session.session.activeOrganizationId
@@ -70,6 +87,7 @@ export default defineEventHandler(async (event) => {
   const { id: jobId } = await getValidatedRouterParams(event, z.object({ id: z.string().min(1) }).parse)
   await requireJobInScope(event, jobId)
   const body = await readValidatedBody(event, generateInputSchema.parse)
+  const mode = body.mode ?? 'append'
 
   const [j] = await db.select({ title: job.title, description: job.description }).from(job)
     .where(and(eq(job.id, jobId), eq(job.organizationId, orgId))).limit(1)
@@ -79,6 +97,7 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(jobSearchMap.jobId, jobId), eq(jobSearchMap.organizationId, orgId))).limit(1)
   if (!map) throw createError({ statusCode: 404, statusMessage: 'Карта не найдена' })
 
+  // ── Контекст для промпта ─────────────────────────────────────────
   const [brief] = await db.select().from(jobBrief)
     .where(and(eq(jobBrief.jobId, jobId), eq(jobBrief.organizationId, orgId))).limit(1)
   const criteria = await db.select({ name: scoringCriterion.name, category: scoringCriterion.category, weight: scoringCriterion.weight })
@@ -90,9 +109,7 @@ export default defineEventHandler(async (event) => {
   const existingItems = await db.select().from(jobSearchMapItem)
     .where(eq(jobSearchMapItem.mapId, map.id))
 
-  // Реальные коды каналов организации — иначе модель выдумывает 'hh_ru' и сегменты пропускаются.
-  const activeChannels = await db.select({ code: sourcingChannel.code, name: sourcingChannel.name })
-    .from(sourcingChannel)
+  const activeChannels = await db.select().from(sourcingChannel)
     .where(and(eq(sourcingChannel.organizationId, orgId), eq(sourcingChannel.isActive, true)))
     .orderBy(asc(sourcingChannel.displayOrder))
 
@@ -101,8 +118,7 @@ export default defineEventHandler(async (event) => {
     .innerJoin(donorCompany, eq(donorCompany.id, jobSearchMapDonor.donorCompanyId))
     .where(eq(jobSearchMapDonor.mapId, map.id))
 
-  const { system, prompt } = buildGeneratePrompt({
-    scope: body.scope,
+  const promptBase = {
     jobTitle: j.title,
     brief: brief ?? undefined,
     criteria,
@@ -112,133 +128,185 @@ export default defineEventHandler(async (event) => {
       items: existingItems.filter(i => i.sectionId === s.id).map(i => i.value),
     })),
     existingDonors: existingDonorRows,
-    channels: activeChannels,
+    channels: activeChannels.map(c => ({ code: c.code, name: c.name })),
     hint: body.hint,
-  })
-
-  const aiConfig = await loadAiConfig(orgId as string, { purpose: 'analysis' })
-  const { object: aiResult, responseModel } = await generateStructuredOutput({
-    ...aiConfig,
-    provider: aiConfig.provider as SupportedProvider,
-  }, {
-    system,
-    prompt,
-    schema: aiOutputSchema,
-    schemaName: 'searchMapGeneration',
-    schemaDescription: 'AI-generated search map content',
-    temperature: 0.3,
-    disableThinking: true,
-  })
-
-  const warnings: string[] = []
-  const mode = body.mode ?? 'append'
-
-  // Apply summary
-  if (aiResult.summary && (mode === 'append' || !map.summary)) {
-    await db.update(jobSearchMap).set({ summary: aiResult.summary, updatedAt: new Date() }).where(eq(jobSearchMap.id, map.id))
   }
 
-  // Apply sections
+  const aiConfigRow = await loadAiConfig(orgId as string, { purpose: 'analysis' })
+  const aiConfig = { ...aiConfigRow, provider: aiConfigRow.provider as SupportedProvider }
+
+  async function callAi<T>(scope: 'section' | 'donors' | 'segments', schema: z.ZodType<T>, schemaName: string): Promise<T> {
+    const { system, prompt } = buildGeneratePrompt({ scope, ...promptBase })
+    const startedAt = Date.now()
+    try {
+      const { object, responseModel } = await generateStructuredOutput(aiConfig, {
+        system,
+        prompt,
+        schema,
+        schemaName,
+        schemaDescription: `Search map: ${scope}`,
+        temperature: 0.3,
+        disableThinking: true,
+      })
+      console.info(`[search-map:generate] ${scope} ok in ${Date.now() - startedAt}ms (model ${responseModel ?? aiConfig.model})`)
+      return object
+    } catch (err) {
+      console.error(`[search-map:generate] ${scope} failed after ${Date.now() - startedAt}ms:`, (err as any)?.message ?? err)
+      throw err
+    }
+  }
+
+  // ── Какие части генерируем ───────────────────────────────────────
+  const wantSections = body.scope === 'full' || body.scope === 'section' || body.scope === 'summary'
+  const wantDonors = body.scope === 'full' || body.scope === 'donors'
+  const wantSegments = body.scope === 'full' || body.scope === 'segments' || body.scope === 'query_string'
+
+  const [secRes, donRes, segRes] = await Promise.allSettled([
+    wantSections ? callAi('section', sectionsOutputSchema, 'searchMapSections') : Promise.resolve(null),
+    wantDonors ? callAi('donors', donorsOutputSchema, 'searchMapDonors') : Promise.resolve(null),
+    wantSegments ? callAi('segments', segmentsOutputSchema, 'searchMapSegments') : Promise.resolve(null),
+  ])
+
+  const warnings: string[] = []
+  const failures: string[] = []
+  const pick = <T>(r: PromiseSettledResult<T | null>, label: string): T | null => {
+    if (r.status === 'fulfilled') return r.value
+    failures.push(`${label}: ${errorText(r.reason)}`)
+    return null
+  }
+  const sectionsOut = pick<SectionsOut>(secRes, 'Секции')
+  const donorsOut = pick<DonorsOut>(donRes, 'Доноры')
+  const segmentsOut = pick<SegmentsOut>(segRes, 'Сегменты')
+
+  const requested = [wantSections, wantDonors, wantSegments].filter(Boolean).length
+  if (failures.length === requested) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: `Генерация не удалась: ${failures.join('; ')}`,
+      data: { failures },
+    })
+  }
+  warnings.push(...failures.map(f => `Часть не сгенерирована — ${f}`))
+
+  // ── Summary ─────────────────────────────────────────────────────
+  if (sectionsOut?.summary && (mode === 'append' || !map.summary)) {
+    await db.update(jobSearchMap).set({ summary: sectionsOut.summary.trim(), updatedAt: new Date() })
+      .where(eq(jobSearchMap.id, map.id))
+  }
+
+  // ── Sections / items ────────────────────────────────────────────
   let itemsAdded = 0
   let createdSections = 0
-  if (aiResult.sections) {
-    for (const aiSection of aiResult.sections) {
-      const [section] = await db.select().from(jobSearchMapSection)
-        .where(and(eq(jobSearchMapSection.mapId, map.id), eq(jobSearchMapSection.sectionType, aiSection.sectionType))).limit(1)
+  if (sectionsOut?.sections?.length) {
+    const sectionByType = new Map(existingSections.map(s => [s.sectionType as string, s]))
+    for (const aiSection of sectionsOut.sections) {
+      const sectionType = normalizeSectionType(aiSection.sectionType)
+      if (!sectionType) {
+        warnings.push(`Секция «${aiSection.sectionType}» не распознана — пропущена`)
+        continue
+      }
+      let section = sectionByType.get(sectionType)
+      if (!section) {
+        const [created] = await db.insert(jobSearchMapSection).values({
+          mapId: map.id,
+          organizationId: orgId as string,
+          sectionType,
+          title: SECTION_TITLES[sectionType],
+          displayOrder: existingSections.length + createdSections++,
+        }).returning()
+        if (!created) continue
+        section = created
+        sectionByType.set(sectionType, created)
+      }
 
-      if (section) {
-        if (mode === 'append') {
-          const existing = await db.select().from(jobSearchMapItem).where(eq(jobSearchMapItem.sectionId, section.id))
-          const seen = new Set(existing.map(e => e.normalizedValue))
-          let order = existing.length
-          for (const item of aiSection.items) {
-            const normalizedValue = normalizeItemValue(item.value)
-            if (!normalizedValue || seen.has(normalizedValue)) continue
-            seen.add(normalizedValue)
-            await db.insert(jobSearchMapItem).values({
-              mapId: map.id, sectionId: section.id, organizationId: orgId as string,
-              value: item.value, normalizedValue, note: item.note ?? null, origin: 'ai', displayOrder: order++,
-            })
-            itemsAdded++
-          }
-        }
-      } else {
-        const sectionId = crypto.randomUUID()
-        const sectionOrder = existingSections.length + createdSections
-        await db.insert(jobSearchMapSection).values({
-          id: sectionId, mapId: map.id, organizationId: orgId as string,
-          sectionType: aiSection.sectionType,
-          title: SECTION_TITLES[aiSection.sectionType],
-          displayOrder: sectionOrder,
+      const existing = await db.select({ normalizedValue: jobSearchMapItem.normalizedValue })
+        .from(jobSearchMapItem).where(eq(jobSearchMapItem.sectionId, section.id))
+      if (mode === 'fill_empty' && existing.length) continue
+
+      const seen = new Set(existing.map(e => e.normalizedValue))
+      let order = existing.length
+      for (const item of aiSection.items) {
+        const value = String(item.value ?? '').trim().slice(0, 500)
+        const normalizedValue = normalizeItemValue(value)
+        if (!normalizedValue || seen.has(normalizedValue)) continue
+        seen.add(normalizedValue)
+        await db.insert(jobSearchMapItem).values({
+          mapId: map.id, sectionId: section.id, organizationId: orgId as string,
+          value, normalizedValue, note: item.note?.trim() || null, origin: 'ai', displayOrder: order++,
         })
-        createdSections++
-        const seen = new Set<string>()
-        let i = 0
-        for (const item of aiSection.items) {
-          const normalizedValue = normalizeItemValue(item.value)
-          if (!normalizedValue || seen.has(normalizedValue)) continue
-          seen.add(normalizedValue)
-          await db.insert(jobSearchMapItem).values({
-            mapId: map.id, sectionId, organizationId: orgId as string,
-            value: item.value, normalizedValue, note: item.note ?? null,
-            origin: 'ai', displayOrder: i++,
-          })
-          itemsAdded++
-        }
+        itemsAdded++
       }
     }
   }
 
-  // Apply donors
+  // ── Donors ──────────────────────────────────────────────────────
   let donorsAdded = 0
-  if (aiResult.donors) {
+  if (donorsOut?.donors?.length) {
     const existingDonors = await db.select().from(jobSearchMapDonor).where(eq(jobSearchMapDonor.mapId, map.id))
+    const presentCompanyIds = new Set(existingDonors.map(d => d.donorCompanyId))
     let order = existingDonors.length
-    for (const d of aiResult.donors) {
-      const normalized = normalizeCompanyName(d.name)
+    for (const d of donorsOut.donors) {
+      const name = String(d.name ?? '').trim().slice(0, 160)
+      if (!name) continue
+      const normalized = normalizeCompanyName(name)
       let [company] = await db.select().from(donorCompany)
         .where(and(eq(donorCompany.organizationId, orgId), eq(donorCompany.normalizedName, normalized))).limit(1)
 
       if (!company) {
         [company] = await db.insert(donorCompany).values({
-          organizationId: orgId, canonicalName: d.name, normalizedName: normalized,
-          industry: d.industry ?? null, techStack: d.techStack ?? [],
+          organizationId: orgId, canonicalName: name, normalizedName: normalized,
+          industry: d.industry?.trim() || null, techStack: cleanList(d.techStack, 30),
           createdById: userId, createdFromJobId: jobId,
         }).returning()
       }
-
-      const already = existingDonors.some(ed => ed.donorCompanyId === company!.id)
-      if (already && mode === 'append') continue
+      if (!company || presentCompanyIds.has(company.id)) continue
+      presentCompanyIds.add(company.id)
 
       await db.insert(jobSearchMapDonor).values({
         organizationId: orgId, mapId: map.id, donorCompanyId: company.id,
-        layer: d.layer, priority: d.priority, rationale: d.rationale,
+        layer: normalizeLayer(d.layer) ?? 'custom',
+        priority: normalizePriority(d.priority),
+        rationale: d.rationale?.trim() || null,
         origin: 'ai', displayOrder: order++,
       })
       donorsAdded++
     }
   }
 
-  // Apply segments
+  // ── Segments ────────────────────────────────────────────────────
   let segmentsAdded = 0
-  if (aiResult.segments) {
-    const existingSegments = await db.select().from(jobSearchMapSegment).where(eq(jobSearchMapSegment.mapId, map.id))
+  if (segmentsOut?.segments?.length) {
+    const existingSegments = await db.select({ name: jobSearchMapSegment.name }).from(jobSearchMapSegment)
+      .where(eq(jobSearchMapSegment.mapId, map.id))
+    const seenNames = new Set(existingSegments.map(s => s.name.toLowerCase().trim()))
     let order = existingSegments.length
-    for (const s of aiResult.segments) {
-      const [channel] = await db.select().from(sourcingChannel)
-        .where(and(eq(sourcingChannel.organizationId, orgId), eq(sourcingChannel.code, s.channelCode))).limit(1)
+    for (const s of segmentsOut.segments) {
+      const name = String(s.name ?? '').trim().slice(0, 200)
+      const titles = cleanList(s.titles, 10)
+      const keywords = cleanList(s.keywords, 20)
+      const geo = cleanList(s.geo, 5)
+      const donorLayer = normalizeLayer(s.donorLayer)
+      const channel = resolveChannel(s.channelCode, activeChannels)
 
       if (!channel) {
-        warnings.push(`Канал "${s.channelCode}" не найден — сегмент "${s.name}" пропущен`)
+        warnings.push(`Канал «${s.channelCode ?? '—'}» не найден — сегмент «${name || '?'}» пропущен`)
         continue
       }
+      if (!name || seenNames.has(name.toLowerCase())) continue
+      if (!titles.length && !keywords.length && !geo.length && !donorLayer) continue
+      seenNames.add(name.toLowerCase())
 
+      const queryString = s.queryString?.trim() || null
       await db.insert(jobSearchMapSegment).values({
         organizationId: orgId, mapId: map.id,
-        name: s.name, donorLayer: s.donorLayer ?? null,
-        titles: s.titles, keywords: s.keywords, geo: s.geo,
-        channelId: channel.id, queryString: s.queryString ?? null,
-        priority: s.priority, origin: 'ai', displayOrder: order++,
+        name, donorLayer,
+        titles, keywords, geo,
+        channelId: channel.id,
+        queryString,
+        queryUrl: buildQueryUrl({ queryString, urlTemplate: channel.urlTemplate, targetSite: channel.targetSite, titles, geo }),
+        priority: normalizePriority(s.priority, normalizePriority(channel.defaultPriority)),
+        rationale: s.rationale?.trim() || null,
+        origin: 'ai', displayOrder: order++,
       })
       segmentsAdded++
     }
@@ -246,8 +314,8 @@ export default defineEventHandler(async (event) => {
 
   return {
     scope: body.scope,
-    model: responseModel ?? aiConfig.model,
-    summary: aiResult.summary,
+    model: aiConfig.model,
+    summary: sectionsOut?.summary ?? null,
     itemsAdded,
     donorsAdded,
     segmentsAdded,

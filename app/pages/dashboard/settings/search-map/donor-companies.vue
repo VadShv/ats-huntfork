@@ -23,9 +23,10 @@ async function addCompany() {
   if (!addForm.name.trim()) return
   adding.value = true
   try {
+    // Схема donorCompanyInputSchema ждёт canonicalName (раньше уходил `name` → 400 Validation Error)
     await $fetch('/api/search-map/donor-companies', {
       method: 'POST',
-      body: { name: addForm.name.trim(), industry: addForm.industry.trim() || undefined },
+      body: { canonicalName: addForm.name.trim(), industry: addForm.industry.trim() || undefined },
     })
     toast.success('Компания добавлена')
     showAdd.value = false
@@ -33,7 +34,11 @@ async function addCompany() {
     addForm.industry = ''
     await refresh()
   } catch (e: any) {
-    toast.error(e?.statusMessage ?? 'Ошибка')
+    if (e?.statusCode === 409 || e?.status === 409) {
+      toast.error('Такая компания уже есть в реестре')
+    } else {
+      toast.error(e?.data?.statusMessage ?? e?.statusMessage ?? 'Не удалось добавить компанию')
+    }
   } finally {
     adding.value = false
   }

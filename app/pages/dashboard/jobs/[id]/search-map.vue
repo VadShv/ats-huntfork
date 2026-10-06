@@ -79,11 +79,24 @@ async function aiGenerate() {
     const result = await $fetch(`/api/jobs/${jobId.value}/search-map/generate`, {
       method: 'POST',
       body: { scope: 'full', mode: 'append' },
+      timeout: 320_000, // сервер режет на 300s; три части идут параллельно
     })
-    toast.success(`Добавлено: ${result.itemsAdded} пунктов, ${result.donorsAdded} доноров, ${result.segmentsAdded} сегментов`)
+    const total = result.itemsAdded + result.donorsAdded + result.segmentsAdded
+    if (total === 0) {
+      toast.info('Модель не предложила ничего нового — карта уже покрывает бриф, либо все пункты оказались дублями')
+    } else {
+      toast.success(`Добавлено: ${result.itemsAdded} пунктов, ${result.donorsAdded} доноров, ${result.segmentsAdded} сегментов`)
+    }
+    for (const w of (result.warnings ?? []).slice(0, 3)) toast.warning('Генерация: предупреждение', w)
     await smRefresh()
   } catch (e: any) {
-    toast.error(e?.statusMessage ?? 'Ошибка генерации')
+    const msg = e?.data?.statusMessage ?? e?.statusMessage
+    toast.error('Генерация не удалась', {
+      message: msg && msg !== 'Internal Server Error'
+        ? msg
+        : 'Проверьте настройки ИИ (Настройки → ИИ) и логи сервера по метке [search-map:generate]',
+      statusCode: e?.statusCode ?? e?.status,
+    })
   } finally {
     generating.value = false
   }
@@ -198,8 +211,8 @@ async function onAcknowledge() {
           <UiBadge v-if="smData.versionsCount > 0" tone="brand">v{{ smData.versionsCount }}</UiBadge>
         </div>
         <div v-if="canEdit" class="flex gap-2">
-          <UiButton size="sm" variant="ghost" :loading="generating" @click="aiGenerate">
-            <Sparkles class="mr-1 size-4" /> AI
+          <UiButton size="sm" variant="ghost" :loading="generating" :title="generating ? 'Три запроса к модели идут параллельно, обычно 30–90 секунд' : 'Дополнить карту по брифу, критериям и описанию'" @click="aiGenerate">
+            <Sparkles class="mr-1 size-4" /> {{ generating ? 'Генерация… до 2 мин' : 'Дополнить по брифу' }}
           </UiButton>
           <UiButton size="sm" variant="ghost" @click="showVersionModal = true">
             <GitBranch class="mr-1 size-4" /> Версия
@@ -277,6 +290,7 @@ async function onAcknowledge() {
             <DonorCompanyPicker
               v-if="showDonorPicker && canEdit"
               :job-id="jobId"
+              :existing-names="smData.donors.map((d: any) => d.company?.canonicalName).filter(Boolean)"
               @added="smRefresh()"
             />
             <SearchMapDonorLayerBoard
