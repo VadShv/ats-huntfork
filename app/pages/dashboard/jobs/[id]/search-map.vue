@@ -1,9 +1,14 @@
 <script setup lang="ts">
 /**
  * Карта поиска по вакансии — основной экран.
- * docs/tz-search-map.md §11.2
+ * docs/tz-search-map.md §11.2; docs/tz-search-map-v2.md §3 (R1: документ-вид).
+ *
+ * Два режима: «Документ» (читаемая карта — то же, что в PDF, но живое: вердикт, факты,
+ * кликабельные гипотезы и доноры, точечное ИИ-дополнение блоков) и «Редактор» (прежний
+ * экран с секциями, доской доноров и таблицей гипотез). Режим запоминается в localStorage.
  */
 import { Radar, Sparkles, GitBranch, Plus, FileDown } from 'lucide-vue-next'
+import { buildSearchMapDocument } from '~~/shared/searchMap/documentModel'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'require-org'] })
 
@@ -46,6 +51,56 @@ const showVersions = ref(false)
 const showVersionModal = ref(false)
 const versions = ref<any[]>([])
 
+// ── Режим отображения: документ | редактор ─────────────────────────
+type ViewMode = 'document' | 'editor'
+const VIEW_KEY = 'hf.searchMap.viewMode'
+const viewMode = ref<ViewMode>('document')
+const viewOptions = [
+  { value: 'document', label: 'Документ' },
+  { value: 'editor', label: 'Редактор' },
+]
+onMounted(() => {
+  const saved = localStorage.getItem(VIEW_KEY)
+  if (saved === 'document' || saved === 'editor') viewMode.value = saved
+})
+watch(viewMode, v => { if (import.meta.client) localStorage.setItem(VIEW_KEY, v) })
+
+// Версии нужны документу — грузим при входе в режим и после создания/восстановления.
+async function fetchVersions() {
+  try {
+    const result = await $fetch(`/api/jobs/${jobId.value}/search-map/versions`)
+    versions.value = result.versions
+  } catch { /* документ покажется без блока версий */ }
+}
+watch([viewMode, hasMap], ([mode, has]) => { if (mode === 'document' && has) fetchVersions() }, { immediate: true })
+
+const jobTitle = computed(() => smData.value?.jobTitle || 'Вакансия')
+
+/** Документ-модель — единый источник для экрана и PDF (shared/searchMap/documentModel.ts). */
+const doc = computed(() => {
+  const d = smData.value
+  if (!d) return null
+  return buildSearchMapDocument({
+    jobTitle: jobTitle.value,
+    map: d.map as any,
+    sections: d.sections as any,
+    donors: d.donors as any,
+    segments: d.segments as any,
+    versions: versions.value as any,
+    staleSources: d.staleSources,
+  })
+})
+
+/** Пункты секции «Исключения» — в дровер гипотезы для сборки NOT (...) */
+const exclusionValues = computed<string[]>(() => {
+  const sec = (smData.value?.sections ?? []).find((s: any) => s.sectionType === 'exclusions')
+  return sec ? sec.items.map((i: any) => i.value) : []
+})
+
+async function onVerdictSaved() {
+  await smRefresh()
+}
+
 // Drawers
 const selectedDonor = ref<any>(null)
 const showDonorDrawer = ref(false)
@@ -76,16 +131,17 @@ function onSegmentClick(segmentId: string) {
 async function aiGenerate() {
   generating.value = true
   try {
+    // Ответ эндпоинта — union по scope (full | summary | query_string); для full берём счётчики.
     const result = await $fetch(`/api/jobs/${jobId.value}/search-map/generate`, {
       method: 'POST',
       body: { scope: 'full', mode: 'append' },
       timeout: 320_000, // сервер режет на 300s; три части идут параллельно
-    })
+    }) as { itemsAdded: number; donorsAdded: number; segmentsAdded: number; warnings?: string[] }
     const total = result.itemsAdded + result.donorsAdded + result.segmentsAdded
     if (total === 0) {
       toast.info('Модель не предложила ничего нового — карта уже покрывает бриф, либо все пункты оказались дублями')
     } else {
-      toast.success(`Добавлено: ${result.itemsAdded} пунктов, ${result.donorsAdded} доноров, ${result.segmentsAdded} сегментов`)
+      toast.success(`Добавлено: ${result.itemsAdded} пунктов, ${result.donorsAdded} доноров, ${result.segmentsAdded} гипотез`)
     }
     for (const w of (result.warnings ?? []).slice(0, 3)) toast.warning('Генерация: предупреждение', w)
     await smRefresh()
@@ -104,8 +160,7 @@ async function aiGenerate() {
 
 async function loadVersions() {
   try {
-    const result = await $fetch(`/api/jobs/${jobId.value}/search-map/versions`)
-    versions.value = result.versions
+    await fetchVersions()
     showVersions.value = true
   } catch (e: any) {
     toast.error(e?.statusMessage ?? 'Ошибка')
@@ -118,7 +173,7 @@ async function restoreVersion(versionId: string) {
     await $fetch(`/api/jobs/${jobId.value}/search-map/versions/${versionId}/restore`, { method: 'POST' })
     toast.success('Версия восстановлена')
     showVersions.value = false
-    await smRefresh()
+    await Promise.all([smRefresh(), fetchVersions()])
   } catch (e: any) {
     toast.error(e?.statusMessage ?? 'Ошибка')
   }
@@ -146,7 +201,7 @@ function openExport(format: 'md' | 'pdf') {
   window.open(`/api/jobs/${jobId.value}/search-map/export?format=${format}`, '_blank', 'noopener')
 }
 
-// Ручное создание сегмента (раньше сегменты появлялись только из AI-генерации):
+// Ручное создание гипотезы (раньше они появлялись только из AI-генерации):
 // создаём заготовку с минимальным набором полей (схема требует хотя бы один параметр поиска)
 // и сразу открываем дровер для заполнения.
 const creatingSegment = ref(false)
@@ -156,7 +211,7 @@ async function createSegment() {
   try {
     const hh = channels.value.find((c: any) => c.code === 'hh')
     const result = await addSegments([{
-      name: 'Новый сегмент',
+      name: 'Новая гипотеза',
       donorLayer: 'core',
       channelId: hh?.id ?? null,
       priority: 'medium',
@@ -164,7 +219,7 @@ async function createSegment() {
     const createdId = (result as any)?.items?.[0]?.id
     if (createdId) onSegmentClick(createdId)
   } catch (e: any) {
-    toast.error(e?.data?.statusMessage ?? e?.statusMessage ?? 'Не удалось создать сегмент')
+    toast.error(e?.data?.statusMessage ?? e?.statusMessage ?? 'Не удалось создать гипотезу')
   } finally {
     creatingSegment.value = false
   }
@@ -210,7 +265,9 @@ async function onAcknowledge() {
           <UiBadge tone="neutral">{{ smData.map.status }}</UiBadge>
           <UiBadge v-if="smData.versionsCount > 0" tone="brand">v{{ smData.versionsCount }}</UiBadge>
         </div>
-        <div v-if="canEdit" class="flex gap-2">
+        <div class="flex items-center gap-2">
+          <UiSegmented v-model="viewMode" :options="viewOptions" size="sm" aria-label="Режим карты" />
+          <div v-if="canEdit" class="flex gap-2">
           <UiButton size="sm" variant="ghost" :loading="generating" :title="generating ? 'Три запроса к модели идут параллельно, обычно 30–90 секунд' : 'Дополнить карту по брифу, критериям и описанию'" @click="aiGenerate">
             <Sparkles class="mr-1 size-4" /> {{ generating ? 'Генерация… до 2 мин' : 'Дополнить по брифу' }}
           </UiButton>
@@ -226,14 +283,18 @@ async function onAcknowledge() {
           <UiButton size="sm" variant="ghost" @click="openExport('pdf')">
             <FileDown class="mr-1 size-4" /> PDF
           </UiButton>
+          </div>
+          <div v-else class="flex gap-2">
+            <UiButton size="sm" variant="ghost" @click="openExport('pdf')"><FileDown class="mr-1 size-4" /> PDF</UiButton>
+          </div>
         </div>
       </div>
 
-      <!-- Stats panel -->
-      <SearchMapStatsPanel :job-id="jobId" />
+      <!-- Stats panel (только в редакторе — в документе факты под вердиктом) -->
+      <SearchMapStatsPanel v-if="viewMode === 'editor'" :job-id="jobId" />
 
-      <!-- Versions panel -->
-      <div v-if="showVersions" class="rounded-lg border border-surface-200 p-4 dark:border-surface-800">
+      <!-- Versions panel (редактор; в документе версии — отдельный блок) -->
+      <div v-if="showVersions && viewMode === 'editor'" class="rounded-lg border border-surface-200 p-4 dark:border-surface-800">
         <div class="mb-2 flex items-center justify-between">
           <h3 class="text-sm font-semibold">Версии карты</h3>
           <button class="text-surface-400 hover:text-surface-600" @click="showVersions = false">✕</button>
@@ -251,8 +312,8 @@ async function onAcknowledge() {
         </div>
       </div>
 
-      <!-- Stale banner -->
-      <div v-if="isStale" class="rounded-lg border border-warning-300 bg-warning-50 p-4 dark:border-warning-700 dark:bg-warning-950">
+      <!-- Stale banner (в документе — свой) -->
+      <div v-if="isStale && viewMode === 'editor'" class="rounded-lg border border-warning-300 bg-warning-50 p-4 dark:border-warning-700 dark:bg-warning-950">
         <div class="flex items-center justify-between">
           <p class="text-sm text-warning-800 dark:text-warning-200">
             ⚠ Изменились: {{ staleSourcesText }}
@@ -263,8 +324,25 @@ async function onAcknowledge() {
         </div>
       </div>
 
-      <!-- Two columns: sections + donors/segments -->
-      <div class="grid gap-6 lg:grid-cols-2">
+      <!-- Документ -->
+      <SearchMapDocumentView
+        v-if="viewMode === 'document' && doc"
+        :doc="doc"
+        :job-id="jobId"
+        :can-edit="canEdit"
+        show-versions
+        @segment-click="onSegmentClick"
+        @donor-click="onDonorClick"
+        @refresh="smRefresh()"
+        @restore-version="restoreVersion"
+      >
+        <template #verdict>
+          <SearchMapVerdict :job-id="jobId" :summary="smData.map.summary" :can-edit="canEdit" @saved="onVerdictSaved" />
+        </template>
+      </SearchMapDocumentView>
+
+      <!-- Редактор: секции + доноры/гипотезы -->
+      <div v-else class="grid gap-6 lg:grid-cols-2">
         <!-- Sections -->
         <div class="space-y-4">
           <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300">Секции</h2>
@@ -283,9 +361,12 @@ async function onAcknowledge() {
           <div>
             <div class="mb-3 flex items-center justify-between">
               <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300">Компании-доноры</h2>
-              <UiButton v-if="canEdit" size="sm" variant="ghost" @click="showDonorPicker = !showDonorPicker">
-                <Plus class="mr-1 size-4" /> Добавить
-              </UiButton>
+              <div v-if="canEdit" class="flex items-center gap-1">
+                <SearchMapAiAssist :job-id="jobId" scope="donors" label="Дополнить с ИИ" @done="smRefresh()" />
+                <UiButton size="sm" variant="ghost" @click="showDonorPicker = !showDonorPicker">
+                  <Plus class="mr-1 size-4" /> Добавить
+                </UiButton>
+              </div>
             </div>
             <DonorCompanyPicker
               v-if="showDonorPicker && canEdit"
@@ -303,10 +384,13 @@ async function onAcknowledge() {
           <!-- Segments -->
           <div>
             <div class="mb-3 flex items-center justify-between">
-              <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300">Сегменты</h2>
-              <UiButton v-if="canEdit" size="sm" variant="ghost" :loading="creatingSegment" @click="createSegment">
-                <Plus class="mr-1 size-4" /> Сегмент
-              </UiButton>
+              <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300">Гипотезы поиска</h2>
+              <div v-if="canEdit" class="flex items-center gap-1">
+                <SearchMapAiAssist :job-id="jobId" scope="segments" label="Дополнить с ИИ" @done="smRefresh()" />
+                <UiButton size="sm" variant="ghost" :loading="creatingSegment" @click="createSegment">
+                  <Plus class="mr-1 size-4" /> Гипотеза
+                </UiButton>
+              </div>
             </div>
             <SearchMapSegmentTable
               :segments="smData.segments"
@@ -333,6 +417,7 @@ async function onAcknowledge() {
       :job-id="jobId"
       :channels="channels"
       :donors="smData?.donors ?? []"
+      :exclusions="exclusionValues"
       @updated="smRefresh()"
     />
 
@@ -340,7 +425,7 @@ async function onAcknowledge() {
     <CreateVersionModal
       v-model="showVersionModal"
       :job-id="jobId"
-      @created="smRefresh()"
+      @created="smRefresh(); fetchVersions()"
     />
   </div>
 </template>

@@ -106,14 +106,28 @@ export const versionInputSchema = z.object({
 
 // ─── AI Generation ────────────────────────────────────────────────
 
+/**
+ * Вход генерации (docs/tz-search-map-v2.md §3.5):
+ *  - full / section / donors / segments — дополняют карту (mode append | fill_empty), пишут в БД;
+ *  - summary — возвращает новый вердикт БЕЗ сохранения (клиент показывает «было/стало» и PATCH'ит);
+ *  - query_string — требует segmentId и hint, возвращает новую строку БЕЗ сохранения.
+ */
 export const generateInputSchema = z.object({
   scope: z.enum(['full', 'section', 'donors', 'segments', 'query_string', 'summary']),
   mode: z.enum(['fill_empty', 'append']).optional().default('append'),
   sectionId: z.string().min(1).optional(),
   layer: donorLayerSchema.optional(),
   segmentId: z.string().min(1).optional(),
+  /** Сколько элементов просить у модели (кнопка «Ещё похожие» → 3). */
+  limit: z.number().int().min(1).max(10).optional(),
+  /** @deprecated синоним limit, оставлен для совместимости */
   count: z.number().int().min(1).max(30).optional(),
   hint: z.string().max(500).nullish(),
+}).superRefine((v, ctx) => {
+  if (v.scope === 'query_string') {
+    if (!v.segmentId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['segmentId'], message: 'Для переписывания запроса укажите гипотезу (segmentId)' })
+    if (!v.hint?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['hint'], message: 'Для переписывания запроса нужна подсказка — что изменить' })
+  }
 })
 
 // ─── Snapshot (jsonb in versions) ─────────────────────────────────

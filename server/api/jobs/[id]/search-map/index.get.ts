@@ -1,10 +1,9 @@
-import { eq, and, asc, count } from 'drizzle-orm'
+import { eq, and, count } from 'drizzle-orm'
 import { z } from 'zod'
 import {
-  jobSearchMap, jobSearchMapSection, jobSearchMapItem, jobSearchMapDonor, jobSearchMapSegment,
-  donorCompany, sourcingChannel, searchMapTemplate, searchMapTemplateSection,
-  hhSavedSearch, jobBrief, scoringCriterion, jobSearchMapVersion,
+  job, jobSearchMap, searchMapTemplate, jobBrief, scoringCriterion, jobSearchMapVersion,
 } from '../../../../database/schema/app'
+import { loadMapBundle } from '../../../../utils/searchMap/loadMapBundle'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -28,32 +27,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Карта поиска не создана', data: { reason: 'not_created', templates } })
   }
 
-  const sections = await db.select().from(jobSearchMapSection)
-    .where(eq(jobSearchMapSection.mapId, map.id)).orderBy(asc(jobSearchMapSection.displayOrder))
-
-  const items = await db.select().from(jobSearchMapItem)
-    .where(eq(jobSearchMapItem.mapId, map.id)).orderBy(asc(jobSearchMapItem.displayOrder))
-
-  const donors = await db.select({
-    donor: jobSearchMapDonor,
-    company: { id: donorCompany.id, canonicalName: donorCompany.canonicalName, industry: donorCompany.industry, tags: donorCompany.tags },
-  })
-    .from(jobSearchMapDonor)
-    .innerJoin(donorCompany, eq(donorCompany.id, jobSearchMapDonor.donorCompanyId))
-    .where(eq(jobSearchMapDonor.mapId, map.id))
-    .orderBy(asc(jobSearchMapDonor.displayOrder))
-
-  const segments = await db.select({
-    segment: jobSearchMapSegment,
-    channel: { id: sourcingChannel.id, code: sourcingChannel.code, name: sourcingChannel.name, urlTemplate: sourcingChannel.urlTemplate, targetSite: sourcingChannel.targetSite },
-    hhSearchesCount: count(hhSavedSearch.id),
-  })
-    .from(jobSearchMapSegment)
-    .leftJoin(sourcingChannel, eq(sourcingChannel.id, jobSearchMapSegment.channelId))
-    .leftJoin(hhSavedSearch, eq(hhSavedSearch.searchMapSegmentId, jobSearchMapSegment.id))
-    .where(eq(jobSearchMapSegment.mapId, map.id))
-    .groupBy(jobSearchMapSegment.id, sourcingChannel.id, sourcingChannel.code, sourcingChannel.name, sourcingChannel.urlTemplate, sourcingChannel.targetSite)
-    .orderBy(asc(jobSearchMapSegment.displayOrder))
+  const [{ sections, donors, segments }, [jobRow]] = await Promise.all([
+    loadMapBundle(map.id),
+    db.select({ title: job.title }).from(job).where(eq(job.id, jobId)).limit(1),
+  ])
 
   const currentHashes = await computeSourceHashes(jobId, orgId)
   const staleSources: string[] = []
@@ -71,11 +48,9 @@ export default defineEventHandler(async (event) => {
     .where(eq(jobSearchMapVersion.mapId, map.id))
 
   return {
+    jobTitle: jobRow?.title ?? '',
     map,
-    sections: sections.map(s => ({
-      ...s,
-      items: items.filter(i => i.sectionId === s.id),
-    })),
+    sections,
     donors,
     segments,
     isStale: staleSources.length > 0,

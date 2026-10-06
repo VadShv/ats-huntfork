@@ -15,7 +15,7 @@ const statusLabels: Record<string, string> = {
 <template>
   <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
     <div class="rounded-lg border border-surface-200 p-3 dark:border-surface-800">
-      <p class="text-xs text-surface-500">Сегментов</p>
+      <p class="text-xs text-surface-500">Гипотез</p>
       <p class="text-xl font-semibold text-surface-900 dark:text-surface-50">{{ data?.segmentsTotal ?? 0 }}</p>
     </div>
     <div class="rounded-lg border border-surface-200 p-3 dark:border-surface-800">

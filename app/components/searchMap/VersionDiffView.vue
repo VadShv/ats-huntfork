@@ -47,7 +47,7 @@ const props = defineProps<{
 
     <!-- Segments diff -->
     <div v-if="diff.segments.added.length || diff.segments.removed.length || diff.segments.changed.length">
-      <h4 class="mb-2 text-sm font-semibold">Сегменты</h4>
+      <h4 class="mb-2 text-sm font-semibold">Гипотезы</h4>
       <div v-if="diff.segments.added.length" class="text-xs text-success-600">
         + {{ diff.segments.added.map((s: any) => s.name).join(', ') }}
       </div>

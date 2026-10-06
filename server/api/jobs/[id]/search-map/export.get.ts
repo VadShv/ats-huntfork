@@ -1,24 +1,30 @@
-import { eq, and, asc } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
-import {
-  job, jobSearchMap, jobSearchMapSection, jobSearchMapItem, jobSearchMapDonor, jobSearchMapSegment,
-  donorCompany, sourcingChannel,
-} from '../../../../database/schema/app'
-import { exportMarkdown } from '../../../../utils/searchMap/exportMarkdown'
-import { exportHtml } from '../../../../utils/searchMap/exportPdf'
+import { job, jobSearchMap } from '../../../../database/schema/app'
+import { loadMapBundle, loadMapVersions } from '../../../../utils/searchMap/loadMapBundle'
+import { buildSearchMapDocument } from '../../../../../shared/searchMap/documentModel'
+import { renderDocumentHtml, renderDocumentMarkdown } from '../../../../../shared/searchMap/renderDocument'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
+const querySchema = z.object({
+  format: z.enum(['md', 'pdf', 'html']).optional().default('md'),
+  /** print=0 — HTML без автопечати (предпросмотр документа в новой вкладке) */
+  print: z.enum(['0', '1']).optional().default('1'),
+})
 
 /**
- * GET /api/jobs/[id]/search-map/export?format=md|pdf — экспорт карты.
- * Право: searchMap:view
+ * GET /api/jobs/[id]/search-map/export?format=md|pdf|html — экспорт карты.
+ * Право: searchMap:view.
+ *
+ * Данные и структура — те же, что у документ-вида на экране (loadMapBundle → buildSearchMapDocument),
+ * поэтому PDF и экран не расходятся. docs/tz-search-map-v2.md §3.2.
  */
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { searchMap: ['view'] })
   const orgId = session.session.activeOrganizationId
   const { id: jobId } = await getValidatedRouterParams(event, idParamSchema.parse)
   await requireJobInScope(event, jobId)
-  const format = getQuery(event).format === 'pdf' ? 'pdf' : 'md'
+  const q = querySchema.parse(getQuery(event))
 
   const [j] = await db.select({ title: job.title }).from(job)
     .where(and(eq(job.id, jobId), eq(job.organizationId, orgId))).limit(1)
@@ -28,60 +34,28 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(jobSearchMap.jobId, jobId), eq(jobSearchMap.organizationId, orgId))).limit(1)
   if (!map) throw createError({ statusCode: 404, statusMessage: 'Карта не найдена' })
 
-  const sections = await db.select().from(jobSearchMapSection)
-    .where(eq(jobSearchMapSection.mapId, map.id)).orderBy(asc(jobSearchMapSection.displayOrder))
-  const items = await db.select().from(jobSearchMapItem)
-    .where(eq(jobSearchMapItem.mapId, map.id)).orderBy(asc(jobSearchMapItem.displayOrder))
+  const [bundle, versions, hashes] = await Promise.all([
+    loadMapBundle(map.id),
+    loadMapVersions(map.id),
+    computeSourceHashes(jobId, orgId),
+  ])
+  const staleSources = (['brief', 'criteria', 'description'] as const).filter(k => hashes[k] !== map.sourceHashes[k])
 
-  const donors = await db.select({
-    donor: jobSearchMapDonor,
-    company: donorCompany,
-  }).from(jobSearchMapDonor)
-    .innerJoin(donorCompany, eq(donorCompany.id, jobSearchMapDonor.donorCompanyId))
-    .where(eq(jobSearchMapDonor.mapId, map.id))
-
-  const segments = await db.select({
-    segment: jobSearchMapSegment,
-    channel: sourcingChannel,
-  }).from(jobSearchMapSegment)
-    .leftJoin(sourcingChannel, eq(sourcingChannel.id, jobSearchMapSegment.channelId))
-    .where(eq(jobSearchMapSegment.mapId, map.id))
-    .orderBy(asc(jobSearchMapSegment.displayOrder))
-
-  const exportData = {
+  const doc = buildSearchMapDocument({
     jobTitle: j.title,
-    versionLabel: map.currentVersionNo > 0 ? `v${map.currentVersionNo}` : undefined,
-    summary: map.summary,
-    sections: sections.map(s => ({
-      title: s.title,
-      items: items.filter(i => i.sectionId === s.id).map(i => ({ value: i.value, note: i.note })),
-    })),
-    donors: donors.map(d => ({
-      canonicalName: d.company.canonicalName,
-      layer: d.donor.layer,
-      priority: d.donor.priority,
-      hypothesisStatus: d.donor.hypothesisStatus,
-      rationale: d.donor.rationale,
-    })),
-    segments: segments.map(s => ({
-      name: s.segment.name,
-      donorLayer: s.segment.donorLayer,
-      titles: s.segment.titles,
-      geo: s.segment.geo,
-      channelCode: s.channel?.code ?? null,
-      queryString: s.segment.queryString,
-      priority: s.segment.priority,
-      hypothesisStatus: s.segment.hypothesisStatus,
-    })),
-  }
+    map,
+    sections: bundle.sections,
+    donors: bundle.donors,
+    segments: bundle.segments,
+    versions,
+    staleSources,
+  })
 
-  if (format === 'pdf') {
-    const html = exportHtml(exportData)
+  if (q.format === 'pdf' || q.format === 'html') {
     setResponseHeader(event, 'Content-Type', 'text/html; charset=utf-8')
-    return html
+    return renderDocumentHtml(doc, { autoPrint: q.format === 'pdf' && q.print === '1' })
   }
 
-  const md = exportMarkdown(exportData)
   setResponseHeader(event, 'Content-Type', 'text/markdown; charset=utf-8')
-  return md
+  return renderDocumentMarkdown(doc)
 })

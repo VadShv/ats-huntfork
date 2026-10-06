@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * SegmentDrawer — форма правки сегмента поиска.
- * docs/tz-search-map.md §11.2 SegmentDrawer
+ * SegmentDrawer — форма правки гипотезы поиска (в БД/API — segment).
+ * docs/tz-search-map.md §11.2 SegmentDrawer; docs/tz-search-map-v2.md §3.4–3.5, §6.3
  */
-import { Copy, ExternalLink, Sparkles } from 'lucide-vue-next'
+import { Copy, ExternalLink, Sparkles, Wand2 } from 'lucide-vue-next'
+import { buildQueryString as buildQueryByCode, detectQueryLanguage } from '~~/shared/searchMap/queryBuilder'
 
 const props = defineProps<{
   modelValue: boolean
@@ -19,8 +20,10 @@ const props = defineProps<{
     hhSearchesCount: number
   } | null
   jobId: string
-  channels: { id: string; code: string; name: string; urlTemplate?: string | null; targetSite?: string | null }[]
+  channels: { id: string; code: string; name: string; urlTemplate?: string | null; targetSite?: string | null; queryLanguageHint?: string | null }[]
   donors: { donor: { id: string }; company: { canonicalName: string } }[]
+  /** Пункты секции «Исключения» — уходят в NOT (...) при сборке запроса кодом */
+  exclusions?: string[]
 }>()
 
 const emit = defineEmits<{ 'update:modelValue': [v: boolean]; updated: [] }>()
@@ -168,13 +171,68 @@ function openInChannel() {
   if (queryUrl.value) window.open(queryUrl.value, '_blank')
 }
 
+/**
+ * Собрать строку запроса кодом (ТЗ §6.3) — та же функция, что на сервере при генерации,
+ * поэтому «Собрать» на экране и авто-запрос у ИИ-гипотезы совпадают. Язык зависит от канала.
+ */
 function buildQueryString() {
-  const parts: string[] = []
-  if (form.titles.length) parts.push(`(${form.titles.map(t => `"${t}"`).join(' OR ')})`)
-  if (form.keywords.length) parts.push(form.keywords.join(' '))
-  if (form.geo.length) parts.push(`(${form.geo.join(' OR ')})`)
-  form.queryString = parts.join(' ')
+  form.queryString = buildQueryByCode(
+    { titles: form.titles, keywords: form.keywords, geo: form.geo },
+    selectedChannel.value ?? null,
+    props.exclusions ?? [],
+  )
 }
+const queryLanguageLabel = computed(() => {
+  const lang = detectQueryLanguage(selectedChannel.value ?? null)
+  return lang === 'xray' ? 'Google x-ray' : lang === 'plain' ? 'обычный текст' : 'boolean (AND / OR / NOT)'
+})
+
+// ── ИИ: переписать запрос (единственная замена в дровере — через «было / стало») ──
+const showRewrite = ref(false)
+const rewriteHint = ref('')
+const rewriting = ref(false)
+const rewriteProposal = ref<{ queryString: string; previous: string | null; explanation: string | null } | null>(null)
+
+async function proposeRewrite() {
+  if (!props.segment || !rewriteHint.value.trim() || rewriting.value) return
+  rewriting.value = true
+  try {
+    const res = await $fetch(`/api/jobs/${props.jobId}/search-map/generate`, {
+      method: 'POST',
+      body: { scope: 'query_string', segmentId: props.segment.segment.id, hint: rewriteHint.value.trim().slice(0, 500) },
+      timeout: 320_000,
+    }) as any
+    rewriteProposal.value = { queryString: res.queryString, previous: form.queryString || res.previous || null, explanation: res.explanation ?? null }
+  } catch (e: any) {
+    const msg = e?.data?.statusMessage ?? e?.statusMessage
+    toast.error('Не удалось переписать запрос', { message: msg && msg !== 'Internal Server Error' ? msg : 'Проверьте настройки ИИ' })
+  } finally {
+    rewriting.value = false
+  }
+}
+
+function applyRewrite() {
+  if (!rewriteProposal.value) return
+  form.queryString = rewriteProposal.value.queryString
+  rewriteProposal.value = null
+  showRewrite.value = false
+  rewriteHint.value = ''
+  toast.success('Запрос подставлен в форму', 'Не забудьте сохранить гипотезу')
+}
+
+function cancelRewrite() {
+  rewriteProposal.value = null
+  showRewrite.value = false
+}
+
+// ── ИИ: ещё похожие гипотезы — подсказка собирается из текущей ──
+const similarHint = computed(() => {
+  const parts: string[] = []
+  if (form.donorLayer) parts.push(`слой ${form.donorLayer}`)
+  if (form.titles.length) parts.push(`близкие к «${form.titles.slice(0, 2).join('», «')}»`)
+  if (selectedChannel.value) parts.push(`канал ${selectedChannel.value.name} или соседние`)
+  return `Похожие на «${form.name}»: ${parts.join(', ')}. Другие тайтлы, слои или каналы — не дубли.`
+})
 
 const layerOptions = [
   { label: 'Ядро', value: 'core' }, { label: 'Смежный', value: 'adjacent' },
@@ -195,7 +253,7 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh')
 <template>
   <UiDrawer :model-value="modelValue" width="lg" @update:model-value="emit('update:modelValue', $event)">
     <template #header>
-      <h3 class="text-lg font-semibold">{{ form.name || 'Сегмент' }}</h3>
+      <h3 class="text-lg font-semibold">{{ form.name || 'Гипотеза поиска' }}</h3>
     </template>
 
     <div v-if="segment" class="space-y-4">
@@ -219,7 +277,7 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh')
 
       <!-- Titles (chips) -->
       <div>
-        <label class="mb-1 block text-sm font-medium">Тайтлы</label>
+        <label class="mb-1 block text-sm font-medium">Должности (как пишут в резюме)</label>
         <div class="flex flex-wrap gap-1">
           <UiBadge v-for="(t, i) in form.titles" :key="i" tone="neutral" class="cursor-pointer" @click="removeItem(form.titles, i)">{{ t }} ✕</UiBadge>
         </div>
@@ -253,17 +311,48 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh')
       <!-- Query string -->
       <div>
         <div class="mb-1 flex items-center justify-between">
-          <label class="text-sm font-medium">Строка запроса</label>
+          <label class="text-sm font-medium">Строка запроса <span class="font-normal text-surface-400">· {{ queryLanguageLabel }}</span></label>
           <div class="flex gap-1">
-            <UiButton size="xs" variant="ghost" @click="buildQueryString"><Sparkles class="mr-1 size-3" />Собрать</UiButton>
-            <UiButton size="xs" variant="ghost" @click="copyQuery"><Copy class="size-3" /></UiButton>
-            <UiButton v-if="queryUrl" size="xs" variant="ghost" @click="openInChannel"><ExternalLink class="size-3" /></UiButton>
+            <UiButton size="xs" variant="ghost" title="Собрать из тайтлов, ключевых слов, гео и исключений — без ИИ" @click="buildQueryString"><Wand2 class="mr-1 size-3" />Собрать</UiButton>
+            <UiButton size="xs" variant="ghost" title="Модель перепишет запрос по вашей подсказке; вы увидите «было / стало»" @click="showRewrite = !showRewrite"><Sparkles class="mr-1 size-3" />С ИИ</UiButton>
+            <UiButton size="xs" variant="ghost" title="Скопировать" @click="copyQuery"><Copy class="size-3" /></UiButton>
+            <UiButton v-if="queryUrl" size="xs" variant="ghost" title="Открыть в канале" @click="openInChannel"><ExternalLink class="size-3" /></UiButton>
           </div>
         </div>
         <div v-if="selectedChannel?.targetSite" class="mb-1 rounded bg-surface-100 px-2 py-1 text-xs text-surface-500 dark:bg-surface-800">
           site:{{ selectedChannel.targetSite }} <span class="text-surface-400">(добавляется автоматически)</span>
         </div>
-        <UiTextarea v-model="form.queryString" :rows="2" placeholder="boolean query…" />
+        <UiTextarea v-model="form.queryString" :rows="2" placeholder="Нажмите «Собрать» или напишите вручную…" />
+
+        <!-- Переписать с ИИ -->
+        <div v-if="showRewrite" class="mt-2 space-y-2 rounded-lg border border-brand-200 bg-brand-50/40 p-3 dark:border-brand-900 dark:bg-brand-950/30">
+          <template v-if="!rewriteProposal">
+            <label class="block text-xs font-medium text-surface-700 dark:text-surface-300">Что изменить в запросе? <span class="text-danger-600">*</span></label>
+            <div class="flex gap-1">
+              <UiInput v-model="rewriteHint" size="sm" class="flex-1" maxlength="500" placeholder="Например: «добавь английские синонимы и убери junior»" @keyup.enter="proposeRewrite" />
+              <UiButton size="sm" variant="primary" :loading="rewriting" :disabled="!rewriteHint.trim()" @click="proposeRewrite">Предложить</UiButton>
+              <UiButton size="sm" variant="ghost" @click="cancelRewrite">✕</UiButton>
+            </div>
+            <p class="text-xs text-surface-400">Без подсказки запрос лучше собрать кодом — это быстрее и бесплатно.</p>
+          </template>
+          <template v-else>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <div>
+                <div class="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-surface-400">Было</div>
+                <code class="block whitespace-pre-wrap break-words rounded bg-surface-100 px-2 py-1.5 text-xs text-surface-600 dark:bg-surface-800 dark:text-surface-400">{{ rewriteProposal.previous || '— пусто —' }}</code>
+              </div>
+              <div>
+                <div class="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-brand-600">Стало</div>
+                <code class="block whitespace-pre-wrap break-words rounded bg-white px-2 py-1.5 text-xs text-surface-900 ring-1 ring-brand-200 dark:bg-surface-900 dark:text-surface-50 dark:ring-brand-800">{{ rewriteProposal.queryString }}</code>
+              </div>
+            </div>
+            <p v-if="rewriteProposal.explanation" class="text-xs text-surface-500">{{ rewriteProposal.explanation }}</p>
+            <div class="flex justify-end gap-1">
+              <UiButton size="xs" variant="ghost" @click="cancelRewrite">Оставить как было</UiButton>
+              <UiButton size="xs" variant="primary" @click="applyRewrite">Подставить</UiButton>
+            </div>
+          </template>
+        </div>
       </div>
 
       <!-- Scores -->
@@ -290,11 +379,11 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh')
 
       <!-- Rationale + Result -->
       <div>
-        <label class="mb-1 block text-sm font-medium">Причина</label>
+        <label class="mb-1 block text-sm font-medium">Почему сработает</label>
         <UiTextarea v-model="form.rationale" :rows="2" />
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium">Результат</label>
+        <label class="mb-1 block text-sm font-medium">Результат проверки</label>
         <UiTextarea v-model="form.resultNote" :rows="2" />
       </div>
 
@@ -308,9 +397,21 @@ const isHhChannel = computed(() => selectedChannel.value?.code === 'hh')
     </div>
 
     <template #footer>
-      <div class="flex justify-between">
+      <div class="flex items-center justify-between gap-2">
         <UiButton variant="ghost" class="text-danger-600" @click="archive">Архивировать</UiButton>
-        <UiButton :loading="saving" @click="save">Сохранить</UiButton>
+        <div class="flex items-center gap-2">
+          <SearchMapAiAssist
+            v-if="segment"
+            :job-id="jobId"
+            scope="segments"
+            label="Ещё похожие"
+            size="sm"
+            :limit="3"
+            :preset-hint="similarHint"
+            @done="emit('updated')"
+          />
+          <UiButton :loading="saving" @click="save">Сохранить</UiButton>
+        </div>
       </div>
     </template>
   </UiDrawer>

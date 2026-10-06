@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
     label: jobSearchMapVersion.label,
     trigger: jobSearchMapVersion.trigger,
     comment: jobSearchMapVersion.comment,
+    diffSummary: jobSearchMapVersion.diffSummary,
     createdAt: jobSearchMapVersion.createdAt,
   }).from(jobSearchMapVersion)
     .where(eq(jobSearchMapVersion.mapId, map.id))

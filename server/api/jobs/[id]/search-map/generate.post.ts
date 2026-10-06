@@ -9,25 +9,32 @@ import { generateInputSchema } from '../../../../utils/schemas/searchMap'
 import { buildGeneratePrompt } from '../../../../utils/searchMap/buildGeneratePrompt'
 import { buildQueryUrl } from '../../../../utils/searchMap/buildQueryUrl'
 import { normalizeCompanyName } from '../../../../utils/searchMap/normalizeCompanyName'
+import { segmentSemanticKey } from '../../../../utils/searchMap/generationContext'
 import {
   SECTION_TITLES, cleanList, normalizeItemValue, normalizeLayer, normalizePriority,
   normalizeSectionType, resolveChannel,
 } from '../../../../utils/searchMap/normalizeAiVocab'
+import { buildQueryString, usableExclusions } from '../../../../../shared/searchMap/queryBuilder'
 import { loadAiConfig } from '../../../../utils/ai/loadConfig'
 import { generateStructuredOutput, type SupportedProvider } from '../../../../utils/ai/provider'
 
 /**
  * POST /api/jobs/[id]/search-map/generate — AI-генерация содержимого карты.
- * Право: searchMap:edit
+ * Право: searchMap:edit. docs/tz-search-map-v2.md §2a (контекст), §3.5 (точечное дополнение), §6.2 (модели).
  *
- * Устойчивость (почему так):
- *  1. «full» разбит на ТРИ параллельных небольших вызова (секции / доноры / сегменты).
- *     Один большой ответ у reasoning-моделей шёл минутами и упирался в 300s-таймаут
- *     прокси/клиента; маленькие ответы быстрее и падают независимо.
- *  2. Схема ответа принимает строки, а не z.enum: модели пишут "P1", "hh.ru", "key_skills".
- *     Нормализация → enum'ы БД в normalizeAiVocab.ts; непонятное пропускается с warning.
- *  3. Частичный успех: если упал один вызов — остальные применяются, ошибка в warnings.
- *     Если упали все — 502 с текстом причины (а не безликий 500).
+ * Устойчивость:
+ *  1. «full» = ТРИ параллельных небольших вызова (секции / доноры / гипотезы): быстрее, падают независимо.
+ *  2. Схема ответа принимает строки, а не z.enum — модели пишут "P1", "hh.ru", "key_skills".
+ *     Нормализация → enum'ы БД (normalizeAiVocab.ts); непонятное пропускается с warning.
+ *  3. Частичный успех: упала одна часть — остальные применяются, ошибка в warnings; упали все — 502 с причиной.
+ *
+ * Контракт по частям:
+ *  - sections / donors / segments / full — пишут в БД (append | fill_empty), возвращают счётчики.
+ *  - summary — НЕ пишет: возвращает { summary, previous }, клиент показывает «было/стало» и сохраняет PATCH'ем.
+ *  - query_string — НЕ пишет: возвращает { queryString, previous, explanation } для одной гипотезы.
+ *
+ * Модели: секции и вердикт — назначение `structuring` (дешёвая, быстрая; fallback на analysis в loadAiConfig),
+ * доноры, гипотезы и запрос — `analysis` (нужны знания рынка).
  */
 
 const itemSchema = z.object({ value: z.string(), note: z.string().nullish() })
@@ -40,6 +47,8 @@ const sectionsOutputSchema = z.object({
     items: z.array(itemSchema).max(25),
   })).max(8).default([]),
 })
+
+const summaryOutputSchema = z.object({ summary: z.string() })
 
 const donorsOutputSchema = z.object({
   donors: z.array(z.object({
@@ -60,10 +69,14 @@ const segmentsOutputSchema = z.object({
     keywords: z.array(z.string()).nullish(),
     geo: z.array(z.string()).nullish(),
     channelCode: z.string().nullish(),
-    queryString: z.string().nullish(),
     priority: z.string().nullish(),
     rationale: z.string().nullish(),
   })).max(10).default([]),
+})
+
+const queryOutputSchema = z.object({
+  queryString: z.string(),
+  explanation: z.string().nullish(),
 })
 
 type SectionsOut = z.infer<typeof sectionsOutputSchema>
@@ -82,12 +95,13 @@ function errorText(err: unknown): string {
 
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { searchMap: ['edit'] })
-  const orgId = session.session.activeOrganizationId
+  const orgId = session.session.activeOrganizationId as string
   const userId = session.user.id
   const { id: jobId } = await getValidatedRouterParams(event, z.object({ id: z.string().min(1) }).parse)
   await requireJobInScope(event, jobId)
   const body = await readValidatedBody(event, generateInputSchema.parse)
   const mode = body.mode ?? 'append'
+  const limit = body.limit ?? (body.count ? Math.min(body.count, 10) : undefined)
 
   const [j] = await db.select({ title: job.title, description: job.description }).from(job)
     .where(and(eq(job.id, jobId), eq(job.organizationId, orgId))).limit(1)
@@ -112,58 +126,141 @@ export default defineEventHandler(async (event) => {
   const activeChannels = await db.select().from(sourcingChannel)
     .where(and(eq(sourcingChannel.organizationId, orgId), eq(sourcingChannel.isActive, true)))
     .orderBy(asc(sourcingChannel.displayOrder))
+  const channelById = new Map(activeChannels.map(c => [c.id, c]))
 
   const existingDonorRows = await db.select({ name: donorCompany.canonicalName, layer: jobSearchMapDonor.layer })
     .from(jobSearchMapDonor)
     .innerJoin(donorCompany, eq(donorCompany.id, jobSearchMapDonor.donorCompanyId))
     .where(eq(jobSearchMapDonor.mapId, map.id))
 
+  const existingSegmentRows = await db.select().from(jobSearchMapSegment)
+    .where(eq(jobSearchMapSegment.mapId, map.id)).orderBy(asc(jobSearchMapSegment.displayOrder))
+  const existingSegments = existingSegmentRows
+    .filter(s => !s.isArchived)
+    .map(s => ({
+      name: s.name,
+      donorLayer: s.donorLayer,
+      channelCode: s.channelId ? channelById.get(s.channelId)?.code ?? null : null,
+      titles: s.titles,
+    }))
+
+  // Исключения из секции exclusions — для детерминированной сборки запроса (NOT …).
+  const exclusionSection = existingSections.find(s => s.sectionType === 'exclusions')
+  const exclusions = usableExclusions(
+    exclusionSection ? existingItems.filter(i => i.sectionId === exclusionSection.id).map(i => i.value) : [],
+  )
+
   const promptBase = {
     jobTitle: j.title,
-    brief: brief ?? undefined,
+    brief: brief ?? null,
     criteria,
-    description: j.description ?? undefined,
+    description: j.description,
     existingSections: existingSections.map(s => ({
       title: s.title,
       items: existingItems.filter(i => i.sectionId === s.id).map(i => i.value),
     })),
     existingDonors: existingDonorRows,
-    channels: activeChannels.map(c => ({ code: c.code, name: c.name })),
+    existingSegments,
+    channels: activeChannels.map(c => ({ code: c.code, name: c.name, queryLanguageHint: c.queryLanguageHint })),
     hint: body.hint,
+    limit,
   }
 
-  const aiConfigRow = await loadAiConfig(orgId as string, { purpose: 'analysis' })
-  const aiConfig = { ...aiConfigRow, provider: aiConfigRow.provider as SupportedProvider }
+  // ── Модели по назначению (ТЗ §6.2) ────────────────────────────────
+  const [structuringRow, analysisRow] = await Promise.all([
+    loadAiConfig(orgId, { purpose: 'structuring' }),
+    loadAiConfig(orgId, { purpose: 'analysis' }),
+  ])
+  const structuringCfg = { ...structuringRow, provider: structuringRow.provider as SupportedProvider }
+  const analysisCfg = { ...analysisRow, provider: analysisRow.provider as SupportedProvider }
 
-  async function callAi<T>(scope: 'section' | 'donors' | 'segments', schema: z.ZodType<T>, schemaName: string): Promise<T> {
-    const { system, prompt } = buildGeneratePrompt({ scope, ...promptBase })
+  const runs: { part: string; model: string; promptChars: number; promptTokens: number; completionTokens: number; durationMs: number; status: 'ok' | 'error'; error?: string }[] = []
+
+  async function callAi<T>(
+    part: 'sections' | 'donors' | 'segments' | 'summary' | 'query_string',
+    schema: z.ZodType<T>,
+    schemaName: string,
+    extra: Partial<Parameters<typeof buildGeneratePrompt>[0]> = {},
+  ): Promise<T> {
+    const cfg = part === 'sections' || part === 'summary' ? structuringCfg : analysisCfg
+    const { system, prompt } = buildGeneratePrompt({ part, ...promptBase, ...extra })
     const startedAt = Date.now()
     try {
-      const { object, responseModel } = await generateStructuredOutput(aiConfig, {
+      const { object, usage, responseModel } = await generateStructuredOutput(cfg, {
         system,
         prompt,
         schema,
         schemaName,
-        schemaDescription: `Search map: ${scope}`,
-        temperature: 0.3,
+        schemaDescription: `Search map: ${part}`,
+        temperature: part === 'query_string' ? 0.1 : 0.3,
         disableThinking: true,
       })
-      console.info(`[search-map:generate] ${scope} ok in ${Date.now() - startedAt}ms (model ${responseModel ?? aiConfig.model})`)
+      const durationMs = Date.now() - startedAt
+      runs.push({ part, model: responseModel ?? cfg.model, promptChars: system.length + prompt.length, promptTokens: usage.promptTokens, completionTokens: usage.completionTokens, durationMs, status: 'ok' })
+      console.info(`[search-map:generate] ${part} ok in ${durationMs}ms · model ${responseModel ?? cfg.model} · prompt ${system.length + prompt.length} chars · tokens ${usage.promptTokens}+${usage.completionTokens}`)
       return object
     } catch (err) {
-      console.error(`[search-map:generate] ${scope} failed after ${Date.now() - startedAt}ms:`, (err as any)?.message ?? err)
+      const durationMs = Date.now() - startedAt
+      runs.push({ part, model: cfg.model, promptChars: system.length + prompt.length, promptTokens: 0, completionTokens: 0, durationMs, status: 'error', error: errorText(err) })
+      console.error(`[search-map:generate] ${part} failed after ${durationMs}ms · model ${cfg.model} · prompt ${system.length + prompt.length} chars:`, (err as any)?.message ?? err)
       throw err
     }
   }
 
+  // ── Вердикт: предложение без сохранения ──────────────────────────
+  if (body.scope === 'summary') {
+    try {
+      const out = await callAi('summary', summaryOutputSchema, 'searchMapSummary', { currentSummary: map.summary })
+      return { scope: 'summary' as const, summary: out.summary.trim(), previous: map.summary ?? null, runs, warnings: [] as string[] }
+    } catch (err) {
+      throw createError({ statusCode: 502, statusMessage: `Не удалось сформировать вердикт: ${errorText(err)}` })
+    }
+  }
+
+  // ── Запрос одной гипотезы: предложение без сохранения ────────────
+  if (body.scope === 'query_string') {
+    const target = existingSegmentRows.find(s => s.id === body.segmentId)
+    if (!target) throw createError({ statusCode: 404, statusMessage: 'Гипотеза не найдена' })
+    const ch = target.channelId ? channelById.get(target.channelId) : undefined
+    try {
+      const out = await callAi('query_string', queryOutputSchema, 'searchMapQuery', {
+        targetSegment: {
+          name: target.name, titles: target.titles, keywords: target.keywords, geo: target.geo,
+          channelCode: ch?.code ?? null, channelName: ch?.name ?? null, queryLanguageHint: ch?.queryLanguageHint ?? null,
+          queryString: target.queryString,
+        },
+      })
+      const queryString = out.queryString.trim().replace(/^site:\S+\s+/i, '')
+      return {
+        scope: 'query_string' as const, segmentId: target.id,
+        queryString, previous: target.queryString ?? null, explanation: out.explanation?.trim() || null,
+        runs, warnings: [] as string[],
+      }
+    } catch (err) {
+      throw createError({ statusCode: 502, statusMessage: `Не удалось переписать запрос: ${errorText(err)}` })
+    }
+  }
+
   // ── Какие части генерируем ───────────────────────────────────────
-  const wantSections = body.scope === 'full' || body.scope === 'section' || body.scope === 'summary'
+  const wantSections = body.scope === 'full' || body.scope === 'section'
   const wantDonors = body.scope === 'full' || body.scope === 'donors'
-  const wantSegments = body.scope === 'full' || body.scope === 'segments' || body.scope === 'query_string'
+  const wantSegments = body.scope === 'full' || body.scope === 'segments'
+
+  // Точечное дополнение: конкретная секция (scope section + sectionId) или слой доноров (donors + layer).
+  const targetSection = body.scope === 'section' && body.sectionId
+    ? existingSections.find(s => s.id === body.sectionId) ?? null
+    : null
+  if (body.scope === 'section' && body.sectionId && !targetSection) {
+    throw createError({ statusCode: 404, statusMessage: 'Секция не найдена' })
+  }
 
   const [secRes, donRes, segRes] = await Promise.allSettled([
-    wantSections ? callAi('section', sectionsOutputSchema, 'searchMapSections') : Promise.resolve(null),
-    wantDonors ? callAi('donors', donorsOutputSchema, 'searchMapDonors') : Promise.resolve(null),
+    wantSections
+      ? callAi('sections', sectionsOutputSchema, 'searchMapSections', {
+          targetSection: targetSection ? { sectionType: targetSection.sectionType, title: targetSection.title, guidance: targetSection.guidance } : null,
+        })
+      : Promise.resolve(null),
+    wantDonors ? callAi('donors', donorsOutputSchema, 'searchMapDonors', { targetLayer: body.layer ?? null }) : Promise.resolve(null),
     wantSegments ? callAi('segments', segmentsOutputSchema, 'searchMapSegments') : Promise.resolve(null),
   ])
 
@@ -176,22 +273,24 @@ export default defineEventHandler(async (event) => {
   }
   const sectionsOut = pick<SectionsOut>(secRes, 'Секции')
   const donorsOut = pick<DonorsOut>(donRes, 'Доноры')
-  const segmentsOut = pick<SegmentsOut>(segRes, 'Сегменты')
+  const segmentsOut = pick<SegmentsOut>(segRes, 'Гипотезы')
 
   const requested = [wantSections, wantDonors, wantSegments].filter(Boolean).length
   if (failures.length === requested) {
     throw createError({
       statusCode: 502,
       statusMessage: `Генерация не удалась: ${failures.join('; ')}`,
-      data: { failures },
+      data: { failures, runs },
     })
   }
   warnings.push(...failures.map(f => `Часть не сгенерирована — ${f}`))
 
-  // ── Summary ─────────────────────────────────────────────────────
-  if (sectionsOut?.summary && (mode === 'append' || !map.summary)) {
+  // ── Summary (только если пусто — вердикт с текстом не перезаписываем молча) ──
+  let summaryUpdated = false
+  if (sectionsOut?.summary && !map.summary?.trim()) {
     await db.update(jobSearchMap).set({ summary: sectionsOut.summary.trim(), updatedAt: new Date() })
       .where(eq(jobSearchMap.id, map.id))
+    summaryUpdated = true
   }
 
   // ── Sections / items ────────────────────────────────────────────
@@ -205,11 +304,13 @@ export default defineEventHandler(async (event) => {
         warnings.push(`Секция «${aiSection.sectionType}» не распознана — пропущена`)
         continue
       }
+      // Точечное дополнение одной секции: всё лишнее от модели отбрасываем молча.
+      if (targetSection && sectionType !== targetSection.sectionType) continue
       let section = sectionByType.get(sectionType)
       if (!section) {
         const [created] = await db.insert(jobSearchMapSection).values({
           mapId: map.id,
-          organizationId: orgId as string,
+          organizationId: orgId,
           sectionType,
           title: SECTION_TITLES[sectionType],
           displayOrder: existingSections.length + createdSections++,
@@ -225,13 +326,14 @@ export default defineEventHandler(async (event) => {
 
       const seen = new Set(existing.map(e => e.normalizedValue))
       let order = existing.length
-      for (const item of aiSection.items) {
+      const itemsToAdd = targetSection && limit ? aiSection.items.slice(0, limit) : aiSection.items
+      for (const item of itemsToAdd) {
         const value = String(item.value ?? '').trim().slice(0, 500)
         const normalizedValue = normalizeItemValue(value)
         if (!normalizedValue || seen.has(normalizedValue)) continue
         seen.add(normalizedValue)
         await db.insert(jobSearchMapItem).values({
-          mapId: map.id, sectionId: section.id, organizationId: orgId as string,
+          mapId: map.id, sectionId: section.id, organizationId: orgId,
           value, normalizedValue, note: item.note?.trim() || null, origin: 'ai', displayOrder: order++,
         })
         itemsAdded++
@@ -245,7 +347,8 @@ export default defineEventHandler(async (event) => {
     const existingDonors = await db.select().from(jobSearchMapDonor).where(eq(jobSearchMapDonor.mapId, map.id))
     const presentCompanyIds = new Set(existingDonors.map(d => d.donorCompanyId))
     let order = existingDonors.length
-    for (const d of donorsOut.donors) {
+    const donorsToAdd = limit ? donorsOut.donors.slice(0, limit) : donorsOut.donors
+    for (const d of donorsToAdd) {
       const name = String(d.name ?? '').trim().slice(0, 160)
       if (!name) continue
       const normalized = normalizeCompanyName(name)
@@ -264,7 +367,7 @@ export default defineEventHandler(async (event) => {
 
       await db.insert(jobSearchMapDonor).values({
         organizationId: orgId, mapId: map.id, donorCompanyId: company.id,
-        layer: normalizeLayer(d.layer) ?? 'custom',
+        layer: body.layer ?? normalizeLayer(d.layer) ?? 'custom',
         priority: normalizePriority(d.priority),
         rationale: d.rationale?.trim() || null,
         origin: 'ai', displayOrder: order++,
@@ -273,14 +376,15 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // ── Segments ────────────────────────────────────────────────────
+  // ── Segments (гипотезы) ─────────────────────────────────────────
   let segmentsAdded = 0
+  let segmentsSkippedAsDuplicates = 0
   if (segmentsOut?.segments?.length) {
-    const existingSegments = await db.select({ name: jobSearchMapSegment.name }).from(jobSearchMapSegment)
-      .where(eq(jobSearchMapSegment.mapId, map.id))
-    const seenNames = new Set(existingSegments.map(s => s.name.toLowerCase().trim()))
-    let order = existingSegments.length
-    for (const s of segmentsOut.segments) {
+    const seenNames = new Set(existingSegmentRows.map(s => s.name.toLowerCase().trim()))
+    const seenKeys = new Set(existingSegments.map(segmentSemanticKey))
+    let order = existingSegmentRows.length
+    const segmentsToAdd = limit ? segmentsOut.segments.slice(0, limit) : segmentsOut.segments
+    for (const s of segmentsToAdd) {
       const name = String(s.name ?? '').trim().slice(0, 200)
       const titles = cleanList(s.titles, 10)
       const keywords = cleanList(s.keywords, 20)
@@ -289,14 +393,23 @@ export default defineEventHandler(async (event) => {
       const channel = resolveChannel(s.channelCode, activeChannels)
 
       if (!channel) {
-        warnings.push(`Канал «${s.channelCode ?? '—'}» не найден — сегмент «${name || '?'}» пропущен`)
+        warnings.push(`Канал «${s.channelCode ?? '—'}» не найден — гипотеза «${name || '?'}» пропущена`)
         continue
       }
-      if (!name || seenNames.has(name.toLowerCase())) continue
+      if (!name) continue
       if (!titles.length && !keywords.length && !geo.length && !donorLayer) continue
-      seenNames.add(name.toLowerCase())
 
-      const queryString = s.queryString?.trim() || null
+      const semanticKey = segmentSemanticKey({ name, donorLayer, channelCode: channel.code, titles })
+      if (seenNames.has(name.toLowerCase()) || (titles.length && seenKeys.has(semanticKey))) {
+        segmentsSkippedAsDuplicates++
+        continue
+      }
+      seenNames.add(name.toLowerCase())
+      seenKeys.add(semanticKey)
+
+      // Строка запроса — только кодом (ТЗ §6.3): модель её не возвращает, шаблон зависит от канала,
+      // результат совпадает с кнопкой «Собрать» в дровере.
+      const queryString = buildQueryString({ titles, keywords, geo }, channel, exclusions) || null
       await db.insert(jobSearchMapSegment).values({
         organizationId: orgId, mapId: map.id,
         name, donorLayer,
@@ -311,14 +424,27 @@ export default defineEventHandler(async (event) => {
       segmentsAdded++
     }
   }
+  if (segmentsSkippedAsDuplicates) {
+    warnings.push(`${segmentsSkippedAsDuplicates} гипотез(ы) совпали с существующими по слою, каналу и тайтлам — пропущены`)
+  }
+
+  if (itemsAdded || donorsAdded || segmentsAdded || summaryUpdated) {
+    await db.update(jobSearchMap).set({
+      lastGeneratedAt: new Date(),
+      lastGenerationModel: runs.find(r => r.status === 'ok')?.model ?? analysisCfg.model,
+      updatedAt: new Date(),
+    }).where(eq(jobSearchMap.id, map.id))
+  }
 
   return {
     scope: body.scope,
-    model: aiConfig.model,
+    model: analysisCfg.model,
     summary: sectionsOut?.summary ?? null,
+    summaryUpdated,
     itemsAdded,
     donorsAdded,
     segmentsAdded,
     warnings,
+    runs,
   }
 })

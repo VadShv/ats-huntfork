@@ -25,7 +25,7 @@ const form = reactive({
 
 watch(() => props.segment, (s) => {
   if (s) {
-    form.name = s.segment.name ?? 'Поиск из сегмента'
+    form.name = s.segment.name ?? 'Поиск из гипотезы'
     form.text = props.queryString ?? ''
   }
 }, { immediate: true })
