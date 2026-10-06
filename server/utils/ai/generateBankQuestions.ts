@@ -6,6 +6,7 @@
  */
 import { z } from 'zod'
 import { generateStructuredOutput, type ProviderConfig } from './provider'
+import { withAiOperation } from './usage/context'
 
 const bankQuestionTypes = [
   'behavioral', 'situational', 'motivational', 'factual', 'verification',
@@ -70,7 +71,7 @@ export async function generateBankQuestions(
     ? `\n\n<инструкция>\n${opts.extraInstruction.trim().slice(0, 2000)}\n</инструкция>`
     : ''
 
-  const result = await generateStructuredOutput(config, {
+  const result = await withAiOperation({ operation: 'questionBank.generate' }, () => generateStructuredOutput(config, {
     system: `Ты — методолог структурированных интервью по компетенциям.
 Сгенерируй примерно ${count} открытых поведенческих вопросов для оценки заданной темы.
 
@@ -86,7 +87,7 @@ export async function generateBankQuestions(
     schemaName: 'GeneratedBankQuestions',
     schemaDescription: 'Вопросы банка, сгенерированные под тему оценки',
     wrapBareArray: items => ({ questions: items }),
-  })
+  }))
 
   return result.object.questions
     .map(q => ({

@@ -9,11 +9,14 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { generateObject, NoObjectGeneratedError, streamObject, streamText } from 'ai'
+import { generateObject, NoObjectGeneratedError, streamObject, streamText, wrapLanguageModel } from 'ai'
 import type { z } from 'zod'
 import { decrypt } from '../encryption'
 import { createYandexFetch } from './yandexFetch'
 import { createCloudRuFetch, thinkingFamilyFor } from './cloudRuFetch'
+import { usageMiddleware } from './usage/middleware'
+import { withAiOperation } from './usage/context'
+import { patchAiUsageEvents } from './usage/writer'
 
 export type SupportedProvider = 'openai' | 'anthropic' | 'google' | 'openai_compatible' | 'yandex' | 'cloud_ru'
 
@@ -23,6 +26,19 @@ export interface ProviderConfig {
   apiKeyEncrypted: string
   baseUrl?: string | null
   maxTokens: number
+  /**
+   * id строки ai_config — для учёта расхода (снимок цены этой конфигурации).
+   * Необязателен: без id цена ищется по provider+model организации. docs/tz-ai-usage.md §3.2
+   */
+  id?: string | null
+}
+
+/** Обернуть модель учётом расхода: каждый вызов LLM пишется в ai_usage_event. */
+function withUsageTracking<M extends Parameters<typeof wrapLanguageModel>[0]['model']>(model: M, config: ProviderConfig) {
+  return wrapLanguageModel({
+    model,
+    middleware: usageMiddleware({ id: config.id ?? null, provider: config.provider, model: config.model }),
+  })
 }
 
 /** Detailed info about a single model (presentation + suggested defaults). */
@@ -159,8 +175,13 @@ export const PROVIDER_REGISTRY: Record<string, {
 /**
  * Create a language model instance from encrypted config.
  * Decrypts the API key just-in-time and never persists it in memory beyond the call.
+ * Каждый вызов модели учитывается в журнале расхода ИИ (usage middleware).
  */
 export function createLanguageModel(config: ProviderConfig) {
+  return withUsageTracking(createRawLanguageModel(config), config)
+}
+
+function createRawLanguageModel(config: ProviderConfig) {
   const secret = env.BETTER_AUTH_SECRET
   const apiKey = decrypt(config.apiKeyEncrypted, secret)
 
@@ -393,76 +414,87 @@ export async function generateStructuredOutput<T>(
     ? createCloudRuStreamModel(config, false)
     : createLanguageModel(config)
 
-  try {
-    // Внимание: НЕ передаём maxOutputTokens. У reasoning-моделей (GLM, Qwen)
-    // «размышления» тратят выходной бюджет, и обрезка структурированного ответа
-    // гарантированно ломает парсинг. config.maxTokens применяется в стриминговых
-    // вызовах (streamTextOutput/streamStructuredOutput), где обрезка не фатальна.
-    const abortController = new AbortController()
-    const timeoutHandle = setTimeout(() => abortController.abort(new Error('AI structured output timed out after 300s')), 300_000)
-    let result
+  // Учёт расхода: собираем id событий этого вызова, чтобы пометить их, если ответ
+  // пришлось восстанавливать (repaired) или он не прошёл схему (error/schema).
+  const usageEventIds: string[] = []
+  return withAiOperation({ eventCollector: usageEventIds }, async () => {
     try {
-      result = await generateObject({
-        model,
-        system: options.system + JSON_ONLY_GUARD,
-        prompt: options.prompt,
-        schema: options.schema,
-        schemaName: options.schemaName,
-        schemaDescription: options.schemaDescription,
-        temperature: options.temperature ?? 0.1,
-        abortSignal: abortController.signal,
-      })
-    }
-    finally {
-      clearTimeout(timeoutHandle)
-    }
+      // Внимание: НЕ передаём maxOutputTokens. У reasoning-моделей (GLM, Qwen)
+      // «размышления» тратят выходной бюджет, и обрезка структурированного ответа
+      // гарантированно ломает парсинг. config.maxTokens применяется в стриминговых
+      // вызовах (streamTextOutput/streamStructuredOutput), где обрезка не фатальна.
+      const abortController = new AbortController()
+      const timeoutHandle = setTimeout(() => abortController.abort(new Error('AI structured output timed out after 300s')), 300_000)
+      let result
+      try {
+        result = await generateObject({
+          model,
+          system: options.system + JSON_ONLY_GUARD,
+          prompt: options.prompt,
+          schema: options.schema,
+          schemaName: options.schemaName,
+          schemaDescription: options.schemaDescription,
+          temperature: options.temperature ?? 0.1,
+          abortSignal: abortController.signal,
+        })
+      }
+      finally {
+        clearTimeout(timeoutHandle)
+      }
 
-    return {
-      object: result.object,
-      usage: {
-        promptTokens: result.usage.inputTokens ?? 0,
-        completionTokens: result.usage.outputTokens ?? 0,
-      },
-      // Фактическая модель из ответа API — телеметрия «кто реально отвечает»
-      responseModel: result.response?.modelId ?? null,
+      return {
+        object: result.object,
+        usage: {
+          promptTokens: result.usage.inputTokens ?? 0,
+          completionTokens: result.usage.outputTokens ?? 0,
+        },
+        // Фактическая модель из ответа API — телеметрия «кто реально отвечает»
+        responseModel: result.response?.modelId ?? null,
+      }
     }
-  }
-  catch (err) {
-    // Модель ответила, но не чистым JSON (markdown, ```json-фенсы, голый массив,
-    // хвостовые запятые) — пытаемся восстановить и провалидировать схемой.
-    if (NoObjectGeneratedError.isInstance(err) && typeof err.text === 'string' && err.text) {
-      const repairedJson = extractJsonPayload(err.text, options.wrapBareArray)
-      if (repairedJson !== null) {
-        const validated = options.schema.safeParse(JSON.parse(repairedJson))
-        if (validated.success) {
-          console.warn(`[ai] structured output (${options.schemaName}) восстановлен из неструктурированного ответа модели ${config.model}`)
-          return {
-            object: validated.data,
-            usage: {
-              promptTokens: err.usage?.inputTokens ?? 0,
-              completionTokens: err.usage?.outputTokens ?? 0,
-            },
-            responseModel: err.response?.modelId ?? null,
-          }
-        }
-        console.warn(`[ai] восстановленный JSON (${options.schemaName}) не прошёл валидацию схемы: ${validated.error.issues.slice(0, 3).map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`)
-        // Fallback: map non-schema-conformant response (e.g. GLM-5.2 nested Russian keys)
-        if (options.schemaName === 'structured_resume') {
-          const mapped = mapStructuredResumeResponse(JSON.parse(repairedJson))
-          const mappedValidated = options.schema.safeParse(mapped)
-          if (mappedValidated.success) {
-            console.warn(`[ai] structured output (${options.schemaName}) восстановлен через маппер полей`)
+    catch (err) {
+      // Модель ответила, но не чистым JSON (markdown, ```json-фенсы, голый массив,
+      // хвостовые запятые) — пытаемся восстановить и провалидировать схемой.
+      if (NoObjectGeneratedError.isInstance(err) && typeof err.text === 'string' && err.text) {
+        const repairedJson = extractJsonPayload(err.text, options.wrapBareArray)
+        if (repairedJson !== null) {
+          const validated = options.schema.safeParse(JSON.parse(repairedJson))
+          if (validated.success) {
+            console.warn(`[ai] structured output (${options.schemaName}) восстановлен из неструктурированного ответа модели ${config.model}`)
+            patchAiUsageEvents(usageEventIds, { status: 'repaired' })
             return {
-              object: mappedValidated.data,
-              usage: { promptTokens: err.usage?.inputTokens ?? 0, completionTokens: err.usage?.outputTokens ?? 0 },
+              object: validated.data,
+              usage: {
+                promptTokens: err.usage?.inputTokens ?? 0,
+                completionTokens: err.usage?.outputTokens ?? 0,
+              },
               responseModel: err.response?.modelId ?? null,
+            }
+          }
+          console.warn(`[ai] восстановленный JSON (${options.schemaName}) не прошёл валидацию схемы: ${validated.error.issues.slice(0, 3).map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`)
+          // Fallback: map non-schema-conformant response (e.g. GLM-5.2 nested Russian keys)
+          if (options.schemaName === 'structured_resume') {
+            const mapped = mapStructuredResumeResponse(JSON.parse(repairedJson))
+            const mappedValidated = options.schema.safeParse(mapped)
+            if (mappedValidated.success) {
+              console.warn(`[ai] structured output (${options.schemaName}) восстановлен через маппер полей`)
+              patchAiUsageEvents(usageEventIds, { status: 'repaired' })
+              return {
+                object: mappedValidated.data,
+                usage: { promptTokens: err.usage?.inputTokens ?? 0, completionTokens: err.usage?.outputTokens ?? 0 },
+                responseModel: err.response?.modelId ?? null,
+              }
             }
           }
         }
       }
+      if (NoObjectGeneratedError.isInstance(err)) {
+        // Модель ответила (токены потрачены), но результат непригоден — это потеря.
+        patchAiUsageEvents(usageEventIds, { status: 'error', errorCode: 'schema', errorMessage: String(err.message ?? '').slice(0, 300) })
+      }
+      throw err
     }
-    throw err
-  }
+  })
 }
 
 /**
@@ -494,7 +526,7 @@ function createCloudRuStreamModel(config: ProviderConfig, reasoningOn: boolean) 
     includeUsage: true,
     fetch: createCloudRuFetch(reasoningOn ? null : thinkingFamilyFor(config.model)),
   })
-  return provider.chatModel(config.model)
+  return withUsageTracking(provider.chatModel(config.model), config)
 }
 
 export function streamTextOutput(

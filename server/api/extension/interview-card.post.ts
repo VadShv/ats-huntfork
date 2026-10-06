@@ -25,6 +25,7 @@ import { loadAiConfig } from '../../utils/ai/loadConfig'
 import { generateStructuredOutput, streamStructuredOutput, type SupportedProvider } from '../../utils/ai/provider'
 import { prepareInteractiveText } from '../../utils/ai/textDiet'
 import { createRateLimiter } from '../../utils/rateLimit'
+import { withAiOperation } from '../../utils/ai/usage/context'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -85,6 +86,7 @@ export default defineEventHandler(async (event) => {
 
   const config = await loadAiConfig(orgId, { purpose: 'interactive', preferId: null })
   const providerConfig = {
+    id: config.id,
     provider: config.provider as SupportedProvider,
     model: config.model,
     apiKeyEncrypted: config.apiKeyEncrypted,
@@ -107,13 +109,13 @@ export default defineEventHandler(async (event) => {
 
   // ── Блокирующий путь (фолбэк, прежнее поведение) ──
   if (body.stream !== true) {
-    const { object: card, usage, responseModel } = await generateStructuredOutput(providerConfig, {
+    const { object: card, usage, responseModel } = await withAiOperation({ operation: 'extension.interviewCard', jobId: body.jobId ?? null, trigger: 'extension' }, () => generateStructuredOutput(providerConfig, {
       system,
       prompt,
       schema: cardSchema,
       schemaName: 'interview_card',
       schemaDescription: 'Карточка структурированного интервью по компетенциям',
-    })
+    }))
     const totalMs = Date.now() - t0
 
     logApiRequest(event, session, 'extension.interviewCard', {
@@ -154,14 +156,14 @@ export default defineEventHandler(async (event) => {
   })
 
   try {
-    const result = streamStructuredOutput(providerConfig, {
+    const result = withAiOperation({ operation: 'extension.interviewCard', jobId: body.jobId ?? null, trigger: 'extension' }, () => streamStructuredOutput(providerConfig, {
       system,
       prompt,
       schema: cardSchema,
       schemaName: 'interview_card',
       schemaDescription: 'Карточка структурированного интервью по компетенциям',
       abortSignal: ac.signal,
-    })
+    }))
 
     let ttftMs: number | null = null
     let lastSentAt = 0

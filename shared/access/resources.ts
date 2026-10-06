@@ -178,6 +178,15 @@ export const RESOURCES = {
     scopeStrategy: 'orgOnly',
     category: 'question-bank',
   },
+  // Учёт расхода ИИ — docs/tz-ai-usage.md §9. view_own — свои вызовы (токены),
+  // view_org — вся организация, view_costs — суммы в деньгах.
+  aiUsage: {
+    table: 'ai_usage_event',
+    actions: ['view_own', 'view_org', 'view_costs', 'manage_budgets', 'export', 'recalculate'],
+    scopeStrategy: 'orgOnly',
+    sensitive: true,
+    category: 'ai',
+  },
   // Модуль «Карта поиска» — docs/tz-search-map.md §7
   searchMap: {
     table: 'job_search_map',

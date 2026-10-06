@@ -10,6 +10,7 @@
  */
 import { z } from 'zod'
 import { generateStructuredOutput, type ProviderConfig } from './provider'
+import { withAiOperation } from './usage/context'
 
 // Local (не экспортируем — канонический список в utils/schemas/interviewQuestion.ts,
 // чтобы не плодить дублирующий авто-импорт Nuxt).
@@ -93,7 +94,7 @@ export async function generateInterviewQuestions(
     ? `\n\n<инструкция-рекрутера>\n${opts.promptText.trim().slice(0, 4000)}\n</инструкция-рекрутера>`
     : ''
 
-  const result = await generateStructuredOutput(config, {
+  const result = await withAiOperation({ operation: 'interview.generateQuestions' }, () => generateStructuredOutput(config, {
     system: `Ты — опытный рекрутер, который готовит вопросы для интервью с кандидатами.
 Твоя задача — сгенерировать примерно ${count} релевантных вопросов СТРОГО по вакансии, брифу и инструкции рекрутера.
 
@@ -110,7 +111,7 @@ export async function generateInterviewQuestions(
     schemaName: 'GeneratedInterviewQuestions',
     schemaDescription: 'Интервью-вопросы, сгенерированные под вакансию',
     wrapBareArray: items => ({ questions: items }),
-  })
+  }))
 
   return result.object.questions
     .map(q => ({

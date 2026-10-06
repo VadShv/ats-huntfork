@@ -266,6 +266,9 @@ export default defineNuxtConfig({
     // ──────────────────────────────────────────
     experimental: {
       tasks: true,
+      // Учёт расхода ИИ (docs/tz-ai-usage.md §3.3): useEvent() внутри middleware модели
+      // даёт организацию/пользователя/маршрут HTTP-запроса без проброса через сигнатуры.
+      asyncContext: true,
     },
     scheduledTasks: {
       // Каждые 5 минут: синк откликов hh.ru
@@ -278,6 +281,8 @@ export default defineNuxtConfig({
       '0 2 * * *': ['hh:stats'],
       // Каждые 15 минут: обнаружение coverage gaps (отлики на hh.ru без импорта)
       '*/15 * * * *': ['hh:coverage'],
+      // Ежедневно 04:00: очистка журнала расхода ИИ старше retention_days (docs/tz-ai-usage.md §4.3)
+      '0 4 * * *': ['ai-usage:retention'],
     },
     routeRules: {
       "/**": {

@@ -889,6 +889,12 @@ async function openHhContacts() {
             :can-generate="Boolean((candidate as any).hasResumeSnapshot)"
             @generated="refresh()"
           />
+          <!-- Расход ИИ по кандидату (docs/tz-ai-usage.md §8.3) -->
+          <AiUsageWidget
+            :endpoint="`/api/candidates/${candidateId}/ai-usage`"
+            title="ИИ по кандидату"
+            :dashboard-query="{ entityType: 'candidate', entityId: candidateId }"
+          />
           <!-- Две плашки параллельно: Риски | Сравнение версий -->
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <CandidateRiskCard

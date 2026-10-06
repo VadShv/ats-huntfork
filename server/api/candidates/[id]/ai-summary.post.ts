@@ -7,6 +7,7 @@ import { loadAiConfig } from '../../../utils/ai/loadConfig'
 import { generateStructuredOutput } from '../../../utils/ai/provider'
 import { parseHhResume } from '../../../utils/hh/resume-render'
 import { createRateLimiter } from '../../../utils/rateLimit'
+import { withAiOperation } from '../../../utils/ai/usage/context'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -85,7 +86,7 @@ export default defineEventHandler(async (event) => {
 
   const config = await loadAiConfig(orgId, { purpose: 'analysis', preferId: null })
 
-  const result = await generateStructuredOutput(config, {
+  const result = await withAiOperation({ operation: 'summary.candidateAiSummary', entity: { type: 'candidate', id } }, () => generateStructuredOutput(config, {
     system:
       'Ты опытный технический рекрутер. Делай краткие, точные, фактические выводы по резюме кандидата. '
       + 'Не сочиняй данные, которых нет в резюме. Пиши деловым русским языком. '
@@ -98,7 +99,7 @@ export default defineEventHandler(async (event) => {
     schema: summarySchema,
     schemaName: 'CandidateSummary',
     schemaDescription: 'Краткая AI-сводка по резюме кандидата.',
-  })
+  }))
 
   // Склеиваем в plain text для удобного отображения.
   const obj = result.object

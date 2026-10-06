@@ -30,6 +30,8 @@ import { loadAiConfig } from '../../utils/ai/loadConfig'
 import { streamTextOutput } from '../../utils/ai/provider'
 import { prepareInteractiveText } from '../../utils/ai/textDiet'
 import { createRateLimiter } from '../../utils/rateLimit'
+import { withAiOperation } from '../../utils/ai/usage/context'
+import { type AiOperationKey } from '../../../shared/aiUsage/catalog'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -206,13 +208,13 @@ export default defineEventHandler(async (event) => {
     const label = body.mode === 'fragment' ? 'фрагмент страницы' : 'страница кандидата'
     const prompt = `Источник: ${body.title ?? ''} (${body.sourceUrl})${jobContext}\n\n<${'текст'}>\n${text}\n</${'текст'}>\n\nЭто ${label}. Выполни задачу из системной инструкции.`
 
-    const result = streamTextOutput(config, {
+    const result = withAiOperation({ operation: `extension.summarize.${body.mode}` as AiOperationKey, jobId: body.jobId ?? null, trigger: 'extension' }, () => streamTextOutput(config, {
       system: systemFor(body.mode, body.instruction),
       prompt,
       reasoning: body.reasoning === true,
       // П5: потолок генерации под режим — быстрее финал, дешевле запрос
       maxOutputTokens: Math.min(MODE_OUTPUT_TOKENS[body.mode] ?? DEFAULT_OUTPUT_TOKENS, config.maxTokens),
-    })
+    }))
 
     // П1: телеметрия — первая любая дельта (TTFT) и первый видимый текст
     let ttftMs: number | null = null

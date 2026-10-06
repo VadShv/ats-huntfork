@@ -26,6 +26,8 @@ interface AiConfigRow {
   maxTokens: number
   inputPricePer1m: number | null
   outputPricePer1m: number | null
+  cachedInputPricePer1m?: number | null
+  priceCurrency?: 'USD' | 'RUB'
   isDefaultChatbot: boolean
   isDefaultAnalysis: boolean
   isDefaultInteractive: boolean
@@ -140,10 +142,19 @@ async function deleteConfig(c: AiConfigRow) {
 function providerLabel(key: string): string {
   return providers.value?.[key]?.name ?? key
 }
-function formatPrice(p: number | null): string {
+function formatPrice(p: number | null, currency: 'USD' | 'RUB' = 'USD'): string {
   if (p == null) return '—'
-  return `$${p.toFixed(2)}`
+  return currency === 'RUB' ? `${p.toFixed(2)} ₽` : `$${p.toFixed(2)}`
 }
+
+// Вкладки: модели | бюджет и валюта расхода ИИ (docs/tz-ai-usage.md §7, §8.5).
+const route = useRoute()
+const router = useRouter()
+const { allowed: canManageBudgets } = usePermission({ aiUsage: ['manage_budgets'] })
+const settingsTab = computed<'models' | 'budget'>({
+  get: () => (route.query.tab === 'budget' && canManageBudgets.value ? 'budget' : 'models'),
+  set: v => router.replace({ query: { ...route.query, tab: v === 'budget' ? 'budget' : undefined } }),
+})
 </script>
 
 <template>
@@ -166,6 +177,16 @@ function formatPrice(p: number | null): string {
       </NuxtLink>
     </div>
 
+    <div v-if="canManageBudgets" class="mb-5">
+      <UiSegmented
+        v-model="settingsTab" size="sm" aria-label="Раздел настроек ИИ"
+        :options="[{ value: 'models', label: 'Модели' }, { value: 'budget', label: 'Бюджет и валюта' }]"
+      />
+    </div>
+
+    <AiUsageBudgetSettings v-if="settingsTab === 'budget'" />
+
+    <template v-else>
     <!-- Permission guard -->
     <div v-if="isPermissionLoading" class="flex items-center justify-center py-12">
       <Loader2 class="size-6 animate-spin text-surface-400" />
@@ -254,7 +275,7 @@ function formatPrice(p: number | null): string {
               </span>
               <span class="inline-flex items-center gap-1" title="Стоимость за 1 млн токенов">
                 <BarChart3 class="size-3" />
-                {{ formatPrice(c.inputPricePer1m) }} входящие / {{ formatPrice(c.outputPricePer1m) }} исходящие
+                {{ formatPrice(c.inputPricePer1m, c.priceCurrency) }} входящие / {{ formatPrice(c.outputPricePer1m, c.priceCurrency) }} исходящие
               </span>
             </div>
 
@@ -359,5 +380,6 @@ function formatPrice(p: number | null): string {
       <KeyRound class="size-3.5 mt-0.5 shrink-0" />
       <span>Ключи API зашифрованы при хранении с помощью AES-256-GCM и никогда не возвращаются в браузер. Нужен бесплатный ключ? OpenAI, Anthropic и Google предлагают пробные кредиты.</span>
     </p>
+    </template>
   </div>
 </template>

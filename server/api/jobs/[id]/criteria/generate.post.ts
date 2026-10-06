@@ -6,6 +6,7 @@ import { generateCriteriaFromDescription, PREMADE_CRITERIA } from '../../../../u
 import type { SupportedProvider } from '../../../../utils/ai/provider'
 import { createRateLimiter } from '../../../../utils/rateLimit'
 import { z } from 'zod'
+import { withAiOperation } from '../../../../utils/ai/usage/context'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 10, message: 'Слишком много запросов на генерацию ИИ-критериев. Повторите позже' })
@@ -59,8 +60,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const criteria = await generateCriteriaFromDescription(
+  const criteria = await withAiOperation({ jobId, entity: { type: 'job', id: jobId } }, () => generateCriteriaFromDescription(
     {
+      id: config.id,
       provider: config.provider as SupportedProvider,
       model: config.model,
       apiKeyEncrypted: config.apiKeyEncrypted,
@@ -68,8 +70,8 @@ export default defineEventHandler(async (event) => {
       maxTokens: config.maxTokens,
     },
     jobRecord.title,
-    jobRecord.description,
-  )
+    jobRecord.description!,
+  ))
 
   return { criteria, source: 'ai' }
 })

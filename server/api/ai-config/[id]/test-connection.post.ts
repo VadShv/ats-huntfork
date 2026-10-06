@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { aiConfig } from '../../../database/schema'
 import { generateStructuredOutput, type SupportedProvider } from '../../../utils/ai/provider'
 import { createRateLimiter } from '../../../utils/rateLimit'
+import { withAiOperation } from '../../../utils/ai/usage/context'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -31,8 +32,9 @@ export default defineEventHandler(async (event) => {
   if (!config) throw createError({ statusCode: 404, statusMessage: 'Конфигурация ИИ не найдена' })
 
   try {
-    await generateStructuredOutput(
+    await withAiOperation({ operation: 'infra.testConnection', entity: { type: 'ai_config', id: config.id }, trigger: 'system' }, () => generateStructuredOutput(
       {
+        id: config.id,
         provider: config.provider as SupportedProvider,
         model: config.model,
         apiKeyEncrypted: config.apiKeyEncrypted,
@@ -48,7 +50,7 @@ export default defineEventHandler(async (event) => {
         schema: testSchema,
         schemaName: 'TestConnection',
       },
-    )
+    ))
     return { success: true }
   }
   catch (err: any) {

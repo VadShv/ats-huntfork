@@ -19,6 +19,7 @@ import {
   generateInterviewReport, renderReportMarkdown,
   type ReportQuestionInput, type ReportBarsInput, type QuestionAnswerMatch,
 } from '../ai/generateInterviewReport'
+import { withAiOperation } from '../ai/usage/context'
 
 export const INTERVIEW_REPORT_QUEUE = 'interview-report'
 
@@ -123,8 +124,9 @@ async function runInterviewReportJob(payload: InterviewReportPayload): Promise<v
   const config = await loadAiConfig(orgId, { purpose: 'analysis', preferId: tpl?.preferredAiConfigId ?? undefined })
   let report, truncated = false
   try {
-    const gen = await generateInterviewReport(
+    const gen = await withAiOperation({ organizationId: orgId, jobId: app?.jobId ?? null, entity: { type: 'meeting_report', id: meetingReportId }, trigger: 'background', source: 'queue:interview-report' }, () => generateInterviewReport(
       {
+        id: config.id,
         provider: config.provider as SupportedProvider,
         model: config.model,
         apiKeyEncrypted: config.apiKeyEncrypted,
@@ -138,7 +140,7 @@ async function runInterviewReportJob(payload: InterviewReportPayload): Promise<v
         reportTemplatePromptText: tpl?.promptText ?? '',
         jobContext,
       },
-    )
+    ))
     report = gen.report
     truncated = gen.truncated
   }

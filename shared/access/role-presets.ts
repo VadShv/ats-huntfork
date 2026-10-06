@@ -116,6 +116,8 @@ const leadRecruiterCaps = caps({
   // owner/admin).
   questionBank: ['view', 'create_draft', 'edit_draft'],
   searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions'],
+  // Расход ИИ: свой и командный в токенах; деньги — по решению владельца (view_costs).
+  aiUsage: ['view_own', 'view_org'],
 })
 // lead_recruiter sees candidate PII (contacts + salary) within its scope, may
 // add hiring managers (§7), and has FULL assistant access (§I — trusted role).
@@ -142,6 +144,7 @@ const hrbpCaps = caps({
   // Банк вопросов: HRBP смотрит и создаёт черновики.
   questionBank: ['view', 'create_draft', 'edit_draft'],
   searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions'],
+  aiUsage: ['view_own'],
 })
 // HRBP sees candidate PII within its scope and may add hiring managers.
 hrbpCaps.push(PII_CONTACTS, PII_SALARY, HM_CREATE)

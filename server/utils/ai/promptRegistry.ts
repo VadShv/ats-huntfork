@@ -6,10 +6,15 @@
  * Используется API /api/prompts/registry для read-only отображения в «Банке промптов».
  */
 
+import { DEFAULT_STRUCTURE_CARE_PROMPT } from './structureQuestionCare'
+import { DEFAULT_PERSONALIZE_PROMPT } from './personalizeQuestionnaire'
+import { DEFAULT_REPORT_PROMPT } from './generateInterviewReport'
+
 export type PromptCategory =
   | 'scoring' | 'risk' | 'interview' | 'parsing'
   | 'chatbot' | 'sourcing' | 'assistant' | 'dedup'
   | 'extension' | 'summary' | 'infra'
+  | 'searchMap' | 'questionBank' | 'comments' | 'promptLab'
 
 export interface PromptVariable {
   name: string
@@ -33,6 +38,8 @@ export interface ProductionPrompt {
   sourceLine: number
   isDynamic?: boolean
   subPrompts?: ProductionPrompt[]
+  /** Операции учёта расхода ИИ, которые используют этот промпт (docs/tz-ai-usage.md §5). */
+  usageOperations?: string[]
 }
 
 // ─── Scoring ───────────────────────────────────────────────────────
@@ -490,6 +497,187 @@ const INFRA_TEST_CONNECTION: ProductionPrompt = {
   sourceLine: 46,
 }
 
+// ─── Учёт расхода ИИ: операции, добавленные в реестр (docs/tz-ai-usage.md §5.2) ───
+// Тексты динамических промптов собираются в коде из настроек организации и
+// контекста; здесь — описание и ссылка на исходник, чтобы у каждой операции
+// был блок «Использование» в Банке промптов.
+
+const dyn = (p: Omit<ProductionPrompt, 'isDynamic'>): ProductionPrompt => ({ ...p, isDynamic: true })
+
+const EXTENSION_VERIFICATION = dyn({
+  id: 'extension.verification',
+  module: 'Sidekick',
+  name: 'Проверка кандидата (верификация)',
+  category: 'extension',
+  description: 'Отчёт о противоречиях, рисках и фактах для проверки по странице кандидата в расширении.',
+  systemPrompt: 'Собирается в коде: правила верификации + контекст вакансии + текст страницы кандидата.',
+  schemaName: 'VerificationReport',
+  sourceFile: 'server/api/extension/verification/run.post.ts',
+  sourceLine: 99,
+})
+
+const EXTENSION_INTERVIEW_CARD = dyn({
+  id: 'extension.interviewCard',
+  module: 'Sidekick',
+  name: 'Карточка для интервью',
+  category: 'extension',
+  description: 'Карточка кандидата для интервью: ключевые факты, вопросы, на что обратить внимание.',
+  systemPrompt: 'Собирается в коде: шаблон карточки + контекст вакансии + текст страницы кандидата.',
+  schemaName: 'InterviewCard',
+  sourceFile: 'server/api/extension/interview-card.post.ts',
+  sourceLine: 90,
+})
+
+const EXTENSION_SEARCH_MAP = dyn({
+  id: 'extension.searchMap',
+  module: 'Sidekick',
+  name: 'Быстрая карта поиска',
+  category: 'extension',
+  description: 'Черновик карты поиска (доноры, тайтлы, булевы строки) из расширения по описанию вакансии.',
+  systemPrompt: 'Собирается в коде: правила карты поиска + описание вакансии со страницы.',
+  sourceFile: 'server/api/extension/search-map.post.ts',
+  sourceLine: 84,
+})
+
+const EXTENSION_CHAT = dyn({
+  id: 'extension.chat',
+  module: 'Sidekick',
+  name: 'Чат по странице',
+  category: 'extension',
+  description: 'Диалог с ИИ о текущей странице в расширении (с контекстом вакансии, если выбрана).',
+  systemPrompt: 'Собирается в коде: роль ассистента рекрутера + контекст страницы и вакансии + история чата.',
+  sourceFile: 'server/api/extension/chat.post.ts',
+  sourceLine: 102,
+})
+
+const INTERVIEW_PERSONALIZE: ProductionPrompt = {
+  id: 'interview.personalizeQuestionnaire',
+  module: 'Интервью',
+  name: 'Персонализация опросника',
+  category: 'interview',
+  description: 'Адаптация вопросов опросника под опыт конкретного кандидата по методике CARE.',
+  systemPrompt: DEFAULT_PERSONALIZE_PROMPT,
+  isDynamic: true,
+  sourceFile: 'server/utils/ai/personalizeQuestionnaire.ts',
+  sourceLine: 53,
+}
+
+const INTERVIEW_REPORT: ProductionPrompt = {
+  id: 'interview.report',
+  module: 'Интервью',
+  name: 'Отчёт по интервью',
+  category: 'interview',
+  description: 'Отчёт по транскрипту встречи MyMeet с опорой на опросник и BARS-якоря.',
+  systemPrompt: DEFAULT_REPORT_PROMPT,
+  isDynamic: true,
+  sourceFile: 'server/utils/ai/generateInterviewReport.ts',
+  sourceLine: 74,
+}
+
+const QUESTION_BANK_GENERATE = dyn({
+  id: 'questionBank.generate',
+  module: 'Банк вопросов',
+  name: 'Генерация вопросов банка',
+  category: 'questionBank',
+  description: 'Черновики вопросов для банка по теме, компетенции и уровню.',
+  systemPrompt: 'Собирается в коде: методология банка вопросов + параметры генерации.',
+  sourceFile: 'server/utils/ai/generateBankQuestions.ts',
+  sourceLine: 73,
+})
+
+const QUESTION_BANK_STRUCTURE_CARE: ProductionPrompt = {
+  id: 'questionBank.structureCare',
+  module: 'Банк вопросов',
+  name: 'Разметка вопроса по CARE',
+  category: 'questionBank',
+  description: 'Раскладывает вопрос на блоки Context / Action / Result / Evaluate.',
+  systemPrompt: DEFAULT_STRUCTURE_CARE_PROMPT,
+  isDynamic: true,
+  sourceFile: 'server/utils/ai/structureQuestionCare.ts',
+  sourceLine: 46,
+}
+
+const SEARCH_MAP_GENERATE = dyn({
+  id: 'searchMap.generate',
+  module: 'Карта поиска',
+  name: 'Генерация карты поиска',
+  category: 'searchMap',
+  description: 'Генерация частей карты поиска вакансии по брифу, критериям и описанию. Каждая часть — отдельная операция учёта.',
+  systemPrompt: 'Собирается в buildGeneratePrompt: правила части + бриф + критерии + существующие данные карты.',
+  sourceFile: 'server/utils/searchMap/buildGeneratePrompt.ts',
+  sourceLine: 1,
+  subPrompts: [
+    { id: 'searchMap.sections', name: 'Секции карты', description: 'Тайтлы, ключевые слова, гео, исключения.' },
+    { id: 'searchMap.donors', name: 'Компании-доноры', description: 'Доноры по слоям с обоснованием.' },
+    { id: 'searchMap.segments', name: 'Гипотезы поиска', description: 'Сегменты «доноры × тайтлы × гео × канал».' },
+    { id: 'searchMap.summary', name: 'Вердикт по карте', description: 'Короткий вывод о карте без сохранения.' },
+    { id: 'searchMap.queryString', name: 'Запрос гипотезы', description: 'Переписывание поисковой строки одной гипотезы.' },
+  ].map(sp => ({
+    ...sp,
+    module: 'Карта поиска',
+    category: 'searchMap' as const,
+    systemPrompt: 'Собирается в buildGeneratePrompt для этой части.',
+    isDynamic: true,
+    sourceFile: 'server/api/jobs/[id]/search-map/generate.post.ts',
+    sourceLine: 189,
+  })),
+})
+
+const COMMS_AUTOPILOT = dyn({
+  id: 'assistant.commsAutopilot',
+  module: 'Чат 2.0',
+  name: 'Автопилот ответов кандидату',
+  category: 'assistant',
+  description: 'Автоматический ответ кандидату от имени рекрутера (фоновая операция).',
+  systemPrompt: 'Тот же сборщик, что и черновик ассистента, с ролью «автоматически отвечаешь кандидату».',
+  sourceFile: 'server/utils/comms/assistant.ts',
+  sourceLine: 160,
+})
+
+const COMMS_TELEGRAM_FIRST_CONTACT = dyn({
+  id: 'assistant.telegramFirstContact',
+  module: 'Чат 2.0',
+  name: 'Первое сообщение в Telegram',
+  category: 'assistant',
+  description: 'Черновик первого сообщения кандидату в Telegram по отклику.',
+  systemPrompt: 'Сборщик ассистента с пустой историей диалога.',
+  sourceFile: 'server/api/applications/[id]/telegram-first-contact.post.ts',
+  sourceLine: 57,
+})
+
+const COMMENTS_SUMMARIZE = dyn({
+  id: 'comments.summarize',
+  module: 'Комментарии',
+  name: 'Саммари обсуждения отклика',
+  category: 'comments',
+  description: 'Сводка обсуждения кандидата в 3–5 буллетах: мнения, риски, договорённости.',
+  systemPrompt: 'Ты — рекрутер-ассистент. Кратко резюмируй обсуждение кандидата в 3–5 буллетах. Выдели: ключевые мнения, риски, договорённости и следующий шаг (если есть). Отвечай по-русски, markdown-списком (•). Не выдумывай факты.',
+  sourceFile: 'server/api/applications/[id]/comments/summarize.post.ts',
+  sourceLine: 128,
+})
+
+const COMMENTS_AI_THREAD = dyn({
+  id: 'comments.aiThread',
+  module: 'Комментарии',
+  name: '@ИИ в треде комментариев',
+  category: 'comments',
+  description: 'Ответ ИИ на упоминание @ИИ в обсуждении кандидата (фоновая задача).',
+  systemPrompt: 'Ты — рекрутер-ассистент внутри обсуждения кандидата в ATS. Отвечай кратко (2–4 предложения), по-русски, без markdown-заголовков. Опирайся только на предоставленный контекст и историю обсуждения. Не выдумывай факты, оценки или имена. Если данных нет — скажи прямо.',
+  sourceFile: 'server/utils/comments/ai-thread-worker.ts',
+  sourceLine: 228,
+})
+
+const PROMPT_LAB_SANDBOX = dyn({
+  id: 'promptLab.sandboxTest',
+  module: 'Банк промптов',
+  name: 'Песочница: тест промпта',
+  category: 'promptLab',
+  description: 'Прогон пользовательского промпта из песочницы на выбранной конфигурации.',
+  systemPrompt: 'Пользовательский промпт из песочницы с подставленными переменными.',
+  sourceFile: 'server/api/prompts/sandbox/[id]/test.post.ts',
+  sourceLine: 79,
+})
+
 // ─── Registry ──────────────────────────────────────────────────────
 
 export const PRODUCTION_PROMPTS: ProductionPrompt[] = [
@@ -504,6 +692,20 @@ export const PRODUCTION_PROMPTS: ProductionPrompt[] = [
   DEDUP_ARBITER,
   EXTENSION_SUMMARIZE,
   CANDIDATE_AI_SUMMARY,
+  EXTENSION_VERIFICATION,
+  EXTENSION_INTERVIEW_CARD,
+  EXTENSION_SEARCH_MAP,
+  EXTENSION_CHAT,
+  INTERVIEW_PERSONALIZE,
+  INTERVIEW_REPORT,
+  QUESTION_BANK_GENERATE,
+  QUESTION_BANK_STRUCTURE_CARE,
+  SEARCH_MAP_GENERATE,
+  COMMS_AUTOPILOT,
+  COMMS_TELEGRAM_FIRST_CONTACT,
+  COMMENTS_SUMMARIZE,
+  COMMENTS_AI_THREAD,
+  PROMPT_LAB_SANDBOX,
   INFRA_TEST_CONNECTION,
 ]
 
@@ -518,6 +720,10 @@ export const PROMPT_CATEGORIES: { key: PromptCategory, label: string, icon: stri
   { key: 'dedup', label: 'Дедупликация', icon: 'GitMerge' },
   { key: 'extension', label: 'Sidekick', icon: 'Chrome' },
   { key: 'summary', label: 'Саммари', icon: 'FileText' },
+  { key: 'searchMap', label: 'Карта поиска', icon: 'Map' },
+  { key: 'questionBank', label: 'Банк вопросов', icon: 'ListChecks' },
+  { key: 'comments', label: 'Комментарии', icon: 'MessagesSquare' },
+  { key: 'promptLab', label: 'Песочница', icon: 'FlaskConical' },
   { key: 'infra', label: 'Инфра', icon: 'Wrench' },
 ]
 

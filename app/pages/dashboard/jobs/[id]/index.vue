@@ -2369,6 +2369,14 @@ function closeDocPreview() {
 
               <!-- AI SCORE BREAKDOWN -->
               <div v-if="showSection.aiAnalysis" class="max-w-4xl mx-auto" :class="detailTab === 'overview' ? 'mt-5' : ''">
+                <!-- Расход ИИ по вакансии (docs/tz-ai-usage.md §8.3) -->
+                <AiUsageWidget
+                  v-if="detailTab === 'ai-analysis'"
+                  class="mb-3"
+                  :endpoint="`/api/jobs/${jobId}/ai-usage`"
+                  title="ИИ по вакансии"
+                  :dashboard-query="{ jobId }"
+                />
                 <ScoreBreakdown
                   v-if="currentSummary"
                   :application-id="currentSummary.id"

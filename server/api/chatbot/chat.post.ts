@@ -27,6 +27,7 @@ import {
   type ChatbotStreamEvent,
   type ChatbotToolCall,
 } from '../../../shared/chatbot'
+import { withAiOperation } from '../../utils/ai/usage/context'
 
 /**
  * POST /api/chatbot/chat
@@ -276,6 +277,7 @@ export default defineEventHandler(async (event) => {
 
   // ── Build model + tools ──
   const model = createLanguageModel({
+    id: config.id,
     provider: config.provider as SupportedProvider,
     model: config.model,
     apiKeyEncrypted: config.apiKeyEncrypted,
@@ -309,7 +311,7 @@ export default defineEventHandler(async (event) => {
     'X-Accel-Buffering': 'no',
   })
 
-  const result = streamText({
+  const result = withAiOperation({ operation: 'chatbot.chat', entity: { type: 'chatbot_conversation', id: conversation.id } }, () => streamText({
     model,
     system: buildSystemPrompt(scopeLabel, agentPrompt),
     messages: modelMessages,
@@ -324,7 +326,7 @@ export default defineEventHandler(async (event) => {
     ...(body.thinking
       ? { providerOptions: { anthropic: { thinking: { type: 'enabled', budgetTokens: 4000 } } } }
       : {}),
-  })
+  }))
 
   const encoder = new TextEncoder()
   const writeEvent = (controller: ReadableStreamDefaultController, e: ChatbotStreamEvent) => {

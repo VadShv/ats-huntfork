@@ -26,6 +26,7 @@ import {
   type SourcingQuery,
   sourcingQuerySchema,
 } from './query'
+import { withAiOperation } from '../../ai/usage/context'
 
 /**
  * AI возвращает упрощённую версию SourcingQuery — только те поля, которые
@@ -147,13 +148,13 @@ ${jobDescription.slice(0, 8000)}
 
 Составь сорсинг-запрос hh.ru. Помни: все навыки и технологии — в text через язык поиска hh, НЕ в skill.`
 
-  const { object, usage } = await generateStructuredOutput(config, {
+  const { object, usage } = await withAiOperation({ operation: 'sourcing.hhQuery' }, () => generateStructuredOutput(config, {
     system: SYSTEM_PROMPT,
     prompt,
     schema: aiQuerySchema,
     schemaName: 'HhSourcingQuery',
     schemaDescription: 'Структурированный поисковый запрос для базы резюме hh.ru',
-  })
+  }))
 
   // Валидируем через основной schema (он strict() и дропнет ошибки).
   // aiQuerySchema — подмножество, так что parse пройдёт.

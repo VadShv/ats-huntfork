@@ -23,6 +23,10 @@ export const createAiConfigSchema = z.object({
   maxTokens: z.number().int().min(256).max(200000).optional().default(16384),
   inputPricePer1m: z.number().min(0).max(9999).nullish(),
   outputPricePer1m: z.number().min(0).max(9999).nullish(),
+  /** Цена кэшированного входа за 1М токенов (docs/tz-ai-usage.md §6.2). */
+  cachedInputPricePer1m: z.number().min(0).max(9999).nullish(),
+  /** Валюта цен конфигурации. */
+  priceCurrency: z.enum(['USD', 'RUB']).optional(),
   isDefaultChatbot: z.boolean().optional().default(false),
   isDefaultAnalysis: z.boolean().optional().default(false),
   isDefaultStructuring: z.boolean().optional().default(false),
@@ -37,6 +41,10 @@ export const updateAiConfigSchema = z.object({
   maxTokens: z.number().int().min(256).max(200000).optional(),
   inputPricePer1m: z.number().min(0).max(9999).nullish(),
   outputPricePer1m: z.number().min(0).max(9999).nullish(),
+  /** Цена кэшированного входа за 1М токенов (docs/tz-ai-usage.md §6.2). */
+  cachedInputPricePer1m: z.number().min(0).max(9999).nullish(),
+  /** Валюта цен конфигурации. */
+  priceCurrency: z.enum(['USD', 'RUB']).optional(),
 })
 
 export const setAiConfigDefaultSchema = z.object({

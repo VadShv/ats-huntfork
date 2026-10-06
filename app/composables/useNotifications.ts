@@ -6,7 +6,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 export interface NotificationItem {
   id: string
-  type: 'mention' | 'reply' | 'reaction' | 'new_comment_on_watched'
+  type: 'mention' | 'reply' | 'reaction' | 'new_comment_on_watched' | 'ai_budget'
   entityType: string
   entityId: string
   commentId: string | null
@@ -17,6 +17,9 @@ export interface NotificationItem {
   actorImage: string | null
   commentBody: string | null
   applicationId: string | null
+  /** type = 'ai_budget': текст сработавшего порога бюджета ИИ */
+  alertMessage?: string | null
+  alertThreshold?: number | null
 }
 
 interface FetchOptions {

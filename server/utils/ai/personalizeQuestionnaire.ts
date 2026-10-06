@@ -5,6 +5,7 @@
  */
 import { z } from 'zod'
 import { generateStructuredOutput, type ProviderConfig } from './provider'
+import { withAiOperation } from './usage/context'
 
 const careElements = ['context', 'action', 'result', 'evaluate'] as const
 
@@ -92,7 +93,7 @@ export async function personalizeQuestionnaire(
     ? input.carePromptText
     : `${DEFAULT_PERSONALIZE_PROMPT}${input.careInstruction ? `\n\nМЕТОДИКА CARE:\n${input.careInstruction}` : ''}`
 
-  const result = await generateStructuredOutput(config, {
+  const result = await withAiOperation({ operation: 'interview.personalizeQuestionnaire' }, () => generateStructuredOutput(config, {
     system,
     prompt: buildUserPrompt(input),
     schema: resultSchema,
@@ -100,7 +101,7 @@ export async function personalizeQuestionnaire(
     schemaDescription: 'Персонализированные вопросы опросника под кандидата',
     wrapBareArray: items => ({ items }),
     temperature: 0.3,
-  })
+  }))
 
   return result.object.items
     .filter(it => it.index >= 0 && it.index < input.scaffold.length)

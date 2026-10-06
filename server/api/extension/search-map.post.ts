@@ -15,6 +15,7 @@ import { job } from '../../database/schema'
 import { loadAiConfig } from '../../utils/ai/loadConfig'
 import { generateStructuredOutput, type SupportedProvider } from '../../utils/ai/provider'
 import { createRateLimiter } from '../../utils/rateLimit'
+import { withAiOperation } from '../../utils/ai/usage/context'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -79,6 +80,7 @@ export default defineEventHandler(async (event) => {
   // П2: интерактивный конфиг панели (фолбэк на analysis)
   const config = await loadAiConfig(orgId, { purpose: 'interactive', preferId: null })
   const providerConfig = {
+    id: config.id,
     provider: config.provider as SupportedProvider,
     model: config.model,
     apiKeyEncrypted: config.apiKeyEncrypted,
@@ -96,13 +98,13 @@ export default defineEventHandler(async (event) => {
   const prompt = `<вакансия>\nНазвание: ${title}\n${description.slice(0, 8000)}\n</вакансия>\n\nПострой карту поиска.`
 
   const t0 = Date.now()
-  const { object: map, usage, responseModel } = await generateStructuredOutput(providerConfig, {
+  const { object: map, usage, responseModel } = await withAiOperation({ operation: 'extension.searchMap', jobId: body.jobId ?? null, trigger: 'extension' }, () => generateStructuredOutput(providerConfig, {
     system,
     prompt,
     schema: mapSchema,
     schemaName: 'search_map',
     schemaDescription: 'Карта поиска кандидатов по вакансии',
-  })
+  }))
   const totalMs = Date.now() - t0
 
   logApiRequest(event, session, 'extension.searchMap', {

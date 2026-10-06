@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { aiConfig } from '../../database/schema'
 import { createAiConfigSchema } from '../../utils/schemas/scoring'
 import { encrypt } from '../../utils/encryption'
+import { invalidateAiPricingCache } from '../../utils/ai/usage/pricing'
 
 /**
  * POST /api/ai-config
@@ -54,6 +55,8 @@ export default defineEventHandler(async (event) => {
         maxTokens: body.maxTokens,
         inputPricePer1m: body.inputPricePer1m != null ? String(body.inputPricePer1m) : null,
         outputPricePer1m: body.outputPricePer1m != null ? String(body.outputPricePer1m) : null,
+        cachedInputPricePer1m: body.cachedInputPricePer1m != null ? String(body.cachedInputPricePer1m) : null,
+        priceCurrency: body.priceCurrency ?? 'USD',
         isDefaultChatbot,
         isDefaultAnalysis,
         isDefaultStructuring,
@@ -80,6 +83,7 @@ export default defineEventHandler(async (event) => {
     resourceId: created.id,
   })
 
+  invalidateAiPricingCache(orgId)
   setResponseStatus(event, 201)
   return { config: { ...created, hasApiKey: true } }
 })

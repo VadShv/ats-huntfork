@@ -14,6 +14,7 @@ import { extractResumeText } from '../../../utils/resume-parser'
 import { resumeToText as hhResumeToText, type HhResumeApi } from '../../../utils/hh/sync'
 import { createRateLimiter } from '../../../utils/rateLimit'
 import { z } from 'zod'
+import { withAiOperation } from '../../../utils/ai/usage/context'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 const bodySchema = z.object({
@@ -130,6 +131,7 @@ export default defineEventHandler(async (event) => {
   }))
 
   const providerConfig = {
+    id: config.id,
     provider: config.provider as SupportedProvider,
     model: config.model,
     apiKeyEncrypted: config.apiKeyEncrypted,
@@ -139,14 +141,14 @@ export default defineEventHandler(async (event) => {
 
   let result
   try {
-    result = await scoreApplication(providerConfig, {
+    result = await withAiOperation({ jobId: app.jobId, entity: { type: 'application', id: app.id } }, () => scoreApplication(providerConfig, {
       jobTitle: app.job.title,
-      jobDescription: app.job.description,
+      jobDescription: app.job.description!,
       criteria: criteriaDefinitions,
       resumeText,
       coverLetterText: app.coverLetterText,
       applicationNotes: app.notes,
-    })
+    }))
   } catch (err: any) {
     // Record failed analysis run
     await db.insert(analysisRun).values({

@@ -67,6 +67,20 @@ const ASSISTANT_LABELS: Record<string, { ru: string; en: string }> = {
   suggest: { ru: 'Суфлёр переписки', en: 'Reply suggester' },
 }
 
+// docs/tz-ai-usage.md §9: подписи прав «Расход ИИ».
+const AI_USAGE_LABELS: Record<string, { ru: string; en: string }> = {
+  view_own: { ru: 'Расход ИИ: свои вызовы', en: 'AI usage: own calls' },
+  view_org: { ru: 'Расход ИИ: вся организация', en: 'AI usage: whole org' },
+  view_costs: { ru: 'Расход ИИ: суммы в деньгах', en: 'AI usage: costs' },
+  manage_budgets: { ru: 'Расход ИИ: бюджеты и настройки', en: 'AI usage: budgets & settings' },
+  export: { ru: 'Расход ИИ: экспорт', en: 'AI usage: export' },
+  recalculate: { ru: 'Расход ИИ: пересчёт истории', en: 'AI usage: recalculate history' },
+}
+const LABEL_OVERRIDES: Record<string, Record<string, { ru: string; en: string }>> = {
+  assistant: ASSISTANT_LABELS,
+  aiUsage: AI_USAGE_LABELS,
+}
+
 /** Build the full permission catalog from the resource registry. */
 export function buildPermissionCatalog(): PermissionCatalogEntry[] {
   const out: PermissionCatalogEntry[] = []
@@ -88,11 +102,11 @@ export function buildPermissionCatalog(): PermissionCatalogEntry[] {
         uiLevel: uiLevelFor(action, null),
         riskLevel: riskLevelFor(resource, action, null, sensitive),
         category: def.category,
-        labelRu: resource === 'assistant'
-          ? (ASSISTANT_LABELS[action]?.ru ?? `${resource}: ${action}`)
+        labelRu: LABEL_OVERRIDES[resource]
+          ? (LABEL_OVERRIDES[resource]![action]?.ru ?? `${resource}: ${action}`)
           : `${resource}: ${RU[action] ?? action}`,
-        labelEn: resource === 'assistant'
-          ? (ASSISTANT_LABELS[action]?.en ?? `${resource}: ${action}`)
+        labelEn: LABEL_OVERRIDES[resource]
+          ? (LABEL_OVERRIDES[resource]![action]?.en ?? `${resource}: ${action}`)
           : `${resource}: ${EN[action] ?? action}`,
       })
     }

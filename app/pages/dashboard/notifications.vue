@@ -3,7 +3,7 @@
  * Notifications page — paginated full list with filter (all / unread).
  */
 import { ref, computed, onMounted, watch } from 'vue'
-import { Bell, CheckCheck, MessageSquare, AtSign, Smile, Reply } from 'lucide-vue-next'
+import { Bell, CheckCheck, MessageSquare, AtSign, Smile, Reply, Coins } from 'lucide-vue-next'
 import { useNotifications, type NotificationItem } from '~/composables/useNotifications'
 
 definePageMeta({
@@ -67,6 +67,7 @@ function notifTypeIcon(type: NotificationItem['type']) {
     case 'reply': return Reply
     case 'reaction': return Smile
     case 'new_comment_on_watched': return MessageSquare
+    case 'ai_budget': return Coins
     default: return Bell
   }
 }
@@ -82,6 +83,8 @@ function notifTypeLabel(type: NotificationItem['type']) {
 }
 
 function notifLink(n: NotificationItem): string {
+  // Порог бюджета ИИ (docs/tz-ai-usage.md §7.3) ведёт на дашборд расхода.
+  if (n.type === 'ai_budget') return localePath('/dashboard/ai-usage?period=month')
   if (n.applicationId) return localePath(`/dashboard/applications/${n.applicationId}`)
   return localePath('/dashboard/notifications')
 }
@@ -196,7 +199,7 @@ async function handleMarkAll() {
             v-else
             class="flex items-center justify-center size-10 rounded-full bg-gradient-to-br from-surface-300 to-surface-400 dark:from-surface-700 dark:to-surface-800 text-white text-xs font-bold"
           >
-            {{ (n.actorName ?? '?').slice(0, 1).toUpperCase() }}
+            {{ n.type === 'ai_budget' ? '₽' : (n.actorName ?? '?').slice(0, 1).toUpperCase() }}
           </div>
           <div class="absolute -bottom-0.5 -right-0.5 size-5 rounded-full bg-white dark:bg-surface-900 flex items-center justify-center ring-2 ring-white dark:ring-surface-900">
             <component :is="notifTypeIcon(n.type)" class="size-3 text-surface-500 dark:text-surface-400" />
@@ -204,12 +207,13 @@ async function handleMarkAll() {
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-surface-700 dark:text-surface-300">
-            <span class="font-semibold text-surface-900 dark:text-surface-100">{{ n.actorName ?? t('notifications.someone') }}</span>
+            <span class="font-semibold text-surface-900 dark:text-surface-100">{{ n.type === 'ai_budget' ? 'Бюджет ИИ' : (n.actorName ?? t('notifications.someone')) }}</span>
             <span class="text-surface-500 dark:text-surface-400">
               {{ ' ' + notifTypeLabel(n.type) }}
             </span>
           </div>
-          <div v-if="n.commentBody" class="text-sm text-surface-500 dark:text-surface-400 mt-1">
+          <div v-if="n.type === 'ai_budget' && n.alertMessage" class="text-xs text-surface-500 dark:text-surface-400 mt-0.5 line-clamp-3">{{ n.alertMessage }}</div>
+              <div v-else-if="n.commentBody" class="text-sm text-surface-500 dark:text-surface-400 mt-1">
             «{{ snippet(n.commentBody) }}»
           </div>
           <div class="text-xs text-surface-400 dark:text-surface-500 mt-2">

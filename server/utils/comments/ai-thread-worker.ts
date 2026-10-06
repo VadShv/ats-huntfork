@@ -29,6 +29,7 @@ import { createLanguageModel, type SupportedProvider } from '../ai/provider'
 import { renderMarkdown } from './sanitize'
 import { ensureWatcher } from './ensure-watcher'
 import { notifyThreadChanged } from './threadBus'
+import { withAiOperation } from '../ai/usage/context'
 
 export const AI_THREAD_RESP_QUEUE = 'ai-thread-resp'
 
@@ -214,6 +215,7 @@ async function runAiThreadResponse(payload: AiThreadResponsePayload): Promise<vo
     const cfg = await loadAiConfig(organizationId, { purpose: 'interactive' })
 
     const model = createLanguageModel({
+      id: cfg.id,
       provider: cfg.provider as SupportedProvider,
       model: cfg.model,
       apiKeyEncrypted: cfg.apiKeyEncrypted,
@@ -233,7 +235,7 @@ async function runAiThreadResponse(payload: AiThreadResponsePayload): Promise<vo
       context,
     ].join('\n')
 
-    const result = await generateText({
+    const result = await withAiOperation({ operation: 'comments.aiThread', organizationId, userId, entity: { type: 'application', id: applicationId }, trigger: 'background', source: 'queue:ai-thread' }, () => generateText({
       model,
       system,
       prompt: question || 'Дай краткую рекомендацию по кандидату на основе контекста.',
@@ -241,7 +243,7 @@ async function runAiThreadResponse(payload: AiThreadResponsePayload): Promise<vo
       maxOutputTokens: 800,
       maxRetries: 1,
       abortSignal: AbortSignal.timeout(60_000),
-    })
+    }))
 
     const text = (result.text || '').trim()
     if (!text) {

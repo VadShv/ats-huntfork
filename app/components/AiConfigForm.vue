@@ -41,6 +41,8 @@ interface AiConfigRow {
   maxTokens: number
   inputPricePer1m: number | null
   outputPricePer1m: number | null
+  cachedInputPricePer1m?: number | null
+  priceCurrency?: 'USD' | 'RUB'
   isDefaultChatbot: boolean
   isDefaultAnalysis: boolean
   isDefaultStructuring: boolean
@@ -82,6 +84,8 @@ const form = ref({
   maxTokens: props.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
   inputPricePer1m: props.config?.inputPricePer1m ?? null as number | null,
   outputPricePer1m: props.config?.outputPricePer1m ?? null as number | null,
+  cachedInputPricePer1m: props.config?.cachedInputPricePer1m ?? null as number | null,
+  priceCurrency: (props.config?.priceCurrency ?? 'USD') as 'USD' | 'RUB',
   isDefaultChatbot: !isEdit.value && props.isFirst,
   isDefaultAnalysis: !isEdit.value && props.isFirst,
   isDefaultStructuring: false,
@@ -169,6 +173,9 @@ async function handleSave() {
       maxTokens: form.value.maxTokens,
       inputPricePer1m: form.value.inputPricePer1m,
       outputPricePer1m: form.value.outputPricePer1m,
+      // Учёт расхода ИИ (docs/tz-ai-usage.md §6.2): валюта цен и цена кэшированного входа.
+      cachedInputPricePer1m: typeof form.value.cachedInputPricePer1m === 'number' ? form.value.cachedInputPricePer1m : null,
+      priceCurrency: form.value.priceCurrency,
     }
     if (isCustomProvider.value) body.baseUrl = form.value.baseUrl
     if (form.value.apiKey) body.apiKey = form.value.apiKey
@@ -602,9 +609,20 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
           <div>
             <h3 class="text-xs font-medium text-surface-700 dark:text-surface-300 mb-2">
               Стоимость за 1 млн токенов
-              <span class="ml-1 text-surface-400 font-normal">(USD — заполняется автоматически, при необходимости скорректируйте)</span>
+              <span class="ml-1 text-surface-400 font-normal">(заполняется автоматически в USD, при необходимости скорректируйте)</span>
             </h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="mb-3 flex items-center gap-2 text-xs">
+              <span class="text-surface-500">Валюта цен:</span>
+              <UiSegmented
+                v-model="form.priceCurrency" size="sm" aria-label="Валюта цен"
+                :options="[{ value: 'USD', label: '$ USD' }, { value: 'RUB', label: '₽ RUB' }]"
+              />
+            </div>
+            <p class="mb-3 text-[11px] text-surface-500">
+              Цена фиксируется в журнале расхода ИИ на момент каждого вызова: изменение цены не переписывает историю
+              (пересчёт истории — в разделе «Расход ИИ» у владельца организации).
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Входящие</label>
                 <input
@@ -624,6 +642,17 @@ const badgeLabel = (badge?: ModelInfo['badge']) => {
                   min="0"
                   step="0.01"
                   placeholder="0.00"
+                  class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors font-mono"
+                >
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mb-1">Кэшированный вход</label>
+                <input
+                  v-model.number="form.cachedInputPricePer1m"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="как входящие"
                   class="w-full rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors font-mono"
                 >
               </div>

@@ -7,6 +7,7 @@
 import { z } from 'zod'
 import { generateStructuredOutput, type ProviderConfig } from './provider'
 import { normalizeQuestion } from '../text/normalizeQuestion'
+import { withAiOperation } from './usage/context'
 
 const confidence = z.enum(['low', 'medium', 'high'])
 
@@ -138,7 +139,7 @@ export async function generateInterviewReport(
 
   const system = input.reportTemplatePromptText?.trim() ? input.reportTemplatePromptText : DEFAULT_REPORT_PROMPT
 
-  const result = await generateStructuredOutput(config, {
+  const result = await withAiOperation({ operation: 'interview.report' }, () => generateStructuredOutput(config, {
     system,
     prompt: buildDataBlocks(input, transcript, truncated),
     schema: interviewReportSchema,
@@ -146,7 +147,7 @@ export async function generateInterviewReport(
     schemaDescription: 'Отчёт по HR-интервью на основе транскрипта, опросника и BARS',
     wrapBareArray: items => ({ sections: items }),
     temperature: 0.1,
-  })
+  }))
 
   // Сверка itemId с реальными вопросами; неизвестные — отбрасываем.
   const validIds = new Set(input.questions.map(q => q.itemId))

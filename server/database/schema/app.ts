@@ -1104,10 +1104,14 @@ export const aiConfig = pgTable('ai_config', {
   /** Optional base URL override (e.g. for Ollama or custom endpoints) */
   baseUrl: text('base_url'),
   maxTokens: integer('max_tokens').notNull().default(4096),
-  /** Price per 1M input tokens in USD (e.g. "2.50") */
+  /** Price per 1M input tokens in `priceCurrency` (e.g. "2.50") */
   inputPricePer1m: numeric('input_price_per_1m', { precision: 10, scale: 4 }),
-  /** Price per 1M output tokens in USD (e.g. "10.00") */
+  /** Price per 1M output tokens in `priceCurrency` (e.g. "10.00") */
   outputPricePer1m: numeric('output_price_per_1m', { precision: 10, scale: 4 }),
+  /** Price per 1M cached (cache-read) input tokens; null → same as input price. docs/tz-ai-usage.md §4.2 */
+  cachedInputPricePer1m: numeric('cached_input_price_per_1m', { precision: 10, scale: 4 }),
+  /** Currency of the prices above: 'USD' | 'RUB'. */
+  priceCurrency: text('price_currency').notNull().default('USD'),
   /** When true, this configuration is used by the chatbot when no per-conversation override is set. At most one row per org. */
   isDefaultChatbot: boolean('is_default_chatbot').notNull().default(false),
   /** When true, this configuration is used for applicant analysis (manual + auto). At most one row per org. */
@@ -2571,6 +2575,8 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'reply',
   'reaction',
   'new_comment_on_watched',
+  // docs/tz-ai-usage.md §7.2: порог бюджета ИИ (entityType 'ai_budget', entityId = ai_usage_alert.id)
+  'ai_budget',
 ])
 
 export const applicationComment = pgTable(
@@ -4202,3 +4208,130 @@ export const jobSearchMapVersionRelations = relations(jobSearchMapVersion, ({ on
   organization: one(organization, { fields: [jobSearchMapVersion.organizationId], references: [organization.id] }),
   map: one(jobSearchMap, { fields: [jobSearchMapVersion.mapId], references: [jobSearchMap.id] }),
 }))
+
+
+// ─────────────────────────────────────────────
+// Учёт расхода ИИ — docs/tz-ai-usage.md §4
+// ─────────────────────────────────────────────
+
+/**
+ * Журнал вызовов модели: одно событие = один вызов LLM (шаг агента, часть карты поиска).
+ * Пишется middleware AI SDK (server/utils/ai/usage/middleware.ts) — не вызывающим кодом.
+ * Тексты промптов и ответов НЕ хранятся (ПДн кандидатов) — только счётчики и длины.
+ */
+export const aiUsageEvent = pgTable('ai_usage_event', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  /** Одно действие пользователя / одна фоновая задача: все шаги и части. */
+  traceId: text('trace_id').notNull(),
+  stepNo: smallint('step_no').notNull().default(1),
+  /** Ключ операции = id Банка промптов (shared/aiUsage/catalog.ts) или 'unattributed'. */
+  operation: text('operation').notNull(),
+  feature: text('feature').notNull(),
+  /** user | background | extension | system */
+  trigger: text('trigger').notNull().default('user'),
+  /** Маршрут API или имя очереди — помогает найти место вызова без атрибуции. */
+  source: text('source'),
+  userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+  jobId: text('job_id').references(() => job.id, { onDelete: 'set null' }),
+  entityType: text('entity_type'),
+  entityId: text('entity_id'),
+  aiConfigId: text('ai_config_id').references(() => aiConfig.id, { onDelete: 'set null' }),
+  aiConfigName: text('ai_config_name'),
+  purpose: text('purpose'),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  responseModel: text('response_model'),
+  /** generate | stream */
+  mode: text('mode').notNull().default('generate'),
+  inputTokens: integer('input_tokens').notNull().default(0),
+  cachedInputTokens: integer('cached_input_tokens').notNull().default(0),
+  cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  reasoningTokens: integer('reasoning_tokens').notNull().default(0),
+  /** Провайдер не вернул usage — токены оценены по длине текста. */
+  tokensEstimated: boolean('tokens_estimated').notNull().default(false),
+  promptChars: integer('prompt_chars'),
+  completionChars: integer('completion_chars'),
+  /** sha256 системного промпта (первые 16 hex) — версия промпта. */
+  systemPromptHash: text('system_prompt_hash'),
+  durationMs: integer('duration_ms'),
+  ttftMs: integer('ttft_ms'),
+  /** ok | repaired | error | timeout | aborted */
+  status: text('status').notNull().default('ok'),
+  errorCode: text('error_code'),
+  errorMessage: text('error_message'),
+  finishReason: text('finish_reason'),
+  priceCurrency: text('price_currency').notNull().default('USD'),
+  inputPricePer1m: numeric('input_price_per_1m', { precision: 12, scale: 4 }),
+  cachedInputPricePer1m: numeric('cached_input_price_per_1m', { precision: 12, scale: 4 }),
+  outputPricePer1m: numeric('output_price_per_1m', { precision: 12, scale: 4 }),
+  /** В валюте конфигурации; null — цена не задана. */
+  cost: numeric('cost', { precision: 14, scale: 6 }),
+  /** В базовой валюте организации по курсу на момент вызова. */
+  costBase: numeric('cost_base', { precision: 14, scale: 6 }),
+  baseCurrency: text('base_currency').notNull().default('RUB'),
+  fxRate: numeric('fx_rate', { precision: 12, scale: 6 }),
+  isBackfilled: boolean('is_backfilled').notNull().default(false),
+}, (t) => ([
+  index('ai_usage_event_org_created_idx').on(t.organizationId, t.createdAt),
+  index('ai_usage_event_org_feature_idx').on(t.organizationId, t.feature, t.createdAt),
+  index('ai_usage_event_org_operation_idx').on(t.organizationId, t.operation, t.createdAt),
+  index('ai_usage_event_org_job_idx').on(t.organizationId, t.jobId, t.createdAt),
+  index('ai_usage_event_org_user_idx').on(t.organizationId, t.userId, t.createdAt),
+  index('ai_usage_event_trace_idx').on(t.traceId),
+  index('ai_usage_event_entity_idx').on(t.organizationId, t.entityType, t.entityId),
+]))
+
+/** Настройки учёта расхода ИИ организации (1 строка на организацию). */
+export const aiUsageSettings = pgTable('ai_usage_settings', {
+  organizationId: text('organization_id').primaryKey().references(() => organization.id, { onDelete: 'cascade' }),
+  baseCurrency: text('base_currency').notNull().default('RUB'),
+  /** Курс USD→RUB, задаётся вручную. */
+  usdRubRate: numeric('usd_rub_rate', { precision: 12, scale: 4 }),
+  rateUpdatedAt: timestamp('rate_updated_at'),
+  retentionDays: integer('retention_days').notNull().default(400),
+  updatedById: text('updated_by_id').references(() => user.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+/** Бюджеты расхода ИИ: на организацию, фичу, операцию или пользователя. */
+export const aiUsageBudget = pgTable('ai_usage_budget', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  /** org | feature | operation | user */
+  scope: text('scope').notNull().default('org'),
+  scopeKey: text('scope_key'),
+  /** month | day */
+  period: text('period').notNull().default('month'),
+  limitAmount: numeric('limit_amount', { precision: 14, scale: 2 }).notNull(),
+  /** Валюта лимита = базовая валюта организации на момент создания. */
+  currency: text('currency').notNull().default('RUB'),
+  thresholds: jsonb('thresholds').$type<number[]>().notNull().default([50, 80, 100]),
+  /** notify | block_background */
+  onExceed: text('on_exceed').notNull().default('notify'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('ai_usage_budget_org_idx').on(t.organizationId),
+]))
+
+/** Сработавшие пороги бюджета — чтобы не уведомлять повторно в том же периоде. */
+export const aiUsageAlert = pgTable('ai_usage_alert', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  budgetId: text('budget_id').notNull().references(() => aiUsageBudget.id, { onDelete: 'cascade' }),
+  periodStart: timestamp('period_start').notNull(),
+  threshold: integer('threshold').notNull(),
+  spentAmount: numeric('spent_amount', { precision: 14, scale: 2 }).notNull(),
+  limitAmount: numeric('limit_amount', { precision: 14, scale: 2 }).notNull(),
+  currency: text('currency').notNull(),
+  message: text('message').notNull(),
+  notifiedAt: timestamp('notified_at').notNull().defaultNow(),
+}, (t) => ([
+  uniqueIndex('ai_usage_alert_unique').on(t.budgetId, t.periodStart, t.threshold),
+  index('ai_usage_alert_org_idx').on(t.organizationId, t.notifiedAt),
+]))

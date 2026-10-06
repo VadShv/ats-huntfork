@@ -6,6 +6,7 @@
  */
 import { z } from 'zod'
 import { generateStructuredOutput, type ProviderConfig } from './provider'
+import { withAiOperation } from './usage/context'
 
 // ─── Scoring Output Schema ────────────────────────────────────────
 
@@ -186,7 +187,7 @@ export async function generateCriteriaFromDescription(
   jobTitle: string,
   jobDescription: string,
 ): Promise<CriterionDefinition[]> {
-  const result = await generateStructuredOutput(config, {
+  const result = await withAiOperation({ operation: 'scoring.generateCriteria' }, () => generateStructuredOutput(config, {
     system: `Ты — опытный HR-аналитик, который создаёт объективные и непредвзятые критерии оценки кандидатов.
 Твоя задача — проанализировать описание вакансии и сформировать 4–6 измеримых критериев оценки.
 
@@ -211,7 +212,7 @@ export async function generateCriteriaFromDescription(
     schemaDescription: 'Критерии оценки, сгенерированные из описания вакансии',
     // Модели часто возвращают голый массив критериев вместо { criteria: [...] }
     wrapBareArray: items => ({ criteria: items }),
-  })
+  }))
 
   // Нормализация: отсеиваем пустые записи, чиним/дедуплицируем ключи,
   // чтобы в UI и скоринг никогда не попали критерии без имени или с дублирующим key.
@@ -263,7 +264,7 @@ export async function scoreApplication(
     params.applicationNotes ? `\nЗАМЕТКИ ПО ОТКЛИКУ:\n${params.applicationNotes}` : '',
   ].filter(Boolean).join('\n')
 
-  const result = await generateStructuredOutput(config, {
+  const result = await withAiOperation({ operation: 'scoring.scoreApplication' }, () => generateStructuredOutput(config, {
     system: `Ты — опытный, непредвзятый эксперт по оценке кандидатов в ATS-системе.
 Твоя задача — объективно оценить кандидата по заданным критериям для конкретной вакансии.
 
@@ -304,7 +305,7 @@ ${candidateInfo}
     // Аддитивная защита: если модель вернёт голый массив оценок — оборачиваем;
     // summary восстановить нельзя — оставляем пустым, оценки важнее.
     wrapBareArray: items => ({ evaluations: items, summary: '' }),
-  })
+  }))
 
   // Clamp applicantScore to maxScore — LLMs may occasionally exceed the maximum
   for (const evaluation of result.object.evaluations) {

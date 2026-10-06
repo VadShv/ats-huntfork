@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3'
+import { AI_ACTOR_CONTEXT_KEY } from './ai/usage/context'
 
 type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>
 type AuthSessionWithActiveOrg = Omit<AuthSession, 'session'> & {
@@ -27,6 +28,12 @@ export async function requireAuth(event: H3Event) {
 
   if (!activeOrganizationId) {
     throw createError({ statusCode: 403, statusMessage: 'Нет активной организации' })
+  }
+
+  // Учёт расхода ИИ: актор запроса для атрибуции LLM-вызовов (docs/tz-ai-usage.md §3.3).
+  ;(event.context as Record<string, unknown>)[AI_ACTOR_CONTEXT_KEY] = {
+    organizationId: activeOrganizationId,
+    userId: session.user.id,
   }
 
   return {

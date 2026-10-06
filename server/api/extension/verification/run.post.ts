@@ -23,6 +23,7 @@ import { loadAiConfig } from '../../../utils/ai/loadConfig'
 import { generateStructuredOutput, streamStructuredOutput, type SupportedProvider } from '../../../utils/ai/provider'
 import { prepareInteractiveText } from '../../../utils/ai/textDiet'
 import { createRateLimiter } from '../../../utils/rateLimit'
+import { withAiOperation } from '../../../utils/ai/usage/context'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -94,6 +95,7 @@ export default defineEventHandler(async (event) => {
 
   const config = await loadAiConfig(orgId, { purpose: 'interactive', preferId: null })
   const providerConfig = {
+    id: config.id,
     provider: config.provider as SupportedProvider,
     model: config.model,
     apiKeyEncrypted: config.apiKeyEncrypted,
@@ -116,13 +118,13 @@ export default defineEventHandler(async (event) => {
 
   // ── Блокирующий путь (фолбэк, прежнее поведение) ──
   if (body.stream !== true) {
-    const { object: report, usage, responseModel } = await generateStructuredOutput(providerConfig, {
+    const { object: report, usage, responseModel } = await withAiOperation({ operation: 'extension.verification', jobId: body.jobId ?? null, trigger: 'extension' }, () => generateStructuredOutput(providerConfig, {
       system,
       prompt,
       schema: reportSchema,
       schemaName: 'verification_report',
       schemaDescription: 'Верификационный отчёт по профилю кандидата',
-    })
+    }))
     const totalMs = Date.now() - t0
 
     logApiRequest(event, session, 'extension.verificationRun', {
@@ -163,14 +165,14 @@ export default defineEventHandler(async (event) => {
   })
 
   try {
-    const result = streamStructuredOutput(providerConfig, {
+    const result = withAiOperation({ operation: 'extension.verification', jobId: body.jobId ?? null, trigger: 'extension' }, () => streamStructuredOutput(providerConfig, {
       system,
       prompt,
       schema: reportSchema,
       schemaName: 'verification_report',
       schemaDescription: 'Верификационный отчёт по профилю кандидата',
       abortSignal: ac.signal,
-    })
+    }))
 
     let ttftMs: number | null = null
     let lastSentAt = 0

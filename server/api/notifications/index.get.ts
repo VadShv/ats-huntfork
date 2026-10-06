@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import { notification, applicationComment } from '../../database/schema/app'
+import { notification, applicationComment, aiUsageAlert } from '../../database/schema/app'
 import { user } from '../../database/schema/auth'
 import { z } from 'zod'
 
@@ -42,10 +42,14 @@ export default defineEventHandler(async (event) => {
       actorImage:   user.image,
       commentBody:  applicationComment.body,
       applicationId: applicationComment.applicationId,
+      // type = 'ai_budget': текст порога бюджета ИИ (docs/tz-ai-usage.md §7.3)
+      alertMessage: aiUsageAlert.message,
+      alertThreshold: aiUsageAlert.threshold,
     })
     .from(notification)
     .leftJoin(user, eq(user.id, notification.actorUserId))
     .leftJoin(applicationComment, eq(applicationComment.id, notification.commentId))
+    .leftJoin(aiUsageAlert, and(eq(notification.entityType, 'ai_budget'), eq(aiUsageAlert.id, notification.entityId)))
     .where(baseWhere)
     .orderBy(desc(notification.createdAt))
     .limit(query.limit)

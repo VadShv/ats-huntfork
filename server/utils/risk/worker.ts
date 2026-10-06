@@ -17,6 +17,7 @@ import { assessResumeRisk, aggregateRisk } from '../ai/assessRisk'
 import { computeJobHopping, type JobHoppingPolicy } from './timeline'
 import { resumeToText } from '../hh/sync'
 import { extractResumeText } from '../resume-parser'
+import { withAiOperation } from '../ai/usage/context'
 
 export const RESUME_RISK_QUEUE = 'resume-risk'
 
@@ -140,8 +141,9 @@ async function runResumeRiskJob(payload: ResumeRiskPayload): Promise<void> {
       resumeText = resumeToText(snapshot as any)
     }
     const config = await loadAiConfig(organizationId, { purpose: 'analysis', preferId: null })
-    const { object, usage, responseModel } = await assessResumeRisk(
+    const { object, usage, responseModel } = await withAiOperation({ organizationId, userId: triggeredById ?? null, entity: { type: 'candidate', id: candidateId }, trigger: 'background', source: 'queue:resume-risk' }, () => assessResumeRisk(
       {
+        id: config.id,
         provider: config.provider as SupportedProvider,
         model: config.model,
         apiKeyEncrypted: config.apiKeyEncrypted,
@@ -154,7 +156,7 @@ async function runResumeRiskJob(payload: ResumeRiskPayload): Promise<void> {
         tenure,
         policy: { extraInstructions: policyRow?.extraInstructions ?? null },
       },
-    )
+    ))
 
     // 3) Агрегация с cap (в коде, не LLM).
     const agg = aggregateRisk(

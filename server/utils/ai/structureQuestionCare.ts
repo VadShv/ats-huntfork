@@ -6,6 +6,7 @@
  */
 import { z } from 'zod'
 import { generateStructuredOutput, type ProviderConfig } from './provider'
+import { withAiOperation } from './usage/context'
 
 const CARE_ORDER = ['context', 'action', 'result', 'evaluate'] as const
 export type CareElement = (typeof CARE_ORDER)[number]
@@ -133,7 +134,7 @@ export async function structureQuestionCare(
   const perElement = input.probeLimitPerElement ?? 3
   const perQuestion = input.probeLimitPerQuestion ?? 6
 
-  const result = await generateStructuredOutput(config, {
+  const result = await withAiOperation({ operation: 'questionBank.structureCare' }, () => generateStructuredOutput(config, {
     system: input.systemPromptOverride ?? DEFAULT_STRUCTURE_CARE_PROMPT,
     prompt: buildUserPrompt(input),
     schema: questionCareV1Schema,
@@ -141,7 +142,7 @@ export async function structureQuestionCare(
     schemaDescription: 'Разложение вопроса по методике CARE',
     wrapBareArray: items => ({ elements: items }),
     temperature: 0.2,
-  })
+  }))
 
   return postProcess(result.object, perElement, perQuestion)
 }

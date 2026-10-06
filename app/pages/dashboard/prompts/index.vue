@@ -3,8 +3,9 @@ import {
   BookOpen, FlaskConical, Search, Copy, ChevronDown, ChevronRight,
   Target, ShieldAlert, MessageCircleQuestion, FileText, Bot,
   Search as SearchIcon, MessageSquare, GitMerge, Chrome, Wrench,
-  Code2, Thermometer, Hash, type LucideIcon,
+  Code2, Thermometer, Hash, Map as MapIcon, ListChecks, MessagesSquare, Coins, type LucideIcon,
 } from 'lucide-vue-next'
+import { formatMoney, formatTokens, type AiCurrency } from '~~/shared/aiUsage/cost'
 
 definePageMeta({
   layout: 'dashboard',
@@ -21,7 +22,7 @@ const { data: registryData, status: fetchStatus, error, refresh } = useFetch('/a
   headers: useRequestHeaders(['cookie']),
 })
 
-const prompts = computed(() => registryData.value?.prompts ?? [])
+const prompts = computed<any[]>(() => (registryData.value as any)?.prompts ?? [])
 const categories = computed(() => registryData.value?.categories ?? [])
 
 const activeCategory = ref<string>('all')
@@ -40,7 +41,25 @@ const categoryIcons: Record<string, LucideIcon> = {
   extension: Chrome,
   summary: FileText,
   infra: Wrench,
+  searchMap: MapIcon,
+  questionBank: ListChecks,
+  comments: MessagesSquare,
+  promptLab: FlaskConical,
 }
+
+// Использование за 30 дней (docs/tz-ai-usage.md §8.4) — приходит, если есть aiUsage:view_own+.
+const usageCurrency = computed<AiCurrency>(() => ((registryData.value as any)?.usageCurrency ?? 'RUB') as AiCurrency)
+function usageOf(p: any): any | null {
+  return p?.usage30d ?? null
+}
+
+// Переход из «Расход ИИ»: /dashboard/prompts?prompt=<id> раскрывает карточку.
+const route = useRoute()
+watch([() => route.query.prompt, prompts], ([id]) => {
+  if (typeof id !== 'string' || !id) return
+  const hit = prompts.value.find((p: any) => p.id === id || p.subPrompts?.some((s: any) => s.id === id))
+  if (hit) expandedId.value = hit.id
+}, { immediate: true })
 
 const filteredPrompts = computed(() => {
   let result = prompts.value
@@ -175,6 +194,18 @@ function copyPromptToSandbox(prompt: any) {
                 <span class="flex items-center gap-1"><Code2 class="size-3" />{{ prompt.sourceFile.split('/').pop() }}:{{ prompt.sourceLine }}</span>
                 <span v-if="prompt.temperature !== undefined" class="flex items-center gap-1"><Thermometer class="size-3" />{{ prompt.temperature }}</span>
                 <span v-if="prompt.schemaName" class="flex items-center gap-1"><Hash class="size-3" />{{ prompt.schemaName }}</span>
+                <NuxtLink
+                  v-if="usageOf(prompt)?.calls"
+                  :to="{ path: '/dashboard/ai-usage', query: { period: '30d', ...(usageOf(prompt).operations.length === 1 ? { operation: usageOf(prompt).operations[0] } : {}) } }"
+                  class="flex items-center gap-1 text-brand-600 dark:text-brand-400 hover:underline"
+                  title="Вызовы за 30 дней"
+                  @click.stop
+                >
+                  <Coins class="size-3" />
+                  {{ usageOf(prompt).calls }} выз. за 30 дн.
+                  <template v-if="'cost' in usageOf(prompt)"> · {{ formatMoney(usageOf(prompt).cost, usageCurrency) }}</template>
+                  · ≈{{ formatTokens(usageOf(prompt).avgInputTokens) }}/{{ formatTokens(usageOf(prompt).avgOutputTokens) }} ток.
+                </NuxtLink>
               </div>
             </div>
             <component :is="expandedId === prompt.id ? ChevronDown : ChevronRight" class="size-4 text-surface-400 shrink-0 mt-1" />
@@ -182,6 +213,18 @@ function copyPromptToSandbox(prompt: any) {
 
           <!-- Expanded content -->
           <div v-if="expandedId === prompt.id" class="border-t border-surface-200 dark:border-surface-800 p-5 space-y-4">
+            <!-- Использование за 30 дней -->
+            <div v-if="usageOf(prompt)" class="rounded-lg bg-surface-50 dark:bg-surface-800/50 px-3 py-2 text-xs text-surface-600 dark:text-surface-300 flex flex-wrap gap-x-4 gap-y-1">
+              <span class="font-medium">Использование за 30 дней:</span>
+              <template v-if="usageOf(prompt).calls">
+                <span>{{ usageOf(prompt).calls }} вызовов · {{ usageOf(prompt).traces }} действий</span>
+                <span v-if="'cost' in usageOf(prompt)">{{ formatMoney(usageOf(prompt).cost, usageCurrency) }}</span>
+                <span>в среднем {{ formatTokens(usageOf(prompt).avgInputTokens) }} вход / {{ formatTokens(usageOf(prompt).avgOutputTokens) }} выход</span>
+                <span v-if="usageOf(prompt).topModel">модель <code class="font-mono">{{ usageOf(prompt).topModel }}</code></span>
+                <span v-if="usageOf(prompt).versions > 1">версий промпта: {{ usageOf(prompt).versions }}</span>
+              </template>
+              <span v-else class="text-surface-400">вызовов не было</span>
+            </div>
             <!-- System prompt -->
             <div>
               <div class="flex items-center justify-between mb-2">

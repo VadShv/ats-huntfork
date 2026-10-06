@@ -1,4 +1,5 @@
 import { getPromptById } from '../../../utils/ai/promptRegistry'
+import { loadPromptUsage } from '../../../utils/ai/usage/promptUsage'
 
 /**
  * GET /api/prompts/registry/:id
@@ -21,5 +22,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Промпт не найден' })
   }
 
-  return prompt
+  const usage = await loadPromptUsage(event).catch(() => null)
+  return usage ? { ...prompt, usage30d: usage.forPrompt(prompt) } : prompt
 })

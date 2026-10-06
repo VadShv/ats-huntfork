@@ -34,6 +34,7 @@ export default defineEventHandler(async (event) => {
 
   const generated = await generateBankQuestions(
     {
+      id: config.id,
       provider: config.provider as SupportedProvider,
       model: config.model,
       apiKeyEncrypted: config.apiKeyEncrypted,

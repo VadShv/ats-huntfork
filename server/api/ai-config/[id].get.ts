@@ -23,6 +23,8 @@ export default defineEventHandler(async (event) => {
       maxTokens: true,
       inputPricePer1m: true,
       outputPricePer1m: true,
+      cachedInputPricePer1m: true,
+      priceCurrency: true,
       isDefaultChatbot: true,
       isDefaultAnalysis: true,
       apiKeyEncrypted: true,
@@ -37,6 +39,7 @@ export default defineEventHandler(async (event) => {
     ...rest,
     inputPricePer1m: rest.inputPricePer1m != null ? Number(rest.inputPricePer1m) : null,
     outputPricePer1m: rest.outputPricePer1m != null ? Number(rest.outputPricePer1m) : null,
+    cachedInputPricePer1m: rest.cachedInputPricePer1m != null ? Number(rest.cachedInputPricePer1m) : null,
     hasApiKey: Boolean(apiKeyEncrypted),
   }
 })

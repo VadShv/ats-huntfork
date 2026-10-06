@@ -23,6 +23,7 @@ import { job } from '../../database/schema'
 import { loadAiConfig } from '../../utils/ai/loadConfig'
 import { streamTextOutput } from '../../utils/ai/provider'
 import { createRateLimiter } from '../../utils/rateLimit'
+import { withAiOperation } from '../../utils/ai/usage/context'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -99,13 +100,13 @@ export default defineEventHandler(async (event) => {
   try {
     // П2: интерактивный конфиг панели (фолбэк на analysis)
     const config = await loadAiConfig(orgId, { purpose: 'interactive', preferId: null })
-    const result = streamTextOutput(config, {
+    const result = withAiOperation({ operation: 'extension.chat', jobId: body.jobId ?? null, trigger: 'extension' }, () => streamTextOutput(config, {
       system,
       messages: body.messages,
       reasoning: body.reasoning === true,
       // П5: потолок генерации для чата — быстрее финал, дешевле запрос
       maxOutputTokens: Math.min(2048, config.maxTokens),
-    })
+    }))
 
     // П1: телеметрия — первая любая дельта (TTFT) и первый видимый текст
     let ttftMs: number | null = null

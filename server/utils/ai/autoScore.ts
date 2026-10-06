@@ -16,6 +16,7 @@ import type { SupportedProvider } from './provider'
 import { loadAiConfig } from './loadConfig'
 import { extractResumeText } from '../resume-parser'
 import { resumeToText as hhResumeToText, type HhResumeApi } from '../hh/sync'
+import { withAiOperation } from './usage/context'
 
 export async function autoScoreApplication(applicationId: string, orgId: string) {
   const app = await db.query.application.findFirst({
@@ -66,6 +67,7 @@ export async function autoScoreApplication(applicationId: string, orgId: string)
   }))
 
   const providerConfig = {
+    id: config.id,
     provider: config.provider as SupportedProvider,
     model: config.model,
     apiKeyEncrypted: config.apiKeyEncrypted,
@@ -75,14 +77,14 @@ export async function autoScoreApplication(applicationId: string, orgId: string)
 
   let result
   try {
-    result = await scoreApplication(providerConfig, {
+    result = await withAiOperation({ organizationId: orgId, jobId: app.jobId, entity: { type: 'application', id: app.id }, trigger: 'background', source: 'auto-score' }, () => scoreApplication(providerConfig, {
       jobTitle: app.job.title,
-      jobDescription: app.job.description,
+      jobDescription: app.job.description!,
       criteria: criteriaDefinitions,
       resumeText,
       coverLetterText: app.coverLetterText,
       applicationNotes: app.notes,
-    })
+    }))
   } catch (err: any) {
     await db.insert(analysisRun).values({
       organizationId: orgId,

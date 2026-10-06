@@ -5,6 +5,10 @@ import { requirePermission } from '../../../../utils/requirePermission'
 import { loadAiConfig } from '../../../../utils/ai/loadConfig'
 import { streamTextOutput, type SupportedProvider } from '../../../../utils/ai/provider'
 import { createRateLimiter } from '../../../../utils/rateLimit'
+import { withAiOperation } from '../../../../utils/ai/usage/context'
+import { resolveConfigPricing } from '../../../../utils/ai/usage/pricing'
+import { requireAiUsageAccess } from '../../../../utils/ai/usage/query'
+import { computeCost, normalizeUsage } from '../../../../../shared/aiUsage/cost'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -61,6 +65,7 @@ export default defineEventHandler(async (event) => {
     : undefined
 
   const providerConfig = {
+    id: config.id,
     provider: config.provider as SupportedProvider,
     model: row.modelOverride ?? config.model,
     apiKeyEncrypted: config.apiKeyEncrypted,
@@ -75,11 +80,19 @@ export default defineEventHandler(async (event) => {
     'X-Accel-Buffering': 'no',
   })
 
-  const result = streamTextOutput(providerConfig, {
-    system: systemPrompt,
-    ...(userPrompt ? { prompt: userPrompt } : { prompt: 'Test: respond briefly.' }),
-    maxOutputTokens: 2048,
-  })
+  // Учёт расхода ИИ: стоимость прогона показываем прямо в песочнице (docs/tz-ai-usage.md §8.4).
+  // Суммы показываем только при aiUsage:view_costs (docs/tz-ai-usage.md §9), токены — всем.
+  const canViewCosts = await requireAiUsageAccess(event, 'view_costs').then(() => true).catch(() => false)
+  const pricing = canViewCosts ? await resolveConfigPricing(orgId, providerConfig).catch(() => null) : null
+
+  const result = withAiOperation(
+    { operation: 'promptLab.sandboxTest', entity: { type: 'prompt_sandbox', id } },
+    () => streamTextOutput(providerConfig, {
+      system: systemPrompt,
+      ...(userPrompt ? { prompt: userPrompt } : { prompt: 'Test: respond briefly.' }),
+      maxOutputTokens: 2048,
+    }),
+  )
 
   const encoder = new TextEncoder()
   const writeEvent = (controller: ReadableStreamDefaultController, data: Record<string, unknown>) => {
@@ -108,6 +121,11 @@ export default defineEventHandler(async (event) => {
                   promptTokens: part.totalUsage.inputTokens ?? 0,
                   completionTokens: part.totalUsage.outputTokens ?? 0,
                 },
+                ...(() => {
+                  const u = normalizeUsage(part.totalUsage)
+                  const cost = u && pricing ? computeCost(u, pricing.price) : null
+                  return cost === null ? {} : { cost, currency: pricing!.price.currency }
+                })(),
                 model: config.model,
               })
               break

@@ -22,6 +22,7 @@ import { z } from 'zod'
 import { candidate, candidateDuplicateCandidate } from '../../database/schema'
 import { loadAiConfig } from '../ai/loadConfig'
 import { generateStructuredOutput } from '../ai/provider'
+import { withAiOperation } from '../ai/usage/context'
 
 // ── Схема ответа модели ─────────────────────────────────────────────
 const arbiterResponseSchema = z.object({
@@ -159,8 +160,9 @@ export async function arbitrateDuplicatePair(params: {
     `Сигналы: ${JSON.stringify(pair.signals)}`,
   ].join('\n\n')
 
-  const result = await generateStructuredOutput(
+  const result = await withAiOperation({ operation: 'dedup.aiArbiter', organizationId: orgId, entity: { type: 'duplicate_pair', id: pairId } }, () => generateStructuredOutput(
     {
+      id: config.id,
       provider: config.provider as 'openai' | 'anthropic' | 'google' | 'openai_compatible' | 'yandex' | 'cloud_ru',
       model: config.model,
       apiKeyEncrypted: config.apiKeyEncrypted,
@@ -184,7 +186,7 @@ export async function arbitrateDuplicatePair(params: {
       schemaName: 'DuplicateArbiterVerdict',
       schemaDescription: 'Вердикт AI-арбитра по подозрительной паре кандидатов.',
     },
-  )
+  ))
 
   const verdict = result.object
   const now = new Date()

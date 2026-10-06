@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Calendar, ArrowUpCircle,
   Cloud, Server, Sparkles, Radio, History, ChartNoAxesCombined,
   MessageCircle, MoreHorizontal, GitMerge, History as HistoryIcon, Upload,
-  Inbox, Bot, ClipboardList, MessageCircleQuestion, BookOpen, BarChart3, Radar,
+  Inbox, Bot, ClipboardList, MessageCircleQuestion, BookOpen, BarChart3, Radar, Coins,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -153,10 +153,21 @@ const mainNav = computed<Array<{ label: string; to: string; icon: typeof Briefca
 // without it (member/hrbp/external/hm by default) don't see the link — matches
 // requireChatbotAccess. Client gate is cosmetic; the server enforces.
 const { allowed: hasAi } = usePermission({ assistant: ['access'] })
+// «Расход ИИ» (docs/tz-ai-usage.md §8): видна при aiUsage:view_own и выше.
+const { allowed: hasAiUsage } = usePermission({ aiUsage: ['view_own'] })
 
 // Assistant is inserted right after AI Analysis when the user has AI.
 const navItems = computed(() => {
   const merged = [...mainNav.value]
+  if (hasAiUsage.value) {
+    const aIdx = merged.findIndex((n) => n.label === t('dashboard.nav.aiAnalysis'))
+    merged.splice(aIdx >= 0 ? aIdx + 1 : merged.length, 0, {
+      label: t('dashboard.nav.aiUsage'),
+      to: '/dashboard/ai-usage',
+      icon: Coins,
+      exact: true,
+    })
+  }
   if (!hasAi.value) return merged
   const idx = merged.findIndex((n) => n.label === t('dashboard.nav.aiAnalysis'))
   const insertAt = idx >= 0 ? idx + 1 : merged.length

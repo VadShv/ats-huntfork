@@ -24,6 +24,7 @@ import {
 } from '../../../../utils/hh/sourcing/query'
 import { generateSearchQueryFromJd } from '../../../../utils/hh/sourcing/aiQuery'
 import { createRateLimiter } from '../../../../utils/rateLimit'
+import { withAiOperation } from '../../../../utils/ai/usage/context'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 
@@ -118,7 +119,7 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Для AI-генерации запроса нужно описание вакансии. Добавьте описание сначала.',
       })
     }
-    const result = await generateSearchQueryFromJd(orgId, jobRow.title, jobRow.description)
+    const result = await withAiOperation({ jobId, entity: { type: 'job', id: jobId } }, () => generateSearchQueryFromJd(orgId, jobRow.title, jobRow.description!))
     query = result.query
   }
 

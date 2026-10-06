@@ -7,6 +7,7 @@ import type { SupportedProvider } from '../../../../utils/ai/provider'
 import { loadAiConfig } from '../../../../utils/ai/loadConfig'
 import { ensureCareMethodology } from '../../../../utils/questions/seedCareMethodology'
 import { createRateLimiter } from '../../../../utils/rateLimit'
+import { withAiOperation } from '../../../../utils/ai/usage/context'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -79,8 +80,9 @@ export default defineEventHandler(async (event) => {
   // Деградация: при провале LLM возвращаем partial без careReady.
   let breakdown
   try {
-    breakdown = await structureQuestionCare(
+    breakdown = await withAiOperation({ entity: { type: 'question', id } }, () => structureQuestionCare(
       {
+        id: config.id,
         provider: config.provider as SupportedProvider,
         model: config.model,
         apiKeyEncrypted: config.apiKeyEncrypted,
@@ -96,7 +98,7 @@ export default defineEventHandler(async (event) => {
         probeLimitPerElement: methodology.probeLimitPerElement,
         probeLimitPerQuestion: methodology.probeLimitPerQuestion,
       },
-    )
+    ))
   }
   catch {
     setResponseStatus(event, 200)

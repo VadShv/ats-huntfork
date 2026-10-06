@@ -59,7 +59,10 @@ export default defineEventHandler(async (event) => {
       candidateId: app.candidateId,
       jobId: app.jobId,
     } as unknown as Parameters<typeof generateAssistantText>[0]
-    const res = await generateAssistantText(synthetic, orgId)
+    const res = await generateAssistantText(synthetic, orgId, {
+      operation: 'assistant.telegramFirstContact',
+      usageEntity: { type: 'application', id: app.id },
+    })
     text = res.text?.trim() || null
   }
   catch (err) {

@@ -17,6 +17,7 @@ import { createLanguageModel, type SupportedProvider } from '../../../../utils/a
 import { renderMarkdown } from '../../../../utils/comments/sanitize'
 import { ensureWatcher } from '../../../../utils/comments/ensure-watcher'
 import { notifyThreadChanged } from '../../../../utils/comments/threadBus'
+import { withAiOperation } from '../../../../utils/ai/usage/context'
 
 /**
  * POST /api/applications/:id/comments/summarize
@@ -116,6 +117,7 @@ export default defineEventHandler(async (event) => {
 
   // ── Generate ──
   const model = createLanguageModel({
+    id: cfg.id,
     provider: cfg.provider as SupportedProvider,
     model: cfg.model,
     apiKeyEncrypted: cfg.apiKeyEncrypted,
@@ -134,7 +136,7 @@ export default defineEventHandler(async (event) => {
     `Риск: ${riskLevel ?? '—'}`,
   ].join('\n')
 
-  const result = await generateText({
+  const result = await withAiOperation({ operation: 'comments.summarize', jobId: app.jobId, entity: { type: 'application', id } }, () => generateText({
     model,
     system,
     prompt: history || 'Обсуждение пустое.',
@@ -142,7 +144,7 @@ export default defineEventHandler(async (event) => {
     maxOutputTokens: 600,
     maxRetries: 1,
     abortSignal: AbortSignal.timeout(60_000),
-  })
+  }))
 
   const text = (result.text || '').trim()
   if (!text) {

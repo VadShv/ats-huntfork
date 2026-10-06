@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
 
   const criteria = await generateCriteriaFromDescription(
     {
+      id: config.id,
       provider: config.provider as SupportedProvider,
       model: config.model,
       apiKeyEncrypted: config.apiKeyEncrypted,

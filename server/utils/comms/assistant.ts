@@ -18,6 +18,7 @@ import {
   commsMessage,
 } from '../../database/schema'
 import { createLanguageModel, type SupportedProvider } from '../ai/provider'
+import { withAiOperation } from '../ai/usage/context'
 
 type ConversationRow = typeof commsConversation.$inferSelect
 type ProfileRow = typeof commsAssistantProfile.$inferSelect
@@ -110,7 +111,13 @@ function stripHtml(html: string): string {
 export async function generateAssistantText(
   conv: ConversationRow,
   orgId: string,
-  opts: { autopilot?: boolean } = {},
+  opts: {
+    autopilot?: boolean
+    /** Операция учёта расхода ИИ; по умолчанию — черновик или автопилот (docs/tz-ai-usage.md §5.2). */
+    operation?: 'assistant.commsAssistant' | 'assistant.commsAutopilot' | 'assistant.telegramFirstContact'
+    /** Сущность для учёта (по умолчанию — диалог). */
+    usageEntity?: { type: 'application' | 'conversation', id: string }
+  } = {},
 ): Promise<{ text: string, personaName: string, model: string, provider: string, durationMs: number }> {
   const { profile, cfg } = await requireAssistantConfig(orgId)
 
@@ -184,6 +191,7 @@ export async function generateAssistantText(
   }
 
   const model = createLanguageModel({
+    id: cfg.id,
     provider: cfg.provider as SupportedProvider,
     model: cfg.model,
     apiKeyEncrypted: cfg.apiKeyEncrypted,
@@ -192,7 +200,15 @@ export async function generateAssistantText(
   })
 
   const started = Date.now()
-  const result = await generateText({
+  const usageCtx = {
+    operation: opts.operation ?? (opts.autopilot ? 'assistant.commsAutopilot' as const : 'assistant.commsAssistant' as const),
+    organizationId: orgId,
+    jobId: conv.jobId ?? null,
+    entity: opts.usageEntity ?? { type: 'conversation' as const, id: conv.id },
+    // Автопилот — фоновая операция (может блокироваться бюджетом); черновик просит человек.
+    trigger: opts.autopilot ? 'background' as const : 'user' as const,
+  }
+  const result = await withAiOperation(usageCtx, () => generateText({
     model,
     system,
     prompt,
@@ -201,7 +217,7 @@ export async function generateAssistantText(
     maxOutputTokens: Math.min(cfg.maxTokens, MAX_OUTPUT_TOKENS),
     maxRetries: 1,
     abortSignal: AbortSignal.timeout(GENERATION_TIMEOUT_MS),
-  })
+  }))
   const text = extractVisibleText(result.text)
   if (!text) {
     // Диагностика в лог — почему пусто (обычно finishReason=length у reasoning-моделей)

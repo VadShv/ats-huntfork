@@ -3,6 +3,7 @@ import {
   ArrowLeft, Save, Play, Plus, X, Trash2, Square,
   FlaskConical, CheckCircle2, AlertCircle,
 } from 'lucide-vue-next'
+import { formatMoney } from '~~/shared/aiUsage/cost'
 
 definePageMeta({
   layout: 'dashboard',
@@ -71,6 +72,8 @@ const aiConfigs = computed(() => (aiConfigsData.value as any[]) ?? [])
 // Test panel state
 const testVars = ref<Record<string, string>>({})
 const testResult = ref('')
+/** Итог прогона: токены и стоимость (если есть право видеть суммы) — docs/tz-ai-usage.md §8.4. */
+const testUsage = ref<{ promptTokens: number, completionTokens: number, cost?: number, currency?: 'USD' | 'RUB', model?: string } | null>(null)
 const testStatus = ref<'idle' | 'streaming' | 'done' | 'error'>('idle')
 const testError = ref<string | null>(null)
 let abortController: AbortController | null = null
@@ -124,6 +127,7 @@ async function save() {
 async function runTest() {
   testStatus.value = 'streaming'
   testResult.value = ''
+  testUsage.value = null
   testError.value = null
   abortController = new AbortController()
 
@@ -153,7 +157,10 @@ async function runTest() {
         try {
           const evt = JSON.parse(line.slice(6))
           if (evt.delta) testResult.value += evt.delta
-          if (evt.done) testStatus.value = 'done'
+          if (evt.done) {
+            testStatus.value = 'done'
+            if (evt.usage) testUsage.value = { ...evt.usage, cost: evt.cost, currency: evt.currency, model: evt.model }
+          }
           if (evt.error) { testError.value = evt.error; testStatus.value = 'error' }
         } catch { /* skip */ }
       }
@@ -377,6 +384,10 @@ async function deletePrompt() {
                 <span v-if="testStatus === 'streaming'" class="inline-block w-1.5 h-3 bg-brand-500 animate-pulse ml-0.5 align-middle" />
                 <div v-if="testStatus === 'done'" class="flex items-center gap-1 text-success-600 dark:text-success-400 mt-2 pt-2 border-t border-surface-200 dark:border-surface-800">
                   <CheckCircle2 class="size-3" /> Готово
+                  <span v-if="testUsage" class="ml-auto text-surface-500 tabular-nums">
+                    {{ testUsage.promptTokens.toLocaleString('ru-RU') }} вход · {{ testUsage.completionTokens.toLocaleString('ru-RU') }} выход
+                    <template v-if="testUsage.cost !== undefined"> · {{ formatMoney(testUsage.cost, testUsage.currency ?? 'USD') }}</template>
+                  </span>
                 </div>
               </div>
             </div>

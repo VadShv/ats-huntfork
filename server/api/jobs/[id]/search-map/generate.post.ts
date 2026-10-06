@@ -17,6 +17,9 @@ import {
 import { buildQueryString, usableExclusions } from '../../../../../shared/searchMap/queryBuilder'
 import { loadAiConfig } from '../../../../utils/ai/loadConfig'
 import { generateStructuredOutput, type SupportedProvider } from '../../../../utils/ai/provider'
+import { withAiOperation } from '../../../../utils/ai/usage/context'
+import type { AiOperationKey } from '../../../../../shared/aiUsage/catalog'
+import { randomUUID } from 'node:crypto'
 
 /**
  * POST /api/jobs/[id]/search-map/generate — AI-генерация содержимого карты.
@@ -174,6 +177,9 @@ export default defineEventHandler(async (event) => {
   const structuringCfg = { ...structuringRow, provider: structuringRow.provider as SupportedProvider }
   const analysisCfg = { ...analysisRow, provider: analysisRow.provider as SupportedProvider }
 
+  // Учёт расхода ИИ: одно действие пользователя = один трейс (docs/tz-ai-usage.md §3.4).
+  const aiTraceId = randomUUID()
+
   const runs: { part: string; model: string; promptChars: number; promptTokens: number; completionTokens: number; durationMs: number; status: 'ok' | 'error'; error?: string }[] = []
 
   async function callAi<T>(
@@ -186,7 +192,13 @@ export default defineEventHandler(async (event) => {
     const { system, prompt } = buildGeneratePrompt({ part, ...promptBase, ...extra })
     const startedAt = Date.now()
     try {
-      const { object, usage, responseModel } = await generateStructuredOutput(cfg, {
+      const usageCtx = {
+        operation: (part === 'query_string' ? 'searchMap.queryString' : `searchMap.${part}`) as AiOperationKey,
+        jobId,
+        entity: { type: 'search_map' as const, id: map!.id },
+        traceId: aiTraceId,
+      }
+      const { object, usage, responseModel } = await withAiOperation(usageCtx, () => generateStructuredOutput(cfg, {
         system,
         prompt,
         schema,
@@ -194,7 +206,7 @@ export default defineEventHandler(async (event) => {
         schemaDescription: `Search map: ${part}`,
         temperature: part === 'query_string' ? 0.1 : 0.3,
         disableThinking: true,
-      })
+      }))
       const durationMs = Date.now() - startedAt
       runs.push({ part, model: responseModel ?? cfg.model, promptChars: system.length + prompt.length, promptTokens: usage.promptTokens, completionTokens: usage.completionTokens, durationMs, status: 'ok' })
       console.info(`[search-map:generate] ${part} ok in ${durationMs}ms · model ${responseModel ?? cfg.model} · prompt ${system.length + prompt.length} chars · tokens ${usage.promptTokens}+${usage.completionTokens}`)

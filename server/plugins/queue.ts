@@ -20,6 +20,7 @@ import { HH_BULK_ACTION_QUEUE, processBulkAction } from '../utils/hh/bulkActions
 import { HH_OUTBOUND_SYNC_QUEUE, processOutboundSync } from '../utils/hh/twoWaySync'
 import { HH_COMMENT_IMPORT_QUEUE, processCommentImportJob } from '../utils/hh/commentImport'
 import { getBoss, stopBoss } from '../utils/queue/boss'
+import { withAiOperation } from '../utils/ai/usage/context'
 
 /**
  * Стартуем pg-boss и регистрируем воркеров.
@@ -30,6 +31,15 @@ import { getBoss, stopBoss } from '../utils/queue/boss'
  *
  * Build-time prerender пропускает плагин (нет DATABASE_URL).
  */
+/**
+ * Учёт расхода ИИ (docs/tz-ai-usage.md §3.3): всё, что воркер вызывает у моделей,
+ * помечается trigger = background и источником `queue:<имя>`. Организацию, пользователя
+ * и сущность задают сами обработчики из payload задачи.
+ */
+function withQueueAiContext<A extends unknown[], R>(queue: string, handler: (...args: A) => R): (...args: A) => R {
+  return (...args: A) => withAiOperation({ trigger: 'background', source: `queue:${queue}` }, () => handler(...args))
+}
+
 export default defineNitroPlugin(async (nitroApp) => {
   if (import.meta.prerender) return
 
@@ -60,7 +70,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       FUZZY_QUEUE,
       { batchSize: 1, teamSize: 4, teamConcurrency: 4 } as any,
-      processFuzzyJob as any,
+      withQueueAiContext(FUZZY_QUEUE, processFuzzyJob) as any,
     )
 
     logInfo('queue.workers_registered', { queue: FUZZY_QUEUE })
@@ -82,14 +92,14 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       HH_WEBHOOK_QUEUE,
       { batchSize: 1, teamSize: 3, teamConcurrency: 3 } as any,
-      processHhWebhookJob as any,
+      withQueueAiContext(HH_WEBHOOK_QUEUE, processHhWebhookJob) as any,
     )
 
     // Синк вакансии — тяжёлый, строго последовательно (бережём ресурсы и лимиты hh)
     await boss.work(
       HH_WEBHOOK_SYNC_QUEUE,
       { batchSize: 1, teamSize: 1, teamConcurrency: 1 } as any,
-      processHhWebhookSyncJob as any,
+      withQueueAiContext(HH_WEBHOOK_SYNC_QUEUE, processHhWebhookSyncJob) as any,
     )
 
     logInfo('queue.workers_registered', { queue: `${HH_WEBHOOK_QUEUE},${HH_WEBHOOK_SYNC_QUEUE}` })
@@ -111,13 +121,13 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       COMMS_SUGGEST_QUEUE,
       { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
-      processSuggestJob as any,
+      withQueueAiContext(COMMS_SUGGEST_QUEUE, processSuggestJob) as any,
     )
 
     await boss.work(
       COMMS_AUTOPILOT_QUEUE,
       { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
-      processAutopilotJob as any,
+      withQueueAiContext(COMMS_AUTOPILOT_QUEUE, processAutopilotJob) as any,
     )
 
     logInfo('queue.workers_registered', { queue: `${COMMS_SUGGEST_QUEUE},${COMMS_AUTOPILOT_QUEUE}` })
@@ -138,7 +148,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       TG_WEBHOOK_QUEUE,
       { batchSize: 1, teamSize: 3, teamConcurrency: 3 } as any,
-      processTelegramWebhookJob as any,
+      withQueueAiContext(TG_WEBHOOK_QUEUE, processTelegramWebhookJob) as any,
     )
 
     logInfo('queue.workers_registered', { queue: TG_WEBHOOK_QUEUE })
@@ -158,7 +168,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       RESUME_RISK_QUEUE,
       { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
-      processResumeRiskJob as any,
+      withQueueAiContext(RESUME_RISK_QUEUE, processResumeRiskJob) as any,
     )
 
     logInfo('queue.workers_registered', { queue: RESUME_RISK_QUEUE })
@@ -178,7 +188,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       MYMEET_IMPORT_QUEUE,
       { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
-      processMymeetImportJob as any,
+      withQueueAiContext(MYMEET_IMPORT_QUEUE, processMymeetImportJob) as any,
     )
 
     logInfo('queue.workers_registered', { queue: MYMEET_IMPORT_QUEUE })
@@ -196,7 +206,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       INTERVIEW_REPORT_QUEUE,
       { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
-      processInterviewReportJob as any,
+      withQueueAiContext(INTERVIEW_REPORT_QUEUE, processInterviewReportJob) as any,
     )
     logInfo('queue.workers_registered', { queue: INTERVIEW_REPORT_QUEUE })
 
@@ -215,7 +225,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       AI_THREAD_RESP_QUEUE,
       { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
-      handleAiThreadResponse as any,
+      withQueueAiContext(AI_THREAD_RESP_QUEUE, handleAiThreadResponse) as any,
     )
 
     logInfo('queue.workers_registered', { queue: AI_THREAD_RESP_QUEUE })
@@ -235,7 +245,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       HH_BULK_ACTION_QUEUE,
       { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
-      bulkActionHandler as any,
+      withQueueAiContext(HH_BULK_ACTION_QUEUE, bulkActionHandler) as any,
     )
 
     logInfo('queue.workers_registered', { queue: HH_BULK_ACTION_QUEUE })
@@ -255,7 +265,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       HH_OUTBOUND_SYNC_QUEUE,
       { batchSize: 1, teamSize: 3, teamConcurrency: 3 } as any,
-      outboundSyncHandler as any,
+      withQueueAiContext(HH_OUTBOUND_SYNC_QUEUE, outboundSyncHandler) as any,
     )
 
     logInfo('queue.workers_registered', { queue: HH_OUTBOUND_SYNC_QUEUE })
@@ -274,7 +284,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await boss.work(
       HH_COMMENT_IMPORT_QUEUE,
       { batchSize: 1, teamSize: 2, teamConcurrency: 2 } as any,
-      processCommentImportJob as any,
+      withQueueAiContext(HH_COMMENT_IMPORT_QUEUE, processCommentImportJob) as any,
     )
 
     logInfo('queue.workers_registered', { queue: HH_COMMENT_IMPORT_QUEUE })

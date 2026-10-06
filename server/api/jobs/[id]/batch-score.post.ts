@@ -35,6 +35,7 @@ import { applyAutoAdvanceIfNeeded } from '../../../utils/ai/autoAdvance'
 import { extractResumeText } from '../../../utils/resume-parser'
 import { resumeToText as hhResumeToText, type HhResumeApi } from '../../../utils/hh/sync'
 import { createRateLimiter } from '../../../utils/rateLimit'
+import { withAiOperation, withAiTrace } from '../../../utils/ai/usage/context'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 const bodySchema = z.discriminatedUnion('mode', [
@@ -76,6 +77,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Сужение типа не переживает замыкания воркеров — фиксируем вакансию в константе.
+  const scoringJob = { id: jobRow.id, title: jobRow.title, description: jobRow.description }
+
   const criteria = await db
     .select()
     .from(scoringCriterion)
@@ -99,7 +103,7 @@ export default defineEventHandler(async (event) => {
   }))
 
   // 2. Загрузим AI-конфиг один раз
-  let config
+  let config: Awaited<ReturnType<typeof loadAiConfig>>
   try {
     config = await loadAiConfig(orgId, { purpose: 'analysis' })
   }
@@ -110,6 +114,7 @@ export default defineEventHandler(async (event) => {
     })
   }
   const providerConfig = {
+    id: config.id,
     provider: config.provider as SupportedProvider,
     model: config.model,
     apiKeyEncrypted: config.apiKeyEncrypted,
@@ -248,14 +253,14 @@ export default defineEventHandler(async (event) => {
       }
 
       try {
-        const result = await scoreApplication(providerConfig, {
-          jobTitle: jobRow.title,
-          jobDescription: jobRow.description!,
+        const result = await withAiOperation({ jobId: scoringJob.id, entity: { type: 'application', id: app.id } }, () => scoreApplication(providerConfig, {
+          jobTitle: scoringJob.title,
+          jobDescription: scoringJob.description,
           criteria: criteriaDefinitions,
           resumeText,
           coverLetterText: app.coverLetterText,
           applicationNotes: app.notes,
-        })
+        }))
         const compositeScore = computeCompositeScore(criteriaDefinitions, result.scoring.evaluations)
 
         const scoreValues = result.scoring.evaluations.map(ev => ({
@@ -340,7 +345,9 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()))
+  // Учёт расхода ИИ: один трейс на пакет (docs/tz-ai-usage.md §12).
+  await withAiTrace({ jobId: scoringJob.id, operation: 'scoring.scoreApplication' }, () =>
+    Promise.all(Array.from({ length: CONCURRENCY }, () => worker())))
 
   const succeeded = results.filter(r => r.status === 'scored').length
   const failed = results.filter(r => r.status === 'failed').length

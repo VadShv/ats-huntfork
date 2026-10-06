@@ -49,7 +49,24 @@ function calcCost(promptTokens: number, completionTokens: number): number | null
   return ((promptTokens / 1_000_000) * (ip ?? 0)) + ((completionTokens / 1_000_000) * (op ?? 0))
 }
 
-const totalCost = computed(() => calcCost(summary.value.totalPromptTokens, summary.value.totalCompletionTokens))
+// Фактический расход из журнала ИИ (цена на момент вызова), если доступен — иначе оценка.
+const journal = computed(() => (stats.value as any)?.usageJournal as null | {
+  currency: 'RUB' | 'USD', totalCost: number, totalCalls: number,
+  byModel: Array<{ provider: string, model: string, cost: number, calls: number }>,
+})
+const useJournal = computed(() => !!journal.value && journal.value.totalCalls > 0)
+const costConfigured = computed(() => useJournal.value || pricing.value.configured)
+
+const totalCost = computed(() => useJournal.value
+  ? journal.value!.totalCost
+  : calcCost(summary.value.totalPromptTokens, summary.value.totalCompletionTokens))
+
+function modelCost(m: { provider: string, model: string, totalPromptTokens: number, totalCompletionTokens: number }): number | null {
+  if (useJournal.value) {
+    return journal.value!.byModel.find(j => j.provider === m.provider && j.model === m.model)?.cost ?? 0
+  }
+  return calcCost(m.totalPromptTokens, m.totalCompletionTokens)
+}
 
 // Chart bar heights (simple bar chart)
 const maxDailyCount = computed(() => Math.max(...dailyRuns.value.map((d: any) => d.count), 1))
@@ -72,6 +89,10 @@ function formatNumber(n: number): string {
 
 function formatCost(cost: number | null): string {
   if (cost == null) return '—'
+  if (useJournal.value && journal.value!.currency === 'RUB') {
+    if (cost > 0 && cost < 0.01) return '<0,01 ₽'
+    return `${cost.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`
+  }
   if (cost < 0.01) return '<$0.01'
   return `$${cost.toFixed(2)}`
 }
@@ -268,14 +289,15 @@ function statusBadgeClass(status: string): string {
           <DollarSign class="absolute -bottom-3 -right-3 size-24 text-emerald-500/[0.03] dark:text-emerald-400/[0.05] rotate-12 transition-transform duration-700 ease-out group-hover:rotate-3 group-hover:scale-110 pointer-events-none" />
           <div class="relative">
             <div class="flex items-baseline gap-2">
-              <span class="text-3xl sm:text-4xl font-black tracking-tight tabular-nums leading-none transition-colors duration-300" :class="pricing.configured ? 'text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300' : 'text-surface-300 dark:text-surface-600'">
-                {{ pricing.configured ? formatCost(totalCost) : '—' }}
+              <span class="text-3xl sm:text-4xl font-black tracking-tight tabular-nums leading-none transition-colors duration-300" :class="costConfigured ? 'text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300' : 'text-surface-300 dark:text-surface-600'">
+                {{ costConfigured ? formatCost(totalCost) : '—' }}
               </span>
-              <span class="size-1.5 rounded-full shrink-0 mb-1" :class="pricing.configured ? 'bg-emerald-500' : 'bg-surface-300 dark:bg-surface-600'" />
+              <span class="size-1.5 rounded-full shrink-0 mb-1" :class="costConfigured ? 'bg-emerald-500' : 'bg-surface-300 dark:bg-surface-600'" />
             </div>
             <span class="block mt-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-surface-400 dark:text-surface-500">{{ t('dashboard.aiAnalysis.totalCost') }}</span>
             <p class="text-[11px] text-surface-300 dark:text-surface-600 mt-1">
-              <template v-if="pricing.configured">{{ t('dashboard.aiAnalysis.estimatedFromUsage') }}</template>
+              <template v-if="useJournal">По журналу расхода ИИ · <NuxtLink to="/dashboard/ai-usage?feature=screening" class="underline underline-offset-2">подробнее</NuxtLink></template>
+              <template v-else-if="pricing.configured">{{ t('dashboard.aiAnalysis.estimatedFromUsage') }}</template>
               <template v-else>
                 <NuxtLink to="/dashboard/settings/ai" class="text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 underline underline-offset-2">{{ t('dashboard.aiAnalysis.setPricing') }}</NuxtLink> {{ t('dashboard.aiAnalysis.setPricingSuffix') }}
               </template>
@@ -397,7 +419,7 @@ function statusBadgeClass(status: string): string {
                 <th class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">{{ t('dashboard.aiAnalysis.cols.prompt') }}</th>
                 <th class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">{{ t('dashboard.aiAnalysis.cols.completion') }}</th>
                 <th class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ t('dashboard.aiAnalysis.cols.totalTokens') }}</th>
-                <th v-if="pricing.configured" class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ t('dashboard.aiAnalysis.cols.cost') }}</th>
+                <th v-if="costConfigured" class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ t('dashboard.aiAnalysis.cols.cost') }}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
@@ -414,7 +436,7 @@ function statusBadgeClass(status: string): string {
                 <td class="px-4 py-3 text-right tabular-nums text-violet-600 dark:text-violet-400 hidden md:table-cell">{{ formatNumber(m.totalPromptTokens) }}</td>
                 <td class="px-4 py-3 text-right tabular-nums text-amber-600 dark:text-amber-400 hidden md:table-cell">{{ formatNumber(m.totalCompletionTokens) }}</td>
                 <td class="px-4 py-3 text-right tabular-nums font-semibold text-surface-800 dark:text-surface-200">{{ formatNumber(m.totalTokens) }}</td>
-                <td v-if="pricing.configured" class="px-4 py-3 text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">{{ formatCost(calcCost(m.totalPromptTokens, m.totalCompletionTokens)) }}</td>
+                <td v-if="costConfigured" class="px-4 py-3 text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">{{ formatCost(modelCost(m)) }}</td>
               </tr>
             </tbody>
           </table>
@@ -453,7 +475,7 @@ function statusBadgeClass(status: string): string {
                 <th class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ t('dashboard.aiAnalysis.cols.score') }}</th>
                 <th class="text-left px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">{{ t('dashboard.aiAnalysis.cols.model') }}</th>
                 <th class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">{{ t('dashboard.aiAnalysis.cols.tokens') }}</th>
-                <th v-if="pricing.configured" class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">{{ t('dashboard.aiAnalysis.cols.cost') }}</th>
+                <th v-if="costConfigured" class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">{{ t('dashboard.aiAnalysis.cols.cost') }}</th>
                 <th class="text-right px-4 py-3 font-medium text-surface-500 dark:text-surface-400">{{ t('dashboard.aiAnalysis.cols.date') }}</th>
               </tr>
             </thead>
@@ -493,7 +515,7 @@ function statusBadgeClass(status: string): string {
                   </span>
                   <span v-else>—</span>
                 </td>
-                <td v-if="pricing.configured" class="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400 hidden md:table-cell">
+                <td v-if="costConfigured" class="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400 hidden md:table-cell">
                   <span v-if="run.promptTokens != null">{{ formatCostPrecise(calcCost(run.promptTokens ?? 0, run.completionTokens ?? 0)) }}</span>
                   <span v-else>—</span>
                 </td>

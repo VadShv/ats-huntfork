@@ -9,6 +9,7 @@ import { personalizeQuestionnaire, type ScaffoldItem } from '../../../../utils/a
 import type { SupportedProvider } from '../../../../utils/ai/provider'
 import { loadAiConfig } from '../../../../utils/ai/loadConfig'
 import { createRateLimiter } from '../../../../utils/rateLimit'
+import { withAiOperation } from '../../../../utils/ai/usage/context'
 
 const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 10, message: 'Слишком много запросов персонализации. Повторите позже' })
 
@@ -75,8 +76,9 @@ export default defineEventHandler(async (event) => {
 
   let personalized
   try {
-    personalized = await personalizeQuestionnaire(
+    personalized = await withAiOperation({ jobId: app.jobId, entity: { type: 'application', id: applicationId } }, () => personalizeQuestionnaire(
       {
+        id: config.id,
         provider: config.provider as SupportedProvider,
         model: config.model,
         apiKeyEncrypted: config.apiKeyEncrypted,
@@ -89,7 +91,7 @@ export default defineEventHandler(async (event) => {
         careInstruction: methodology?.interviewerInstruction ?? undefined,
         carePromptText: prompt?.promptText,
       },
-    )
+    ))
   }
   catch {
     setResponseStatus(event, 200)

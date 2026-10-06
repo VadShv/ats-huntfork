@@ -1,5 +1,6 @@
 import { eq, and, desc, sql, count, sum } from 'drizzle-orm'
-import { analysisRun, job, application, candidate, aiConfig } from '../../database/schema'
+import { analysisRun, job, application, candidate, aiConfig, aiUsageEvent } from '../../database/schema'
+import { requireAiUsageAccess } from '../../utils/ai/usage/query'
 
 /**
  * GET /api/ai-analysis/stats
@@ -9,6 +10,9 @@ import { analysisRun, job, application, candidate, aiConfig } from '../../databa
  * - Runs over time (last 30 days, grouped by day)
  * - Recent runs with job/candidate info
  * - Per-model breakdown
+ * - usageJournal — фактический расход скрининга из журнала ai_usage_event
+ *   (docs/tz-ai-usage.md §12): цена на момент вызова, а не текущая цена конфигурации.
+ *   Поле добавочное; старый формат ответа не меняется.
  */
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { scoring: ['read'] })
@@ -122,6 +126,40 @@ export default defineEventHandler(async (event) => {
 
   const usage = tokenUsage[0]
 
+  // Фактический расход из журнала — только при праве видеть суммы (§9).
+  let usageJournal: {
+    currency: string
+    totalCost: number
+    totalCalls: number
+    byModel: Array<{ provider: string, model: string, cost: number, calls: number }>
+    byDay: Array<{ date: string, cost: number }>
+  } | null = null
+  const usageAccess = await requireAiUsageAccess(event, 'view_costs').catch(() => null)
+  if (usageAccess) {
+    const e = aiUsageEvent
+    const screening = and(eq(e.organizationId, orgId), eq(e.feature, 'screening'))
+    const [jm, jd] = await Promise.all([
+      db.select({
+        provider: e.provider,
+        model: e.model,
+        cost: sql<number>`coalesce(sum(${e.costBase}), 0)::float8`,
+        calls: sql<number>`count(*)::int`,
+      }).from(e).where(screening).groupBy(e.provider, e.model),
+      db.select({
+        date: sql<string>`DATE(${e.createdAt})`,
+        cost: sql<number>`coalesce(sum(${e.costBase}), 0)::float8`,
+      }).from(e).where(and(screening, sql`${e.createdAt} >= ${thirtyDaysAgoISO}`))
+        .groupBy(sql`DATE(${e.createdAt})`).orderBy(sql`DATE(${e.createdAt})`),
+    ])
+    usageJournal = {
+      currency: usageAccess.currency.baseCurrency,
+      totalCost: jm.reduce((acc, r) => acc + Number(r.cost), 0),
+      totalCalls: jm.reduce((acc, r) => acc + Number(r.calls), 0),
+      byModel: jm.map(r => ({ provider: r.provider, model: r.model, cost: Number(r.cost), calls: Number(r.calls) })),
+      byDay: jd.map(r => ({ date: String(r.date), cost: Number(r.cost) })),
+    }
+  }
+
   const inputPrice = defaultAnalysisConfig?.inputPricePer1m != null ? Number(defaultAnalysisConfig.inputPricePer1m) : null
   const outputPrice = defaultAnalysisConfig?.outputPricePer1m != null ? Number(defaultAnalysisConfig.outputPricePer1m) : null
 
@@ -157,6 +195,7 @@ export default defineEventHandler(async (event) => {
       candidateName: `${r.candidateFirstName} ${r.candidateLastName}`,
       jobTitle: r.jobTitle,
     })),
+    usageJournal,
     modelBreakdown: modelBreakdown.map((m) => {
       const price = pricingByModel.get(`${m.provider}::${m.model}`)
       const promptTokens = Number(m.totalPromptTokens ?? 0)

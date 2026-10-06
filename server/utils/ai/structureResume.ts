@@ -17,6 +17,7 @@ import { z } from 'zod'
 import { loadAiConfig } from './loadConfig'
 import { generateStructuredOutput } from './provider'
 import { structureResumeRuleBased } from './hh-text-structurer'
+import { withAiOperation } from './usage/context'
 
 const experienceItemSchema = z.object({
   company: z.string().describe('Название компании; "" если неизвестно'),
@@ -260,13 +261,13 @@ export async function structureResumeFromText(opts: { orgId: string, text: strin
   // Для кастомных макетов КАЧЕСТВО важнее скорости → thinking ВКЛючён (disableThinking:false).
   // Такие резюме редки (львиная доля идёт через hh rule-based / API), поэтому доп. время
   // приемлемо ради полноты извлечения.
-  const result = await generateStructuredOutput(config, {
+  const result = await withAiOperation({ operation: 'parsing.structureResume', organizationId: opts.orgId }, () => generateStructuredOutput(config, {
     system, prompt, schema: structuredResumeSchema,
     schemaName: 'structured_resume',
     schemaDescription: 'Полное структурированное представление резюме кандидата',
     temperature: 0,
     disableThinking: false,
-  })
+  }))
 
   // Фаза 4 — regex-валидация контактов: гарантируем корректные email/телефон из текста,
   // не полагаясь на возможные ошибки LLM (и не теряя их, если LLM пропустил).

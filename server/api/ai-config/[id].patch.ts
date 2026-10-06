@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { aiConfig } from '../../database/schema'
 import { updateAiConfigSchema } from '../../utils/schemas/scoring'
 import { encrypt } from '../../utils/encryption'
+import { invalidateAiPricingCache } from '../../utils/ai/usage/pricing'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 
@@ -20,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
   const existing = await db.query.aiConfig.findFirst({
     where: and(eq(aiConfig.id, id), eq(aiConfig.organizationId, orgId)),
-    columns: { id: true },
+    columns: { id: true, inputPricePer1m: true, outputPricePer1m: true, cachedInputPricePer1m: true, priceCurrency: true, model: true },
   })
   if (!existing) throw createError({ statusCode: 404, statusMessage: 'Конфигурация ИИ не найдена' })
 
@@ -32,6 +33,8 @@ export default defineEventHandler(async (event) => {
   if (body.maxTokens !== undefined) updates.maxTokens = body.maxTokens
   if (body.inputPricePer1m !== undefined) updates.inputPricePer1m = body.inputPricePer1m != null ? String(body.inputPricePer1m) : null
   if (body.outputPricePer1m !== undefined) updates.outputPricePer1m = body.outputPricePer1m != null ? String(body.outputPricePer1m) : null
+  if (body.cachedInputPricePer1m !== undefined) updates.cachedInputPricePer1m = body.cachedInputPricePer1m != null ? String(body.cachedInputPricePer1m) : null
+  if (body.priceCurrency !== undefined) updates.priceCurrency = body.priceCurrency
   if (body.apiKey) updates.apiKeyEncrypted = encrypt(body.apiKey, env.BETTER_AUTH_SECRET)
 
   const [updated] = await db.update(aiConfig)
@@ -46,11 +49,30 @@ export default defineEventHandler(async (event) => {
       maxTokens: aiConfig.maxTokens,
       inputPricePer1m: aiConfig.inputPricePer1m,
       outputPricePer1m: aiConfig.outputPricePer1m,
+      cachedInputPricePer1m: aiConfig.cachedInputPricePer1m,
+      priceCurrency: aiConfig.priceCurrency,
       isDefaultChatbot: aiConfig.isDefaultChatbot,
       isDefaultAnalysis: aiConfig.isDefaultAnalysis,
       isDefaultStructuring: aiConfig.isDefaultStructuring,
       apiKeyEncrypted: aiConfig.apiKeyEncrypted,
     })
+
+  // Цены фиксируются в событиях на момент вызова — новые вызовы должны брать новые цены.
+  invalidateAiPricingCache(orgId)
+  const num = (v: unknown) => (v == null ? null : Number(v))
+  const priceBefore = {
+    inputPricePer1m: num(existing.inputPricePer1m),
+    outputPricePer1m: num(existing.outputPricePer1m),
+    cachedInputPricePer1m: num(existing.cachedInputPricePer1m),
+    priceCurrency: existing.priceCurrency,
+  }
+  const priceAfter = {
+    inputPricePer1m: num(updated!.inputPricePer1m),
+    outputPricePer1m: num(updated!.outputPricePer1m),
+    cachedInputPricePer1m: num(updated!.cachedInputPricePer1m),
+    priceCurrency: updated!.priceCurrency,
+  }
+  const priceChanged = JSON.stringify(priceBefore) !== JSON.stringify(priceAfter)
 
   recordActivity({
     organizationId: orgId,
@@ -58,6 +80,8 @@ export default defineEventHandler(async (event) => {
     action: 'updated',
     resourceType: 'aiConfig',
     resourceId: id,
+    // Изменение цен — в журнал активности (docs/tz-ai-usage.md §10.3).
+    ...(priceChanged ? { before: priceBefore, after: priceAfter, metadata: { priceChanged: true, model: updated!.model } } : {}),
   })
 
   const { apiKeyEncrypted, ...rest } = updated!
@@ -66,6 +90,7 @@ export default defineEventHandler(async (event) => {
       ...rest,
       inputPricePer1m: rest.inputPricePer1m != null ? Number(rest.inputPricePer1m) : null,
       outputPricePer1m: rest.outputPricePer1m != null ? Number(rest.outputPricePer1m) : null,
+      cachedInputPricePer1m: rest.cachedInputPricePer1m != null ? Number(rest.cachedInputPricePer1m) : null,
       hasApiKey: Boolean(apiKeyEncrypted),
     },
   }

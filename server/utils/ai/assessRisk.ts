@@ -14,6 +14,7 @@
 import { z } from 'zod'
 import { generateStructuredOutput, type ProviderConfig } from './provider'
 import type { TenureFacts } from '../risk/timeline'
+import { withAiOperation } from './usage/context'
 
 export const riskFindingCategories = ['inconsistency', 'suspicious', 'fact_to_verify'] as const
 export const riskConfidences = ['date_math', 'document', 'linguistic'] as const
@@ -94,7 +95,7 @@ export async function assessResumeRisk(
       + `<резюме>\n${opts.resumeText.slice(0, 16_000)}\n</резюме>\n\n`
       + 'Проведи риск-анализ содержания резюме по правилам выше.'
 
-  return generateStructuredOutput(config, {
+  return withAiOperation({ operation: 'risk.assessResumeRisk' }, () => generateStructuredOutput(config, {
     system,
     prompt,
     schema: findingsSchema,
@@ -102,7 +103,7 @@ export async function assessResumeRisk(
     schemaDescription: 'Смысловые риск-находки по резюме кандидата',
     temperature: 0,
     wrapBareArray: (items) => ({ findings: items, metrics: { density: 0, adequacy: 0 }, summary: '' }),
-  })
+  }))
 }
 
 // ─── Детерминированная агрегация overallRisk с cap ────────────────

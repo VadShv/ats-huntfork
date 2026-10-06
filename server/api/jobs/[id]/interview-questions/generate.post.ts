@@ -7,6 +7,7 @@ import type { SupportedProvider } from '../../../../utils/ai/provider'
 import { loadAiConfig } from '../../../../utils/ai/loadConfig'
 import { createRateLimiter } from '../../../../utils/rateLimit'
 import { normalizeQuestion as norm } from '../../../../utils/text/normalizeQuestion'
+import { withAiOperation } from '../../../../utils/ai/usage/context'
 
 const limiter = createRateLimiter({
   windowMs: 60_000,
@@ -44,8 +45,9 @@ export default defineEventHandler(async (event) => {
 
   const config = await loadAiConfig(orgId, { purpose: 'analysis', preferId: body.aiConfigId })
 
-  const generated = await generateInterviewQuestions(
+  const generated = await withAiOperation({ jobId, entity: { type: 'job', id: jobId } }, () => generateInterviewQuestions(
     {
+      id: config.id,
       provider: config.provider as SupportedProvider,
       model: config.model,
       apiKeyEncrypted: config.apiKeyEncrypted,
@@ -70,7 +72,7 @@ export default defineEventHandler(async (event) => {
         : null,
       count: body.count,
     },
-  )
+  ))
 
   // Existing questions → de-dup set + current max order.
   const existing = await db.query.jobInterviewQuestion.findMany({

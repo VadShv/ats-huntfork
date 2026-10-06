@@ -2,6 +2,7 @@ import type { H3Event } from 'h3'
 import type { statements } from '~~/shared/permissions'
 import { getActorContext } from './access/actorContext'
 import { canRequest } from './access/can'
+import { AI_ACTOR_CONTEXT_KEY } from './ai/usage/context'
 
 /**
  * Permission descriptor — maps a resource to the actions being requested.
@@ -117,6 +118,12 @@ export async function requirePermission(
     if (oldDenied) {
       throw createError({ statusCode: 403, statusMessage: 'Нет доступа: недостаточно прав' })
     }
+  }
+
+  // Учёт расхода ИИ: актор запроса для атрибуции LLM-вызовов (docs/tz-ai-usage.md §3.3).
+  ;(event.context as Record<string, unknown>)[AI_ACTOR_CONTEXT_KEY] = {
+    organizationId: activeOrganizationId,
+    userId: session.user.id,
   }
 
   return {

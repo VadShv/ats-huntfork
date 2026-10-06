@@ -52,6 +52,8 @@ const atsStatements = {
   questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
   // Модуль «Карта поиска» — docs/tz-search-map.md §7
   searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions', 'manage_registry'],
+  // Учёт расхода ИИ — docs/tz-ai-usage.md §9
+  aiUsage: ['view_own', 'view_org', 'view_costs', 'manage_budgets', 'export', 'recalculate'],
   // hh.ru integration extensions — see docs/hh-extensions-architecture.md
   hhTemplate: ['create', 'read', 'update', 'delete'],
   hhStats: ['read', 'refresh'],
@@ -102,6 +104,7 @@ export const ownerAtsStatements = {
   department: ['create', 'read', 'update', 'delete'],
   questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
   searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions', 'manage_registry'],
+  aiUsage: ['view_own', 'view_org', 'view_costs', 'manage_budgets', 'export', 'recalculate'],
   hhTemplate: ['create', 'read', 'update', 'delete'],
   hhStats: ['read', 'refresh'],
   hhNegotiation: ['read', 'sync', 'import'],
@@ -128,6 +131,7 @@ export const adminAtsStatements = {
   department: ['create', 'read', 'update', 'delete'],
   questionBank: ['view', 'create_draft', 'edit_draft', 'publish', 'archive', 'manage_topics', 'manage_care', 'manage_reports'],
   searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions', 'manage_registry'],
+  aiUsage: ['view_own', 'view_org', 'view_costs', 'manage_budgets', 'export'],
   hhTemplate: ['create', 'read', 'update', 'delete'],
   hhStats: ['read', 'refresh'],
   hhNegotiation: ['read', 'sync', 'import'],
@@ -161,6 +165,8 @@ export const memberAtsStatements = {
   // ABAC-проверка владения в хендлере поверх create_draft (см. cross-cutting §2.2).
   questionBank: ['view', 'create_draft', 'edit_draft'],
   searchMap: ['view', 'edit', 'generate', 'add_donor', 'manage_versions'],
+  // Рекрутер видит свой расход ИИ в токенах; суммы — только при выданном view_costs.
+  aiUsage: ['view_own'],
   hhTemplate: ['create', 'read', 'update'],
   hhStats: ['read'],
   hhNegotiation: ['read', 'sync', 'import'],
