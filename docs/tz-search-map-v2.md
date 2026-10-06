@@ -417,6 +417,6 @@ R0 Контекст ──► R1 Документ ──► R2 Факты ──
 | R4 §6.1 (часть) | В ответе `generate` — массив `runs` с моделью, длиной промпта, токенами и временем по частям; в лог — то же | `generate.post.ts` |
 | UI | «Сегмент» → «Гипотеза» во всех надписях модуля; БД/API не менялись | весь модуль |
 
-Тесты: `tests/unit/search-map-generation-context.test.ts`, `search-map-query-builder.test.ts`, `search-map-document-model.test.ts` (всего 47 проверок).
+Тесты: `tests/unit/search-map-generation-context.test.ts`, `search-map-query-builder.test.ts`, `search-map-document-model.test.ts` (всего 48 проверок).
 
 Не вошло (сознательно, по правилу «не переусложнять»): таблица `search_map_generation_run` и панель расхода (§6.1 — нужна миграция, добавим после первых реальных запусков, `runs` в ответе уже дают цифры), профиль вакансии с кэшем (§6.4), «Обновить затронутое» (§6.5), ограничители (§6.6), R2 и R3.
