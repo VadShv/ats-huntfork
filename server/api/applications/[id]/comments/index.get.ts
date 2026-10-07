@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { requireApplicationInScope } from '../../../../utils/access/scope'
 import {
   application,
@@ -6,6 +6,7 @@ import {
   commentMention,
   commentReaction,
   commentAttachment,
+  commentPinPersonal,
 } from '../../../../database/schema/app'
 import { user } from '../../../../database/schema/auth'
 import { applicationIdParamSchema } from '../../../../utils/schemas/application'
@@ -13,12 +14,14 @@ import { applicationCommentQuerySchema } from '../../../../utils/schemas/applica
 import { canSeeInternal, getMemberRole } from '../../../../utils/comments/visibility'
 
 /**
- * GET /api/applications/:id/comments
- * Returns the collaboration thread for an application, oldest-first.
+ * GET /api/applications/:id/comments?limit=50&before=<ISO>
+ * Лента обсуждения отклика. Отдаёт последние `limit` сообщений (старые сверху);
+ * с `before` — `limit` сообщений строго старше курсора. `hasMore` — есть ли ещё
+ * более ранние; `oldestAt` — курсор для следующего запроса.
  *
- * Visibility:
- *   - role IN ('owner','admin','recruiter')       → sees all (incl. is_internal)
- *   - role IN ('hiring_manager','member')         → only is_internal=false
+ * Visibility (shared/access/discussion.ts):
+ *   - INTERNAL_VISIBLE_ROLES → видят всё, включая is_internal
+ *   - hiring_manager / external_recruiter → только is_internal=false
  *
  * Each comment is enriched with author, mentions, reactions (grouped), and
  * attachments. Soft-deleted comments (deletedAt IS NOT NULL) are excluded.
@@ -43,8 +46,8 @@ export default defineEventHandler(async (event) => {
   const role = await getMemberRole(db, orgId, userId)
   const seesInternal = canSeeInternal(role)
 
-  // ── 3. Fetch comments (oldest first — chat-style) ──
-  const offset = (query.page - 1) * query.limit
+  // ── 3. Fetch comments: курсор «старше before», новые → старые, затем разворачиваем ──
+  const effectiveAt = sql<Date>`COALESCE(${applicationComment.hhSyncedAt}, ${applicationComment.createdAt})`
   const whereClause = seesInternal
     ? and(eq(applicationComment.applicationId, id), isNull(applicationComment.deletedAt))
     : and(
@@ -52,8 +55,11 @@ export default defineEventHandler(async (event) => {
         isNull(applicationComment.deletedAt),
         eq(applicationComment.isInternal, false),
       )
+  const pageWhere = query.before
+    ? and(whereClause, lt(effectiveAt, new Date(query.before)))
+    : whereClause
 
-  const comments = await db
+  const rowsDesc = await db
     .select({
       id: applicationComment.id,
       body: applicationComment.body,
@@ -76,16 +82,26 @@ export default defineEventHandler(async (event) => {
       hhMessageId: applicationComment.hhMessageId,
       hhAuthorName: applicationComment.hhAuthorName,
       hhSyncedAt: applicationComment.hhSyncedAt,
+      effectiveAt,
+      // Личное закрепление текущего пользователя (comment_pin_personal)
+      pinnedByMeId: commentPinPersonal.id,
     })
     .from(applicationComment)
     .leftJoin(user, eq(user.id, applicationComment.authorUserId))
-    .where(whereClause)
-    .orderBy(asc(sql`COALESCE(${applicationComment.hhSyncedAt}, ${applicationComment.createdAt})`))
-    .limit(query.limit)
-    .offset(offset)
+    .leftJoin(commentPinPersonal, and(
+      eq(commentPinPersonal.commentId, applicationComment.id),
+      eq(commentPinPersonal.userId, userId),
+    ))
+    .where(pageWhere)
+    .orderBy(desc(effectiveAt), desc(applicationComment.id))
+    .limit(query.limit + 1)
+
+  const hasMore = rowsDesc.length > query.limit
+  const comments = rowsDesc.slice(0, query.limit).reverse()
+  const oldestAt = comments[0]?.effectiveAt ? new Date(comments[0].effectiveAt).toISOString() : null
 
   if (comments.length === 0) {
-    return { data: [], total: 0, page: query.page, limit: query.limit }
+    return { data: [], total: 0, hasMore: false, oldestAt: null, limit: query.limit }
   }
 
   const commentIds = comments.map(c => c.id)
@@ -165,6 +181,7 @@ export default defineEventHandler(async (event) => {
     // Раньше не отдавалось — закрепление было невидимо в ленте (новая оболочка, полоса закреплённого).
     isPinned: c.isPinned ?? false,
     pinnedAt: c.pinnedAt,
+    isPinnedByMe: c.pinnedByMeId != null,
     editedAt: c.editedAt,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
@@ -184,5 +201,5 @@ export default defineEventHandler(async (event) => {
     hhSyncedAt: c.hhSyncedAt,
   }))
 
-  return { data, total: totalRow, page: query.page, limit: query.limit }
+  return { data, total: totalRow, hasMore, oldestAt, limit: query.limit }
 })

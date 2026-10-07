@@ -3,7 +3,8 @@
  *
  * Inbound sync: pull applicant comments from hh.ru, dedup by hhCommentId, insert locally.
  */
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
+import { HH_IMPORTED_COMMENT_IS_INTERNAL } from '../../../utils/hh/commentImport'
 import {
   application,
   applicationComment,
@@ -102,7 +103,7 @@ export default defineEventHandler(async (event) => {
               authorUserId: null,
               body: plainBody,
               bodyHtml: renderMarkdown(plainBody),
-              isInternal: false,
+              isInternal: HH_IMPORTED_COMMENT_IS_INTERNAL,
               hhCommentId: c.id,
               hhApplicantId: applicantId,
               hhAuthorName: c.author?.full_name ?? null,

@@ -38,7 +38,7 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
-const { updateComment, deleteComment, deleteAttachment, fetchComments } = useApplicationComments(props.applicationId)
+const { updateComment, deleteComment, deleteAttachment, fetchComments, togglePin: togglePinRequest } = useApplicationComments(props.applicationId)
 const { ask } = useConfirm()
 const toast = useToast()
 const route = useRoute()
@@ -80,13 +80,14 @@ async function retryHhSend() {
   }
 }
 
-async function togglePin() {
+/** Закрепить: 'all' — для всех участников, 'me' — только для себя (личная полоса). */
+async function togglePin(scope: 'all' | 'me') {
   if (pinning.value) return
   pinning.value = true
   try {
-    await $fetch(`/api/applications/${props.applicationId}/comments/${props.comment.id}/pin`, { method: 'POST' })
+    await togglePinRequest(props.comment.id, scope)
   } catch {
-    toast.error('Не удалось закрепить сообщение')
+    // тост показан в composable
   } finally {
     pinning.value = false
     menuOpen.value = false
@@ -287,6 +288,13 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           <Pin class="size-2.5" /> {{ t('comments.pinned_badge') }}
         </span>
         <span
+          v-else-if="comment.isPinnedByMe"
+          class="inline-flex items-center gap-0.5 rounded bg-surface-100 dark:bg-surface-800 px-1 py-0.5 text-[9px] font-medium text-surface-600 dark:text-surface-300"
+          :title="t('comments.pinned_for_me_hint')"
+        >
+          <Pin class="size-2.5" /> {{ t('comments.pinned_for_me_badge') }}
+        </span>
+        <span
           v-if="comment.isInternal"
           class="inline-flex items-center gap-0.5 rounded bg-warning-100 dark:bg-warning-900/50 px-1 py-0.5 text-[9px] font-medium text-warning-800 dark:text-warning-200"
           :title="t('comments.internal_badge_hint')"
@@ -352,9 +360,16 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
             v-if="!readOnly"
             type="button"
             class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-100 dark:hover:bg-surface-800"
-            @click="togglePin"
+            @click="togglePin('all')"
           >
-            <Pin class="size-3.5" /> {{ comment.isPinned ? t('comments.unpin') : t('comments.pin_for_all') }}
+            <Pin class="size-3.5" /> {{ comment.isPinned ? t('comments.unpin_for_all') : t('comments.pin_for_all') }}
+          </button>
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-100 dark:hover:bg-surface-800"
+            @click="togglePin('me')"
+          >
+            <Pin class="size-3.5" /> {{ comment.isPinnedByMe ? t('comments.unpin_for_me') : t('comments.pin_for_me') }}
           </button>
           <button
             v-if="canEdit"
@@ -457,7 +472,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           :comment-id="comment.id"
           :attachment="a"
           :can-delete="!readOnly && (isAuthor || canDeleteAny)"
-          @remove="(aid) => deleteAttachment(comment.id, aid)"
+          @remove="(aid: string) => deleteAttachment(comment.id, aid)"
         />
       </div>
 
@@ -468,7 +483,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         :reactions="comment.reactions"
         :current-user-id="currentUserId"
         :read-only="readOnly"
-        @toggle="(cid, emoji) => emit('reactionToggle', cid, emoji)"
+        @toggle="(cid: string, emoji: string) => emit('reactionToggle', cid, emoji)"
       />
     </div>
   </div>

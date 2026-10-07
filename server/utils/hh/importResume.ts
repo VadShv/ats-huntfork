@@ -30,6 +30,7 @@ import {
 import { appendResumeVersionIfChanged } from '../resume-version/append'
 import { enqueueFuzzyDetect } from '../dedup/workers/fuzzy-job'
 import { getEntryStageForPipeline } from '../pipeline-helpers'
+import { enqueueCommentImport } from './commentImport'
 
 export interface ImportResumeParams {
   organizationId: string
@@ -292,6 +293,10 @@ export async function importResumeFromHh(params: ImportResumeParams): Promise<Im
       }
     }
   }
+
+  // Комментарии hh.ru по соискателю → обсуждение отклика (решение №4: при любом способе добавления).
+  // Если отклика нет (импорт без вакансии) — импорт найдёт последний отклик кандидата или пропустит.
+  void enqueueCommentImport(candidateId, organizationId, { applicationId })
 
   // Sprint 11: переиндексируем full-text поиск (новое hh-резюме появилось).
   const { refreshCandidateSearchTsv } = await import('../candidateSearchText')

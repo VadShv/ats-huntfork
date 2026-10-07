@@ -21,7 +21,10 @@ import { useScoreTone, useRiskMeta } from '~/composables/useDiscussionColors'
 const props = defineProps<{
   applicationId: string
   candidateId: string
+  /** Закреплённые для всех (is_pinned), по убыванию pinned_at. */
   pinnedComments: ThreadComment[]
+  /** Закреплённые только для меня (comment_pin_personal). */
+  personalPinnedComments?: ThreadComment[]
   compact?: boolean
 }>()
 
@@ -78,11 +81,15 @@ const hasContext = computed(() => hasScreening.value || hasRisk.value)
 
 // ── Элементы полосы ──
 type BarItem =
-  | { kind: 'pin', comment: ThreadComment }
+  | { kind: 'pin', comment: ThreadComment, personal: boolean }
   | { kind: 'context' }
 
 const items = computed<BarItem[]>(() => {
-  const list: BarItem[] = props.pinnedComments.map(c => ({ kind: 'pin' as const, comment: c }))
+  const list: BarItem[] = props.pinnedComments.map(c => ({ kind: 'pin' as const, comment: c, personal: false }))
+  const seen = new Set(props.pinnedComments.map(c => c.id))
+  for (const c of props.personalPinnedComments ?? []) {
+    if (!seen.has(c.id)) list.push({ kind: 'pin', comment: c, personal: true })
+  }
   if (hasContext.value) list.push({ kind: 'context' })
   return list
 })
@@ -129,7 +136,7 @@ onMounted(() => {
         :title="current?.kind === 'pin' ? t('comments.pinned_goto') : t('comments.context_hint')"
         @click="onBarClick"
       >
-        <span class="w-0.5 self-stretch rounded-full flex-shrink-0" :class="current?.kind === 'pin' ? 'bg-brand-500' : 'bg-accent-500'" />
+        <span class="w-0.5 self-stretch rounded-full flex-shrink-0" :class="current?.kind === 'pin' ? (current.personal ? 'bg-surface-400' : 'bg-brand-500') : 'bg-accent-500'" />
         <span class="min-w-0 flex-1">
           <!-- Закреплённое сообщение -->
           <template v-if="current?.kind === 'pin'">
@@ -165,7 +172,7 @@ onMounted(() => {
         </span>
         <span class="hidden sm:inline-flex items-center gap-1 text-[10px] text-surface-400 flex-shrink-0">
           <Pin v-if="current?.kind === 'pin'" class="size-2.5" />
-          {{ current?.kind === 'pin' ? t('comments.pinned_for_all') : t('comments.context_label') }}
+          {{ current?.kind === 'pin' ? (current.personal ? t('comments.pinned_for_me_badge') : t('comments.pinned_for_all')) : t('comments.context_label') }}
           <span v-if="items.length > 1" class="tabular-nums">· {{ idx + 1 }}/{{ items.length }}</span>
         </span>
       </button>

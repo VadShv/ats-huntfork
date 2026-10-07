@@ -7,7 +7,7 @@
  * Редкие действия — в «⋯» (участники, фильтры, hh.ru) и в «+» композера.
  */
 import { onMounted, onBeforeUnmount, ref, computed, nextTick, watch } from 'vue'
-import { MessageSquare, Users, Eye, ArrowDown, Search, RefreshCw, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft } from 'lucide-vue-next'
+import { MessageSquare, Users, Eye, ArrowDown, ArrowUp, Search, RefreshCw, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft } from 'lucide-vue-next'
 import ApplicationCommentItem from './ApplicationCommentItem.vue'
 import ApplicationCommentComposer from './ApplicationCommentComposer.vue'
 import ThreadStageEvent from './ThreadStageEvent.vue'
@@ -74,7 +74,10 @@ const {
   timeline,
   loading,
   error,
+  hasMore,
+  loadingMore,
   fetchComments,
+  loadOlder,
   fetchWatchers,
   fetchStageHistory,
   connectStream,
@@ -255,6 +258,8 @@ function searchStep(dir: 1 | -1) {
 const pinnedComments = computed(() =>
   comments.value.filter(c => c.isPinned).sort((a, b) => new Date(b.pinnedAt ?? b.createdAt).getTime() - new Date(a.pinnedAt ?? a.createdAt).getTime()),
 )
+const personalPinnedComments = computed(() => comments.value.filter(c => c.isPinnedByMe && !c.isPinned))
+
 
 // ── Меню «⋯» и «Другие отклики» ──
 const moreOpen = ref(false)
@@ -283,6 +288,25 @@ const currentOwnApplication = computed(() => props.applications.find(a => a.isCu
 // ── Прокрутка ──
 const scrollRef = ref<HTMLElement | null>(null)
 const { showJumpFab, scrollToBottom } = useThreadScroll(scrollRef, computed(() => filteredUnits.value.length))
+
+// ── Подгрузка истории: кнопка сверху + автоподгрузка при прокрутке к началу, позиция сохраняется ──
+async function onLoadOlder() {
+  const el = scrollRef.value
+  const prevHeight = el?.scrollHeight ?? 0
+  const prevTop = el?.scrollTop ?? 0
+  const added = await loadOlder()
+  if (added > 0 && el) {
+    await nextTick()
+    el.scrollTop = el.scrollHeight - prevHeight + prevTop
+  }
+}
+function onFeedScroll() {
+  const el = scrollRef.value
+  if (!el || !hasMore.value || loadingMore.value) return
+  if (el.scrollTop < 40) void onLoadOlder()
+}
+onMounted(() => scrollRef.value?.addEventListener('scroll', onFeedScroll, { passive: true }))
+onBeforeUnmount(() => scrollRef.value?.removeEventListener('scroll', onFeedScroll))
 
 const menuItemClass = 'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer disabled:opacity-50'
 const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200 cursor-pointer transition-colors'
@@ -482,6 +506,7 @@ const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md 
       :application-id="applicationId"
       :candidate-id="candidateId"
       :pinned-comments="pinnedComments"
+      :personal-pinned-comments="personalPinnedComments"
       :compact="compact"
       @goto="gotoComment"
       @open-screening="emit('openScreening')"
@@ -507,6 +532,19 @@ const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md 
         <button type="button" class="ml-1 text-brand-600 hover:underline cursor-pointer" @click="activeFilter = 'all'">{{ t('comments.filter_reset') }}</button>
       </div>
       <div v-else>
+        <!-- История старше загруженного -->
+        <div v-if="hasMore" class="mb-2 flex justify-center">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-full border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1 text-[11px] text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer disabled:opacity-60"
+            :disabled="loadingMore"
+            @click="onLoadOlder"
+          >
+            <span v-if="loadingMore" class="inline-block size-3 animate-spin rounded-full border-2 border-surface-300 border-t-brand-500" />
+            <ArrowUp v-else class="size-3" />
+            {{ loadingMore ? t('comments.loading') : t('comments.load_older') }}
+          </button>
+        </div>
         <template v-for="(unit, ui) in filteredUnits" :key="`u-${ui}`">
           <template v-if="unit.type === 'group'">
             <ApplicationCommentItem

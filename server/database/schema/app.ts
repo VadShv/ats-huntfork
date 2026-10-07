@@ -2656,6 +2656,27 @@ export const commentReaction = pgTable(
   }),
 )
 
+/**
+ * Личное закрепление сообщения (docs/tz-discussion-shell.md, этап «личные закрепления»).
+ * В отличие от application_comment.is_pinned (закрепление для всех), видно только
+ * самому пользователю. Одна строка на (сообщение, пользователь).
+ */
+export const commentPinPersonal = pgTable(
+  'comment_pin_personal',
+  {
+    id:             text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    applicationId:  text('application_id').notNull().references(() => application.id, { onDelete: 'cascade' }),
+    commentId:      text('comment_id').notNull().references(() => applicationComment.id, { onDelete: 'cascade' }),
+    userId:         text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    createdAt:      timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq:    uniqueIndex('uq_comment_pin_personal').on(t.commentId, t.userId),
+    appUser: index('idx_comment_pin_personal_app_user').on(t.applicationId, t.userId),
+  }),
+)
+
 export const commentAttachment = pgTable(
   'comment_attachment',
   {
@@ -2735,6 +2756,11 @@ export const commentMentionRelations = relations(commentMention, ({ one }) => ({
 export const commentReactionRelations = relations(commentReaction, ({ one }) => ({
   comment: one(applicationComment, { fields: [commentReaction.commentId], references: [applicationComment.id] }),
   user:    one(user, { fields: [commentReaction.userId], references: [user.id] }),
+}))
+
+export const commentPinPersonalRelations = relations(commentPinPersonal, ({ one }) => ({
+  comment: one(applicationComment, { fields: [commentPinPersonal.commentId], references: [applicationComment.id] }),
+  user:    one(user, { fields: [commentPinPersonal.userId], references: [user.id] }),
 }))
 
 export const commentAttachmentRelations = relations(commentAttachment, ({ one }) => ({

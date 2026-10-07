@@ -17,9 +17,15 @@ export const updateApplicationCommentSchema = z.object({
   body: z.string().min(1).max(10_000),
 })
 
+/**
+ * Лента — курсорная пагинация «от новых к старым» (docs/tz-discussion-shell.md, пагинация):
+ *   без `before` — последние `limit` сообщений; с `before` (ISO-время) — `limit` сообщений
+ *   строго старше. Время сообщения = COALESCE(hh_synced_at, created_at).
+ * Прежний `page` (offset от старых к новым) отдавал первые 100 и терял свежие — удалён.
+ */
 export const applicationCommentQuerySchema = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().min(1).max(200).default(100),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  before: z.string().datetime({ offset: true }).optional(),
 })
 
 export const applicationCommentIdParamSchema = z.object({

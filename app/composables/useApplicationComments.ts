@@ -83,6 +83,8 @@ export interface ThreadComment {
   parentCommentId: string | null
   isPinned: boolean
   pinnedAt?: string | Date | null
+  /** Личное закрепление текущего пользователя (comment_pin_personal). */
+  isPinnedByMe?: boolean
   editedAt: string | Date | null
   createdAt: string | Date
   updatedAt: string | Date
@@ -145,20 +147,88 @@ export function useApplicationComments(applicationId: string) {
   const stageEvents = useState<StageEvent[]>(`app-stage-events:${applicationId}`, () => [])
   const loading = useState<boolean>(`app-comments-loading:${applicationId}`, () => false)
   const error = useState<string | null>(`app-comments-error:${applicationId}`, () => null)
+  /** Есть ли сообщения старше самого раннего загруженного. */
+  const hasMore = useState<boolean>(`app-comments-has-more:${applicationId}`, () => false)
+  const loadingMore = useState<boolean>(`app-comments-loading-more:${applicationId}`, () => false)
   const toast = useToast()
 
+  /** Время сообщения в ленте: для входящих с hh — дата на hh, иначе дата создания. */
+  function effectiveAt(c: ThreadComment): number {
+    return new Date(c.hhSyncedAt ?? c.createdAt).getTime()
+  }
+
+  const PAGE_SIZE = 50
+  const MAX_LIMIT = 200
+
+  interface CommentsPage { data: ThreadComment[], total: number, hasMore: boolean, oldestAt: string | null }
+
+  /**
+   * Загрузить/обновить ленту. Запрашиваем столько последних сообщений, сколько уже
+   * загружено (минимум страница), чтобы рефетч по SSE не терял подгруженную историю.
+   */
   async function fetchComments() {
     loading.value = true
     error.value = null
     try {
-      const res = await $fetch<{ data: ThreadComment[]; total: number }>(
+      const limit = Math.min(MAX_LIMIT, Math.max(PAGE_SIZE, comments.value.length))
+      const res = await $fetch<CommentsPage>(
         `/api/applications/${applicationId}/comments`,
+        { query: { limit } },
       )
       comments.value = res.data
+      hasMore.value = res.hasMore
     } catch (e: any) {
       error.value = e?.data?.statusMessage ?? e?.message ?? 'Не удалось загрузить тред'
     } finally {
       loading.value = false
+    }
+  }
+
+  /** Подгрузить страницу сообщений старше самого раннего загруженного. Возвращает число добавленных. */
+  async function loadOlder(): Promise<number> {
+    if (loadingMore.value || !hasMore.value) return 0
+    const oldest = comments.value[0]
+    if (!oldest) return 0
+    loadingMore.value = true
+    try {
+      const res = await $fetch<CommentsPage>(
+        `/api/applications/${applicationId}/comments`,
+        { query: { limit: PAGE_SIZE, before: new Date(effectiveAt(oldest)).toISOString() } },
+      )
+      const known = new Set(comments.value.map(c => c.id))
+      const fresh = res.data.filter(c => !known.has(c.id))
+      comments.value = [...fresh, ...comments.value]
+      hasMore.value = res.hasMore
+      return fresh.length
+    } catch (e: any) {
+      toast.error('Не удалось загрузить историю', { message: e?.data?.statusMessage ?? e?.message })
+      return 0
+    } finally {
+      loadingMore.value = false
+    }
+  }
+
+  /**
+   * Переключить закрепление. scope='all' — для всех (виден всем участникам, нужен
+   * доступ application:update); scope='me' — личное, только для текущего пользователя.
+   */
+  async function togglePin(commentId: string, scope: 'all' | 'me' = 'all') {
+    const idx = comments.value.findIndex(c => c.id === commentId)
+    try {
+      const res = await $fetch<{ id: string, scope: 'all' | 'me', isPinned?: boolean, isPinnedByMe?: boolean }>(
+        `/api/applications/${applicationId}/comments/${commentId}/pin`,
+        { method: 'POST', body: { scope } },
+      )
+      if (idx >= 0) {
+        const cur = comments.value[idx]!
+        comments.value[idx] = scope === 'me'
+          ? { ...cur, isPinnedByMe: res.isPinnedByMe ?? !cur.isPinnedByMe }
+          : { ...cur, isPinned: res.isPinned ?? !cur.isPinned, pinnedAt: res.isPinned ? new Date().toISOString() : null }
+      }
+      return res
+    } catch (e: any) {
+      toast.error('Не удалось изменить закрепление', { message: e?.data?.statusMessage ?? e?.message })
+      throw e
     }
   }
 
@@ -367,10 +437,15 @@ export function useApplicationComments(applicationId: string) {
   const timeline = computed<TimelineItem[]>(() => {
     const items: TimelineItem[] = []
     for (const c of comments.value) {
-      items.push({ type: 'comment', at: new Date(c.createdAt).getTime(), comment: c })
+      items.push({ type: 'comment', at: effectiveAt(c), comment: c })
     }
+    // Пока есть незагруженная история — события этапов старше первого загруженного
+    // сообщения не показываем, иначе лента начнётся с «висящих» переводов без контекста.
+    const oldestLoaded = hasMore.value && comments.value.length > 0 ? effectiveAt(comments.value[0]!) : -Infinity
     for (const e of stageEvents.value) {
-      items.push({ type: 'stage_event', at: new Date(e.movedAt).getTime(), event: e })
+      const at = new Date(e.movedAt).getTime()
+      if (at < oldestLoaded) continue
+      items.push({ type: 'stage_event', at, event: e })
     }
     return items.sort((a, b) => a.at - b.at)
   })
@@ -418,7 +493,11 @@ export function useApplicationComments(applicationId: string) {
     loading,
     error,
     total,
+    hasMore,
+    loadingMore,
     fetchComments,
+    loadOlder,
+    togglePin,
     fetchWatchers,
     fetchStageHistory,
     connectStream,

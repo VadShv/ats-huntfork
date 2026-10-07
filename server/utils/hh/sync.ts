@@ -412,12 +412,6 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
         }
       }
 
-      // ─── Background import of hh.ru applicant_comments ───
-      const _applicantId = extractApplicantId(resume as unknown as Record<string, unknown>)
-      if (_applicantId) {
-        void enqueueCommentImport(candidateId, link.organizationId)
-      }
-
       // Сохраняем (или обновляем last_seen_at) все identity-сигналы для этого кандидата.
       if (identitySignals.length > 0) {
         await upsertCandidateIdentities({
@@ -528,6 +522,11 @@ export async function syncVacancyLink(linkId: string): Promise<SyncLinkResult> {
         newApplicationIds.push(applicationId)
       }
       touchedCandidateIds.add(candidateId)
+
+      // ─── Фоновый импорт комментариев hh.ru в обсуждение этого отклика ───
+      if (extractApplicantId(resume as unknown as Record<string, unknown>)) {
+        void enqueueCommentImport(candidateId, link.organizationId, { applicationId, hhAccountId: link.hhAccountId })
+      }
 
       // hh_negotiation
       await db.insert(hhNegotiation).values({

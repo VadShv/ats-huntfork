@@ -24,6 +24,7 @@ import {
 import { apiGet } from '../../../utils/hh/client'
 import { getValidAccessToken } from '../../../utils/hh/tokens'
 import { getEntryStageForPipeline } from '../../../utils/pipeline-helpers'
+import { enqueueCommentImport } from '../../../utils/hh/commentImport'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 
@@ -242,6 +243,9 @@ export default defineEventHandler(async (event) => {
       }).onConflictDoNothing()
     }
   }
+
+  // 5a. Комментарии hh.ru по соискателю → обсуждение отклика (решение №4).
+  void enqueueCommentImport(candidateId, orgId, { applicationId, hhAccountId })
 
   // 6. Обновляем sourcing-candidate
   await db.update(hhSourcingCandidate)

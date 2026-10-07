@@ -2766,7 +2766,13 @@
     "internal_off_hint": "Сделать внутренним (скрыть от заказчика)",
     "internal_mention_warning": "Внутреннее сообщение: {names} его не увидит. Уведомление не придёт.",
     "make_visible": "Сделать видимым",
-    "stage_already": "Отклик уже на этом этапе"
+    "stage_already": "Отклик уже на этом этапе",
+    "unpin_for_all": "Открепить для всех",
+    "pin_for_me": "Закрепить для себя",
+    "unpin_for_me": "Открепить у себя",
+    "pinned_for_me_badge": "закреплено для меня",
+    "pinned_for_me_hint": "Личное закрепление — видите только вы",
+    "load_older": "Показать более ранние"
   },
   "discussion_tabs": {
     "untitled_job": "Без вакансии",
