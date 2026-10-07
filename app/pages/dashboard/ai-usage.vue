@@ -26,7 +26,7 @@ definePageMeta({
   layout: 'dashboard',
   middleware: ['auth', 'require-org'],
 })
-useSeoMeta({ title: 'Расход ИИ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: 'Учёт токенов', robots: 'noindex, nofollow' })
 
 const { allowed: canSee } = usePermission({ aiUsage: ['view_own'] })
 const { isDark } = useColorMode()
@@ -232,7 +232,7 @@ const changeUp = computed(() => (s.value.costChangePct ?? 0) > 0)
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Coins class="size-6 text-brand-500" /> Расход ИИ
+          <Coins class="size-6 text-brand-500" /> Учёт токенов
         </h1>
         <p class="mt-1 text-sm text-surface-500">
           Сколько стоит каждое ИИ-действие: по операциям, моделям, сотрудникам и вакансиям.
@@ -252,7 +252,7 @@ const changeUp = computed(() => (s.value.costChangePct ?? 0) > 0)
       </div>
     </div>
 
-    <div v-if="!canSee" class="rounded-xl bg-amber-50 dark:bg-amber-950/40 p-4 text-sm">Нет доступа к разделу «Расход ИИ».</div>
+    <div v-if="!canSee" class="rounded-xl bg-amber-50 dark:bg-amber-950/40 p-4 text-sm">Нет доступа к разделу «Учёт токенов».</div>
 
     <template v-else>
       <!-- Фильтры -->

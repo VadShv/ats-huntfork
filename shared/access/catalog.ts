@@ -69,12 +69,12 @@ const ASSISTANT_LABELS: Record<string, { ru: string; en: string }> = {
 
 // docs/tz-ai-usage.md §9: подписи прав «Расход ИИ».
 const AI_USAGE_LABELS: Record<string, { ru: string; en: string }> = {
-  view_own: { ru: 'Расход ИИ: свои вызовы', en: 'AI usage: own calls' },
-  view_org: { ru: 'Расход ИИ: вся организация', en: 'AI usage: whole org' },
-  view_costs: { ru: 'Расход ИИ: суммы в деньгах', en: 'AI usage: costs' },
-  manage_budgets: { ru: 'Расход ИИ: бюджеты и настройки', en: 'AI usage: budgets & settings' },
-  export: { ru: 'Расход ИИ: экспорт', en: 'AI usage: export' },
-  recalculate: { ru: 'Расход ИИ: пересчёт истории', en: 'AI usage: recalculate history' },
+  view_own: { ru: 'Учёт токенов: свои вызовы', en: 'AI usage: own calls' },
+  view_org: { ru: 'Учёт токенов: вся организация', en: 'AI usage: whole org' },
+  view_costs: { ru: 'Учёт токенов: суммы в деньгах', en: 'AI usage: costs' },
+  manage_budgets: { ru: 'Учёт токенов: бюджеты и настройки', en: 'AI usage: budgets & settings' },
+  export: { ru: 'Учёт токенов: экспорт', en: 'AI usage: export' },
+  recalculate: { ru: 'Учёт токенов: пересчёт истории', en: 'AI usage: recalculate history' },
 }
 const LABEL_OVERRIDES: Record<string, Record<string, { ru: string; en: string }>> = {
   assistant: ASSISTANT_LABELS,

@@ -156,7 +156,7 @@ const inputCls = 'w-full rounded-lg border border-surface-200 dark:border-surfac
     <!-- Валюта -->
     <section class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">
       <h2 class="text-sm font-semibold mb-1">Валюта отчётов</h2>
-      <p class="text-xs text-surface-500 mb-4">Все суммы на дашборде «Расход ИИ» и в бюджетах приводятся к этой валюте. Цены конфигураций могут быть в $ или ₽.</p>
+      <p class="text-xs text-surface-500 mb-4">Все суммы на странице «Учёт токенов» и в бюджетах приводятся к этой валюте. Цены конфигураций могут быть в $ или ₽.</p>
       <div class="grid sm:grid-cols-3 gap-4">
         <div>
           <label class="block text-[11px] font-medium text-surface-500 mb-1">Базовая валюта</label>

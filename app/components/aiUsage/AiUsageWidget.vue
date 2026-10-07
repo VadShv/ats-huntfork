@@ -53,7 +53,7 @@ const link = computed(() => ({ path: '/dashboard/ai-usage', query: { period: '90
           <span v-if="hasCost" class="tabular-nums font-medium w-20 text-right">{{ formatMoney(o.cost, currency) }}</span>
         </li>
       </ul>
-      <NuxtLink :to="link" class="mt-2 inline-block text-xs text-brand-600 hover:underline">Подробнее в «Расход ИИ»</NuxtLink>
+      <NuxtLink :to="link" class="mt-2 inline-block text-xs text-brand-600 hover:underline">Подробнее в «Учёт токенов»</NuxtLink>
     </div>
   </div>
 </template>
