@@ -14,6 +14,7 @@
 import { computed, onMounted, ref } from 'vue'
 import ApplicationCommentThread, { type DiscussionAppOption } from './ApplicationCommentThread.vue'
 import { useUnreadComments } from '~/composables/useUnreadComments'
+import type { StageMoveResult } from '~/composables/useApplicationStages'
 
 interface DiscussionTabStage {
   id: string
@@ -48,6 +49,11 @@ const props = withDefaults(
   }>(),
   { compact: false },
 )
+
+const emit = defineEmits<{
+  /** Этап отклика изменён из обсуждения — хозяин (страница/шторка) обновляет карточку отклика. */
+  'stage-changed': [payload: StageMoveResult]
+}>()
 
 const localePath = useLocalePath()
 
@@ -112,6 +118,12 @@ const applications = computed<DiscussionAppOption[]>(() =>
   })),
 )
 
+function onStageChanged(payload: StageMoveResult) {
+  // Обновить этап в списке «Другие отклики» и пробросить наверх.
+  void fetchTabs()
+  emit('stage-changed', payload)
+}
+
 function openScreening() {
   navigateTo(localePath(`/dashboard/applications/${activeId.value}`))
 }
@@ -132,6 +144,7 @@ function openRisk() {
       :compact="compact"
       :hh-linked="activeHhLinked"
       @switch-application="(id) => { activeId = id }"
+      @stage-changed="onStageChanged"
       @open-screening="openScreening"
       @open-risk="openRisk"
     />

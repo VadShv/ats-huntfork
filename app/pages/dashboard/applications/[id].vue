@@ -483,6 +483,7 @@ function formatResponseValue(value: unknown): string {
         <CandidateDiscussionTabs
           :current-application-id="applicationId"
           :candidate-id="application.candidate.id"
+          @stage-changed="handleStageChanged"
         />
       </div>
 

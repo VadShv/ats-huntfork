@@ -333,6 +333,7 @@ onUnmounted(() => { document.body.style.overflow = '' })
               :current-application-id="applicationId"
               :candidate-id="application.candidate.id"
               :compact="true"
+              @stage-changed="handleStageChanged"
             />
 
             <!-- Чат с кандидатом (Спринт 18) -->

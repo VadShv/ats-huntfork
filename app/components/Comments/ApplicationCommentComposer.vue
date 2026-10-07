@@ -16,8 +16,8 @@ import {
   Sparkles, ArrowRight, ChevronRight, ChevronDown, AlertTriangle,
 } from 'lucide-vue-next'
 import ApplicationMentionAutocomplete from './ApplicationMentionAutocomplete.vue'
-import { useApplicationComments, type OrgMember } from '~/composables/useApplicationComments'
-import { useApplicationStages, type StageInfo } from '~/composables/useApplicationStages'
+import { useApplicationComments, type OrgMember, type StageCommentPayload } from '~/composables/useApplicationComments'
+import { useApplicationStages, type StageInfo, type StageMoveResult } from '~/composables/useApplicationStages'
 import { useLocalStorageState } from '~/composables/useLocalStorageState'
 import { isExternalAudienceRole } from '~~/shared/access/discussion'
 
@@ -34,8 +34,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   submitted: []
   cancel: []
-  /** Этап изменён (с сообщением или без) — родитель обновит историю. */
-  stageMoved: []
+  /**
+   * Этап изменён (с сообщением или без). Родитель обязан пробросить это
+   * как `stage-changed` на страницу/шторку — иначе карточка отклика
+   * продолжит показывать старый этап до перезагрузки.
+   */
+  stageMoved: [payload: StageMoveResult]
 }>()
 
 const { t } = useI18n()
@@ -346,8 +350,8 @@ async function submit() {
   try {
     // Только смена этапа, без текста и файлов → обычный перевод.
     if (!trimmed && pendingFiles.value.length === 0 && selectedStage.value) {
-      const ok = await moveStage(selectedStage.value.id)
-      if (ok) { selectedStage.value = null; emit('stageMoved') }
+      const moved = await moveStage(selectedStage.value.id)
+      if (moved) { selectedStage.value = null; emit('stageMoved', moved) }
       return
     }
     const finalBody = trimmed.length > 0
@@ -372,8 +376,14 @@ async function submit() {
     clearDraft()
     nextTick(autosize)
     if (movedStage) {
-      toast.success(t('comments.move_stage_success', { stage: movedStage.name ?? '' }))
-      emit('stageMoved')
+      // Сервер вернул payload перевода только если этап реально сменился (не noop).
+      const payload = created?.kind === 'stage_comment' ? (created.payloadJson as StageCommentPayload | null) : null
+      if (payload) {
+        toast.success(t('comments.move_stage_success', { stage: payload.toStageName }))
+        emit('stageMoved', { newStageId: payload.toStageId, newStageName: payload.toStageName, newStageColor: payload.toStageColor ?? '' })
+      } else {
+        toast.info(t('comments.stage_already'), movedStage.name ?? '')
+      }
     }
     emit('submitted')
   } catch {

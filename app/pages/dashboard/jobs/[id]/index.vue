@@ -2353,6 +2353,7 @@ function closeDocPreview() {
                   :current-application-id="currentSummary.id"
                   :candidate-id="currentSummary.candidateId"
                   :compact="true"
+                  @stage-changed="handlePipelineStageChanged"
                 />
 
                 <!-- Quick links -->

@@ -20,6 +20,7 @@ import { groupTimeline, type RenderUnit } from '~/composables/useCommentGroups'
 import { useThreadScroll } from '~/composables/useThreadScroll'
 import { useThreadFilter, type ThreadFilter } from '~/composables/useThreadFilter'
 import { useUnreadComments } from '~/composables/useUnreadComments'
+import type { StageMoveResult } from '~/composables/useApplicationStages'
 import { canSeeInternalRole } from '~~/shared/access/discussion'
 
 /** Другой отклик кандидата — пункт выпадающего списка «Другие отклики». */
@@ -54,6 +55,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   /** Пользователь выбрал другой отклик в переключателе. */
   switchApplication: [applicationId: string]
+  /** Этап отклика изменён из композера — страница/шторка должны обновить данные отклика. */
+  stageChanged: [payload: StageMoveResult]
   openScreening: []
   openRisk: []
 }>()
@@ -188,6 +191,11 @@ function onSubmitted() {
   void fetchComments()
 }
 function onCancelReply() { replyTo.value = null }
+function onStageMoved(payload: StageMoveResult) {
+  void fetchStageHistory()
+  void fetchComments()
+  emit('stageChanged', payload)
+}
 function onReply(parentId: string) {
   replyTo.value = parentId
   setTimeout(() => composerRef.value?.focus(), 50)
@@ -586,7 +594,7 @@ const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md 
         :compact="compact"
         @submitted="onSubmitted"
         @cancel="onCancelReply"
-        @stage-moved="void fetchStageHistory()"
+        @stage-moved="onStageMoved"
       />
       <div class="mt-1 flex h-4 items-center gap-1.5 pl-10 text-[11px] text-surface-400">
         <template v-if="typingUsers.length > 0">

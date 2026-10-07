@@ -13,11 +13,17 @@ export interface StageInfo {
   displayOrder: number
   isTerminal: boolean
   isArchived: boolean
-  bucket: string | null
   parentStageId: string | null
   isHidden: boolean
   presetKey: string | null
   isCurrent: boolean
+}
+
+/** Полезная нагрузка события `stage-changed` — тот же формат, что у ApplicationStagePicker / ApplicationQuickActions. */
+export interface StageMoveResult {
+  newStageId: string
+  newStageName: string
+  newStageColor: string
 }
 
 export function useApplicationStages(applicationId: string) {
@@ -55,20 +61,24 @@ export function useApplicationStages(applicationId: string) {
     stages.value.find(s => s.bucket === 'rejected') ?? null,
   )
 
-  async function moveStage(stageId: string, comment?: string): Promise<boolean> {
-    if (moving.value) return false
+  /**
+   * Перевести отклик на этап. Возвращает данные нового этапа (для
+   * `stage-changed` у родителя — страница/шторка обновляют свои данные) или null при ошибке.
+   */
+  async function moveStage(stageId: string, comment?: string): Promise<StageMoveResult | null> {
+    if (moving.value) return null
     moving.value = true
     try {
-      const res = await $fetch<{ currentStageName: string }>(
+      const res = await $fetch<{ currentStageId: string | null, currentStageName: string, currentStageColor: string | null }>(
         `/api/applications/${applicationId}/stage`,
         { method: 'PATCH', body: { stageId, comment } },
       )
       toast.success(t('comments.move_stage_success', { stage: res.currentStageName }))
       await fetchStages()
-      return true
+      return { newStageId: res.currentStageId ?? stageId, newStageName: res.currentStageName, newStageColor: res.currentStageColor ?? '' }
     } catch (e: any) {
       toast.error(e?.data?.statusMessage ?? e?.message ?? 'Не удалось изменить этап')
-      return false
+      return null
     } finally {
       moving.value = false
     }
