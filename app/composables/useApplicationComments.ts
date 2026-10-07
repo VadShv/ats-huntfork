@@ -42,6 +42,7 @@ export type CommentKind =
   | 'system_event'
   | 'ai_response'
   | 'ai_summary'
+  | 'stage_comment'
 
 export interface ScreeningSnapshotPayload {
   compositeScore: number
@@ -59,6 +60,17 @@ export interface RiskSnapshotPayload {
   assessedAt: string | Date | null
 }
 
+/** Сообщение, отправленное вместе со сменой этапа (новая оболочка). */
+export interface StageCommentPayload {
+  fromStageId: string | null
+  fromStageName: string | null
+  toStageId: string
+  toStageName: string
+  toStageColor: string | null
+  toParentStageName: string | null
+  movedAt: string
+}
+
 export interface ThreadComment {
   id: string
   body: string
@@ -67,9 +79,10 @@ export interface ThreadComment {
   /** Collaboration Hub (Этап 3): тип записи ленты (null/'text' — обычный комментарий). */
   kind: CommentKind | null
   /** Снимок данных виджета для kind !== 'text'. */
-  payloadJson: ScreeningSnapshotPayload | RiskSnapshotPayload | Record<string, unknown> | null
+  payloadJson: ScreeningSnapshotPayload | RiskSnapshotPayload | StageCommentPayload | Record<string, unknown> | null
   parentCommentId: string | null
   isPinned: boolean
+  pinnedAt?: string | Date | null
   editedAt: string | Date | null
   createdAt: string | Date
   updatedAt: string | Date
@@ -167,7 +180,7 @@ export function useApplicationComments(applicationId: string) {
     }
   }
 
-  async function createComment(payload: { body: string; isInternal?: boolean; parentCommentId?: string; hhLocalOnly?: boolean }) {
+  async function createComment(payload: { body: string; isInternal?: boolean; parentCommentId?: string; hhLocalOnly?: boolean; moveToStageId?: string }) {
     try {
       const created = await $fetch<ThreadComment>(
         `/api/applications/${applicationId}/comments`,

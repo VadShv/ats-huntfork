@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { Lock, MoreVertical, Pencil, Trash2, MessageSquare, Bot, Link2, Pin } from 'lucide-vue-next'
-import type { ThreadComment } from '~/composables/useApplicationComments'
+import { Lock, MoreVertical, Pencil, Trash2, MessageSquare, Bot, Link2, Pin, ArrowRight, Reply } from 'lucide-vue-next'
+import type { ThreadComment, StageCommentPayload } from '~/composables/useApplicationComments'
 import { useApplicationComments } from '~/composables/useApplicationComments'
 import CommentSnapshotWidget from './CommentSnapshotWidget.vue'
 
@@ -19,7 +19,10 @@ const props = withDefaults(defineProps<{
   isLastInGroup?: boolean
   /** Deep-link / keyboard nav highlight. */
   highlighted?: boolean
+  /** Родительское сообщение (для цитаты в ответе); null — родитель не найден/удалён. */
+  parent?: ThreadComment | null
 }>(), {
+  parent: null,
   canReply: false,
   readOnly: false,
   isFirstInGroup: true,
@@ -30,6 +33,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   reply: [parentCommentId: string]
   reactionToggle: [commentId: string, emoji: string]
+  /** Перейти к сообщению (клик по цитате ответа). */
+  goto: [commentId: string]
 }>()
 
 const { t, locale } = useI18n()
@@ -103,6 +108,29 @@ const isSnapshot = computed(() =>
   props.comment.kind === 'ai_screening_snapshot' || props.comment.kind === 'risk_snapshot',
 )
 const isAiResponse = computed(() => props.comment.kind === 'ai_response')
+/** Сообщение, отправленное вместе со сменой этапа (новая оболочка). */
+const isStageComment = computed(() => props.comment.kind === 'stage_comment')
+const stagePayload = computed<StageCommentPayload | null>(() =>
+  isStageComment.value ? (props.comment.payloadJson as StageCommentPayload | null) : null,
+)
+const stageTargetName = computed(() => {
+  const p = stagePayload.value
+  if (!p) return ''
+  return p.toParentStageName ? `${p.toParentStageName} / ${p.toStageName}` : p.toStageName
+})
+/** Цитата родителя для ответа. */
+const parentPreview = computed(() => {
+  const parent = props.parent
+  if (!props.comment.parentCommentId) return null
+  if (!parent) return { author: '', text: t('comments.parent_unavailable') }
+  const author = parent.kind === 'ai_response'
+    ? t('comments.ai_assistant')
+    : parent.hhDirection === 'incoming' && parent.hhAuthorName
+      ? parent.hhAuthorName
+      : (parent.author.name || parent.author.email || '—')
+  const text = parent.body.replace(/\s+/g, ' ').trim()
+  return { author, text: text.length > 140 ? `${text.slice(0, 140)}…` : text }
+})
 const isSelf = computed(() => props.comment.author.id === props.currentUserId)
 const isAuthor = computed(() => props.comment.author.id === props.currentUserId)
 const isHhIncoming = computed(() => props.comment.hhDirection === 'incoming')
@@ -224,6 +252,19 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
     <!-- Body -->
     <div class="min-w-0 flex-1 relative">
+      <!-- Событие этапа, к которому прикреплено сообщение -->
+      <div
+        v-if="isStageComment && stagePayload"
+        class="mb-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-surface-100 dark:bg-surface-800 px-2.5 py-0.5 text-[11px] text-surface-600 dark:text-surface-300"
+      >
+        <ArrowRight class="size-3 flex-shrink-0 text-brand-500" />
+        <span class="truncate">
+          {{ t('comments.moved_to_stage') }}
+          <span class="inline-block size-1.5 rounded-full align-middle" :style="{ backgroundColor: stagePayload.toStageColor ?? '#94a3b8' }" />
+          <span class="font-semibold text-surface-700 dark:text-surface-200">{{ stageTargetName }}</span>
+          <template v-if="stagePayload.fromStageName"> <span class="text-surface-400">({{ t('comments.from_stage') }} {{ stagePayload.fromStageName }})</span></template>
+        </span>
+      </div>
       <!-- Meta (только первый в группе) -->
       <div v-if="isFirstInGroup" class="flex items-center gap-1.5 mb-0.5 pr-6">
         <span
@@ -243,7 +284,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           v-if="comment.isPinned"
           class="inline-flex items-center gap-0.5 rounded bg-brand-100 dark:bg-brand-900/40 px-1 py-0.5 text-[9px] font-medium text-brand-700 dark:text-brand-300"
         >
-          <Pin class="size-2.5" /> {{ t('comments.pinned_messages') }}
+          <Pin class="size-2.5" /> {{ t('comments.pinned_badge') }}
         </span>
         <span
           v-if="comment.isInternal"
@@ -313,7 +354,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
             class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-100 dark:hover:bg-surface-800"
             @click="togglePin"
           >
-            <Pin class="size-3.5" /> {{ comment.isPinned ? t('comments.unpin') : t('comments.pin') }}
+            <Pin class="size-3.5" /> {{ comment.isPinned ? t('comments.unpin') : t('comments.pin_for_all') }}
           </button>
           <button
             v-if="canEdit"
@@ -374,6 +415,22 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
                 : 'bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700 text-surface-800 dark:text-surface-200',
         ]"
       >
+        <!-- Цитата родителя (ответ) -->
+        <button
+          v-if="parentPreview"
+          type="button"
+          class="mb-1.5 flex w-full items-start gap-2 rounded-r-md border-l-2 border-brand-500 bg-white/60 dark:bg-surface-900/40 px-2 py-1 text-left cursor-pointer hover:bg-white dark:hover:bg-surface-900/70 transition-colors"
+          :disabled="!parent"
+          :title="parent ? t('comments.goto_parent') : undefined"
+          @click="parent && emit('goto', parent.id)"
+        >
+          <Reply class="mt-0.5 size-3 flex-shrink-0 text-brand-500" />
+          <span class="min-w-0">
+            <span v-if="parentPreview.author" class="block text-[11px] font-semibold text-brand-700 dark:text-brand-300">{{ parentPreview.author }}</span>
+            <span class="block truncate text-[11px] text-surface-500 dark:text-surface-400">{{ parentPreview.text }}</span>
+          </span>
+        </button>
+
         <!-- Прикреплённый снимок ИИ -->
         <CommentSnapshotWidget
           v-if="isSnapshot"

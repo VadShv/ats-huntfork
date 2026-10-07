@@ -9,6 +9,8 @@ export const createApplicationCommentSchema = z.object({
   isInternal: z.boolean().optional().default(false),
   parentCommentId: z.string().min(1).optional(),
   hhLocalOnly: z.boolean().optional().default(false),
+  /** Новая оболочка: отправить сообщение вместе со сменой этапа (одна запись kind='stage_comment'). */
+  moveToStageId: z.string().min(1).optional(),
 })
 
 export const updateApplicationCommentSchema = z.object({

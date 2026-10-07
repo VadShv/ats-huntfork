@@ -62,6 +62,8 @@ export default defineEventHandler(async (event) => {
       kind: applicationComment.kind,
       payloadJson: applicationComment.payloadJson,
       parentCommentId: applicationComment.parentCommentId,
+      isPinned: applicationComment.isPinned,
+      pinnedAt: applicationComment.pinnedAt,
       editedAt: applicationComment.editedAt,
       createdAt: applicationComment.createdAt,
       updatedAt: applicationComment.updatedAt,
@@ -160,6 +162,9 @@ export default defineEventHandler(async (event) => {
     kind: c.kind,
     payloadJson: c.payloadJson,
     parentCommentId: c.parentCommentId,
+    // Раньше не отдавалось — закрепление было невидимо в ленте (новая оболочка, полоса закреплённого).
+    isPinned: c.isPinned ?? false,
+    pinnedAt: c.pinnedAt,
     editedAt: c.editedAt,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,

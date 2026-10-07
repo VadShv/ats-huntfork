@@ -1,21 +1,18 @@
 <script setup lang="ts">
 /**
- * Collaboration Hub (Этап 1) — обёртка над ApplicationCommentThread с вкладками
- * по всем откликам кандидата.
+ * Обёртка над ApplicationCommentThread для кандидата с несколькими откликами.
  *
- * Правила:
- *  - Активная вкладка текущего отклика (currentApplicationId) — полный функционал.
- *  - Остальные вкладки — режим просмотра (readOnly): открыть и читать можно,
- *    писать/реагировать нельзя. Визуально «остужены» розоватым цветом.
- *  - Терминальные этапы (нанят/отказ) — приглушённый серый.
+ * Новая оболочка (docs/tz-discussion-shell.md): панели вкладок больше нет —
+ * список откликов передаётся в тред и показывается переключателем
+ * «Другие отклики (N) ▾» в шапке. Правила прежние:
+ *  - текущий отклик (currentApplicationId) — полный функционал;
+ *  - другие отклики — только чтение (readOnly), с полосой «Просмотр».
  *
- * Если у кандидата всего один отклик — панель вкладок скрывается, показывается
- * обычный тред (обратная совместимость).
+ * Имя компонента сохранено ради трёх точек встраивания (страница отклика,
+ * шторка воронки, страница вакансии).
  */
 import { computed, onMounted, ref } from 'vue'
-import { Eye, MessageSquare } from 'lucide-vue-next'
-import ApplicationCommentThread from './ApplicationCommentThread.vue'
-import DiscussionContextWidgets from './DiscussionContextWidgets.vue'
+import ApplicationCommentThread, { type DiscussionAppOption } from './ApplicationCommentThread.vue'
 import { useUnreadComments } from '~/composables/useUnreadComments'
 
 interface DiscussionTabStage {
@@ -44,7 +41,7 @@ const props = withDefaults(
   defineProps<{
     /** Отклик, открытый сейчас (в него можно писать). */
     currentApplicationId: string
-    /** Кандидат — источник всех вкладок. */
+    /** Кандидат — источник списка откликов и контекста риска. */
     candidateId: string
     /** Компактный лейаут для drawer. */
     compact?: boolean
@@ -52,7 +49,6 @@ const props = withDefaults(
   { compact: false },
 )
 
-const { t } = useI18n()
 const localePath = useLocalePath()
 
 const tabs = ref<DiscussionTab[]>([])
@@ -60,52 +56,37 @@ const loading = ref(true)
 const activeId = ref(props.currentApplicationId)
 
 const isReadOnly = computed(() => activeId.value !== props.currentApplicationId)
-const hasMultiple = computed(() => tabs.value.length > 1)
 const activeHhLinked = computed(() => {
   const tab = tabs.value.find(t => t.id === activeId.value)
   return tab?.source === 'hh' && !!tab?.externalId
 })
 
+function fallbackTab(): DiscussionTab {
+  return {
+    id: props.currentApplicationId,
+    jobId: '',
+    jobTitle: null,
+    jobStatus: null,
+    source: null,
+    externalId: null,
+    stage: null,
+    commentCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
 async function fetchTabs() {
   loading.value = true
   try {
-    const res = await $fetch<{ data: DiscussionTab[] }>(
-      `/api/candidates/${props.candidateId}/discussion-tabs`,
-    )
-    // Текущий отклик всегда первым, остальные — по дате (как пришло с сервера).
+    const res = await $fetch<{ data: DiscussionTab[] }>(`/api/candidates/${props.candidateId}/discussion-tabs`)
     const list = res.data ?? []
     const current = list.filter(a => a.id === props.currentApplicationId)
     const others = list.filter(a => a.id !== props.currentApplicationId)
     tabs.value = [...current, ...others]
-    // Гарантируем, что текущий отклик есть в списке (напр. только что создан).
-    if (current.length === 0) {
-      tabs.value.unshift({
-        id: props.currentApplicationId,
-        jobId: '',
-        jobTitle: null,
-        jobStatus: null,
-        source: null,
-        externalId: null,
-        stage: null,
-        commentCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-    }
+    if (current.length === 0) tabs.value.unshift(fallbackTab())
   } catch {
-    // мягкий фолбэк — показываем только текущий отклик
-    tabs.value = [{
-      id: props.currentApplicationId,
-      jobId: '',
-      jobTitle: null,
-      jobStatus: null,
-      source: null,
-      externalId: null,
-      stage: null,
-      commentCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }]
+    tabs.value = [fallbackTab()]
   } finally {
     loading.value = false
   }
@@ -118,33 +99,19 @@ onMounted(() => {
   fetchUnread()
 })
 
-function isCurrent(tab: DiscussionTab) {
-  return tab.id === props.currentApplicationId
-}
+const applications = computed<DiscussionAppOption[]>(() =>
+  tabs.value.map(tab => ({
+    id: tab.id,
+    jobTitle: tab.jobTitle,
+    stageName: tab.stage?.name ?? null,
+    stageColor: tab.stage?.color ?? null,
+    isTerminal: Boolean(tab.stage?.isTerminal) || tab.stage?.bucket === 'rejected',
+    commentCount: tab.commentCount,
+    unreadCount: unreadCount(tab.id),
+    isCurrent: tab.id === props.currentApplicationId,
+  })),
+)
 
-function isArchived(tab: DiscussionTab) {
-  return Boolean(tab.stage?.isTerminal) || tab.stage?.bucket === 'rejected'
-}
-
-/** Цветовая схема вкладки: текущий = brand (ATS primary), архив = grey. */
-function tabClass(tab: DiscussionTab) {
-  const active = tab.id === activeId.value
-  if (isCurrent(tab)) {
-    return active
-      ? 'border-brand-500 bg-brand-50 text-brand-800 dark:bg-brand-900/30 dark:text-brand-200 dark:border-brand-400'
-      : 'border-transparent text-surface-600 hover:bg-brand-50/50 dark:text-surface-300 dark:hover:bg-brand-900/10'
-  }
-  if (isArchived(tab)) {
-    return active
-      ? 'border-surface-400 bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300 dark:border-surface-600'
-      : 'border-transparent text-surface-400 hover:bg-surface-100/70 dark:text-surface-500 dark:hover:bg-surface-800/50'
-  }
-  return active
-    ? 'border-surface-300 bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-200 dark:border-surface-600'
-    : 'border-transparent text-surface-500 hover:bg-surface-100/60 dark:text-surface-400 dark:hover:bg-surface-800/50'
-}
-
-// «Подробнее» из виджетов активной вкладки
 function openScreening() {
   navigateTo(localePath(`/dashboard/applications/${activeId.value}`))
 }
@@ -154,100 +121,26 @@ function openRisk() {
 </script>
 
 <template>
-  <section
-    class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900"
-    :class="compact ? '' : ''"
-  >
-    <!-- Панель вкладок (только если откликов > 1) -->
+  <div>
+    <ApplicationCommentThread
+      v-if="!loading"
+      :key="activeId"
+      :application-id="activeId"
+      :candidate-id="candidateId"
+      :applications="applications"
+      :read-only="isReadOnly"
+      :compact="compact"
+      :hh-linked="activeHhLinked"
+      @switch-application="(id) => { activeId = id }"
+      @open-screening="openScreening"
+      @open-risk="openRisk"
+    />
     <div
-      v-if="hasMultiple"
-      class="flex items-center gap-1 overflow-x-auto scrollbar-none border-b border-surface-200 dark:border-surface-800 px-2 pt-2"
-      role="tablist"
+      v-else
+      class="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 py-8 text-center text-sm text-surface-400"
     >
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        type="button"
-        role="tab"
-        :aria-selected="tab.id === activeId"
-        class="group flex flex-shrink-0 items-center gap-1.5 rounded-t-md border-b-2 px-2.5 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer"
-        :class="tabClass(tab)"
-        @click="activeId = tab.id"
-      >
-        <!-- Иконка «глаз» для чужих откликов (read-only) -->
-        <Eye v-if="!isCurrent(tab)" class="size-3 flex-shrink-0 opacity-70" />
-
-        <!-- Цветная точка этапа -->
-        <span
-          v-if="tab.stage?.color"
-          class="size-1.5 flex-shrink-0 rounded-full"
-          :style="{ backgroundColor: tab.stage.color }"
-        />
-
-        <span class="max-w-[140px] truncate" :class="isArchived(tab) ? 'line-through decoration-1' : ''">
-          {{ tab.jobTitle || t('discussion_tabs.untitled_job') }}
-        </span>
-
-        <!-- Бейдж этапа -->
-        <span
-          v-if="tab.stage?.name"
-          class="hidden sm:inline rounded px-1 py-0.5 text-[10px] font-normal opacity-80"
-          :style="tab.stage.color ? { backgroundColor: tab.stage.color + '22', color: tab.stage.color } : {}"
-        >
-          {{ tab.stage.name }}
-        </span>
-
-        <!-- Счётчик комментариев -->
-        <span
-          v-if="tab.commentCount > 0"
-          class="inline-flex items-center gap-0.5 rounded-full bg-surface-200/70 dark:bg-surface-700/70 px-1.5 text-[10px] tabular-nums"
-        >
-          <MessageSquare class="size-2.5" />
-          {{ tab.commentCount }}
-        </span>
-
-        <!-- Unread badge -->
-        <span
-          v-if="unreadCount(tab.id) > 0"
-          class="inline-flex items-center justify-center rounded-full bg-brand-600 px-1.5 text-[10px] font-semibold text-white tabular-nums"
-        >
-          {{ unreadCount(tab.id) }}
-        </span>
-      </button>
+      <span class="mr-2 inline-block size-4 animate-spin rounded-full border-2 border-surface-300 border-t-brand-500 align-middle" />
+      {{ $t('comments.loading') }}
     </div>
-
-    <!-- Тред активной вкладки -->
-    <Transition
-      enter-active-class="transition duration-150 ease-out"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      mode="default"
-    >
-      <div v-if="!loading" :key="activeId">
-        <!-- Контекст-шапка: AI-скрининг + оценка рисков активной вкладки -->
-        <div :class="compact ? 'px-3 pt-3' : 'px-4 pt-3'">
-          <DiscussionContextWidgets
-            :key="`ctx-${activeId}`"
-            :application-id="activeId"
-            :candidate-id="candidateId"
-            :compact="compact"
-            @open-screening="openScreening"
-            @open-risk="openRisk"
-          />
-        </div>
-        <ApplicationCommentThread
-          :key="activeId"
-          :application-id="activeId"
-          :read-only="isReadOnly"
-          :compact="compact"
-          :hh-linked="activeHhLinked"
-          class="!border-0"
-        />
-      </div>
-      <div v-else :key="`${activeId}-loading`" class="py-8 text-center text-sm text-surface-400">
-        <span class="inline-block size-4 animate-spin rounded-full border-2 border-surface-300 border-t-brand-500 align-middle mr-2" />
-        {{ t('comments.loading') }}
-      </div>
-    </Transition>
-  </section>
+  </div>
 </template>

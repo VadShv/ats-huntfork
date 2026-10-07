@@ -1,6 +1,8 @@
 # ТЗ — Collaboration Hub: модуль «Обсуждения» 2.0
 
-Дата: 07.09.2026 · Статус: к реализации (Этап 1)
+Дата: 07.09.2026 · Статус: этапы 1–4 реализованы; этап 5 (бэклог) заменён новой оболочкой
+
+> **Актуальное ТЗ по интерфейсу:** [tz-discussion-shell.md](./tz-discussion-shell.md) (новая оболочка, этапы 0–1) и разбор [discussion-module-redesign.md](./discussion-module-redesign.md). Описание данных, API и прав ниже остаётся в силе.
 Связанные документы:
 [funnel-architecture.md](./funnel-architecture.md) (воронка, `application.currentStageId` → `pipeline_stage`),
 [role-model-and-permissions.md](./role-model-and-permissions.md) (видимость `is_internal`, права `comment`/`application`),

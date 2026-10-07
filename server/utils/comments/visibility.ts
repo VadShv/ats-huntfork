@@ -15,14 +15,13 @@
 import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { member } from '../../database/schema/auth'
 import { applicationComment } from '../../database/schema/app'
+import { canSeeInternalRole } from '../../../shared/access/discussion'
 
 export type Role = 'owner' | 'admin' | 'recruiter' | 'lead_recruiter' | 'hiring_manager' | 'member' | 'external_recruiter' | string
 
-const INTERNAL_VISIBLE_ROLES = new Set<Role>(['owner', 'admin', 'member', 'recruiter', 'lead_recruiter'])
-
+/** Набор ролей живёт в `shared/access/discussion.ts` — один источник для сервера и клиента. */
 export function canSeeInternal(role: Role | null | undefined): boolean {
-  if (!role) return false
-  return INTERNAL_VISIBLE_ROLES.has(role)
+  return canSeeInternalRole(role)
 }
 
 /**

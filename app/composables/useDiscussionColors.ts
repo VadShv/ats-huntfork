@@ -1,7 +1,7 @@
 /**
  * Shared color helpers for the discussion module.
  * Eliminates duplication of scoreTone() and riskMeta() across
- * DiscussionContextWidgets and CommentSnapshotWidget.
+ * DiscussionPinnedBar and CommentSnapshotWidget.
  */
 
 /** Score → semantic text color class (success / warning / danger). */

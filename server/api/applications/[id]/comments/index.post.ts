@@ -19,6 +19,7 @@ import {
 import { canSeeInternal, getMemberRole } from '../../../../utils/comments/visibility'
 import { notifyThreadChanged } from '../../../../utils/comments/threadBus'
 import { enqueueAiThreadResponse } from '../../../../utils/comments/ai-thread-worker'
+import { moveApplicationStage, type MoveStageResult } from '../../../../utils/pipeline-move'
 
 /** In-memory rate-limit для @AI-вызовов: 1 на (user, application) в 30с. */
 const _aiRateLimit = new Map<string, number>()
@@ -36,7 +37,9 @@ function aiRateLimitOk(key: string): boolean {
  * Flow (см. RFC §4.1):
  *   1. Validate body + isInternal permission
  *   2. Render body → bodyHtml
- *   3. INSERT application_comment
+ *   3a. (если moveToStageId) moveApplicationStage — все guards перехода внутри;
+ *       ошибка перехода → 4xx ДО записи комментария
+ *   3. INSERT application_comment (kind='stage_comment' + payload при переводе)
  *   4. Parse + resolve @mentions → INSERT comment_mention, ensureWatcher(auto_mention), notify(mention)
  *   5. ensureWatcher(author, 'auto_author')
  *   6. Notify existing watchers (excluding author + already-mentioned) with 'new_comment_on_watched'
@@ -84,6 +87,33 @@ export default defineEventHandler(async (event) => {
   const bodyHtml = renderMarkdown(body.body)
   const now = new Date()
 
+  // ── 3a. Сообщение вместе со сменой этапа (новая оболочка, Хантфлоу-паттерн) ──
+  // Переход выполняется ПЕРВЫМ: moveApplicationStage бросает 4xx на бизнес-ошибки
+  // (возврат из терминального этапа без комментария, выбор подэтапа и т.п.),
+  // и в этом случае комментарий не записывается.
+  let move: MoveStageResult | null = null
+  if (body.moveToStageId) {
+    move = await moveApplicationStage({
+      organizationId: orgId,
+      applicationId: id,
+      toStageId: body.moveToStageId,
+      actorUserId: userId,
+      comment: body.body.slice(0, 500),
+      via: 'manual',
+    })
+  }
+  const stagePayload = move && !move.noop
+    ? {
+        fromStageId: move.fromStageId,
+        fromStageName: move.fromStageName,
+        toStageId: move.toStageId,
+        toStageName: move.toStageName,
+        toStageColor: move.toStageColor,
+        toParentStageName: move.toParentStageName,
+        movedAt: (move.stageChangedAt ?? now).toISOString(),
+      }
+    : null
+
   // ── 4. INSERT comment ──
   const [created] = await db
     .insert(applicationComment)
@@ -96,12 +126,16 @@ export default defineEventHandler(async (event) => {
       bodyHtml,
       isInternal: body.isInternal ?? false,
       parentCommentId: body.parentCommentId ?? null,
+      kind: stagePayload ? 'stage_comment' : 'text',
+      payloadJson: stagePayload,
     })
     .returning({
       id: applicationComment.id,
       body: applicationComment.body,
       bodyHtml: applicationComment.bodyHtml,
       isInternal: applicationComment.isInternal,
+      kind: applicationComment.kind,
+      payloadJson: applicationComment.payloadJson,
       parentCommentId: applicationComment.parentCommentId,
       hhSyncStatus: applicationComment.hhSyncStatus,
       hhDirection: applicationComment.hhDirection,
