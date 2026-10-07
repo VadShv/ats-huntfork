@@ -7,6 +7,7 @@
  * автоматически при создании (см. POST /api/jobs).
  */
 import { BriefcaseBusiness, Trash2, Loader2, Star } from 'lucide-vue-next'
+const localePath = useLocalePath()
 
 interface Props {
   jobId: string
@@ -189,9 +190,9 @@ onMounted(() => {
       <li v-for="m in assigned" :key="m.userId" class="flex items-center justify-between gap-2 py-3">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            <span class="truncate text-sm font-medium text-surface-900 dark:text-surface-100">
+            <NuxtLink :to="localePath(`/dashboard/people/${m.userId}`)" class="truncate text-sm font-medium text-surface-900 dark:text-surface-100 hover:underline">
               {{ m.userName || m.userEmail }}
-            </span>
+            </NuxtLink>
             <span
               v-if="m.isPrimary"
               class="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 dark:bg-brand-950/40 dark:text-brand-300"

@@ -229,6 +229,9 @@ function getInitials(name: string | undefined): string {
       </div>
     </section>
 
+    <!-- Мой ИИ: лимиты и расход (docs/design-profile-and-token-limits.md §2.2) -->
+    <AiUsageMyLimits />
+
     <!-- Password section -->
     <section class="mt-8 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden">
       <div class="px-4 sm:px-6 py-5 border-b border-surface-200 dark:border-surface-800">

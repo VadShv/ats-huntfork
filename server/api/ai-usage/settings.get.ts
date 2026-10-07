@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
     rateIsDefault: access.currency.rateIsDefault,
     rateUpdatedAt: row?.rateUpdatedAt?.toISOString() ?? null,
     retentionDays: access.currency.retentionDays,
+    fallbackPricePer1m: access.currency.fallbackPricePer1m,
     canManage: access.canManageBudgets,
     canRecalculate: access.canRecalculate,
   }

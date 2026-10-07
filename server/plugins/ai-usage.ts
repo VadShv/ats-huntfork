@@ -10,6 +10,7 @@ import { useEvent } from 'nitropack/runtime'
 import { AI_ACTOR_CONTEXT_KEY, normalizeAiRoute, setAiRequestResolver, type AiRequestActor } from '../utils/ai/usage/context'
 import { flushAiUsage, onAiUsageFlushed } from '../utils/ai/usage/writer'
 import { scheduleBudgetCheck } from '../utils/ai/usage/budget'
+import { clearUserBlockCache } from '../utils/ai/usage/limits'
 
 export default defineNitroPlugin((nitroApp) => {
   setAiRequestResolver(() => {
@@ -31,7 +32,10 @@ export default defineNitroPlugin((nitroApp) => {
     }
   })
 
-  onAiUsageFlushed(orgIds => scheduleBudgetCheck(orgIds))
+  onAiUsageFlushed((orgIds) => {
+    for (const id of orgIds) clearUserBlockCache(id)
+    scheduleBudgetCheck(orgIds)
+  })
 
   nitroApp.hooks.hook('close', async () => {
     await flushAiUsage().catch(() => {})

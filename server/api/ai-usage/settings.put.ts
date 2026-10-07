@@ -14,6 +14,8 @@ const bodySchema = z.object({
   baseCurrency: z.enum(['RUB', 'USD']).optional(),
   usdRubRate: z.number().positive().max(100_000).nullable().optional(),
   retentionDays: z.number().int().min(30).max(3650).optional(),
+  /** Резервная цена за 1 млн токенов для событий без цены (лимиты участников); null — авто. */
+  fallbackPricePer1m: z.number().min(0).max(1_000_000).nullable().optional(),
   /** Пересчитать cost_base истории по новому курсу (по умолчанию — да). */
   recalcHistory: z.boolean().optional(),
 })
@@ -27,6 +29,7 @@ export default defineEventHandler(async (event) => {
     baseCurrency: body.baseCurrency ?? before.baseCurrency,
     usdRubRate: body.usdRubRate === undefined ? (before.rateIsDefault ? null : before.usdRubRate) : body.usdRubRate,
     retentionDays: body.retentionDays ?? before.retentionDays,
+    fallbackPricePer1m: body.fallbackPricePer1m === undefined ? before.fallbackPricePer1m : body.fallbackPricePer1m,
   }
   const rateChanged = body.usdRubRate !== undefined && body.usdRubRate !== (before.rateIsDefault ? null : before.usdRubRate)
 
@@ -36,6 +39,7 @@ export default defineEventHandler(async (event) => {
     usdRubRate: next.usdRubRate === null ? null : String(next.usdRubRate),
     rateUpdatedAt: rateChanged ? new Date() : undefined,
     retentionDays: next.retentionDays,
+    fallbackPricePer1m: next.fallbackPricePer1m === null ? null : String(next.fallbackPricePer1m),
     updatedById: access.userId,
     updatedAt: new Date(),
   }).onConflictDoUpdate({
@@ -45,6 +49,7 @@ export default defineEventHandler(async (event) => {
       usdRubRate: next.usdRubRate === null ? null : String(next.usdRubRate),
       ...(rateChanged ? { rateUpdatedAt: new Date() } : {}),
       retentionDays: next.retentionDays,
+      fallbackPricePer1m: next.fallbackPricePer1m === null ? null : String(next.fallbackPricePer1m),
       updatedById: access.userId,
       updatedAt: new Date(),
     },

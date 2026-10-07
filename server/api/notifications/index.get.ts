@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
     .from(notification)
     .leftJoin(user, eq(user.id, notification.actorUserId))
     .leftJoin(applicationComment, eq(applicationComment.id, notification.commentId))
-    .leftJoin(aiUsageAlert, and(eq(notification.entityType, 'ai_budget'), eq(aiUsageAlert.id, notification.entityId)))
+    .leftJoin(aiUsageAlert, and(eq(notification.type, 'ai_budget'), eq(aiUsageAlert.id, notification.entityId)))
     .where(baseWhere)
     .orderBy(desc(notification.createdAt))
     .limit(query.limit)

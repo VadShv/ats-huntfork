@@ -46,13 +46,9 @@ async function saveSettings() {
 
 // ── Бюджеты ──────────────────────────────────────────────────────
 const { data: budgets, refresh: refreshBudgets, status: budgetsStatus } = useAsyncData<any>('ai-usage-budgets', () => $fetch(BUDGETS_URL, { headers: reqHeaders }))
-const { data: members } = useFetch<Array<{ userId: string; name: string; email: string }>>('/api/access/members-lite', {
-  key: 'ai-usage-budget-members', headers: useRequestHeaders(['cookie']), default: () => [],
-})
-
 interface BudgetForm {
   id?: string
-  scope: 'org' | 'feature' | 'operation' | 'user'
+  scope: 'org' | 'feature' | 'operation'
   scopeKey: string
   period: 'month' | 'day'
   limitAmount: number | null
@@ -79,7 +75,6 @@ const scopeKeyOptions = computed(() => {
   if (!e) return []
   if (e.scope === 'feature') return AI_FEATURES.filter(f => f !== 'unattributed').map(f => ({ value: f, label: AI_FEATURE_LABELS[f] }))
   if (e.scope === 'operation') return AI_OPERATIONS.map(o => ({ value: o.key, label: `${AI_FEATURE_LABELS[o.feature]} · ${o.label}` }))
-  if (e.scope === 'user') return (members.value ?? []).map(m => ({ value: m.userId, label: m.name || m.email }))
   return []
 })
 const savingBudget = ref(false)
@@ -185,7 +180,7 @@ const inputCls = 'w-full rounded-lg border border-surface-200 dark:border-surfac
       <div class="flex items-center justify-between mb-4">
         <div>
           <h2 class="text-sm font-semibold flex items-center gap-1.5"><Wallet class="size-4" /> Бюджеты</h2>
-          <p class="text-xs text-surface-500">При достижении порогов владельцы и администраторы получают уведомление. Интерактивные действия не блокируются никогда.</p>
+          <p class="text-xs text-surface-500">Страховка от неожиданного счёта: при достижении порогов владельцы и администраторы получают уведомление. Ручные действия оргбюджет не блокирует — для этого есть лимиты участников ниже.</p>
         </div>
         <UiButton size="sm" variant="secondary" :icon-left="Plus" @click="newBudget">Добавить</UiButton>
       </div>
@@ -198,7 +193,6 @@ const inputCls = 'w-full rounded-lg border border-surface-200 dark:border-surfac
               <option value="org">Вся организация</option>
               <option value="feature">Фича</option>
               <option value="operation">Операция</option>
-              <option value="user">Сотрудник</option>
             </select>
           </div>
           <div v-if="editing.scope !== 'org'" class="sm:col-span-2">
@@ -278,6 +272,9 @@ const inputCls = 'w-full rounded-lg border border-surface-200 dark:border-surfac
         </li>
       </ul>
     </section>
+
+    <!-- Лимиты участников -->
+    <AiUsageMemberLimits v-if="settings?.canManage" :currency="settings?.baseCurrency ?? 'RUB'" />
 
     <!-- Пересчёт -->
     <section v-if="settings?.canRecalculate" class="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-5">

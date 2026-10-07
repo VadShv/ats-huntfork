@@ -855,6 +855,13 @@
       "when": 1801000482000,
       "tag": "0123_ai_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1801000483000,
+      "tag": "0124_ai_user_limits",
+      "breakpoints": true
     }
   ]
 }

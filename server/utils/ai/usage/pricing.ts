@@ -23,12 +23,16 @@ export interface OrgCurrencySettings {
   usdRubRate: number
   rateIsDefault: boolean
   retentionDays: number
+  /** Резервная цена за 1 млн токенов (базовая валюта) для событий без цены; null — авто (см. effectiveFallbackPrice). */
+  fallbackPricePer1m: number | null
 }
 
 const configCache = new Map<string, { at: number; value: ConfigPricing }>()
 const settingsCache = new Map<string, { at: number; value: OrgCurrencySettings }>()
 
 export function invalidateAiPricingCache(orgId?: string): void {
+  if (orgId) fallbackCache.delete(orgId)
+  else fallbackCache.clear()
   if (!orgId) {
     configCache.clear()
     settingsCache.clear()
@@ -80,7 +84,34 @@ export async function getOrgCurrencySettings(orgId: string): Promise<OrgCurrency
     usdRubRate: rate && rate > 0 ? rate : DEFAULT_USD_RUB_RATE,
     rateIsDefault: !(rate && rate > 0),
     retentionDays: row?.retentionDays ?? 400,
+    fallbackPricePer1m: row?.fallbackPricePer1m != null && Number(row.fallbackPricePer1m) >= 0 ? Number(row.fallbackPricePer1m) : null,
   }
   settingsCache.set(orgId, { at: Date.now(), value })
   return value
+}
+
+const fallbackCache = new Map<string, { at: number; value: number }>()
+
+/**
+ * Резервная цена за 1 млн токенов в базовой валюте, которой оцениваются события без цены
+ * при расчёте персональных лимитов. Явная настройка → иначе максимальная цена выхода среди
+ * конфигураций организации (пересчитанная в базовую валюту) → иначе 0.
+ */
+export async function effectiveFallbackPrice(orgId: string): Promise<number> {
+  const settings = await getOrgCurrencySettings(orgId)
+  if (settings.fallbackPricePer1m !== null) return settings.fallbackPricePer1m
+  const hit = fallbackCache.get(orgId)
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.value
+  const rows = await db.select({ out: aiConfig.outputPricePer1m, cur: aiConfig.priceCurrency }).from(aiConfig)
+    .where(eq(aiConfig.organizationId, orgId))
+  let max = 0
+  for (const r of rows) {
+    const price = r.out != null ? Number(r.out) : 0
+    if (!(price > 0)) continue
+    const cur: AiCurrency = r.cur === 'RUB' ? 'RUB' : 'USD'
+    const rate = cur === settings.baseCurrency ? 1 : cur === 'USD' ? settings.usdRubRate : 1 / settings.usdRubRate
+    max = Math.max(max, price * rate)
+  }
+  fallbackCache.set(orgId, { at: Date.now(), value: max })
+  return max
 }

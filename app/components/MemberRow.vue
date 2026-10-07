@@ -12,6 +12,7 @@ import {
   Crown, ShieldCheck, Shield, UserCheck,
   MoreHorizontal, Trash2, Loader2,
 } from 'lucide-vue-next'
+const localePath = useLocalePath()
 
 interface MemberItem {
   id: string
@@ -78,9 +79,9 @@ function getInitials(name: string | undefined): string {
 
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
-          <span class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">
+          <NuxtLink :to="localePath(`/dashboard/people/${member.userId}`)" class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate hover:underline">
             {{ member.user.name }}
-          </span>
+          </NuxtLink>
           <span v-if="isSelf" class="text-xs text-surface-400 dark:text-surface-500">(вы)</span>
         </div>
         <div class="text-sm text-surface-500 dark:text-surface-400 truncate">

@@ -79,7 +79,12 @@ function notifTypeLabel(type: NotificationItem['type']) {
 
 function notifLink(n: NotificationItem): string {
   // Порог бюджета ИИ (docs/tz-ai-usage.md §7.3) ведёт на дашборд расхода.
-  if (n.type === 'ai_budget') return localePath('/dashboard/ai-usage?period=month')
+  if (n.type === 'ai_budget') {
+    // Персональный лимит: свой порог → личный кабинет; запрос на увеличение → настройки лимитов.
+    if (n.entityType === 'ai_limit') return localePath('/dashboard/settings/account#ai')
+    if (n.entityType === 'ai_limit_request') return localePath('/dashboard/settings/ai?tab=budget')
+    return localePath('/dashboard/ai-usage?period=month')
+  }
   if (n.applicationId) return localePath(`/dashboard/applications/${n.applicationId}`)
   return localePath('/dashboard/notifications')
 }
@@ -215,7 +220,7 @@ async function toggleOpen() {
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-[13px] text-surface-700 dark:text-surface-300">
-                <span class="font-semibold">{{ n.type === 'ai_budget' ? 'Бюджет ИИ' : (n.actorName ?? t('notifications.someone')) }}</span>
+                <span class="font-semibold">{{ n.type === 'ai_budget' ? (n.entityType === 'ai_limit_request' ? 'Запрос лимита ИИ' : n.entityType === 'ai_limit' ? 'Лимит ИИ' : 'Бюджет ИИ') : (n.actorName ?? t('notifications.someone')) }}</span>
                 <span class="text-surface-500 dark:text-surface-400">
                   {{ ' ' + notifTypeLabel(n.type) }}
                 </span>

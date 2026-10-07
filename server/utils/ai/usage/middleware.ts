@@ -10,6 +10,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import type { LanguageModelMiddleware } from 'ai'
 import { aiFeatureOf, type AiUsageStatus } from '../../../../shared/aiUsage/catalog'
 import { assertBackgroundBudget } from './budget'
+import { assertUserLimit } from './limits'
 import { getAiUsageContext, nextAiStep, resolveAiRequestActor } from './context'
 import { recordAiUsage, type RawAiUsageEvent } from './writer'
 
@@ -123,19 +124,24 @@ function captureBase(cfg: UsageModelConfig, params: CallParams, mode: 'generate'
 }
 
 /**
- * §7.3: фоновые вызовы (автоскоринг, риски, автопилот, ИИ в треде) не уходят к модели,
- * если исчерпан бюджет с блокировкой. Ручные действия не блокируются никогда.
- * Сбой самой проверки не мешает вызову.
+ * Проверки перед обращением к модели (docs/tz-ai-usage.md §7.3, design-profile-and-token-limits.md §3.3):
+ *  - оргбюджет с block_background останавливает только фоновые вызовы;
+ *  - персональный лимит участника с block_all останавливает любые его вызовы
+ *    (ручные, расширение, фоновые от его имени); trigger = 'system' не проверяется.
+ * Сбой самой проверки не мешает вызову — пробрасывается только «лимит исчерпан».
  */
-async function guardBackground(base: ReturnType<typeof captureBase> | null): Promise<void> {
-  if (!base || base.trigger !== 'background' || !base.organizationId) return
+async function guardCall(base: ReturnType<typeof captureBase> | null): Promise<void> {
+  if (!base || !base.organizationId || base.trigger === 'system') return
   try {
-    await assertBackgroundBudget({
-      organizationId: base.organizationId,
-      feature: aiFeatureOf(base.operation ?? ''),
-      operation: base.operation ?? '',
-      userId: base.userId,
-    })
+    if (base.trigger === 'background') {
+      await assertBackgroundBudget({
+        organizationId: base.organizationId,
+        feature: aiFeatureOf(base.operation ?? ''),
+        operation: base.operation ?? '',
+        userId: base.userId,
+      })
+    }
+    if (base.userId) await assertUserLimit(base.organizationId, base.userId, base.trigger)
   }
   catch (err) {
     if ((err as { code?: string })?.code === 'AI_BUDGET_EXCEEDED') throw err
@@ -162,7 +168,7 @@ export function usageMiddleware(cfg: UsageModelConfig): LanguageModelMiddleware 
         base = captureBase(cfg, params, 'generate')
       }
       catch { /* учёт не должен ломать вызов */ }
-      await guardBackground(base)
+      await guardCall(base)
       try {
         const result = await doGenerate()
         if (base) {
@@ -208,7 +214,7 @@ export function usageMiddleware(cfg: UsageModelConfig): LanguageModelMiddleware 
         base = captureBase(cfg, params, 'stream')
       }
       catch { /* учёт не должен ломать вызов */ }
-      await guardBackground(base)
+      await guardCall(base)
 
       let res: Awaited<ReturnType<typeof doStream>>
       try {

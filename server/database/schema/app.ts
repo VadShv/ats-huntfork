@@ -4292,6 +4292,12 @@ export const aiUsageSettings = pgTable('ai_usage_settings', {
   usdRubRate: numeric('usd_rub_rate', { precision: 12, scale: 4 }),
   rateUpdatedAt: timestamp('rate_updated_at'),
   retentionDays: integer('retention_days').notNull().default(400),
+  /**
+   * Резервная цена за 1 млн токенов (любых, в базовой валюте) для событий без цены —
+   * чтобы вызовы через конфигурацию без цен учитывались в персональных лимитах.
+   * null → берётся максимальная цена выхода среди конфигураций организации.
+   */
+  fallbackPricePer1m: numeric('fallback_price_per_1m', { precision: 10, scale: 4 }),
   updatedById: text('updated_by_id').references(() => user.id, { onDelete: 'set null' }),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -4300,7 +4306,7 @@ export const aiUsageSettings = pgTable('ai_usage_settings', {
 export const aiUsageBudget = pgTable('ai_usage_budget', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
-  /** org | feature | operation | user */
+  /** org | feature | operation | user | member_default (лимит по умолчанию для каждого участника) */
   scope: text('scope').notNull().default('org'),
   scopeKey: text('scope_key'),
   /** month | day */
@@ -4309,7 +4315,7 @@ export const aiUsageBudget = pgTable('ai_usage_budget', {
   /** Валюта лимита = базовая валюта организации на момент создания. */
   currency: text('currency').notNull().default('RUB'),
   thresholds: jsonb('thresholds').$type<number[]>().notNull().default([50, 80, 100]),
-  /** notify | block_background */
+  /** notify | block_background | block_all (персональные лимиты: останавливает и ручные вызовы) */
   onExceed: text('on_exceed').notNull().default('notify'),
   isActive: boolean('is_active').notNull().default(true),
   createdById: text('created_by_id').references(() => user.id, { onDelete: 'set null' }),
@@ -4324,6 +4330,8 @@ export const aiUsageAlert = pgTable('ai_usage_alert', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
   budgetId: text('budget_id').notNull().references(() => aiUsageBudget.id, { onDelete: 'cascade' }),
+  /** Для персональных лимитов (scope user / member_default) — чей расход пересёк порог. */
+  userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
   periodStart: timestamp('period_start').notNull(),
   threshold: integer('threshold').notNull(),
   spentAmount: numeric('spent_amount', { precision: 14, scale: 2 }).notNull(),
@@ -4332,6 +4340,7 @@ export const aiUsageAlert = pgTable('ai_usage_alert', {
   message: text('message').notNull(),
   notifiedAt: timestamp('notified_at').notNull().defaultNow(),
 }, (t) => ([
-  uniqueIndex('ai_usage_alert_unique').on(t.budgetId, t.periodStart, t.threshold),
+  uniqueIndex('ai_usage_alert_unique').on(t.budgetId, t.periodStart, t.threshold, sql`coalesce(${t.userId}, '')`),
+  index('ai_usage_alert_user_idx').on(t.organizationId, t.userId, t.periodStart),
   index('ai_usage_alert_org_idx').on(t.organizationId, t.notifiedAt),
 ]))

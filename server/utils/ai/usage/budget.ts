@@ -4,15 +4,19 @@
  *  - проверка порогов после записи батча событий (дебаунс 30 с на организацию);
  *  - уведомление владельцам/администраторам один раз на (бюджет, период, порог);
  *  - блокировка ТОЛЬКО фоновых вызовов при 100 % и on_exceed = block_background.
- *    Ручные действия пользователя не блокируются никогда.
+ *    Ручные действия пользователя оргбюджет не блокирует никогда.
+ *
+ * Персональные лимиты участников (scope user / member_default) — в ./limits.ts:
+ * они считаются на пользователя и могут останавливать и ручные вызовы.
  */
-import { and, eq, gte, inArray, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, notInArray, sql } from 'drizzle-orm'
 import { aiUsageAlert, aiUsageBudget, aiUsageEvent, notification } from '../../../database/schema'
 import { member } from '../../../database/schema/auth'
 import { aiFeatureLabel, aiOperationLabel, type AiFeature } from '../../../../shared/aiUsage/catalog'
 import { crossedThresholds, forecastMonth, formatMoney, fxRate, type AiCurrency } from '../../../../shared/aiUsage/cost'
 import { DEFAULT_AI_USAGE_TZ, monthProgress, periodStart } from '../../../../shared/aiUsage/period'
 import { getOrgCurrencySettings } from './pricing'
+import { checkUserLimits, invalidateUserLimitCache } from './limits'
 
 export type BudgetRow = typeof aiUsageBudget.$inferSelect
 
@@ -53,6 +57,7 @@ export function budgetLabel(b: Pick<BudgetRow, 'scope' | 'scopeKey' | 'period'>,
   if (b.scope === 'feature' && b.scopeKey) return `${aiFeatureLabel(b.scopeKey as AiFeature)} · ${per}`
   if (b.scope === 'operation' && b.scopeKey) return `${aiOperationLabel(b.scopeKey)} · ${per}`
   if (b.scope === 'user' && b.scopeKey) return `${userName ?? 'Пользователь'} · ${per}`
+  if (b.scope === 'member_default') return `Каждый участник · ${per}`
   return `Вся организация · ${per}`
 }
 
@@ -110,9 +115,13 @@ export function scheduleBudgetCheck(orgIds: string[]): void {
 
 export async function checkBudgets(orgId: string, now = new Date()): Promise<number> {
   const budgets = await db.select().from(aiUsageBudget)
-    .where(and(eq(aiUsageBudget.organizationId, orgId), eq(aiUsageBudget.isActive, true)))
-  if (!budgets.length) return 0
-  let created = 0
+    .where(and(eq(aiUsageBudget.organizationId, orgId), eq(aiUsageBudget.isActive, true), notInArray(aiUsageBudget.scope, ['user', 'member_default'])))
+  // Персональные лимиты — своя проверка (на каждого участника).
+  let created = await checkUserLimits(orgId, now).catch((err) => {
+    logWarn('ai_usage.user_limits_check_failed', { org_id: orgId, error_message: err instanceof Error ? err.message : String(err) })
+    return 0
+  })
+  if (!budgets.length) return created
   for (const b of budgets) {
     const st = await computeBudgetStatus(b, now)
     const existing = await db.select({ threshold: aiUsageAlert.threshold }).from(aiUsageAlert)
@@ -184,6 +193,7 @@ async function exhaustedBlockingBudgets(orgId: string) {
     eq(aiUsageBudget.organizationId, orgId),
     eq(aiUsageBudget.isActive, true),
     eq(aiUsageBudget.onExceed, 'block_background'),
+    notInArray(aiUsageBudget.scope, ['user', 'member_default']),
   ))
   const blocked: Array<Pick<BudgetRow, 'id' | 'scope' | 'scopeKey'> & { label: string }> = []
   for (const b of budgets) {
@@ -203,8 +213,7 @@ export async function assertBackgroundBudget(opts: { organizationId: string; fea
   const hit = blocked.find(b =>
     b.scope === 'org'
     || (b.scope === 'feature' && b.scopeKey === opts.feature)
-    || (b.scope === 'operation' && b.scopeKey === opts.operation)
-    || (b.scope === 'user' && b.scopeKey && b.scopeKey === opts.userId))
+    || (b.scope === 'operation' && b.scopeKey === opts.operation))
   if (hit) {
     throw new AiBudgetExceededError(hit.id, `Отложено: исчерпан бюджет ИИ (${hit.label}). Фоновые ИИ-задачи возобновятся в новом периоде или после увеличения бюджета.`)
   }
@@ -213,6 +222,7 @@ export async function assertBackgroundBudget(opts: { organizationId: string; fea
 export function invalidateBudgetCache(orgId: string): void {
   blockCache.delete(orgId)
   lastCheck.delete(orgId)
+  invalidateUserLimitCache(orgId)
 }
 
 /** Пороги, по которым уже были уведомления в текущем периоде (для UI). */

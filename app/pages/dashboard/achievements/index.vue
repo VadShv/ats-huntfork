@@ -2,6 +2,7 @@
 import { Trophy, Lock, Star, Crown } from 'lucide-vue-next'
 
 definePageMeta({})
+const localePath = useLocalePath()
 
 useSeoMeta({
   title: 'Достижения',
@@ -199,7 +200,7 @@ const tierBorder: Record<string, string> = {
                 {{ entry.rank }}
               </span>
               <div class="min-w-0 flex-1">
-                <p class="text-xs font-medium text-surface-900 dark:text-surface-100 truncate">{{ entry.name }}</p>
+                <NuxtLink :to="localePath(`/dashboard/people/${entry.userId}`)" class="text-xs font-medium text-surface-900 dark:text-surface-100 truncate block hover:underline">{{ entry.name }}</NuxtLink>
                 <p class="text-[10px] text-surface-400">Ур.{{ entry.level.level }} · {{ entry.level.title }}</p>
               </div>
               <span class="text-xs font-semibold text-surface-600 dark:text-surface-300 shrink-0">{{ entry.xp }} XP</span>

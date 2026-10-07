@@ -1,7 +1,7 @@
 /**
  * GET /api/ai-usage/budgets — бюджеты организации с текущим расходом (docs/tz-ai-usage.md §7).
  */
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, notInArray } from 'drizzle-orm'
 import { aiUsageBudget } from '../../../database/schema'
 import { computeBudgetStatus } from '../../../utils/ai/usage/budget'
 import { requireAiUsageAccess, userNames } from '../../../utils/ai/usage/query'
@@ -9,8 +9,9 @@ import { budgetLabel } from '../../../utils/ai/usage/budget'
 
 export default defineEventHandler(async (event) => {
   const access = await requireAiUsageAccess(event, 'view_costs')
+  // Лимиты участников (scope user / member_default) отдаёт GET /api/ai-usage/member-limits.
   const rows = await db.select().from(aiUsageBudget)
-    .where(eq(aiUsageBudget.organizationId, access.orgId))
+    .where(and(eq(aiUsageBudget.organizationId, access.orgId), notInArray(aiUsageBudget.scope, ['user', 'member_default'])))
     .orderBy(asc(aiUsageBudget.createdAt))
   const names = await userNames(rows.filter(r => r.scope === 'user').map(r => r.scopeKey ?? ''))
   const items = await Promise.all(rows.map(async (b) => {

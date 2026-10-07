@@ -3,7 +3,7 @@
  * Расход за период и к прошлому периоду, прогноз месяца, бюджеты, потери, доля размышлений,
  * вызовы без цены и без атрибуции. Без aiUsage:view_costs денежные поля не отдаются.
  */
-import { and, desc, eq, gte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, notInArray, sql } from 'drizzle-orm'
 import { aiUsageAlert, aiUsageBudget, aiUsageEvent } from '../../database/schema'
 import { aiFeatureLabel } from '../../../shared/aiUsage/catalog'
 import { forecastMonth } from '../../../shared/aiUsage/cost'
@@ -53,8 +53,9 @@ export default defineEventHandler(async (event) => {
   let budgets: Array<Record<string, unknown>> = []
   let alerts: Array<Record<string, unknown>> = []
   if (access.canViewOrg && access.canViewCosts) {
+    // Персональные лимиты участников (scope user / member_default) — отдельный блок настроек, не оргбюджеты.
     const rows = await db.select().from(aiUsageBudget)
-      .where(and(eq(aiUsageBudget.organizationId, access.orgId), eq(aiUsageBudget.isActive, true)))
+      .where(and(eq(aiUsageBudget.organizationId, access.orgId), eq(aiUsageBudget.isActive, true), notInArray(aiUsageBudget.scope, ['user', 'member_default'])))
     const statuses = await Promise.all(rows.map(b => computeBudgetStatus(b, now)))
     budgets = statuses.map(s => ({
       id: s.budget.id,
