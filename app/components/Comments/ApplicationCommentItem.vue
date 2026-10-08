@@ -109,6 +109,9 @@ async function copyLink() {
   menuOpen.value = false
 }
 
+/** Сообщение — один стикер без текста: без плашки, крупнее. */
+const isStickerOnly = computed(() => /^\s*:sticker\[[a-z0-9_]{1,40}\]:\s*$/.test(props.comment.body ?? ''))
+
 const isSnapshot = computed(() =>
   props.comment.kind === 'ai_screening_snapshot' || props.comment.kind === 'risk_snapshot',
 )
@@ -469,7 +472,9 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         v-else
         class="max-w-[68ch] px-3 py-2 text-sm leading-relaxed text-surface-800 dark:text-surface-200"
         :class="[
-          (isAiResponse || comment.kind === 'ai_screening_snapshot')
+          isStickerOnly && !parentPreview
+            ? 'bg-transparent px-0 py-0 [&_.sticker]:!h-28 [&_.sticker]:!w-28'
+            : (isAiResponse || comment.kind === 'ai_screening_snapshot')
             ? 'rounded-r-xl rounded-l-md border-l-[3px] border-accent-500 bg-accent-50/70 dark:bg-accent-900/15'
             : comment.kind === 'risk_snapshot'
               ? 'rounded-r-xl rounded-l-md border-l-[3px] border-warning-500 bg-warning-50/70 dark:bg-warning-900/15'

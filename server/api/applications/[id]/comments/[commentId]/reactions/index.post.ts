@@ -8,6 +8,7 @@ import {
 import { z } from 'zod'
 import { createNotification } from '../../../../../../utils/comments/notifications'
 import { notifyThreadChanged } from '../../../../../../utils/comments/threadBus'
+import { ALLOWED_REACTION_EMOJI, getCommentReactions } from '../../../../../../utils/comments/reactions'
 
 const paramsSchema = z.object({
   id: z.string().uuid('Неверный id отклика'),
@@ -15,11 +16,10 @@ const paramsSchema = z.object({
 })
 
 // Curated set of emoji we accept — keeps storage normalized & UI consistent.
-const ALLOWED_EMOJI = ['👍', '❤️', '🎉', '👀', '🚀', '✅', '😄', '🤔'] as const
-
+// Нормализуем к NFC: «❤️» может прийти в другой кодовой форме с некоторых клавиатур.
 const bodySchema = z.object({
-  emoji: z.string().refine(
-    (e) => (ALLOWED_EMOJI as readonly string[]).includes(e),
+  emoji: z.string().transform(e => e.normalize('NFC')).refine(
+    (e) => (ALLOWED_REACTION_EMOJI as readonly string[]).includes(e),
     { message: 'Недопустимая эмодзи-реакция' },
   ),
 })
@@ -28,7 +28,9 @@ const bodySchema = z.object({
  * POST /api/applications/:id/comments/:commentId/reactions
  *
  * Add a reaction to a comment. Idempotent via UNIQUE (comment_id, user_id, emoji).
- * Notifies the comment author (unless self-reacting).
+ * Notifies the comment author (unless self-reacting or the comment has no user author —
+ * hh-импорт/система). Возвращает `{ reaction, reactions }`: вставленную строку и актуальный
+ * сгруппированный список реакций комментария (клиент подменяет им оптимистичное состояние).
  */
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'] })
@@ -73,34 +75,34 @@ export default defineEventHandler(async (event) => {
     })
 
   // If inserted is undefined → reaction already exists; we still return success
-  // with a fresh-look payload by re-fetching.
+  // with the current grouped list.
   if (!inserted) {
-    const existingRow = await db.query.commentReaction.findFirst({
-      where: and(
-        eq(commentReaction.commentId, commentId),
-        eq(commentReaction.userId, userId),
-        eq(commentReaction.emoji, emoji),
-      ),
-    })
+    const reactions = await getCommentReactions(db, commentId, userId)
     setResponseStatus(event, 200)
-    return existingRow ?? { commentId, userId, emoji }
+    return { reaction: { commentId, userId, emoji }, reactions }
   }
 
-  // ── notify the comment author (not self) ──
-  if (existing.authorUserId !== userId) {
-    await createNotification(db, {
-      organizationId: orgId,
-      userId: existing.authorUserId,
-      type: 'reaction',
-      entityType: 'comment',
-      entityId: commentId,
-      commentId,
-      actorUserId: userId,
-    })
+  // ── notify the comment author (not self; у hh-импорта/системных сообщений автора нет) ──
+  if (existing.authorUserId && existing.authorUserId !== userId) {
+    try {
+      await createNotification(db, {
+        organizationId: orgId,
+        userId: existing.authorUserId,
+        type: 'reaction',
+        entityType: 'comment',
+        entityId: commentId,
+        commentId,
+        actorUserId: userId,
+      })
+    } catch (e) {
+      // Уведомление — побочный эффект; реакция уже сохранена, не роняем запрос.
+      console.error('[reactions] notification failed', e)
+    }
   }
 
   notifyThreadChanged(id)
 
+  const reactions = await getCommentReactions(db, commentId, userId)
   setResponseStatus(event, 201)
-  return inserted
+  return { reaction: inserted, reactions }
 })

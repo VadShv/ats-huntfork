@@ -3,7 +3,7 @@
  * Поле ввода обсуждения — новая оболочка (ТЗ docs/tz-discussion-shell.md §2.4).
  *
  * Одна строка: [+] textarea [⟶ Этап ▾] [🔒] [➤]
- *   - «+»    — файл, шаблон, прикрепить результат ИИ, спросить ИИ, сводка.
+ *   - «+»    — файл, шаблон, стикер, прикрепить результат ИИ, спросить ИИ, сводка.
  *              Ввод «/» в пустом поле открывает это же меню.
  *   - «Этап» — отправить сообщение вместе со сменой этапа (одна запись
  *              kind='stage_comment'); без текста — обычный перевод.
@@ -12,7 +12,7 @@
  */
 import { ref, computed, nextTick, watch, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import {
-  Send, Lock, Plus, X, File as FileIcon, Paperclip, FileText, Bot, ShieldAlert,
+  Send, Lock, Plus, X, File as FileIcon, Paperclip, FileText, Bot, ShieldAlert, Smile,
   Sparkles, ArrowRight, ChevronRight, ChevronDown, AlertTriangle,
 } from 'lucide-vue-next'
 import ApplicationMentionAutocomplete from './ApplicationMentionAutocomplete.vue'
@@ -257,7 +257,31 @@ const plusOpen = ref(false)
 const plusRoot = ref<HTMLElement | null>(null)
 const templatesOpen = ref(false)
 const snapshotsOpen = ref(false)
+const stickersOpen = ref(false)
 const busyAction = ref<string | null>(null)
+
+// ── Стикеры (public/stickers/manifest.json → токен :sticker[id]: в тексте, сервер рендерит <img class="sticker">) ──
+interface Sticker { id: string, name: string, url: string, tags: string[] }
+const stickers = ref<Sticker[] | null>(null)
+async function loadStickers() {
+  if (stickers.value) return
+  try {
+    const res = await $fetch<{ stickers: Sticker[] }>('/stickers/manifest.json')
+    stickers.value = res.stickers ?? []
+  } catch {
+    stickers.value = []
+  }
+}
+function toggleStickers() {
+  stickersOpen.value = !stickersOpen.value
+  templatesOpen.value = false
+  snapshotsOpen.value = false
+  if (stickersOpen.value) void loadStickers()
+}
+function pickSticker(s: Sticker) {
+  insertText(`:sticker[${s.id}]:`)
+  plusOpen.value = false
+}
 
 interface MessageTemplate { id: string, title: string, body: string, category: string }
 const templates = ref<MessageTemplate[] | null>(null)
@@ -270,16 +294,18 @@ async function loadTemplates() {
   }
 }
 watch(plusOpen, (open) => {
-  if (!open) { templatesOpen.value = false; snapshotsOpen.value = false }
+  if (!open) { templatesOpen.value = false; snapshotsOpen.value = false; stickersOpen.value = false }
 })
 function toggleTemplates() {
   templatesOpen.value = !templatesOpen.value
   snapshotsOpen.value = false
+  stickersOpen.value = false
   if (templatesOpen.value) void loadTemplates()
 }
 function toggleSnapshots() {
   snapshotsOpen.value = !snapshotsOpen.value
   templatesOpen.value = false
+  stickersOpen.value = false
 }
 function pickTemplate(tpl: MessageTemplate) {
   const text = tpl.body.replace(/\{\{(candidate_name|job_title|deadline)\}\}/g, '')
@@ -548,6 +574,29 @@ const squareBtnClass = 'inline-flex size-8 flex-shrink-0 items-center justify-ce
               <span class="font-medium">{{ tpl.title }}</span>
               <span class="w-full truncate text-[10px] text-surface-400">{{ tpl.body }}</span>
             </button>
+          </div>
+          <!-- Стикер ▸ -->
+          <button type="button" :class="menuItemClass" @click="toggleStickers">
+            <Smile class="size-3.5 text-surface-400" />
+            {{ t('stickers.add') }}
+            <component :is="stickersOpen ? ChevronDown : ChevronRight" class="ml-auto size-3.5 text-surface-400" />
+          </button>
+          <div v-if="stickersOpen" class="ml-5 mb-1 border-l border-surface-100 dark:border-surface-800 pl-1">
+            <div v-if="stickers === null" class="px-2 py-1.5 text-[11px] text-surface-400">{{ t('stickers.loading') }}</div>
+            <div v-else-if="stickers.length === 0" class="px-2 py-1.5 text-[11px] italic text-surface-400">{{ t('stickers.empty') }}</div>
+            <div v-else class="grid grid-cols-4 gap-1 p-1">
+              <button
+                v-for="s in stickers"
+                :key="s.id"
+                type="button"
+                :title="s.name"
+                :aria-label="s.name"
+                class="aspect-square rounded-md border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 p-1 hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/30 cursor-pointer transition-colors"
+                @click="pickSticker(s)"
+              >
+                <img :src="s.url" :alt="s.name" class="h-full w-full object-contain" loading="lazy">
+              </button>
+            </div>
           </div>
           <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
           <div class="px-2.5 pb-0.5 pt-1 text-[10px] uppercase tracking-wide text-surface-400">{{ t('comments.ai_section') }}</div>

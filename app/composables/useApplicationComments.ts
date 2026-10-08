@@ -328,15 +328,27 @@ export function useApplicationComments(applicationId: string) {
     }
   }
 
+  /**
+   * Поставить/снять реакцию. Оптимистично правим локальный список, затем подменяем его
+   * серверным (`reactions` в ответе POST/DELETE) — так чип виден сразу и не зависит от
+   * SSE-рефетча. При ошибке — тост и полный рефетч.
+   */
   async function toggleReaction(commentId: string, emoji: string, currentUserId: string) {
     const comment = comments.value.find(c => c.id === commentId)
     if (!comment) return
+    if (!Array.isArray(comment.reactions)) comment.reactions = []
     const existing = comment.reactions.find(r => r.emoji === emoji)
     const reactedByMe = !!existing?.reactedByMe
 
+    const applyServer = (res: { reactions?: CommentReaction[] } | null | undefined) => {
+      if (res && Array.isArray(res.reactions)) {
+        const target = comments.value.find(c => c.id === commentId)
+        if (target) target.reactions = res.reactions
+      }
+    }
+
     // optimistic update
     if (reactedByMe) {
-      // remove
       if (existing) {
         existing.count = Math.max(0, existing.count - 1)
         existing.userIds = existing.userIds.filter(uid => uid !== currentUserId)
@@ -346,12 +358,13 @@ export function useApplicationComments(applicationId: string) {
         }
       }
       try {
-        await $fetch(
+        const res = await $fetch<{ reactions?: CommentReaction[] } | null>(
           `/api/applications/${applicationId}/comments/${commentId}/reactions/${encodeURIComponent(emoji)}`,
           { method: 'DELETE' },
         )
+        applyServer(res)
       } catch (e: any) {
-        toast.error('Не удалось убрать реакцию', { message: e?.data?.statusMessage ?? e?.message })
+        toast.error('Не удалось убрать реакцию', { message: e?.data?.statusMessage ?? e?.message, statusCode: e?.statusCode })
         await fetchComments()
       }
     } else {
@@ -363,12 +376,13 @@ export function useApplicationComments(applicationId: string) {
         comment.reactions.push({ emoji, count: 1, userIds: [currentUserId], reactedByMe: true })
       }
       try {
-        await $fetch(
+        const res = await $fetch<{ reactions?: CommentReaction[] }>(
           `/api/applications/${applicationId}/comments/${commentId}/reactions`,
           { method: 'POST', body: { emoji } },
         )
+        applyServer(res)
       } catch (e: any) {
-        toast.error('Не удалось добавить реакцию', { message: e?.data?.statusMessage ?? e?.message })
+        toast.error('Не удалось добавить реакцию', { message: e?.data?.statusMessage ?? e?.message, statusCode: e?.statusCode })
         await fetchComments()
       }
     }

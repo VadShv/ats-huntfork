@@ -7,6 +7,7 @@ import {
 } from '../../../../../../database/schema/app'
 import { z } from 'zod'
 import { notifyThreadChanged } from '../../../../../../utils/comments/threadBus'
+import { decodeReactionEmoji, getCommentReactions } from '../../../../../../utils/comments/reactions'
 
 const paramsSchema = z.object({
   id: z.string().uuid('Неверный id отклика'),
@@ -20,14 +21,17 @@ const paramsSchema = z.object({
  * Remove the current user's reaction with the given emoji from this comment.
  * Idempotent — succeeds even if no such reaction exists.
  *
- * Emoji is URL-decoded by Nitro; passes through to the WHERE clause.
+ * Параметр `emoji` приходит percent-encoded — декодируем сами (decodeReactionEmoji),
+ * иначе WHERE не находил строку и реакция визуально «возвращалась» после SSE-рефетча.
+ * Возвращает актуальный сгруппированный список реакций комментария.
  */
 export default defineEventHandler(async (event) => {
   const session = await requirePermission(event, { application: ['read'] })
   const orgId = session.session.activeOrganizationId
   const userId = session.user.id
 
-  const { id, commentId, emoji } = await getValidatedRouterParams(event, paramsSchema.parse)
+  const { id, commentId, emoji: rawEmoji } = await getValidatedRouterParams(event, paramsSchema.parse)
+  const emoji = decodeReactionEmoji(rawEmoji)
   await requireApplicationInScope(event, id as string, orgId as string)
 
   // ── verify application + comment exist & belong to the org ──
@@ -59,6 +63,7 @@ export default defineEventHandler(async (event) => {
 
   notifyThreadChanged(id)
 
-  setResponseStatus(event, 204)
-  return null
+  const reactions = await getCommentReactions(db, commentId, userId)
+  setResponseStatus(event, 200)
+  return { reactions }
 })
