@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ArrowLeft, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall, MoreHorizontal, ShieldCheck, Handshake } from 'lucide-vue-next'
+import { ArrowLeft, MessageSquare, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall, MoreHorizontal, ShieldCheck, Handshake } from 'lucide-vue-next'
+import { useDiscussionWindow } from '~/composables/useDiscussionWindow'
 import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
@@ -524,6 +525,14 @@ function onMoreMenuClickOutside(e: MouseEvent) {
 }
 
 onMounted(() => document.addEventListener('click', onMoreMenuClickOutside))
+
+// Обсуждение отдельным окном (docs/tz-discussion-window.md): иконка с числом непрочитанных на каждом отклике.
+const discussionWindow = useDiscussionWindow()
+const unreadComments = useUnreadComments()
+onMounted(() => { void unreadComments.fetchUnread() })
+function openDiscussionWindow(applicationId: string) {
+  discussionWindow.open(applicationId)
+}
 onUnmounted(() => document.removeEventListener('click', onMoreMenuClickOutside))
 
 
@@ -975,11 +984,30 @@ async function openHhContacts() {
                     {{ app.job.title }}
                   </h4>
                 </NuxtLink>
-                <span
-                  v-if="(app as any).resumeVersion"
-                  class="shrink-0 rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400"
-                  :title="t('candidate.applications.resumeVersion')"
-                >v{{ (app as any).resumeVersion.versionNumber }}</span>
+                <div class="flex shrink-0 items-center gap-1.5">
+                  <span
+                    v-if="(app as any).resumeVersion"
+                    class="rounded bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 text-[10px] font-medium text-surface-500 dark:text-surface-400"
+                    :title="t('candidate.applications.resumeVersion')"
+                  >v{{ (app as any).resumeVersion.versionNumber }}</span>
+                  <!-- Обсуждение отдельным окном -->
+                  <ClientOnly>
+                    <button
+                      v-if="discussionWindow.canUseWindow.value"
+                      type="button"
+                      class="relative inline-flex size-7 items-center justify-center rounded-md text-surface-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors cursor-pointer"
+                      :title="t('candidate.applications.open_discussion')"
+                      :aria-label="t('candidate.applications.open_discussion')"
+                      @click.stop="openDiscussionWindow(app.id)"
+                    >
+                      <MessageSquare class="size-4" />
+                      <span
+                        v-if="unreadComments.unreadCount(app.id) > 0"
+                        class="absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-brand-600 px-1 text-center text-[9px] font-bold leading-4 text-white tabular-nums"
+                      >{{ unreadComments.unreadCount(app.id) }}</span>
+                    </button>
+                  </ClientOnly>
+                </div>
               </div>
 
               <!-- 2. Этап воронки (Н-6) или legacy-статус + балл + источник -->

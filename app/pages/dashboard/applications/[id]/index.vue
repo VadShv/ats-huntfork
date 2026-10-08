@@ -3,6 +3,7 @@ import { ArrowLeft, User, Briefcase, Calendar, Clock, Hash, FileText, MessageSqu
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import CandidateDiscussionTabs from '~/components/Comments/CandidateDiscussionTabs.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
+import { useDiscussionWindow } from '~/composables/useDiscussionWindow'
 
 definePageMeta({
   layout: 'dashboard',
@@ -43,6 +44,13 @@ function handleStageChanged(payload: { newStageId: string; newStageName: string;
   // Спринт 22: hh-пуш при переводе — fire-and-forget, перепроверяем синк чуть позже
   setTimeout(() => { void loadHhSync() }, 4000)
 }
+
+// Перевод этапа из отдельного окна обсуждения (docs/tz-discussion-window.md) — тот же обработчик.
+const discussionWindow = useDiscussionWindow()
+const unsubscribeWindowStage = discussionWindow.onStageChanged((appId, payload) => {
+  if (appId === applicationId) handleStageChanged(payload)
+})
+onBeforeUnmount(unsubscribeWindowStage)
 
 // ─── Спринт 22 (todo 8): индикатор рассинхрона с hh.ru ───
 type HhSyncStatus = {

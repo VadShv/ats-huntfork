@@ -98,6 +98,8 @@ export function useDiscussionWindow() {
 
 **`app/pages/dashboard/applications/[id]/discussion.vue`**
 
+Чтобы роут `/dashboard/applications/:id/discussion` не стал дочерним у страницы отклика (Nuxt требует `<NuxtPage>` в родителе), страница отклика переносится из `applications/[id].vue` в `applications/[id]/index.vue` — URL `/dashboard/applications/:id` не меняется.
+
 ```ts
 definePageMeta({ layout: 'default', middleware: ['auth', 'require-org'] })
 ```
@@ -157,3 +159,20 @@ definePageMeta({ layout: 'default', middleware: ['auth', 'require-org'] })
 ## 6. Вне этого ТЗ
 
 Запоминание «всегда открывать обсуждение в окне» как настройка пользователя; окно с двумя тредами (кандидат и заказчик) рядом; Picture-in-Picture через `documentPictureInPicture` (Chrome 116+) — поверх обычного окна, если понадобится «поверх всех окон».
+
+## 7. Статус реализации (08.10.2026)
+
+Сделано в ветке `feat/discussion-window` (от `feat/discussion-shell`):
+
+- `app/composables/useDiscussionWindow.ts` — именованное окно, запоминание размеров, `BroadcastChannel` (`stage-changed`, `window-opened`, `window-closed`), выход в карточку через `window.opener`, тост при блокировке попапа.
+- `app/pages/dashboard/applications/[id]/discussion.vue` — страница окна: мини-строка, тред на всю высоту, `router.replace` при переключении откликов, заголовок вкладки с именем кандидата, экран «Отклик недоступен».
+- `applications/[id].vue` → `applications/[id]/index.vue` (URL прежний); подписка на этап из окна.
+- `ApplicationCommentThread.vue` — проп `fill`, пункты «Открыть в окне» / «Открыто в окне — показать» / «Открыть карточку отклика» в «⋯».
+- `CandidateDiscussionTabs.vue` — проп `fill`, emit `switch-application`.
+- `ApplicationCommentComposer.vue` — подхват черновика из другого окна по `storage`-событию.
+- `ApplicationDetailDrawer.vue`, `jobs/[id]/index.vue` — подписка на `stage-changed` из окна.
+- `candidates/[id].vue` — иконка обсуждения с числом непрочитанных на карточках откликов.
+- `interviews/[id].vue` — кнопка «Обсуждение» в ряду действий (строки страницы без i18n, как и соседние).
+- `i18n/locales/ru.json` — ключи `comments.open_in_window|window_is_open|open_application|window_blocked_*`, `candidate.applications.open_discussion`, блок `discussion_window.*`.
+
+Отложено: число непрочитанных в заголовке вкладки окна (тред помечает прочитанным при открытии — значение почти всегда 0; вернёмся вместе с «прочтением по низу» из пакета «Честный realtime»). Приёмка §4 — на стенде.
