@@ -351,7 +351,7 @@ async function submit() {
     // Только смена этапа, без текста и файлов → обычный перевод.
     if (!trimmed && pendingFiles.value.length === 0 && selectedStage.value) {
       const moved = await moveStage(selectedStage.value.id)
-      if (moved) { selectedStage.value = null; emit('stageMoved', moved) }
+      if (moved) { flyStageChip(); selectedStage.value = null; emit('stageMoved', moved) }
       return
     }
     const finalBody = trimmed.length > 0
@@ -368,6 +368,8 @@ async function submit() {
       for (const f of pendingFiles.value) await uploadAttachment(created.id, f)
     }
     const movedStage = selectedStage.value
+    const payloadForFly = created?.kind === 'stage_comment' ? (created.payloadJson as StageCommentPayload | null) : null
+    if (movedStage && payloadForFly) flyStageChip()
     body.value = ''
     isInternal.value = false
     pendingFiles.value = []
@@ -415,7 +417,39 @@ function insertText(text: string) {
   })
 }
 
-defineExpose({ focus, insertText })
+/** Пустое состояние треда: «Спросить @ai» и «Прикрепить результат скрининга». */
+function askAi() { onAskAi() }
+function attachScreeningSnapshot() { void onAttachSnapshot('ai_screening_snapshot') }
+
+/**
+ * Перелёт чипа этапа из композера в ленту (визуальная версия 1, §3.8).
+ * Клон чипа улетает вверх к рельсе и растворяется; уважает prefers-reduced-motion.
+ */
+function flyStageChip() {
+  if (typeof window === 'undefined') return
+  const btn = stageRoot.value?.querySelector('button')
+  if (!btn) return
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+  const from = btn.getBoundingClientRect()
+  const fly = btn.cloneNode(true) as HTMLElement
+  fly.className = `${btn.className} disc-flyer`
+  fly.style.left = `${from.left}px`
+  fly.style.top = `${from.top}px`
+  fly.style.width = `${from.width}px`
+  fly.style.margin = '0'
+  document.body.appendChild(fly)
+  const feed = btn.closest('section')?.querySelector('.disc-rail') as HTMLElement | null
+  const rail = feed?.getBoundingClientRect()
+  const dx = rail ? rail.left + 14 - from.left : -from.width * 0.6
+  const dy = rail ? Math.max(-220, (rail.bottom - 40) - from.top) : -160
+  requestAnimationFrame(() => {
+    fly.style.transform = `translate(${dx}px, ${dy}px) scale(0.25)`
+    fly.style.opacity = '0'
+  })
+  setTimeout(() => fly.remove(), 300)
+}
+
+defineExpose({ focus, insertText, askAi, attachScreeningSnapshot })
 
 const menuItemClass = 'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
 const squareBtnClass = 'inline-flex size-8 flex-shrink-0 items-center justify-center rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'

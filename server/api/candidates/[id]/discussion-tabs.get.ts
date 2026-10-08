@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
   // ── 1. Verify candidate belongs to org ──
   const candidateRow = await db.query.candidate.findFirst({
     where: and(eq(candidate.id, id), eq(candidate.organizationId, orgId)),
-    columns: { id: true },
+    columns: { id: true, firstName: true, lastName: true },
   })
   if (!candidateRow) {
     throw createError({ statusCode: 404, statusMessage: 'Кандидат не найден' })
@@ -59,6 +59,7 @@ export default defineEventHandler(async (event) => {
       isTerminal: pipelineStage.isTerminal,
       source: application.source,
       externalId: application.externalId,
+      stageChangedAt: application.stageChangedAt,
       createdAt: application.createdAt,
       updatedAt: application.updatedAt,
     })
@@ -68,8 +69,11 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(application.candidateId, id), eq(application.organizationId, orgId)))
     .orderBy(desc(application.createdAt))
 
+  // Имя кандидата — для шапки-паспорта обсуждения (визуальная версия 1).
+  const candidateInfo = { firstName: candidateRow.firstName, lastName: candidateRow.lastName }
+
   if (apps.length === 0) {
-    return { data: [] }
+    return { data: [], candidate: candidateInfo }
   }
 
   // ── 3. Comment counts per application (single GROUP BY, exclude soft-deleted) ──
@@ -91,6 +95,7 @@ export default defineEventHandler(async (event) => {
   for (const c of counts) countByApp.set(c.applicationId, c.count)
 
   return {
+    candidate: candidateInfo,
     data: apps.map(a => ({
       id: a.id,
       jobId: a.jobId,
@@ -109,6 +114,7 @@ export default defineEventHandler(async (event) => {
           }
         : null,
       commentCount: countByApp.get(a.id) ?? 0,
+      stageChangedAt: a.stageChangedAt,
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,
     })),

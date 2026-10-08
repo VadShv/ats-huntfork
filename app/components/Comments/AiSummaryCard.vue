@@ -4,7 +4,7 @@
  * Collapsible: свёрнуто — заголовок + дата; развёрнуто — полный текст.
  */
 import { ref, computed } from 'vue'
-import { Bot, ChevronDown, ChevronUp, RefreshCw } from 'lucide-vue-next'
+import { Sparkles, ChevronDown, ChevronUp, RefreshCw } from 'lucide-vue-next'
 import type { ThreadComment } from '~/composables/useApplicationComments'
 
 const props = defineProps<{
@@ -30,9 +30,9 @@ function fmtDate(d: string | undefined) {
 </script>
 
 <template>
-  <div class="rounded-xl border border-accent-200 dark:border-accent-800/60 bg-accent-50/60 dark:bg-accent-900/10 overflow-hidden">
+  <div class="max-w-[68ch] rounded-r-xl rounded-l-md border-l-[3px] border-accent-500 bg-accent-50/70 dark:bg-accent-900/15 overflow-hidden">
     <div class="flex items-center gap-2 px-3 py-2">
-      <Bot class="size-4 text-accent-500 flex-shrink-0" />
+      <Sparkles class="size-4 text-accent-500 flex-shrink-0" />
       <span class="text-xs font-semibold text-accent-800 dark:text-accent-200">{{ t('comments.summarize') }}</span>
       <span v-if="meta?.summarizedCount" class="text-[10px] text-surface-400">
         · {{ meta.summarizedCount }} {{ t('comments.summarize_count_suffix') }}

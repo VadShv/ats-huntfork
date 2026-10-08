@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { Lock, MoreVertical, Pencil, Trash2, MessageSquare, Bot, Link2, Pin, ArrowRight, Reply } from 'lucide-vue-next'
+import { Lock, MoreVertical, Pencil, Trash2, MessageSquare, Sparkles, Link2, Pin, ArrowRight, Reply, SmilePlus } from 'lucide-vue-next'
+import { REACTION_EMOJI_SET } from '~/composables/useReactionEmojis'
 import type { ThreadComment, StageCommentPayload } from '~/composables/useApplicationComments'
 import { useApplicationComments } from '~/composables/useApplicationComments'
+import { authorHue } from '~/composables/useDiscussionColors'
 import CommentSnapshotWidget from './CommentSnapshotWidget.vue'
 
 const props = withDefaults(defineProps<{
@@ -44,6 +46,8 @@ const toast = useToast()
 const route = useRoute()
 
 const isEditing = ref(false)
+/** Быстрая реакция из действий по наведению (когда под сообщением ещё нет чипов). */
+const reactionPickerOpen = ref(false)
 const editBody = ref(props.comment.body)
 const saving = ref(false)
 const menuOpen = ref(false)
@@ -139,10 +143,20 @@ const isHhIncoming = computed(() => props.comment.hhDirection === 'incoming')
 const canEdit = computed(() => !props.readOnly && !isSnapshot.value && !isAiResponse.value && !isHhIncoming.value && isAuthor.value)
 const canDelete = computed(() => !props.readOnly && !isHhIncoming.value && (isAuthor.value || props.canDeleteAny))
 
-const initial = computed(() => (props.comment.author.name ?? props.comment.author.email ?? '?').slice(0, 1).toUpperCase())
+/** Инициалы: две буквы имени и фамилии, иначе первые две буквы. */
+const initial = computed(() => {
+  const src = (props.comment.author.name ?? props.comment.author.email ?? '?').trim()
+  const parts = src.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase()
+  return src.slice(0, 2).toUpperCase()
+})
+/** Оттенок автора (визуальная версия 1): один цвет на человека во всех тредах. */
+const hue = computed(() => authorHue(props.comment.author.id))
+const parentHue = computed(() => authorHue(props.parent?.author.id))
 const displayName = computed(() => {
   if (isAiResponse.value) return t('comments.ai_assistant')
-  if (isHhIncoming.value) return 'Система'
+  // Комментарий с hh.ru: автором показываем того, кто оставил его на hh (бейдж «hh.ru ←» рядом).
+  if (isHhIncoming.value) return props.comment.hhAuthorName || 'hh.ru'
   return props.comment.author.name || props.comment.author.email
 })
 
@@ -202,9 +216,10 @@ async function onDelete() {
 // Manual click-outside for the dropdown menu
 const menuRoot = ref<HTMLElement | null>(null)
 function handleDocClick(e: MouseEvent) {
-  if (!menuOpen.value) return
+  if (!menuOpen.value && !reactionPickerOpen.value) return
   if (menuRoot.value && !menuRoot.value.contains(e.target as Node)) {
     menuOpen.value = false
+    reactionPickerOpen.value = false
   }
 }
 onMounted(() => document.addEventListener('click', handleDocClick))
@@ -214,36 +229,38 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 <template>
   <div
     :id="`comment-${comment.id}`"
-    class="group flex gap-2.5 transition-colors"
+    class="group relative z-[1] flex gap-2.5 transition-colors disc-rise"
     :class="[
       isLastInGroup ? 'mb-3' : 'mb-0.5',
+      isFirstInGroup ? 'mt-1' : '',
       highlighted ? 'ring-2 ring-brand-400 rounded-lg -mx-1 px-1 py-0.5' : '',
     ]"
+    :style="{ '--h': hue }"
   >
-    <!-- Avatar (только первый в группе, иначе spacer) -->
-    <div class="flex-shrink-0 w-7 flex justify-center">
+    <!-- Аватар на рельсе (только первый в группе, иначе отступ) -->
+    <div class="flex-shrink-0 w-7 flex justify-center self-start">
       <template v-if="isFirstInGroup">
-        <!-- AI-ответ: bot-иконка (accent = AI) -->
+        <!-- Ответ ИИ: искра на бирюзовом — единый язык ИИ -->
         <div
           v-if="isAiResponse"
-          class="grid size-7 place-items-center rounded-full bg-accent-100 dark:bg-accent-900/40 text-accent-600 dark:text-accent-400 ring-1 ring-accent-200 dark:ring-accent-800/60"
+          class="grid size-7 place-items-center rounded-full bg-gradient-to-br from-accent-400 to-accent-600 text-white ring-2 ring-white dark:ring-surface-900"
+          :title="t('comments.ai_assistant')"
         >
-          <Bot class="size-3.5" />
+          <Sparkles class="size-3.5" />
         </div>
-        <!-- hh.ru import: hh-иконка -->
+        <!-- Комментарий с hh.ru -->
         <div
           v-else-if="isHhIncoming"
-          class="grid size-7 place-items-center rounded-full bg-info-100 dark:bg-info-900/40 text-info-600 dark:text-info-400 ring-1 ring-info-200 dark:ring-info-800/60 text-[9px] font-bold"
+          class="grid size-7 place-items-center rounded-full bg-surface-200 dark:bg-surface-700 text-surface-600 dark:text-surface-200 ring-2 ring-white dark:ring-surface-900 text-[9px] font-bold"
+          title="hh.ru"
         >
           hh
         </div>
-        <!-- Обычный аватар -->
+        <!-- Человек: градиент по оттенку автора -->
         <div
           v-else
-          class="grid size-7 place-items-center rounded-full text-[10px] font-semibold"
-          :class="isSelf
-            ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 ring-1 ring-brand-200 dark:ring-brand-800/60'
-            : 'bg-surface-200 dark:bg-surface-700 text-surface-700 dark:text-surface-200'"
+          class="disc-avatar grid size-7 place-items-center rounded-full text-[10px] font-semibold"
+          :title="comment.author.name ?? comment.author.email ?? ''"
         >
           <img v-if="comment.author.image" :src="comment.author.image" :alt="comment.author.name ?? ''" class="size-7 rounded-full object-cover">
           <span v-else>{{ initial }}</span>
@@ -258,7 +275,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         v-if="isStageComment && stagePayload"
         class="mb-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-surface-100 dark:bg-surface-800 px-2.5 py-0.5 text-[11px] text-surface-600 dark:text-surface-300"
       >
-        <ArrowRight class="size-3 flex-shrink-0 text-brand-500" />
+        <ArrowRight class="size-3 flex-shrink-0" :style="{ color: stagePayload.toStageColor ?? 'var(--color-brand-500)' }" />
         <span class="truncate">
           {{ t('comments.moved_to_stage') }}
           <span class="inline-block size-1.5 rounded-full align-middle" :style="{ backgroundColor: stagePayload.toStageColor ?? '#94a3b8' }" />
@@ -272,13 +289,13 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           class="text-xs font-semibold"
           :class="isAiResponse
             ? 'text-accent-700 dark:text-accent-300'
-            : isSelf
-              ? 'text-brand-700 dark:text-brand-300'
-              : 'text-surface-900 dark:text-surface-100'"
+            : isHhIncoming
+              ? 'text-surface-700 dark:text-surface-200'
+              : 'disc-author'"
         >
           {{ displayName }}
         </span>
-        <span v-if="isHhIncoming && comment.hhAuthorName" class="text-[10px] text-surface-500 dark:text-surface-400">{{ comment.hhAuthorName }} ·</span>
+        <span v-if="isSelf && !isAiResponse" class="text-[10px] text-surface-400">· {{ t('comments.you') }}</span>
         <span class="text-[10px] text-surface-400 font-mono">{{ displayDate }}</span>
         <span v-if="comment.editedAt" class="text-[10px] text-surface-400">· {{ t('comments.edited') }}</span>
         <span
@@ -296,7 +313,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         </span>
         <span
           v-if="comment.isInternal"
-          class="inline-flex items-center gap-0.5 rounded bg-warning-100 dark:bg-warning-900/50 px-1 py-0.5 text-[9px] font-medium text-warning-800 dark:text-warning-200"
+          class="inline-flex items-center gap-0.5 text-[10px] font-medium text-warning-700 dark:text-warning-300"
           :title="t('comments.internal_badge_hint')"
         >
           <Lock class="size-2.5" /> {{ t('comments.internal') }}
@@ -323,17 +340,44 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         </button>
       </div>
 
-      <!-- Actions (для каждого сообщения, не только первого в группе) -->
+      <!-- Действия по наведению: реакция · «⋯» (для каждого сообщения, не только первого в группе) -->
       <div
-        v-if="canEdit || canDelete || canReply"
+        v-if="canEdit || canDelete || canReply || !readOnly"
         ref="menuRoot"
-        class="absolute right-0 top-0 z-20"
+        class="absolute right-0 top-0 z-20 flex items-center gap-0.5 rounded-md bg-white/90 dark:bg-surface-900/90 px-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+        :class="menuOpen || reactionPickerOpen ? '!opacity-100' : ''"
       >
         <button
+          v-if="!readOnly && comment.reactions.length === 0"
           type="button"
-          class="cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 hover:bg-surface-200 dark:hover:bg-surface-700"
-          :aria-label="t('comments.edit')"
-          @click="menuOpen = !menuOpen"
+          class="cursor-pointer rounded p-0.5 hover:bg-surface-200 dark:hover:bg-surface-700"
+          :title="t('reactions.add')"
+          :aria-label="t('reactions.add')"
+          @click="reactionPickerOpen = !reactionPickerOpen; menuOpen = false"
+        >
+          <SmilePlus class="size-3.5 text-surface-400" />
+        </button>
+        <div
+          v-if="reactionPickerOpen"
+          class="absolute right-0 top-6 z-30 flex items-center gap-0.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-1.5 py-1 shadow-lg"
+        >
+          <button
+            v-for="emoji in REACTION_EMOJI_SET"
+            :key="emoji"
+            type="button"
+            class="inline-flex size-7 items-center justify-center rounded-md text-base hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
+            :title="emoji"
+            @click="reactionPickerOpen = false; emit('reactionToggle', comment.id, emoji)"
+          >
+            {{ emoji }}
+          </button>
+        </div>
+        <button
+          v-if="canEdit || canDelete || canReply"
+          type="button"
+          class="cursor-pointer rounded p-0.5 hover:bg-surface-200 dark:hover:bg-surface-700"
+          :aria-label="t('comments.more')"
+          @click="menuOpen = !menuOpen; reactionPickerOpen = false"
         >
           <MoreVertical class="size-3.5 text-surface-400" />
         </button>
@@ -417,31 +461,38 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
       </div>
 
       <!-- Bubble -->
+      <!--
+        Пузырь. Нейтральный — светлая плашка; своё — лёгкий брендовый; внутреннее — янтарная
+        кромка слева вместо сплошной заливки (§3.5); ответ ИИ — бирюзовая кромка (§3.6).
+      -->
       <div
         v-else
-        class="rounded-2xl px-3 py-2 text-sm leading-relaxed"
+        class="max-w-[68ch] px-3 py-2 text-sm leading-relaxed text-surface-800 dark:text-surface-200"
         :class="[
-          isAiResponse
-            ? 'bg-accent-50 dark:bg-accent-900/20 border border-accent-200 dark:border-accent-800/60 text-surface-800 dark:text-surface-200'
+          (isAiResponse || comment.kind === 'ai_screening_snapshot')
+            ? 'rounded-r-xl rounded-l-md border-l-[3px] border-accent-500 bg-accent-50/70 dark:bg-accent-900/15'
+            : comment.kind === 'risk_snapshot'
+              ? 'rounded-r-xl rounded-l-md border-l-[3px] border-warning-500 bg-warning-50/70 dark:bg-warning-900/15'
             : comment.isInternal
-              ? 'bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800/60 text-surface-800 dark:text-surface-200'
+              ? 'rounded-r-xl rounded-l-md border-l-[3px] border-warning-500 bg-warning-50/70 dark:bg-warning-900/15'
               : isSelf
-                ? 'bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/60 text-brand-950 dark:text-brand-50'
-                : 'bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700 text-surface-800 dark:text-surface-200',
+                ? 'rounded-xl bg-brand-50 dark:bg-brand-900/25 text-brand-950 dark:text-brand-50'
+                : 'rounded-xl bg-surface-100/80 dark:bg-surface-800/70',
         ]"
       >
         <!-- Цитата родителя (ответ) -->
         <button
           v-if="parentPreview"
           type="button"
-          class="mb-1.5 flex w-full items-start gap-2 rounded-r-md border-l-2 border-brand-500 bg-white/60 dark:bg-surface-900/40 px-2 py-1 text-left cursor-pointer hover:bg-white dark:hover:bg-surface-900/70 transition-colors"
+          class="disc-quote mb-1.5 flex w-full items-start gap-2 rounded-r-md bg-white/70 dark:bg-surface-900/50 px-2 py-1 text-left cursor-pointer hover:bg-white dark:hover:bg-surface-900/80 transition-colors"
+          :style="{ '--h': parentHue }"
           :disabled="!parent"
           :title="parent ? t('comments.goto_parent') : undefined"
           @click="parent && emit('goto', parent.id)"
         >
-          <Reply class="mt-0.5 size-3 flex-shrink-0 text-brand-500" />
+          <Reply class="mt-0.5 size-3 flex-shrink-0 text-surface-400" />
           <span class="min-w-0">
-            <span v-if="parentPreview.author" class="block text-[11px] font-semibold text-brand-700 dark:text-brand-300">{{ parentPreview.author }}</span>
+            <span v-if="parentPreview.author" class="disc-author block text-[11px] font-semibold">{{ parentPreview.author }}</span>
             <span class="block truncate text-[11px] text-surface-500 dark:text-surface-400">{{ parentPreview.text }}</span>
           </span>
         </button>
@@ -478,7 +529,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
       <!-- Reactions -->
       <CommentReactions
-        v-if="!isEditing && (comment.reactions.length > 0 || !readOnly)"
+        v-if="!isEditing && comment.reactions.length > 0"
         :comment-id="comment.id"
         :reactions="comment.reactions"
         :current-user-id="currentUserId"

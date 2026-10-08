@@ -10,6 +10,12 @@ import { ref, watch, onMounted, onBeforeUnmount, type Ref } from 'vue'
 export function useThreadScroll(containerRef: Ref<HTMLElement | null>, itemCount: Ref<number>) {
   const showJumpFab = ref(false)
   let wasNearBottom = true
+  /** Пропустить следующую автопрокрутку вниз (тред открывается на «Новых сообщениях»). */
+  let suppressNext = false
+
+  function suppressAutoScrollOnce() {
+    suppressNext = true
+  }
 
   function isNearBottom(): boolean {
     const el = containerRef.value
@@ -41,8 +47,15 @@ export function useThreadScroll(containerRef: Ref<HTMLElement | null>, itemCount
   })
 
   watch(itemCount, () => {
+    if (suppressNext) {
+      suppressNext = false
+      // Пользователь выше конца ленты — показываем кнопку «вниз».
+      showJumpFab.value = !isNearBottom()
+      wasNearBottom = false
+      return
+    }
     if (wasNearBottom) scrollToBottom('smooth')
   })
 
-  return { showJumpFab, scrollToBottom }
+  return { showJumpFab, scrollToBottom, suppressAutoScrollOnce }
 }

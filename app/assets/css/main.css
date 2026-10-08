@@ -523,3 +523,98 @@ html.astra-brand .astra-auth-bg {
   background-image: url('/brand/astra-pattern.svg');
   background-repeat: repeat;
 }
+
+/* ── Обсуждение · визуальная версия 1 (docs/discussion-vision.md §3) ─────────
+   Рельса времени, цвета авторов, появление сообщений и перелёт чипа этапа.
+   Цвет автора задаётся переменной --h (оттенок oklch) на строке сообщения. */
+
+/* Рельса времени: тонкая вертикальная линия слева от ленты, под аватарами. */
+.disc-rail {
+  position: relative;
+}
+.disc-rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--disc-pad, 16px) + 13px); /* отступ ленты + центр аватара 28px */
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-surface-200) 24px,
+    var(--color-surface-200) calc(100% - 24px),
+    transparent
+  );
+}
+.dark .disc-rail::before {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-surface-700) 24px,
+    var(--color-surface-700) calc(100% - 24px),
+    transparent
+  );
+}
+
+/* Аватар автора: градиент по оттенку, читаемые инициалы. */
+.disc-avatar {
+  background: linear-gradient(135deg, oklch(70% 0.13 var(--h, 264)), oklch(52% 0.16 var(--h, 264)));
+  color: white;
+  box-shadow: 0 0 0 2px var(--color-white);
+}
+.dark .disc-avatar {
+  color: oklch(15% 0.02 var(--h, 264));
+  box-shadow: 0 0 0 2px var(--color-surface-900);
+}
+.disc-author {
+  color: oklch(45% 0.14 var(--h, 264));
+}
+.dark .disc-author {
+  color: oklch(78% 0.12 var(--h, 264));
+}
+/* Цитата ответа: кромка в цвет автора исходного сообщения. */
+.disc-quote {
+  box-shadow: inset 2px 0 0 oklch(45% 0.14 var(--h, 264));
+}
+.dark .disc-quote {
+  box-shadow: inset 2px 0 0 oklch(78% 0.12 var(--h, 264));
+}
+
+/* Появление нового сообщения — короткое, без размытия. */
+@keyframes disc-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.disc-rise {
+  animation: disc-rise 0.18s ease-out both;
+}
+
+/* Разделитель «Новые сообщения» — короткая подсветка после открытия треда. */
+@keyframes disc-glow {
+  0% { box-shadow: 0 0 0 0 oklch(60% 0.15 264 / 0.35); }
+  100% { box-shadow: 0 0 0 10px oklch(60% 0.15 264 / 0); }
+}
+.disc-glow {
+  animation: disc-glow 1.4s ease-out 1;
+}
+
+/* Перелёт чипа этапа из композера в ленту (FLIP-приближение). */
+.disc-flyer {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  transition: transform 0.26s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.26s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disc-rise,
+  .disc-glow {
+    animation: none;
+  }
+  .disc-flyer {
+    transition: none;
+    opacity: 0;
+  }
+}

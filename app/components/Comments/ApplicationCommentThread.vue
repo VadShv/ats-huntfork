@@ -1,13 +1,16 @@
 <script setup lang="ts">
 /**
- * «Обсуждение» отклика — новая оболочка (ТЗ docs/tz-discussion-shell.md).
+ * «Обсуждение» отклика — новая оболочка (ТЗ docs/tz-discussion-shell.md)
+ * в визуальной версии 1 (docs/discussion-vision.md §3–4).
  *
- * Шапка: заголовок · «видит команда» · [Другие отклики ▾] · поиск · «⋯».
- * Полоса закреплённого (DiscussionPinnedBar) · лента · композер.
+ * Шапка-паспорт: кандидат · вакансия, сегменты этапов, срок на этапе,
+ * стопка участников · [Другие отклики ▾] · поиск · «⋯».
+ * Полоса закреплённого (DiscussionPinnedBar) · лента с рельсой времени,
+ * день-чипами и разделителем «Новые сообщения» · композер.
  * Редкие действия — в «⋯» (участники, фильтры, hh.ru) и в «+» композера.
  */
 import { onMounted, onBeforeUnmount, ref, computed, nextTick, watch } from 'vue'
-import { MessageSquare, Users, Eye, ArrowDown, ArrowUp, Search, RefreshCw, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft } from 'lucide-vue-next'
+import { MessagesSquare, Users, Eye, ArrowDown, ArrowUp, Search, RefreshCw, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft, PenLine, Sparkles } from 'lucide-vue-next'
 import ApplicationCommentItem from './ApplicationCommentItem.vue'
 import ApplicationCommentComposer from './ApplicationCommentComposer.vue'
 import ThreadStageEvent from './ThreadStageEvent.vue'
@@ -20,7 +23,8 @@ import { groupTimeline, type RenderUnit } from '~/composables/useCommentGroups'
 import { useThreadScroll } from '~/composables/useThreadScroll'
 import { useThreadFilter, type ThreadFilter } from '~/composables/useThreadFilter'
 import { useUnreadComments } from '~/composables/useUnreadComments'
-import type { StageMoveResult } from '~/composables/useApplicationStages'
+import { useApplicationStages, type StageMoveResult, type StageInfo } from '~/composables/useApplicationStages'
+import { authorHue } from '~/composables/useDiscussionColors'
 import { canSeeInternalRole } from '~~/shared/access/discussion'
 
 /** Другой отклик кандидата — пункт выпадающего списка «Другие отклики». */
@@ -33,6 +37,8 @@ export interface DiscussionAppOption {
   commentCount: number
   unreadCount: number
   isCurrent: boolean
+  /** Когда отклик вошёл на текущий этап — для «N дней на этапе» в шапке. */
+  stageChangedAt?: string | null
 }
 
 const props = withDefaults(
@@ -40,6 +46,8 @@ const props = withDefaults(
     applicationId: string
     /** Кандидат — для контекста ИИ (риск считается по кандидату). */
     candidateId?: string
+    /** Имя кандидата для шапки-паспорта. */
+    candidateName?: string | null
     /** Компактный лейаут для шторки/сайдбара. */
     compact?: boolean
     /** Просмотр треда чужого отклика кандидата: без композера и действий. */
@@ -49,7 +57,7 @@ const props = withDefaults(
     /** Отклики кандидата для переключателя «Другие отклики» (включая текущий). */
     applications?: DiscussionAppOption[]
   }>(),
-  { candidateId: undefined, compact: false, readOnly: false, hhLinked: false, applications: () => [] },
+  { candidateId: undefined, candidateName: null, compact: false, readOnly: false, hhLinked: false, applications: () => [] },
 )
 
 const emit = defineEmits<{
@@ -61,7 +69,7 @@ const emit = defineEmits<{
   openRisk: []
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { data: session } = await authClient.useSession(useFetch)
 const currentUserId = computed(() => session.value?.user?.id ?? '')
 
@@ -175,13 +183,60 @@ function gotoComment(id: string) {
   })
 }
 
+// ── Прочитавшие и разделитель «Новые сообщения» ──
+interface ThreadReader {
+  userId: string
+  name: string | null
+  email: string | null
+  image: string | null
+  lastReadAt: string
+}
+const readers = ref<ThreadReader[]>([])
+/** Первое непрочитанное сообщение (по моей отметке прочтения до открытия треда). */
+const firstUnreadId = ref<string | null>(null)
+
+async function fetchReaders() {
+  try {
+    readers.value = await $fetch<ThreadReader[]>(`/api/applications/${props.applicationId}/readers`)
+  } catch {
+    readers.value = []
+  }
+}
+async function postRead() {
+  try {
+    await $fetch(`/api/applications/${props.applicationId}/read`, { method: 'POST' })
+  } catch {
+    // мягкий отказ — отметка прочтения не критична
+  }
+}
+function computeFirstUnread() {
+  const me = readers.value.find(r => r.userId === currentUserId.value)
+  if (!me) return // тред открыт впервые — всё новое, разделитель не нужен
+  const since = new Date(me.lastReadAt).getTime()
+  const candidate = [...comments.value]
+    .filter(c => c.kind !== 'ai_summary' && c.author.id !== currentUserId.value)
+    .filter(c => new Date((c.hhDirection === 'incoming' && c.hhSyncedAt) ? c.hhSyncedAt : c.createdAt).getTime() > since)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0]
+  firstUnreadId.value = candidate?.id ?? null
+}
+
 onMounted(async () => {
-  await Promise.all([fetchComments(), fetchWatchers(), fetchStageHistory()])
+  await Promise.all([fetchComments(), fetchWatchers(), fetchStageHistory(), fetchReaders(), fetchStages()])
+  computeFirstUnread()
   disconnectStream = connectStream()
-  const { markRead } = useUnreadComments()
-  void markRead(props.applicationId)
+  const unread = useUnreadComments()
+  await unread.fetchUnread()
+  void unread.markRead(props.applicationId)
+  void postRead()
   if (route.hash?.startsWith('#comment-')) {
     gotoComment(route.hash.slice('#comment-'.length))
+  } else if (firstUnreadId.value) {
+    // Открываем тред на первом непрочитанном, а не в самом низу.
+    suppressAutoScrollOnce()
+    await nextTick()
+    const el = document.getElementById('disc-new-divider')
+    const feed = scrollRef.value
+    if (el && feed) feed.scrollTop = Math.max(0, el.offsetTop - 72)
   }
 })
 onBeforeUnmount(() => {
@@ -197,6 +252,7 @@ function onCancelReply() { replyTo.value = null }
 function onStageMoved(payload: StageMoveResult) {
   void fetchStageHistory()
   void fetchComments()
+  void fetchStages()
   emit('stageChanged', payload)
 }
 function onReply(parentId: string) {
@@ -261,6 +317,115 @@ const pinnedComments = computed(() =>
 const personalPinnedComments = computed(() => comments.value.filter(c => c.isPinnedByMe && !c.isPinned))
 
 
+// ── Шапка-паспорт: сегменты этапов, срок на этапе, участники ──
+const { stages, fetchStages } = useApplicationStages(props.applicationId)
+const currentStageInfo = computed(() => stages.value.find(s => s.isCurrent) ?? null)
+/** Этап верхнего уровня, к которому относится текущий (подэтап → родитель). */
+const currentTopStage = computed<StageInfo | null>(() => {
+  const cur = currentStageInfo.value
+  if (!cur) return null
+  if (cur.parentStageId) return stages.value.find(s => s.id === cur.parentStageId) ?? cur
+  return cur
+})
+interface StageSegment { id: string, name: string, color: string | null, state: 'done' | 'current' | 'upcoming' | 'rejected' }
+const stageSegments = computed<StageSegment[]>(() => {
+  const top = stages.value
+    .filter(s => !s.parentStageId && !s.isArchived && !s.isHidden)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+  const cur = currentTopStage.value
+  const flow = top.filter(s => s.bucket !== 'rejected')
+  const rejected = top.find(s => s.bucket === 'rejected') ?? null
+  const segs: StageSegment[] = flow.map((s) => {
+    let state: StageSegment['state'] = 'upcoming'
+    if (cur) {
+      if (s.id === cur.id) state = 'current'
+      else if (cur.bucket === 'rejected' || s.displayOrder < cur.displayOrder) state = 'done'
+    }
+    return { id: s.id, name: s.name ?? '', color: s.color, state }
+  })
+  if (rejected) {
+    segs.push({ id: rejected.id, name: rejected.name ?? '', color: rejected.color, state: cur?.bucket === 'rejected' ? 'current' : 'rejected' })
+  }
+  return segs
+})
+function segmentStyle(seg: StageSegment) {
+  if (seg.state === 'current') return { backgroundColor: seg.color ?? 'var(--color-brand-500)' }
+  return {}
+}
+const stageLabel = computed(() => {
+  const cur = currentStageInfo.value
+  if (!cur) return ''
+  const top = currentTopStage.value
+  return top && top.id !== cur.id ? `${top.name} / ${cur.name}` : (cur.name ?? '')
+})
+const daysOnStage = computed(() => {
+  const at = currentApp.value?.stageChangedAt
+  if (!at) return null
+  const diff = Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000)
+  if (diff <= 0) return t('comments.stage_today')
+  // Русское склонение без плюрал-правил i18n: 1 день · 2–4 дня · 5+ дней.
+  const mod10 = diff % 10
+  const mod100 = diff % 100
+  const form = (mod10 === 1 && mod100 !== 11) ? '1' : (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) ? '2' : '5'
+  return t(`comments.stage_days_${form}`, { n: diff })
+})
+const watcherStack = computed(() => watchers.value.slice(0, 3))
+const watcherOverflow = computed(() => Math.max(0, watchers.value.length - 3))
+function initials(name: string | null, email: string | null) {
+  const src = (name ?? email ?? '?').trim()
+  const parts = src.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase()
+  return src.slice(0, 2).toUpperCase()
+}
+
+// ── День-чипы и разделитель «Новые сообщения» ──
+function unitTime(unit: RenderUnit): number {
+  if (unit.type === 'group') {
+    const c = unit.comments[0]!
+    return new Date((c.hhDirection === 'incoming' && c.hhSyncedAt) ? c.hhSyncedAt : c.createdAt).getTime()
+  }
+  if (unit.item.type === 'stage_event') return new Date(unit.item.event.movedAt).getTime()
+  const c = unit.item.comment
+  return new Date((c.hhDirection === 'incoming' && c.hhSyncedAt) ? c.hhSyncedAt : c.createdAt).getTime()
+}
+function dayKey(ts: number) {
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+function dayLabel(ts: number) {
+  const d = new Date(ts)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  if (d.toDateString() === today.toDateString()) return t('comments.day_today')
+  if (d.toDateString() === yesterday.toDateString()) return t('comments.day_yesterday')
+  const loc = locale.value === 'ru' ? 'ru-RU' : 'en-US'
+  const withYear = d.getFullYear() !== today.getFullYear()
+  return d.toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'long', year: withYear ? 'numeric' : undefined })
+}
+/** Нужен ли день-чип перед единицей с индексом i. */
+function showDayChip(i: number): boolean {
+  const list = filteredUnits.value
+  if (i === 0) return true
+  return dayKey(unitTime(list[i]!)) !== dayKey(unitTime(list[i - 1]!))
+}
+function unitHasFirstUnread(unit: RenderUnit): boolean {
+  const id = firstUnreadId.value
+  if (!id) return false
+  if (unit.type === 'group') return unit.comments.some(c => c.id === id)
+  return unit.item.type === 'comment' && unit.item.comment.id === id
+}
+const newDividerShown = ref(false)
+function isNewDivider(unit: RenderUnit): boolean {
+  return unitHasFirstUnread(unit)
+}
+onMounted(() => { setTimeout(() => { newDividerShown.value = true }, 1600) })
+
+// ── Пустое состояние ──
+function emptyWrite() { composerRef.value?.focus() }
+function emptyAskAi() { composerRef.value?.askAi() }
+function emptyAttachScreening() { composerRef.value?.attachScreeningSnapshot() }
+
 // ── Меню «⋯» и «Другие отклики» ──
 const moreOpen = ref(false)
 const moreRoot = ref<HTMLElement | null>(null)
@@ -287,7 +452,7 @@ const currentOwnApplication = computed(() => props.applications.find(a => a.isCu
 
 // ── Прокрутка ──
 const scrollRef = ref<HTMLElement | null>(null)
-const { showJumpFab, scrollToBottom } = useThreadScroll(scrollRef, computed(() => filteredUnits.value.length))
+const { showJumpFab, scrollToBottom, suppressAutoScrollOnce } = useThreadScroll(scrollRef, computed(() => filteredUnits.value.length))
 
 // ── Подгрузка истории: кнопка сверху + автоподгрузка при прокрутке к началу, позиция сохраняется ──
 async function onLoadOlder() {
@@ -310,122 +475,179 @@ onBeforeUnmount(() => scrollRef.value?.removeEventListener('scroll', onFeedScrol
 
 const menuItemClass = 'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer disabled:opacity-50'
 const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200 cursor-pointer transition-colors'
+const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-xs text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer transition-colors'
 </script>
 
 <template>
   <section
-    class="relative flex flex-col rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden"
-    :class="compact ? 'max-h-[640px]' : ''"
+    class="relative flex flex-col rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-sm"
+    :class="compact ? 'h-[min(72vh,760px)] min-h-[480px]' : 'h-[calc(100vh-10rem)] min-h-[560px]'"
   >
-    <!-- ── Шапка ── -->
+    <!-- ── Шапка-паспорт ── -->
     <header
-      class="flex items-center gap-2 border-b border-surface-100 dark:border-surface-800"
-      :class="compact ? 'px-3 py-2' : 'px-4 py-2.5'"
+      class="flex items-start gap-3 border-b border-surface-100 dark:border-surface-800"
+      :class="compact ? 'px-3 pt-2 pb-2' : 'px-4 pt-2.5 pb-2.5'"
     >
-      <MessageSquare class="size-4 flex-shrink-0 text-brand-500" />
-      <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-200">{{ t('comments.thread_title') }}</h2>
-      <span class="hidden sm:inline text-[11px] text-surface-400">{{ t('comments.audience_team') }}</span>
-      <span v-if="comments.length > 0" class="rounded-full bg-surface-100 dark:bg-surface-800 px-2 py-0.5 text-xs tabular-nums text-surface-600 dark:text-surface-300">
-        {{ comments.length }}
-      </span>
-      <span class="flex-1" />
-
-      <!-- Другие отклики кандидата -->
-      <div v-if="otherApps.length > 0" ref="appsRoot" class="relative">
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-full border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/60 px-2.5 py-1 text-xs text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer transition-colors whitespace-nowrap"
-          @click="appsOpen = !appsOpen; moreOpen = false"
-        >
-          <span class="hidden sm:inline">{{ t('comments.other_applications') }}</span>
-          <span class="rounded-full bg-surface-300/70 dark:bg-surface-600 px-1.5 text-[10px] font-semibold tabular-nums text-surface-700 dark:text-surface-100">{{ otherApps.length }}</span>
-          <span v-if="otherUnread > 0" class="rounded-full bg-brand-600 px-1.5 text-[10px] font-semibold tabular-nums text-white">{{ otherUnread }}</span>
-          <ChevronDown class="size-3 text-surface-400" />
-        </button>
-        <div
-          v-if="appsOpen"
-          class="absolute right-0 top-full z-30 mt-1.5 w-80 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-1 shadow-lg"
-        >
-          <div class="px-2.5 pb-1 pt-1 text-[10px] uppercase tracking-wide text-surface-400">{{ t('comments.candidate_applications') }}</div>
-          <button
-            v-for="a in applications"
-            :key="a.id"
-            type="button"
-            :class="menuItemClass"
-            class="!items-start"
-            @click="pickApplication(a.id)"
+      <div class="min-w-0 flex-1">
+        <div class="flex min-w-0 items-baseline gap-2">
+          <h2
+            class="truncate font-semibold text-surface-900 dark:text-surface-50"
+            :class="compact ? 'text-sm' : 'text-[15px]'"
           >
-            <span class="mt-1 size-2 flex-shrink-0 rounded-full" :style="{ backgroundColor: a.stageColor ?? '#94a3b8' }" />
-            <span class="min-w-0 flex-1">
-              <span class="block truncate font-medium" :class="a.isTerminal ? 'text-surface-400 line-through decoration-1' : ''">
-                {{ a.jobTitle || t('discussion_tabs.untitled_job') }}
-              </span>
-              <span class="block truncate text-[10px] text-surface-400">
-                <template v-if="a.stageName">{{ a.stageName }} · </template>
-                {{ t('comments.messages_n', { n: a.commentCount }) }}
-                <template v-if="a.isCurrent"> · {{ t('discussion_tabs.current') }}</template>
-                <template v-else> · {{ t('discussion_tabs.view_only') }}</template>
-              </span>
-            </span>
-            <Check v-if="a.id === applicationId" class="mt-0.5 size-3.5 flex-shrink-0 text-brand-600" />
-            <span v-else-if="a.unreadCount > 0" class="mt-0.5 rounded-full bg-brand-600 px-1.5 text-[10px] font-semibold tabular-nums text-white">{{ a.unreadCount }}</span>
-          </button>
+            {{ candidateName || t('comments.thread_title') }}
+          </h2>
+          <span v-if="currentApp?.jobTitle" class="truncate text-sm text-surface-500 dark:text-surface-400">
+            · {{ currentApp.jobTitle }}
+          </span>
+        </div>
+        <!-- Сегменты этапов + срок на этапе -->
+        <div v-if="stageSegments.length > 0" class="mt-1.5 flex items-center gap-2.5">
+          <div class="flex min-w-0 flex-1 max-w-[520px] gap-1" :class="compact ? 'h-1' : 'h-1.5'">
+            <span
+              v-for="seg in stageSegments"
+              :key="seg.id"
+              class="h-full flex-1 rounded-full transition-colors"
+              :class="[
+                seg.state === 'done' ? 'bg-surface-400 dark:bg-surface-500' : '',
+                seg.state === 'upcoming' ? 'bg-surface-200 dark:bg-surface-700' : '',
+                seg.state === 'rejected' ? 'bg-surface-200 dark:bg-surface-700 opacity-60' : '',
+                seg.state === 'current' ? 'shadow-[0_0_0_2px_var(--color-white)] dark:shadow-[0_0_0_2px_var(--color-surface-900)]' : '',
+              ]"
+              :style="segmentStyle(seg)"
+              :title="seg.name"
+            />
+          </div>
+          <span v-if="stageLabel" class="whitespace-nowrap text-[11px] text-surface-500 dark:text-surface-400">
+            {{ t('comments.stage_label') }} <b class="font-semibold text-surface-700 dark:text-surface-200">{{ stageLabel }}</b>
+            <template v-if="daysOnStage"> · <span class="tabular-nums">{{ daysOnStage }}</span></template>
+          </span>
         </div>
       </div>
 
-      <!-- Поиск -->
-      <button
-        v-if="comments.length > 0"
-        type="button"
-        :class="[iconBtnClass, searchOpen ? 'bg-surface-100 dark:bg-surface-800 text-surface-700' : '']"
-        :title="t('comments.search_placeholder')"
-        @click="searchOpen ? closeSearch() : openSearch()"
-      >
-        <Search class="size-4" />
-      </button>
-
-      <!-- «⋯» -->
-      <div ref="moreRoot" class="relative">
-        <button type="button" :class="[iconBtnClass, moreOpen ? 'bg-surface-100 dark:bg-surface-800' : '']" :title="t('comments.more')" @click="moreOpen = !moreOpen; appsOpen = false">
-          <MoreHorizontal class="size-4" />
-        </button>
-        <div
-          v-if="moreOpen"
-          class="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-1 shadow-lg"
+      <div class="flex flex-shrink-0 items-center gap-1.5">
+        <!-- Стопка участников -->
+        <button
+          v-if="watchers.length > 0"
+          type="button"
+          class="flex items-center -space-x-1.5 rounded-full p-0.5 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer transition-colors"
+          :class="watchersOpen ? 'bg-surface-100 dark:bg-surface-800' : ''"
+          :title="`${t('comments.participants')}: ${watchers.map(w => w.name || w.email).join(', ')}`"
+          @click="watchersOpen = !watchersOpen; moreOpen = false"
         >
-          <button type="button" :class="menuItemClass" @click="watchersOpen = !watchersOpen; moreOpen = false">
-            <Users class="size-3.5 text-surface-400" />
-            {{ t('comments.participants') }}
-            <span class="ml-auto text-[10px] tabular-nums text-surface-400">{{ watchers.length }}</span>
-          </button>
-          <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
-          <div class="px-2.5 pb-0.5 pt-1 text-[10px] uppercase tracking-wide text-surface-400">{{ t('comments.feed_filter') }}</div>
-          <button
-            v-for="f in quickFilters"
-            :key="f"
-            type="button"
-            :class="menuItemClass"
-            @click="toggleFilter(f)"
+          <span
+            v-for="w in watcherStack"
+            :key="w.userId"
+            class="disc-avatar grid size-6 place-items-center rounded-full text-[9px] font-semibold"
+            :style="{ '--h': authorHue(w.userId) }"
           >
-            <component :is="f === 'internal' ? Lock : f === 'ai' ? Bot : ArrowRight" class="size-3.5 text-surface-400" />
-            {{ t(`comments.filter_only_${f}`) }}
-            <span class="ml-auto flex items-center gap-1.5">
-              <span class="text-[10px] tabular-nums text-surface-400">{{ filterCounts[f] }}</span>
-              <span
-                class="relative inline-block h-4 w-7 rounded-full transition-colors"
-                :class="activeFilter === f ? 'bg-brand-600' : 'bg-surface-300 dark:bg-surface-600'"
-              >
-                <span class="absolute top-0.5 size-3 rounded-full bg-white transition-all" :class="activeFilter === f ? 'left-3.5' : 'left-0.5'" />
-              </span>
-            </span>
+            <img v-if="w.image" :src="w.image" :alt="w.name ?? ''" class="size-6 rounded-full object-cover">
+            <template v-else>{{ initials(w.name, w.email) }}</template>
+          </span>
+          <span
+            v-if="watcherOverflow > 0"
+            class="grid size-6 place-items-center rounded-full bg-surface-200 dark:bg-surface-700 text-[9px] font-semibold text-surface-600 dark:text-surface-200 ring-2 ring-white dark:ring-surface-900"
+          >
+            +{{ watcherOverflow }}
+          </span>
+        </button>
+
+        <!-- Другие отклики кандидата -->
+        <div v-if="otherApps.length > 0" ref="appsRoot" class="relative">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-full border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/60 px-2.5 py-1 text-xs text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer transition-colors whitespace-nowrap"
+            @click="appsOpen = !appsOpen; moreOpen = false"
+          >
+            <span class="hidden sm:inline">{{ t('comments.other_applications') }}</span>
+            <span class="rounded-full bg-surface-300/70 dark:bg-surface-600 px-1.5 text-[10px] font-semibold tabular-nums text-surface-700 dark:text-surface-100">{{ otherApps.length }}</span>
+            <span v-if="otherUnread > 0" class="rounded-full bg-brand-600 px-1.5 text-[10px] font-semibold tabular-nums text-white">{{ otherUnread }}</span>
+            <ChevronDown class="size-3 text-surface-400" />
           </button>
-          <template v-if="hhLinked && !readOnly">
-            <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
-            <button type="button" :class="menuItemClass" :disabled="hhSyncing" @click="onHhSync">
-              <RefreshCw class="size-3.5 text-surface-400" :class="hhSyncing ? 'animate-spin' : ''" />
-              {{ t('comments.sync_hh') }}
+          <div
+            v-if="appsOpen"
+            class="absolute right-0 top-full z-30 mt-1.5 w-80 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-1 shadow-lg"
+          >
+            <div class="px-2.5 pb-1 pt-1 text-[10px] uppercase tracking-wide text-surface-400">{{ t('comments.candidate_applications') }}</div>
+            <button
+              v-for="a in applications"
+              :key="a.id"
+              type="button"
+              :class="menuItemClass"
+              class="!items-start"
+              @click="pickApplication(a.id)"
+            >
+              <span class="mt-1 size-2 flex-shrink-0 rounded-full" :style="{ backgroundColor: a.stageColor ?? '#94a3b8' }" />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate font-medium" :class="a.isTerminal ? 'text-surface-400 line-through decoration-1' : ''">
+                  {{ a.jobTitle || t('discussion_tabs.untitled_job') }}
+                </span>
+                <span class="block truncate text-[10px] text-surface-400">
+                  <template v-if="a.stageName">{{ a.stageName }} · </template>
+                  {{ t('comments.messages_n', { n: a.commentCount }) }}
+                  <template v-if="a.isCurrent"> · {{ t('discussion_tabs.current') }}</template>
+                  <template v-else> · {{ t('discussion_tabs.view_only') }}</template>
+                </span>
+              </span>
+              <Check v-if="a.id === applicationId" class="mt-0.5 size-3.5 flex-shrink-0 text-brand-600" />
+              <span v-else-if="a.unreadCount > 0" class="mt-0.5 rounded-full bg-brand-600 px-1.5 text-[10px] font-semibold tabular-nums text-white">{{ a.unreadCount }}</span>
             </button>
-          </template>
+          </div>
+        </div>
+
+        <!-- Поиск -->
+        <button
+          v-if="comments.length > 0"
+          type="button"
+          :class="[iconBtnClass, searchOpen ? 'bg-surface-100 dark:bg-surface-800 text-surface-700' : '']"
+          :title="t('comments.search_placeholder')"
+          @click="searchOpen ? closeSearch() : openSearch()"
+        >
+          <Search class="size-4" />
+        </button>
+
+        <!-- «⋯» -->
+        <div ref="moreRoot" class="relative">
+          <button type="button" :class="[iconBtnClass, moreOpen ? 'bg-surface-100 dark:bg-surface-800' : '']" :title="t('comments.more')" @click="moreOpen = !moreOpen; appsOpen = false">
+            <MoreHorizontal class="size-4" />
+          </button>
+          <div
+            v-if="moreOpen"
+            class="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-1 shadow-lg"
+          >
+            <button type="button" :class="menuItemClass" @click="watchersOpen = !watchersOpen; moreOpen = false">
+              <Users class="size-3.5 text-surface-400" />
+              {{ t('comments.participants') }}
+              <span class="ml-auto text-[10px] tabular-nums text-surface-400">{{ watchers.length }}</span>
+            </button>
+            <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
+            <div class="px-2.5 pb-0.5 pt-1 text-[10px] uppercase tracking-wide text-surface-400">{{ t('comments.feed_filter') }}</div>
+            <button
+              v-for="f in quickFilters"
+              :key="f"
+              type="button"
+              :class="menuItemClass"
+              @click="toggleFilter(f)"
+            >
+              <component :is="f === 'internal' ? Lock : f === 'ai' ? Bot : ArrowRight" class="size-3.5 text-surface-400" />
+              {{ t(`comments.filter_only_${f}`) }}
+              <span class="ml-auto flex items-center gap-1.5">
+                <span class="text-[10px] tabular-nums text-surface-400">{{ filterCounts[f] }}</span>
+                <span
+                  class="relative inline-block h-4 w-7 rounded-full transition-colors"
+                  :class="activeFilter === f ? 'bg-brand-600' : 'bg-surface-300 dark:bg-surface-600'"
+                >
+                  <span class="absolute top-0.5 size-3 rounded-full bg-white transition-all" :class="activeFilter === f ? 'left-3.5' : 'left-0.5'" />
+                </span>
+              </span>
+            </button>
+            <template v-if="hhLinked && !readOnly">
+              <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
+              <button type="button" :class="menuItemClass" :disabled="hhSyncing" @click="onHhSync">
+                <RefreshCw class="size-3.5 text-surface-400" :class="hhSyncing ? 'animate-spin' : ''" />
+                {{ t('comments.sync_hh') }}
+              </button>
+            </template>
+          </div>
         </div>
       </div>
     </header>
@@ -516,24 +738,42 @@ const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md 
     <!-- Лента -->
     <div
       ref="scrollRef"
-      class="flex-1 overflow-y-auto scrollbar-thin"
-      :class="compact ? 'max-h-[420px] px-3 py-2' : 'max-h-[560px] px-4 py-3'"
+      class="relative flex-1 min-h-0 overflow-y-auto scrollbar-thin"
     >
       <div v-if="loading && comments.length === 0" class="py-8 text-center text-sm text-surface-400">
         <span class="mr-2 inline-block size-4 animate-spin rounded-full border-2 border-surface-300 border-t-brand-500 align-middle" />
         {{ t('comments.loading') }}
       </div>
       <div v-else-if="error" class="py-4 text-center text-sm text-danger-600 dark:text-danger-400">{{ error }}</div>
-      <div v-else-if="timeline.length === 0" class="py-8 text-center text-sm text-surface-400">
-        {{ t('comments.empty_new') }}
+
+      <!-- Пустое состояние -->
+      <div v-else-if="timeline.length === 0" class="flex h-full flex-col items-center justify-center px-6 py-10 text-center">
+        <div class="grid size-14 place-items-center rounded-2xl border border-dashed border-surface-300 dark:border-surface-600 text-surface-300 dark:text-surface-500">
+          <MessagesSquare class="size-7" />
+        </div>
+        <h3 class="mt-4 text-base font-semibold text-surface-800 dark:text-surface-100">{{ t('comments.empty_title') }}</h3>
+        <p class="mt-1.5 max-w-xs text-xs leading-relaxed text-surface-500 dark:text-surface-400">{{ t('comments.empty_hint') }}</p>
+        <div v-if="!readOnly" class="mt-4 flex flex-wrap justify-center gap-2">
+          <button type="button" :class="emptyChipClass" @click="emptyWrite">
+            <PenLine class="size-3.5 text-surface-400" /> {{ t('comments.empty_write') }}
+          </button>
+          <button type="button" :class="emptyChipClass" @click="emptyAskAi">
+            <Sparkles class="size-3.5 text-accent-500" /> {{ t('comments.empty_ask_ai') }}
+          </button>
+          <button type="button" :class="emptyChipClass" @click="emptyAttachScreening">
+            <Sparkles class="size-3.5 text-accent-500" /> {{ t('comments.empty_attach_screening') }}
+          </button>
+        </div>
       </div>
+
       <div v-else-if="filteredUnits.length === 0" class="py-6 text-center text-xs text-surface-400">
         {{ t('comments.filter_empty') }}
         <button type="button" class="ml-1 text-brand-600 hover:underline cursor-pointer" @click="activeFilter = 'all'">{{ t('comments.filter_reset') }}</button>
       </div>
-      <div v-else>
+
+      <div v-else class="disc-rail" :class="compact ? 'px-3 py-2' : 'px-4 py-3'" :style="{ '--disc-pad': compact ? '12px' : '16px' }">
         <!-- История старше загруженного -->
-        <div v-if="hasMore" class="mb-2 flex justify-center">
+        <div v-if="hasMore" class="relative z-[1] mb-2 flex justify-center">
           <button
             type="button"
             class="inline-flex items-center gap-1.5 rounded-full border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-3 py-1 text-[11px] text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer disabled:opacity-60"
@@ -545,7 +785,31 @@ const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md 
             {{ loadingMore ? t('comments.loading') : t('comments.load_older') }}
           </button>
         </div>
+
         <template v-for="(unit, ui) in filteredUnits" :key="`u-${ui}`">
+          <!-- День-чип -->
+          <div v-if="showDayChip(ui)" class="relative z-[1] my-2 flex justify-center">
+            <span class="rounded-full border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-2.5 py-0.5 text-[11px] text-surface-500 dark:text-surface-400">
+              {{ dayLabel(unitTime(unit)) }}
+            </span>
+          </div>
+
+          <!-- Разделитель «Новые сообщения» -->
+          <div
+            v-if="isNewDivider(unit)"
+            id="disc-new-divider"
+            class="relative z-[1] my-3 ml-9 flex items-center gap-3"
+          >
+            <span class="h-px flex-1 bg-brand-200 dark:bg-brand-800" />
+            <span
+              class="rounded-full bg-brand-50 dark:bg-brand-900/40 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 dark:text-brand-300"
+              :class="newDividerShown ? '' : 'disc-glow'"
+            >
+              {{ t('comments.new_messages') }}
+            </span>
+            <span class="h-px flex-1 bg-brand-200 dark:bg-brand-800" />
+          </div>
+
           <template v-if="unit.type === 'group'">
             <ApplicationCommentItem
               v-for="(comment, ci) in unit.comments"
@@ -572,7 +836,7 @@ const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md 
             v-else-if="unit.item.comment.kind === 'ai_summary'"
             :comment="unit.item.comment"
             :can-refresh="!readOnly"
-            class="mb-3"
+            class="relative z-[1] mb-3 ml-9"
             @refresh="onSummarize"
           />
           <ApplicationCommentItem
@@ -592,9 +856,10 @@ const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md 
             @goto="gotoComment"
           />
         </template>
-      </div>
-      <div class="flex justify-end">
-        <ReadReceipts :application-id="applicationId" />
+
+        <div class="relative z-[1] flex justify-end">
+          <ReadReceipts :readers="readers" :current-user-id="currentUserId" />
+        </div>
       </div>
     </div>
 
@@ -612,7 +877,8 @@ const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md 
         size="sm"
         icon-only
         :icon-left="ArrowDown"
-        class="absolute right-4 bottom-20 z-10 rounded-full shadow-lg"
+        class="absolute right-4 z-10 rounded-full shadow-lg"
+        :class="readOnly ? 'bottom-4' : 'bottom-20'"
         :title="t('comments.scroll_to_bottom')"
         @click="scrollToBottom()"
       />
@@ -621,7 +887,7 @@ const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md 
     <!-- Композер -->
     <div
       v-if="!readOnly"
-      class="border-t border-surface-100 dark:border-surface-800"
+      class="border-t border-surface-100 dark:border-surface-800 bg-white/95 dark:bg-surface-900/95 backdrop-blur"
       :class="compact ? 'px-3 py-2' : 'px-4 py-3'"
     >
       <ApplicationCommentComposer

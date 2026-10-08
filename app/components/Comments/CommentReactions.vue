@@ -1,11 +1,14 @@
 <script setup lang="ts">
 /**
- * Reactions bar + picker — used inline within ApplicationCommentItem.
- * Server is pure add/remove; client mantains optimistic counts via toggleReaction.
+ * Полоса реакций под сообщением (чипы + «добавить»). Показывается только когда
+ * реакции уже есть; первую реакцию ставят из действий сообщения по наведению
+ * (ApplicationCommentItem), чтобы лента не «дышала» лишними кнопками.
+ * Server is pure add/remove; client maintains optimistic counts via toggleReaction.
  */
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { SmilePlus } from 'lucide-vue-next'
 import type { CommentReaction } from '~/composables/useApplicationComments'
+import { REACTION_EMOJI_SET as EMOJI_SET } from '~/composables/useReactionEmojis'
 
 const props = defineProps<{
   commentId: string
@@ -20,9 +23,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-
-// Curated emoji set — must match server allow-list in reactions/index.post.ts
-const EMOJI_SET = ['👍', '❤️', '🎉', '👀', '🚀', '✅', '😄', '🤔'] as const
 
 const pickerOpen = ref(false)
 const pickerRoot = ref<HTMLElement | null>(null)
@@ -58,7 +58,7 @@ function buildTitle(r: CommentReaction): string {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-1.5 mt-2">
+  <div v-if="reactions.length > 0" class="mt-1.5 flex flex-wrap items-center gap-1.5">
     <button
       v-for="r in reactions"
       :key="r.emoji"
@@ -82,7 +82,8 @@ function buildTitle(r: CommentReaction): string {
     <div v-if="!readOnly" ref="pickerRoot" class="relative">
       <button
         type="button"
-        class="inline-flex items-center justify-center rounded-full border border-dashed border-surface-300 dark:border-surface-700 text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:border-surface-400 dark:hover:border-surface-600 size-6 cursor-pointer bg-transparent transition-colors"
+        class="inline-flex items-center justify-center rounded-full border border-dashed border-surface-300 dark:border-surface-700 text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:border-surface-400 dark:hover:border-surface-600 size-6 cursor-pointer bg-transparent transition-opacity"
+        :class="pickerOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'"
         :title="t('reactions.add')"
         :aria-label="t('reactions.add')"
         @click="pickerOpen = !pickerOpen"

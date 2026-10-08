@@ -5,7 +5,7 @@
  * развёрнуто — detail (критерии/находки). Фиксированные данные на момент прикрепления.
  */
 import { ref, computed } from 'vue'
-import { Bot, ShieldAlert, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { Sparkles, ShieldAlert, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-vue-next'
 import type { ThreadComment, ScreeningSnapshotPayload, RiskSnapshotPayload } from '~/composables/useApplicationComments'
 import { useScoreTone, useRiskMeta } from '~/composables/useDiscussionColors'
 
@@ -17,7 +17,8 @@ const isScreening = computed(() => props.comment.kind === 'ai_screening_snapshot
 const screening = computed(() => (isScreening.value ? props.comment.payloadJson as ScreeningSnapshotPayload : null))
 const risk = computed(() => (!isScreening.value ? props.comment.payloadJson as RiskSnapshotPayload : null))
 
-const collapsed = ref(true)
+// Снимок скрининга раскрыт сразу: это главный аргумент в ленте; риск — свёрнут.
+const collapsed = ref(!isScreening.value)
 
 function fmtDate(d: string | Date | null | undefined) {
   if (!d) return ''
@@ -28,6 +29,12 @@ function fmtDate(d: string | Date | null | undefined) {
 }
 
 const scoreTone = useScoreTone()
+/** Цвет полоски критерия — тот же порог, что у текста (успех / внимание / риск). */
+function barColor(pct: number) {
+  if (pct >= 75) return 'bg-success-500'
+  if (pct >= 40) return 'bg-warning-500'
+  return 'bg-danger-500'
+}
 
 const topCriteria = computed(() => {
   const list = screening.value?.criteria ?? []
@@ -48,15 +55,10 @@ const summary = computed(() => {
 </script>
 
 <template>
-  <div
-    class="rounded-lg border p-2.5"
-    :class="isScreening
-      ? 'border-accent-200 dark:border-accent-800/60 bg-accent-50/50 dark:bg-accent-900/10'
-      : 'border-warning-200 dark:border-warning-800/60 bg-warning-50/50 dark:bg-warning-900/10'"
-  >
+  <div class="-mx-3 -my-2 px-3 py-2">
     <!-- Header row (всегда) -->
-    <div class="flex items-center gap-1.5 text-xs font-semibold text-surface-600 dark:text-surface-300">
-      <Bot v-if="isScreening" class="size-3.5 text-accent-500" />
+    <div class="flex items-center gap-1.5 text-xs font-semibold" :class="isScreening ? 'text-accent-800 dark:text-accent-200' : 'text-warning-800 dark:text-warning-200'">
+      <Sparkles v-if="isScreening" class="size-3.5 text-accent-500" />
       <ShieldAlert v-else class="size-3.5 text-warning-500" />
       <span>{{ isScreening ? t('discussion_widgets.screening') : t('discussion_widgets.risk') }}</span>
       <span class="text-[11px] font-normal text-surface-500 dark:text-surface-400">{{ summary }}</span>
@@ -80,13 +82,20 @@ const summary = computed(() => {
           </span>
           <span class="text-[11px] text-surface-400">/ 100</span>
         </div>
-        <div v-if="topCriteria.length > 0" class="mt-2 space-y-1">
+        <div v-if="topCriteria.length > 0" class="mt-2 space-y-1.5">
           <div
             v-for="c in topCriteria"
             :key="c.name"
-            class="flex items-center gap-2 text-[11px]"
+            class="grid grid-cols-[minmax(0,88px)_1fr_auto] items-center gap-2 text-[11px]"
           >
-            <span class="min-w-0 flex-1 truncate text-surface-600 dark:text-surface-300">{{ c.name }}</span>
+            <span class="truncate text-surface-600 dark:text-surface-300" :title="c.name">{{ c.name }}</span>
+            <span class="h-1.5 overflow-hidden rounded-full bg-surface-200/80 dark:bg-surface-700">
+              <span
+                class="block h-full rounded-full"
+                :class="barColor((c.score / c.maxScore) * 100)"
+                :style="{ width: `${Math.max(4, Math.min(100, (c.score / c.maxScore) * 100))}%` }"
+              />
+            </span>
             <span class="tabular-nums font-medium" :class="scoreTone((c.score / c.maxScore) * 100)">
               {{ c.score }}/{{ c.maxScore }}
             </span>

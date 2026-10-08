@@ -41,6 +41,20 @@ export function useRiskMeta() {
         chip: 'bg-danger-50 text-danger-700 dark:bg-danger-900/30 dark:text-danger-300',
       },
     }
-    return map[level ?? 'low'] ?? map.low
+    return map[level ?? 'low'] ?? map.low!
   }
+}
+
+/**
+ * Цвет автора (визуальная версия 1): восемь оттенков oklch, выбранных по хэшу id.
+ * Один и тот же участник всегда получает один и тот же оттенок во всех тредах.
+ * Бирюза (180) и акцент ИИ исключены, чтобы человек не путался с ассистентом.
+ */
+const AUTHOR_HUES = [264, 150, 30, 330, 210, 80, 300, 15] as const
+
+export function authorHue(id: string | null | undefined): number {
+  if (!id) return 264
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  return AUTHOR_HUES[h % AUTHOR_HUES.length]!
 }

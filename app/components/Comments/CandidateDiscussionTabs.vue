@@ -34,6 +34,7 @@ interface DiscussionTab {
   externalId: string | null
   stage: DiscussionTabStage | null
   commentCount: number
+  stageChangedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -58,6 +59,8 @@ const emit = defineEmits<{
 const localePath = useLocalePath()
 
 const tabs = ref<DiscussionTab[]>([])
+/** Имя кандидата для шапки-паспорта (приходит вместе со списком откликов). */
+const candidateName = ref<string | null>(null)
 const loading = ref(true)
 const activeId = ref(props.currentApplicationId)
 
@@ -77,6 +80,7 @@ function fallbackTab(): DiscussionTab {
     externalId: null,
     stage: null,
     commentCount: 0,
+    stageChangedAt: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -85,8 +89,9 @@ function fallbackTab(): DiscussionTab {
 async function fetchTabs() {
   loading.value = true
   try {
-    const res = await $fetch<{ data: DiscussionTab[] }>(`/api/candidates/${props.candidateId}/discussion-tabs`)
+    const res = await $fetch<{ data: DiscussionTab[], candidate?: { firstName: string, lastName: string } | null }>(`/api/candidates/${props.candidateId}/discussion-tabs`)
     const list = res.data ?? []
+    candidateName.value = res.candidate ? `${res.candidate.firstName} ${res.candidate.lastName}`.trim() || null : null
     const current = list.filter(a => a.id === props.currentApplicationId)
     const others = list.filter(a => a.id !== props.currentApplicationId)
     tabs.value = [...current, ...others]
@@ -115,6 +120,7 @@ const applications = computed<DiscussionAppOption[]>(() =>
     commentCount: tab.commentCount,
     unreadCount: unreadCount(tab.id),
     isCurrent: tab.id === props.currentApplicationId,
+    stageChangedAt: tab.stageChangedAt,
   })),
 )
 
@@ -139,6 +145,7 @@ function openRisk() {
       :key="activeId"
       :application-id="activeId"
       :candidate-id="candidateId"
+      :candidate-name="candidateName"
       :applications="applications"
       :read-only="isReadOnly"
       :compact="compact"

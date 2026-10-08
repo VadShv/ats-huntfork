@@ -1,0 +1,6 @@
+/**
+ * Набор реакций обсуждения — один список для панели чипов и для кнопки «добавить»
+ * в действиях сообщения. Должен совпадать с allow-list сервера
+ * (server/api/applications/[id]/comments/[commentId]/reactions/index.post.ts).
+ */
+export const REACTION_EMOJI_SET = ['👍', '❤️', '🎉', '👀', '🚀', '✅', '😄', '🤔'] as const
