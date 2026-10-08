@@ -139,6 +139,20 @@ async function onSummarize() {
   }
 }
 
+// ── ↑ в пустом композере → правка последнего своего сообщения (C3) ──
+const editRequests = ref<Record<string, number>>({})
+function onEditLast() {
+  const mine = [...comments.value]
+    .filter(c => c.author.id === currentUserId.value && !c.kind && !c.hhDirection)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+  if (!mine) return
+  editRequests.value = { ...editRequests.value, [mine.id]: (editRequests.value[mine.id] ?? 0) + 1 }
+  gotoComment(mine.id)
+}
+function onEditEnd() {
+  nextTick(() => composerRef.value?.focus())
+}
+
 function onReactionToggle(commentId: string, emoji: string) {
   if (props.readOnly) return
   void toggleReaction(commentId, emoji, currentUserId.value)
@@ -283,8 +297,32 @@ const timelineForGrouping = computed<TimelineItem[]>(() => {
 })
 const renderUnits = computed<RenderUnit[]>(() => groupTimeline(timelineForGrouping.value, currentUserId.value))
 
+// ── Рельса в цвет этапа: отрезок после события этапа окрашен в цвет этапа, на котором был кандидат ──
+function stageColorOfUnit(unit: RenderUnit): string | null | undefined {
+  if (unit.type === 'standalone') {
+    if (unit.item.type === 'stage_event') return unit.item.event.toStageColor ?? null
+    if (unit.item.comment.kind === 'stage_comment') return (unit.item.comment.payloadJson as StageCommentPayload | null)?.toStageColor ?? null
+  }
+  if (unit.type === 'group') {
+    for (let i = unit.comments.length - 1; i >= 0; i--) {
+      const c = unit.comments[i]!
+      if (c.kind === 'stage_comment') return (c.payloadJson as StageCommentPayload | null)?.toStageColor ?? null
+    }
+  }
+  return undefined
+}
+
 // ── Фильтр (в строке поиска и в «⋯») ──
 const { active: activeFilter, filtered: filteredUnits, counts: filterCounts } = useThreadFilter(renderUnits)
+/** Цвет рельсы для каждого юнита ленты: null — нейтральная линия (до первого перевода). */
+const unitRailColors = computed<(string | null)[]>(() => {
+  let current: string | null = null
+  return filteredUnits.value.map((unit) => {
+    const own = stageColorOfUnit(unit)
+    if (own !== undefined) current = own
+    return current
+  })
+})
 const quickFilters = ['internal', 'ai', 'events'] as const satisfies readonly ThreadFilter[]
 function toggleFilter(f: ThreadFilter) {
   activeFilter.value = activeFilter.value === f ? 'all' : f
@@ -482,11 +520,50 @@ async function onLoadOlder() {
 }
 function onFeedScroll() {
   const el = scrollRef.value
-  if (!el || !hasMore.value || loadingMore.value) return
+  if (!el) return
+  scheduleUnreadBelow()
+  if (!hasMore.value || loadingMore.value) return
   if (el.scrollTop < 40) void onLoadOlder()
 }
 onMounted(() => scrollRef.value?.addEventListener('scroll', onFeedScroll, { passive: true }))
 onBeforeUnmount(() => scrollRef.value?.removeEventListener('scroll', onFeedScroll))
+
+// ── Кнопка «вниз» с числом непрочитанных ниже экрана ──
+// Непрочитанные = чужие сообщения новее моей отметки прочтения (или момента открытия треда),
+// чей элемент сейчас ниже видимой области. Докрутили до низа — счётчик обнуляется.
+const unreadSince = ref<number>(Date.now())
+const unreadBelowCount = ref(0)
+let unreadBelowRaf: number | null = null
+function computeUnreadBelow() {
+  unreadBelowRaf = null
+  const el = scrollRef.value
+  if (!el) { unreadBelowCount.value = 0; return }
+  const bottom = el.getBoundingClientRect().bottom - 8
+  let n = 0
+  for (const c of comments.value) {
+    if (c.kind === 'ai_summary' || c.author.id === currentUserId.value) continue
+    const at = new Date((c.hhDirection === 'incoming' && c.hhSyncedAt) ? c.hhSyncedAt : c.createdAt).getTime()
+    if (at <= unreadSince.value) continue
+    const node = document.getElementById(`comment-${c.id}`)
+    if (node && node.getBoundingClientRect().top > bottom) n++
+  }
+  unreadBelowCount.value = n
+  if (n === 0 && el.scrollHeight - el.scrollTop - el.clientHeight < 80) unreadSince.value = Date.now()
+}
+function scheduleUnreadBelow() {
+  if (import.meta.server || unreadBelowRaf !== null) return
+  unreadBelowRaf = requestAnimationFrame(computeUnreadBelow)
+}
+watch(() => comments.value.length, () => nextTick(scheduleUnreadBelow))
+watch(readers, () => {
+  const me = readers.value.find(r => r.userId === currentUserId.value)
+  if (me) unreadSince.value = Math.min(unreadSince.value, new Date(me.lastReadAt).getTime())
+})
+function onJumpToBottom() {
+  scrollToBottom()
+  unreadSince.value = Date.now()
+  unreadBelowCount.value = 0
+}
 
 const menuItemClass = 'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer disabled:opacity-50'
 const iconBtnClass = 'inline-flex size-7 items-center justify-center rounded-md text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200 cursor-pointer transition-colors'
@@ -758,23 +835,25 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
     </div>
 
     <!-- Полоса закреплённого + контекст ИИ -->
-    <DiscussionPinnedBar
-      v-if="candidateId"
-      :application-id="applicationId"
-      :candidate-id="candidateId"
-      :pinned-comments="pinnedComments"
-      :personal-pinned-comments="personalPinnedComments"
-      :compact="compact"
-      @goto="gotoComment"
-      @open-screening="emit('openScreening')"
-      @open-risk="emit('openRisk')"
-    />
 
     <!-- Лента -->
     <div
       ref="scrollRef"
       class="relative flex-1 min-h-0 overflow-y-auto scrollbar-thin"
     >
+      <!-- Полоса закреплённого — «стекло»: sticky внутри ленты, сообщения проезжают под ней -->
+      <DiscussionPinnedBar
+        v-if="candidateId"
+        class="sticky top-0 z-10"
+        :application-id="applicationId"
+        :candidate-id="candidateId"
+        :pinned-comments="pinnedComments"
+        :personal-pinned-comments="personalPinnedComments"
+        :compact="compact"
+        @goto="gotoComment"
+        @open-screening="emit('openScreening')"
+        @open-risk="emit('openRisk')"
+      />
       <div v-if="loading && comments.length === 0" class="py-8 text-center text-sm text-surface-400">
         <span class="mr-2 inline-block size-4 animate-spin rounded-full border-2 border-surface-300 border-t-brand-500 align-middle" />
         {{ t('comments.loading') }}
@@ -821,7 +900,13 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
           </button>
         </div>
 
-        <template v-for="(unit, ui) in filteredUnits" :key="`u-${ui}`">
+        <div
+          v-for="(unit, ui) in filteredUnits"
+          :key="`u-${ui}`"
+          class="disc-seg"
+          :class="unitRailColors[ui] ? 'disc-seg--stage' : ''"
+          :style="unitRailColors[ui] ? { '--rail': unitRailColors[ui] } : undefined"
+        >
           <!-- День-чип -->
           <div v-if="showDayChip(ui)" class="relative z-[1] my-2 flex justify-center">
             <span class="rounded-full border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-2.5 py-0.5 text-[11px] text-surface-500 dark:text-surface-400">
@@ -858,9 +943,11 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
               :is-first-in-group="ci === 0"
               :is-last-in-group="ci === unit.comments.length - 1"
               :highlighted="highlightedCommentId === comment.id"
+              :edit-request="editRequests[comment.id] ?? 0"
               @reply="onReply"
               @reaction-toggle="onReactionToggle"
               @goto="gotoComment"
+              @edit-end="onEditEnd"
             />
           </template>
           <ThreadStageEvent
@@ -886,11 +973,13 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
             :is-first-in-group="true"
             :is-last-in-group="true"
             :highlighted="highlightedCommentId === unit.item.comment.id"
+            :edit-request="editRequests[unit.item.comment.id] ?? 0"
             @reply="onReply"
             @reaction-toggle="onReactionToggle"
             @goto="gotoComment"
+            @edit-end="onEditEnd"
           />
-        </template>
+        </div>
 
         <div class="relative z-[1] flex justify-end">
           <ReadReceipts :readers="readers" :current-user-id="currentUserId" />
@@ -907,16 +996,24 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
       leave-from-class="opacity-100 translate-y-0"
       leave-to-class="opacity-0 translate-y-2"
     >
-      <UiButton
+      <div
         v-if="showJumpFab"
-        size="sm"
-        icon-only
-        :icon-left="ArrowDown"
-        class="absolute right-4 z-10 rounded-full shadow-lg"
+        class="absolute right-4 z-10"
         :class="readOnly ? 'bottom-4' : 'bottom-20'"
-        :title="t('comments.scroll_to_bottom')"
-        @click="scrollToBottom()"
-      />
+      >
+        <UiButton
+          size="sm"
+          icon-only
+          :icon-left="ArrowDown"
+          class="rounded-full shadow-lg"
+          :title="unreadBelowCount > 0 ? t('comments.unread_below', { n: unreadBelowCount }) : t('comments.scroll_to_bottom')"
+          @click="onJumpToBottom"
+        />
+        <span
+          v-if="unreadBelowCount > 0"
+          class="pointer-events-none absolute -right-1 -top-1 min-w-[18px] rounded-full bg-brand-600 px-1 text-center text-[10px] font-bold leading-[18px] text-white tabular-nums shadow"
+        >{{ unreadBelowCount > 99 ? '99+' : unreadBelowCount }}</span>
+      </div>
     </Transition>
 
     <!-- Композер -->
@@ -932,6 +1029,7 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
         :reply-to="replyTarget"
         :compact="compact"
         @submitted="onSubmitted"
+        @edit-last="onEditLast"
         @cancel="onCancelReply"
         @stage-moved="onStageMoved"
       />

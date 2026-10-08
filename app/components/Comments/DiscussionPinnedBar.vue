@@ -124,10 +124,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="items.length > 0" class="border-b border-surface-100 dark:border-surface-800">
+  <div v-if="items.length > 0" class="disc-glass border-b border-surface-200/70 dark:border-surface-700/60">
     <!-- Полоса -->
     <div
-      class="flex items-center gap-2.5 bg-surface-50/70 dark:bg-surface-950/40"
+      class="flex items-center gap-2.5"
       :class="compact ? 'px-3 py-1.5' : 'px-4 py-2'"
     >
       <button
@@ -191,7 +191,7 @@ onMounted(() => {
     <!-- Детали контекста (развёрнуто) -->
     <div
       v-if="detailsOpen && hasContext"
-      class="grid gap-2 bg-surface-50/70 dark:bg-surface-950/40"
+      class="grid gap-2"
       :class="compact ? 'grid-cols-1 px-3 pb-2.5' : 'sm:grid-cols-2 px-4 pb-3'"
     >
       <!-- ИИ-скрининг -->

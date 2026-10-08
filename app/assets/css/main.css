@@ -528,6 +528,57 @@ html.astra-brand .astra-auth-bg {
    Рельса времени, цвета авторов, появление сообщений и перелёт чипа этапа.
    Цвет автора задаётся переменной --h (оттенок oklch) на строке сообщения. */
 
+/* Фавиконы у ссылок на hh.ru и календарь в сообщениях (CSS-only, работает и для старых сообщений). */
+.disc-body a[href*="hh.ru/"]::before,
+.disc-body a[href*="calendar.google."]::before,
+.disc-body a[href*="calendar.yandex."]::before {
+  content: '';
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.3em;
+  vertical-align: -0.1em;
+  border-radius: 3px;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+.disc-body a[href*="hh.ru/"]::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23d6001c'/><text x='16' y='22.5' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='700' font-size='16' fill='white'>hh</text></svg>");
+}
+.disc-body a[href*="calendar.google."]::before,
+.disc-body a[href*="calendar.yandex."]::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231a73e8'/><rect x='6' y='9' width='20' height='17' rx='3' fill='white'/><rect x='6' y='9' width='20' height='5' fill='%234285f4'/><rect x='10' y='5' width='2.5' height='6' rx='1.2' fill='%231a73e8'/><rect x='19.5' y='5' width='2.5' height='6' rx='1.2' fill='%231a73e8'/><text x='16' y='23.5' text-anchor='middle' font-family='Arial' font-size='9' font-weight='700' fill='%231a73e8'>31</text></svg>");
+}
+
+/* Отрезок рельсы в цвет этапа: юнит ленты после перевода рисует поверх нейтральной линии свой цвет. */
+.disc-seg { position: relative; }
+.disc-seg--stage::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--disc-pad, 16px) + 13px);
+  width: 2px;
+  border-radius: 2px;
+  background: color-mix(in oklch, var(--rail, var(--color-surface-300)) 70%, transparent);
+  z-index: 0;
+}
+.disc-seg > * { position: relative; z-index: 1; }
+
+/* «Стекло» полосы закреплённого: полупрозрачный фон + blur, лента проезжает под ней. */
+.disc-glass {
+  background: color-mix(in oklch, var(--color-white, #fff) 72%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.2);
+}
+.dark .disc-glass {
+  background: color-mix(in oklch, var(--color-surface-900) 68%, transparent);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .disc-glass { background: var(--color-surface-50); }
+  .dark .disc-glass { background: var(--color-surface-900); }
+}
+
 /* Рельса времени: тонкая вертикальная линия слева от ленты, под аватарами. */
 .disc-rail {
   position: relative;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { Lock, MoreVertical, Pencil, Trash2, MessageSquare, Sparkles, Link2, Pin, ArrowRight, Reply, SmilePlus } from 'lucide-vue-next'
-import { REACTION_EMOJI_SET } from '~/composables/useReactionEmojis'
+import { REACTION_EMOJI_SET, QUICK_REACTION_EMOJI } from '~/composables/useReactionEmojis'
 import type { ThreadComment, StageCommentPayload } from '~/composables/useApplicationComments'
 import { useApplicationComments } from '~/composables/useApplicationComments'
 import { authorHue } from '~/composables/useDiscussionColors'
@@ -23,8 +23,11 @@ const props = withDefaults(defineProps<{
   highlighted?: boolean
   /** Родительское сообщение (для цитаты в ответе); null — родитель не найден/удалён. */
   parent?: ThreadComment | null
+  /** Внешний запрос на правку (↑ в пустом композере): меняется число — открываем редактор. */
+  editRequest?: number
 }>(), {
   parent: null,
+  editRequest: 0,
   canReply: false,
   readOnly: false,
   isFirstInGroup: true,
@@ -37,6 +40,8 @@ const emit = defineEmits<{
   reactionToggle: [commentId: string, emoji: string]
   /** Перейти к сообщению (клик по цитате ответа). */
   goto: [commentId: string]
+  /** Редактор закрыт (сохранено или отменено) — после внешнего editRequest. */
+  editEnd: []
 }>()
 
 const { t, locale } = useI18n()
@@ -144,6 +149,21 @@ const isAuthor = computed(() => props.comment.author.id === props.currentUserId)
 const isHhIncoming = computed(() => props.comment.hhDirection === 'incoming')
 // Снимки и AI-ответы нельзя редактировать (зафиксированные данные), но можно удалить.
 const canEdit = computed(() => !props.readOnly && !isSnapshot.value && !isAiResponse.value && !isHhIncoming.value && isAuthor.value)
+
+// ↑ в пустом композере: открыть правку этого сообщения и поставить курсор в конец
+const editTextareaRef = ref<HTMLTextAreaElement | null>(null)
+watch(() => props.editRequest, (v) => {
+  if (!v || !canEdit.value) return
+  isEditing.value = true
+  editBody.value = props.comment.body
+  nextTick(() => {
+    const ta = editTextareaRef.value
+    if (!ta) return
+    ta.focus()
+    ta.setSelectionRange(ta.value.length, ta.value.length)
+  })
+})
+watch(isEditing, (v, prev) => { if (prev && !v) emit('editEnd') })
 const canDelete = computed(() => !props.readOnly && !isHhIncoming.value && (isAuthor.value || props.canDeleteAny))
 
 /** Инициалы: две буквы имени и фамилии, иначе первые две буквы. */
@@ -350,22 +370,34 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         class="absolute right-0 top-0 z-20 flex items-center gap-0.5 rounded-md bg-white/90 dark:bg-surface-900/90 px-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
         :class="menuOpen || reactionPickerOpen ? '!opacity-100' : ''"
       >
-        <button
-          v-if="!readOnly && comment.reactions.length === 0"
-          type="button"
-          class="cursor-pointer rounded p-0.5 hover:bg-surface-200 dark:hover:bg-surface-700"
-          :title="t('reactions.add')"
-          :aria-label="t('reactions.add')"
-          @click="reactionPickerOpen = !reactionPickerOpen; menuOpen = false"
-        >
-          <SmilePlus class="size-3.5 text-surface-400" />
-        </button>
+        <!-- Быстрые реакции (C5): четыре одним кликом, остальные — палитра -->
+        <template v-if="!readOnly">
+          <button
+            v-for="emoji in QUICK_REACTION_EMOJI"
+            :key="emoji"
+            type="button"
+            class="cursor-pointer rounded px-0.5 text-[13px] leading-5 hover:bg-surface-200 dark:hover:bg-surface-700 hover:scale-110 transition-transform"
+            :title="emoji"
+            @click="emit('reactionToggle', comment.id, emoji)"
+          >
+            {{ emoji }}
+          </button>
+          <button
+            type="button"
+            class="cursor-pointer rounded p-0.5 hover:bg-surface-200 dark:hover:bg-surface-700"
+            :title="t('reactions.add')"
+            :aria-label="t('reactions.add')"
+            @click="reactionPickerOpen = !reactionPickerOpen; menuOpen = false"
+          >
+            <SmilePlus class="size-3.5 text-surface-400" />
+          </button>
+        </template>
         <div
           v-if="reactionPickerOpen"
           class="absolute right-0 top-6 z-30 flex items-center gap-0.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-1.5 py-1 shadow-lg"
         >
           <button
-            v-for="emoji in REACTION_EMOJI_SET"
+            v-for="emoji in REACTION_EMOJI_SET.filter(e => !(QUICK_REACTION_EMOJI as readonly string[]).includes(e))"
             :key="emoji"
             type="button"
             class="inline-flex size-7 items-center justify-center rounded-md text-base hover:bg-surface-100 dark:hover:bg-surface-800 cursor-pointer"
@@ -440,8 +472,12 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
       <!-- Editor -->
       <div v-if="isEditing" class="mt-1">
         <textarea
+          ref="editTextareaRef"
           v-model="editBody"
           rows="3"
+          @keydown.esc.prevent="isEditing = false"
+          @keydown.ctrl.enter.prevent="saveEdit"
+          @keydown.meta.enter.prevent="saveEdit"
           class="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-2 py-1.5 text-sm text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         <div class="mt-1.5 flex items-center gap-2">
@@ -511,7 +547,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         <!-- Rendered body -->
         <div
           v-else
-          class="prose prose-sm dark:prose-invert max-w-none break-words [&_.mention]:bg-brand-100 [&_.mention]:dark:bg-brand-900/40 [&_.mention]:text-brand-700 [&_.mention]:dark:text-brand-300 [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium [&_a]:text-brand-600 [&_a]:dark:text-brand-400 [&_a]:underline [&_.sticker]:inline-block [&_.sticker]:my-1 [&_.sticker]:h-20 [&_.sticker]:w-20 [&_.sticker]:object-contain [&_.sticker]:rounded-md"
+          class="disc-body prose prose-sm dark:prose-invert max-w-none break-words [&_.mention]:bg-brand-100 [&_.mention]:dark:bg-brand-900/40 [&_.mention]:text-brand-700 [&_.mention]:dark:text-brand-300 [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium [&_a]:text-brand-600 [&_a]:dark:text-brand-400 [&_a]:underline [&_.sticker]:inline-block [&_.sticker]:my-1 [&_.sticker]:h-20 [&_.sticker]:w-20 [&_.sticker]:object-contain [&_.sticker]:rounded-md"
           v-html="comment.bodyHtml || comment.body"
         />
       </div>

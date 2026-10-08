@@ -40,12 +40,17 @@ const emit = defineEmits<{
    * продолжит показывать старый этап до перезагрузки.
    */
   stageMoved: [payload: StageMoveResult]
+  /** ↑ в пустом поле — править последнее своё сообщение (C3). */
+  editLast: []
 }>()
 
 const { t } = useI18n()
 const toast = useToast()
 const { createComment, uploadAttachment, searchMembers, attachSnapshot, summarize } = useApplicationComments(props.applicationId)
 const { stages, currentStage, nextStage, rejectStage, fetchStages, moveStage } = useApplicationStages(props.applicationId)
+/** Выбранный в композере этап (чип «→ Этап»); объявлен здесь, т.к. участвует в черновике ниже. */
+const selectedStage = ref<StageInfo | null>(null)
+const stagesLoaded = ref(false)
 
 const body = ref('')
 const isInternal = ref(false)
@@ -56,18 +61,31 @@ const pendingFiles = ref<File[]>([])
 const isDragOver = ref(false)
 
 // ── Черновик (localStorage) ──
-interface DraftState { body: string, isInternal: boolean, savedAt: number }
+interface DraftState { body: string, isInternal: boolean, savedAt: number, stageId?: string | null }
 const draftKey = `draft:comment:${props.applicationId}`
-const draft = useLocalStorageState<DraftState>(draftKey, { body: '', isInternal: false, savedAt: 0 })
+const draft = useLocalStorageState<DraftState>(draftKey, { body: '', isInternal: false, savedAt: 0, stageId: null })
 const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
+/** Восстановить этап из черновика: справочник этапов грузим лениво. */
+async function restoreDraftStage(stageId: string | null | undefined) {
+  if (!stageId) return
+  if (!stagesLoaded.value) {
+    await fetchStages()
+    stagesLoaded.value = true
+  }
+  const s = stages.value.find(st => st.id === stageId && !st.isArchived && st.id !== currentStage.value?.id)
+  if (s) selectedStage.value = s
+}
+
 onMounted(() => {
-  if (draft.value.body && Date.now() - draft.value.savedAt < DRAFT_MAX_AGE_MS) {
+  const fresh = Date.now() - draft.value.savedAt < DRAFT_MAX_AGE_MS
+  if (fresh && (draft.value.body || draft.value.stageId)) {
     body.value = draft.value.body
     isInternal.value = draft.value.isInternal
+    void restoreDraftStage(draft.value.stageId)
     nextTick(autosize)
   } else {
-    draft.value = { body: '', isInternal: false, savedAt: 0 }
+    draft.value = { body: '', isInternal: false, savedAt: 0, stageId: null }
   }
 })
 
@@ -80,6 +98,7 @@ function onStorageDraft(e: StorageEvent) {
     if (incoming.body && Date.now() - incoming.savedAt < DRAFT_MAX_AGE_MS) {
       body.value = incoming.body
       isInternal.value = incoming.isInternal
+      if (!selectedStage.value) void restoreDraftStage(incoming.stageId)
       nextTick(autosize)
     }
   } catch {
@@ -90,10 +109,10 @@ onMounted(() => window.addEventListener('storage', onStorageDraft))
 onBeforeUnmount(() => window.removeEventListener('storage', onStorageDraft))
 
 let draftSaveTimer: ReturnType<typeof setTimeout> | null = null
-watch([body, isInternal], () => {
+watch([body, isInternal, selectedStage], () => {
   if (draftSaveTimer) clearTimeout(draftSaveTimer)
   draftSaveTimer = setTimeout(() => {
-    draft.value = { body: body.value, isInternal: isInternal.value, savedAt: Date.now() }
+    draft.value = { body: body.value, isInternal: isInternal.value, savedAt: Date.now(), stageId: selectedStage.value?.id ?? null }
   }, 500)
 })
 
@@ -109,7 +128,7 @@ watch(body, () => {
 
 function clearDraft() {
   if (draftSaveTimer) clearTimeout(draftSaveTimer)
-  draft.value = { body: '', isInternal: false, savedAt: 0 }
+  draft.value = { body: '', isInternal: false, savedAt: 0, stageId: null }
 }
 
 // ── Авторост textarea ──
@@ -249,6 +268,12 @@ function onKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault()
     void submit()
+    return
+  }
+  // ↑ при пустом поле — правка последнего своего сообщения (как в Telegram/Slack)
+  if (e.key === 'ArrowUp' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !body.value.trim() && !props.replyTo) {
+    e.preventDefault()
+    emit('editLast')
   }
 }
 
@@ -347,8 +372,6 @@ function onAskAi() {
 // ── Этап ──
 const stageOpen = ref(false)
 const stageRoot = ref<HTMLElement | null>(null)
-const selectedStage = ref<StageInfo | null>(null)
-const stagesLoaded = ref(false)
 async function toggleStageMenu() {
   stageOpen.value = !stageOpen.value
   plusOpen.value = false
