@@ -11,6 +11,7 @@ import {
 import { useLocalStorageState } from '~/composables/useLocalStorageState'
 import type { PropertyEntry, PropertyFilter } from '~~/shared/properties'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+import { useDiscussionWindow } from '~/composables/useDiscussionWindow'
 import { getApplicationSourceMeta, type ApplicationSource } from '~/composables/useApplicationSource'
 import { LEGACY_STATUS_TO_TYPES, type LegacyApplicationStatus } from '~~/shared/pipeline-stage-meta'
 import CandidateDiscussionTabs from '~/components/Comments/CandidateDiscussionTabs.vue'
@@ -1314,6 +1315,14 @@ async function handlePipelineStageChanged(payload: { newStageId: string, newStag
     currentIndex.value = newLen - 1
   }
 }
+
+// Перевод этапа из отдельного окна обсуждения (docs/tz-discussion-window.md):
+// обновляем воронку, если переведён отклик с этой вакансии.
+const discussionWindow = useDiscussionWindow()
+const unsubscribeWindowStage = discussionWindow.onStageChanged((appId, payload) => {
+  if (applications.value.some(a => a.id === appId)) void handlePipelineStageChanged(payload)
+})
+onBeforeUnmount(unsubscribeWindowStage)
 
 async function changeStatus(status: string) {
   if (!currentSummary.value || isMutating.value) return

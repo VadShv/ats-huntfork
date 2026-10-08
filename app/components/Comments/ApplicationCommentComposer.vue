@@ -10,7 +10,7 @@
  *   - 🔒     — внутреннее сообщение (только роли из INTERNAL_VISIBLE_ROLES).
  *   - Ctrl/Cmd+Enter — отправить. Enter — перенос строки.
  */
-import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import {
   Send, Lock, Plus, X, File as FileIcon, Paperclip, FileText, Bot, ShieldAlert,
   Sparkles, ArrowRight, ChevronRight, ChevronDown, AlertTriangle,
@@ -70,6 +70,24 @@ onMounted(() => {
     draft.value = { body: '', isInternal: false, savedAt: 0 }
   }
 })
+
+// Черновик, начатый в другом окне (карточка ↔ отдельное окно обсуждения): подхватываем,
+// если своё поле пустое. `storage` приходит только из других вкладок — себя не слышим.
+function onStorageDraft(e: StorageEvent) {
+  if (e.key !== draftKey || !e.newValue || body.value.trim()) return
+  try {
+    const incoming = JSON.parse(e.newValue) as DraftState
+    if (incoming.body && Date.now() - incoming.savedAt < DRAFT_MAX_AGE_MS) {
+      body.value = incoming.body
+      isInternal.value = incoming.isInternal
+      nextTick(autosize)
+    }
+  } catch {
+    // чужой/битый формат — игнорируем
+  }
+}
+onMounted(() => window.addEventListener('storage', onStorageDraft))
+onBeforeUnmount(() => window.removeEventListener('storage', onStorageDraft))
 
 let draftSaveTimer: ReturnType<typeof setTimeout> | null = null
 watch([body, isInternal], () => {

@@ -11,6 +11,7 @@ import { X, ExternalLink, User, Briefcase, Calendar, Clock, Hash, FileText, Mess
 import CandidateDiscussionTabs from '~/components/Comments/CandidateDiscussionTabs.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+import { useDiscussionWindow } from '~/composables/useDiscussionWindow'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
 
 const props = defineProps<{
@@ -49,6 +50,13 @@ function handleStageChanged(payload: { newStageId: string, newStageName: string,
   localStageColor.value = payload.newStageColor
   void refresh()
 }
+
+// Перевод этапа из отдельного окна обсуждения — тот же обработчик, если открыт этот отклик.
+const discussionWindow = useDiscussionWindow()
+const unsubscribeWindowStage = discussionWindow.onStageChanged((appId, payload) => {
+  if (appId === props.applicationId) handleStageChanged(payload)
+})
+onUnmounted(unsubscribeWindowStage)
 
 // ─── Legacy-переходы статуса (кнопки живут в ApplicationQuickActions) ─────────
 

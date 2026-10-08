@@ -47,13 +47,17 @@ const props = withDefaults(
     candidateId: string
     /** Компактный лейаут для drawer. */
     compact?: boolean
+    /** Отдельное окно обсуждения: тред на всю высоту контейнера, без рамки. */
+    fill?: boolean
   }>(),
-  { compact: false },
+  { compact: false, fill: false },
 )
 
 const emit = defineEmits<{
   /** Этап отклика изменён из обсуждения — хозяин (страница/шторка) обновляет карточку отклика. */
   'stage-changed': [payload: StageMoveResult]
+  /** Пользователь переключился на другой отклик кандидата (окно обсуждения меняет URL). */
+  'switch-application': [applicationId: string]
 }>()
 
 const localePath = useLocalePath()
@@ -139,7 +143,7 @@ function openRisk() {
 </script>
 
 <template>
-  <div>
+  <div :class="fill ? 'h-full' : ''">
     <ApplicationCommentThread
       v-if="!loading"
       :key="activeId"
@@ -149,8 +153,9 @@ function openRisk() {
       :applications="applications"
       :read-only="isReadOnly"
       :compact="compact"
+      :fill="fill"
       :hh-linked="activeHhLinked"
-      @switch-application="(id) => { activeId = id }"
+      @switch-application="(id) => { activeId = id; emit('switch-application', id) }"
       @stage-changed="onStageChanged"
       @open-screening="openScreening"
       @open-risk="openRisk"

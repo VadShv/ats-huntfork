@@ -22,6 +22,13 @@ const { formatPersonName } = useOrgSettings()
 
 const { interview, status: fetchStatus, error, updateInterview, deleteInterview, refresh } = useInterview(interviewId)
 
+// Обсуждение отдельным окном (docs/tz-discussion-window.md): тред отклика, по которому идёт интервью.
+const discussionWindow = useDiscussionWindow()
+function openDiscussionWindow() {
+  const appId = interview.value?.applicationId
+  if (appId) discussionWindow.open(appId)
+}
+
 useSeoMeta({
   title: computed(() =>
     interview.value
@@ -81,6 +88,7 @@ const typeLabels: Record<string, string> = {
 
 // ─── Status transitions (from shared single source of truth) ────
 import { INTERVIEW_STATUS_TRANSITIONS } from '~~/shared/status-transitions'
+import { useDiscussionWindow } from '~/composables/useDiscussionWindow'
 
 const transitionClasses: Record<InterviewStatus, string> = {
   scheduled: 'border border-surface-300 dark:border-surface-700 bg-white/80 dark:bg-surface-900 text-surface-700 dark:text-surface-300 hover:border-surface-400 dark:hover:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800',
@@ -472,6 +480,17 @@ const localePath = useLocalePath()
           </button>
           <UiButton variant="outline" size="sm" :icon-left="Calendar" class="rounded-full border-brand-200 dark:border-brand-800 bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-950/50" @click="openReschedule">
             Перенести
+          </UiButton>
+          <UiButton
+            v-if="interview.applicationId && discussionWindow.canUseWindow.value"
+            variant="outline"
+            size="sm"
+            :icon-left="MessageSquare"
+            class="rounded-full"
+            title="Открыть обсуждение этого отклика в отдельном окне"
+            @click="openDiscussionWindow"
+          >
+            Обсуждение
           </UiButton>
           <UiButton v-if="interview.status === 'scheduled'" variant="outline" size="sm" :icon-left="Mail" class="rounded-full border-success-200 dark:border-success-800 bg-success-50 dark:bg-success-950/30 text-success-700 dark:text-success-300 hover:bg-success-100 dark:hover:bg-success-950/50" @click="showSendInvitation = !showSendInvitation">
             {{ interview.invitationSentAt ? 'Отправить приглашение повторно' : 'Отправить приглашение' }}

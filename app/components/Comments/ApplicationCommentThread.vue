@@ -10,7 +10,7 @@
  * Редкие действия — в «⋯» (участники, фильтры, hh.ru) и в «+» композера.
  */
 import { onMounted, onBeforeUnmount, ref, computed, nextTick, watch } from 'vue'
-import { MessagesSquare, Users, Eye, ArrowDown, ArrowUp, Search, RefreshCw, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft, PenLine, Sparkles } from 'lucide-vue-next'
+import { MessagesSquare, Users, Eye, ArrowDown, ArrowUp, Search, RefreshCw, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft, PenLine, Sparkles, ExternalLink, AppWindow } from 'lucide-vue-next'
 import ApplicationCommentItem from './ApplicationCommentItem.vue'
 import ApplicationCommentComposer from './ApplicationCommentComposer.vue'
 import ThreadStageEvent from './ThreadStageEvent.vue'
@@ -25,6 +25,7 @@ import { useThreadFilter, type ThreadFilter } from '~/composables/useThreadFilte
 import { useUnreadComments } from '~/composables/useUnreadComments'
 import { useApplicationStages, type StageMoveResult, type StageInfo } from '~/composables/useApplicationStages'
 import { authorHue } from '~/composables/useDiscussionColors'
+import { useDiscussionWindow } from '~/composables/useDiscussionWindow'
 import { canSeeInternalRole } from '~~/shared/access/discussion'
 
 /** Другой отклик кандидата — пункт выпадающего списка «Другие отклики». */
@@ -50,6 +51,8 @@ const props = withDefaults(
     candidateName?: string | null
     /** Компактный лейаут для шторки/сайдбара. */
     compact?: boolean
+    /** Отдельное окно обсуждения: на всю высоту контейнера, без рамки и скругления. */
+    fill?: boolean
     /** Просмотр треда чужого отклика кандидата: без композера и действий. */
     readOnly?: boolean
     /** Отклик связан с hh.ru — пункт «Синхронизировать» в «⋯». */
@@ -57,7 +60,7 @@ const props = withDefaults(
     /** Отклики кандидата для переключателя «Другие отклики» (включая текущий). */
     applications?: DiscussionAppOption[]
   }>(),
-  { candidateId: undefined, candidateName: null, compact: false, readOnly: false, hhLinked: false, applications: () => [] },
+  { candidateId: undefined, candidateName: null, compact: false, fill: false, readOnly: false, hhLinked: false, applications: () => [] },
 )
 
 const emit = defineEmits<{
@@ -426,6 +429,18 @@ function emptyWrite() { composerRef.value?.focus() }
 function emptyAskAi() { composerRef.value?.askAi() }
 function emptyAttachScreening() { composerRef.value?.attachScreeningSnapshot() }
 
+// ── Отдельное окно обсуждения (docs/tz-discussion-window.md) ──
+const discussionWindow = useDiscussionWindow()
+const windowOpenForThis = discussionWindow.isOpenFor(props.applicationId)
+function onOpenWindow() {
+  moreOpen.value = false
+  discussionWindow.open(props.applicationId)
+}
+function onOpenCard() {
+  moreOpen.value = false
+  discussionWindow.openApplicationInMain(props.applicationId)
+}
+
 // ── Меню «⋯» и «Другие отклики» ──
 const moreOpen = ref(false)
 const moreRoot = ref<HTMLElement | null>(null)
@@ -480,8 +495,13 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
 
 <template>
   <section
-    class="relative flex flex-col rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 overflow-hidden shadow-sm"
-    :class="compact ? 'h-[min(72vh,760px)] min-h-[480px]' : 'h-[calc(100vh-10rem)] min-h-[560px]'"
+    class="relative flex flex-col bg-white dark:bg-surface-900 overflow-hidden"
+    :class="fill
+      ? 'h-full'
+      : [
+        'rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm',
+        compact ? 'h-[min(72vh,760px)] min-h-[480px]' : 'h-[calc(100vh-10rem)] min-h-[560px]',
+      ]"
   >
     <!-- ── Шапка-паспорт ── -->
     <header
@@ -614,6 +634,21 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
             v-if="moreOpen"
             class="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-1 shadow-lg"
           >
+            <!-- Отдельное окно: открыть / показать уже открытое; из окна — карточка отклика -->
+            <template v-if="fill">
+              <button type="button" :class="menuItemClass" @click="onOpenCard">
+                <ExternalLink class="size-3.5 text-surface-400" />
+                {{ t('comments.open_application') }}
+              </button>
+              <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
+            </template>
+            <template v-else-if="discussionWindow.canUseWindow.value">
+              <button type="button" :class="menuItemClass" @click="onOpenWindow">
+                <AppWindow class="size-3.5 text-surface-400" />
+                {{ windowOpenForThis ? t('comments.window_is_open') : t('comments.open_in_window') }}
+              </button>
+              <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
+            </template>
             <button type="button" :class="menuItemClass" @click="watchersOpen = !watchersOpen; moreOpen = false">
               <Users class="size-3.5 text-surface-400" />
               {{ t('comments.participants') }}
