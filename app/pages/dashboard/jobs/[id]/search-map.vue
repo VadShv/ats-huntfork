@@ -9,6 +9,9 @@
  */
 import { Radar, Sparkles, GitBranch, Plus, FileDown } from 'lucide-vue-next'
 import { buildSearchMapDocument } from '~~/shared/searchMap/documentModel'
+import CreateVersionModal from '~/components/searchMap/CreateVersionModal.vue'
+import DonorDrawer from '~/components/searchMap/DonorDrawer.vue'
+import DonorCompanyPicker from '~/components/searchMap/DonorCompanyPicker.vue'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'require-org'] })
 

@@ -73,7 +73,8 @@ export const mapDonorInputSchema = z.object({
 
 // ─── Segment ──────────────────────────────────────────────────────
 
-export const segmentInputSchema = z.object({
+/** Поля сегмента без кросс-проверки — для `.partial()` в PATCH (zod 4 запрещает partial() после refine()). */
+export const segmentBaseSchema = z.object({
   name: z.string().max(200).trim().optional(),
   donorLayer: donorLayerSchema.nullish(),
   donorIds: z.array(z.string().min(1)).max(200).optional().default([]),
@@ -91,7 +92,9 @@ export const segmentInputSchema = z.object({
   resultNote: z.string().max(2000).nullish(),
   origin: searchMapOriginSchema.optional().default('manual'),
   displayOrder: z.number().int().min(0).optional().default(0),
-}).refine(
+})
+
+export const segmentInputSchema = segmentBaseSchema.refine(
   s => s.donorLayer || s.titles.length || s.keywords.length || s.geo.length || s.channelId,
   'Сегмент должен содержать хотя бы один параметр поиска',
 )

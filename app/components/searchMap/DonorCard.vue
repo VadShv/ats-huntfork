@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HypothesisStatusBadge from './HypothesisStatusBadge.vue'
 const props = defineProps<{
   donor: {
     donor: { id: string; layer: string; priority: string; hypothesisStatus: string; rationale?: string | null }

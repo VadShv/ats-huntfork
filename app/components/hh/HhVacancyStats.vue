@@ -124,7 +124,7 @@ const trendOption = computed(() => {
         </div>
       </template>
       <div class="p-5">
-        <AeChart v-if="hasTrend" :option="trendOption" height="320" />
+        <AnalyticsAeChart v-if="hasTrend" :option="trendOption" height="320" />
         <p v-else class="py-16 text-center text-sm text-surface-400 dark:text-surface-500">
           {{ t('dashboard.jobs.stats.noTrend') }}
         </p>

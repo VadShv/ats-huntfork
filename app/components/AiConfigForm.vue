@@ -9,7 +9,7 @@
  */
 import {
   Brain, Sparkles, Eye, EyeOff, ExternalLink, Check,
-  Save, Zap, Star, AlertTriangle, ChevronDown, KeyRound, ArrowLeft,
+  Save, Zap, Star, AlertTriangle, ChevronDown, KeyRound, ArrowLeft, FileText,
 } from 'lucide-vue-next'
 
 interface ModelInfo {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DonorCard from './DonorCard.vue'
 const props = defineProps<{
   donors: { donor: { id: string; layer: string; priority: string; hypothesisStatus: string }; company: { id: string; canonicalName: string; industry?: string | null; tags?: string[] | null } }[]
   canEdit: boolean

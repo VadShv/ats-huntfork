@@ -7,6 +7,7 @@
 import { Copy, ExternalLink } from 'lucide-vue-next'
 import { sortHypotheses, hypothesisSubtitle } from '~~/shared/searchMap/documentModel'
 import { layerLabel, priorityLabel } from '~~/shared/searchMap/labels'
+import HypothesisStatusBadge from './HypothesisStatusBadge.vue'
 
 const props = defineProps<{
   segments: {

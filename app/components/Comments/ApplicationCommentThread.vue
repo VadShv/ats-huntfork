@@ -7,10 +7,10 @@
  * стопка участников · [Другие отклики ▾] · поиск · «⋯».
  * Полоса закреплённого (DiscussionPinnedBar) · лента с рельсой времени,
  * день-чипами и разделителем «Новые сообщения» · композер.
- * Редкие действия — в «⋯» (участники, фильтры, hh.ru) и в «+» композера.
+ * Редкие действия — в «⋯» (участники, фильтры) и в «+» композера.
  */
 import { onMounted, onBeforeUnmount, ref, computed, nextTick, watch } from 'vue'
-import { MessagesSquare, Users, Eye, ArrowDown, ArrowUp, Search, RefreshCw, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft, PenLine, Sparkles, ExternalLink, AppWindow } from 'lucide-vue-next'
+import { MessagesSquare, Users, Eye, ArrowDown, ArrowUp, Search, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft, PenLine, Sparkles, ExternalLink, AppWindow } from 'lucide-vue-next'
 import ApplicationCommentItem from './ApplicationCommentItem.vue'
 import ApplicationCommentComposer from './ApplicationCommentComposer.vue'
 import ThreadStageEvent from './ThreadStageEvent.vue'
@@ -55,12 +55,10 @@ const props = withDefaults(
     fill?: boolean
     /** Просмотр треда чужого отклика кандидата: без композера и действий. */
     readOnly?: boolean
-    /** Отклик связан с hh.ru — пункт «Синхронизировать» в «⋯». */
-    hhLinked?: boolean
     /** Отклики кандидата для переключателя «Другие отклики» (включая текущий). */
     applications?: DiscussionAppOption[]
   }>(),
-  { candidateId: undefined, candidateName: null, compact: false, fill: false, readOnly: false, hhLinked: false, applications: () => [] },
+  { candidateId: undefined, candidateName: null, compact: false, fill: false, readOnly: false, applications: () => [] },
 )
 
 const emit = defineEmits<{
@@ -101,30 +99,7 @@ const {
 } = useApplicationComments(props.applicationId)
 
 const toast = useToast()
-const hhSyncing = ref(false)
 const summarizing = ref(false)
-
-async function onHhSync() {
-  if (hhSyncing.value) return
-  hhSyncing.value = true
-  moreOpen.value = false
-  try {
-    const res = await $fetch<{ inboundCount: number, outboundCount: number, errors: string[] }>(
-      '/api/hh/comments/sync',
-      { method: 'POST', body: { applicationId: props.applicationId } },
-    )
-    const parts: string[] = []
-    if (res.inboundCount > 0) parts.push(`получено ${res.inboundCount}`)
-    if (res.outboundCount > 0) parts.push(`отправлено ${res.outboundCount}`)
-    if (res.errors.length > 0) parts.push(`ошибок: ${res.errors.length}`)
-    toast.success('Синхронизация hh.ru', parts.length > 0 ? parts.join(', ') : 'нет новых сообщений')
-    await fetchComments()
-  } catch (e: any) {
-    toast.error('Не удалось синхронизировать', { message: e?.data?.statusMessage ?? e?.message })
-  } finally {
-    hhSyncing.value = false
-  }
-}
 
 async function onSummarize() {
   if (summarizing.value) return
@@ -368,31 +343,6 @@ const currentTopStage = computed<StageInfo | null>(() => {
   if (cur.parentStageId) return stages.value.find(s => s.id === cur.parentStageId) ?? cur
   return cur
 })
-interface StageSegment { id: string, name: string, color: string | null, state: 'done' | 'current' | 'upcoming' | 'rejected' }
-const stageSegments = computed<StageSegment[]>(() => {
-  const top = stages.value
-    .filter(s => !s.parentStageId && !s.isArchived && !s.isHidden)
-    .sort((a, b) => a.displayOrder - b.displayOrder)
-  const cur = currentTopStage.value
-  const flow = top.filter(s => s.bucket !== 'rejected')
-  const rejected = top.find(s => s.bucket === 'rejected') ?? null
-  const segs: StageSegment[] = flow.map((s) => {
-    let state: StageSegment['state'] = 'upcoming'
-    if (cur) {
-      if (s.id === cur.id) state = 'current'
-      else if (cur.bucket === 'rejected' || s.displayOrder < cur.displayOrder) state = 'done'
-    }
-    return { id: s.id, name: s.name ?? '', color: s.color, state }
-  })
-  if (rejected) {
-    segs.push({ id: rejected.id, name: rejected.name ?? '', color: rejected.color, state: cur?.bucket === 'rejected' ? 'current' : 'rejected' })
-  }
-  return segs
-})
-function segmentStyle(seg: StageSegment) {
-  if (seg.state === 'current') return { backgroundColor: seg.color ?? 'var(--color-brand-500)' }
-  return {}
-}
 const stageLabel = computed(() => {
   const cur = currentStageInfo.value
   if (!cur) return ''
@@ -582,7 +532,7 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
   >
     <!-- ── Шапка-паспорт ── -->
     <header
-      class="flex items-start gap-3 border-b border-surface-100 dark:border-surface-800"
+      class="relative z-20 flex items-start gap-3 border-b border-surface-100 dark:border-surface-800"
       :class="compact ? 'px-3 pt-2 pb-2' : 'px-4 pt-2.5 pb-2.5'"
     >
       <div class="min-w-0 flex-1">
@@ -597,27 +547,10 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
             · {{ currentApp.jobTitle }}
           </span>
         </div>
-        <!-- Сегменты этапов + срок на этапе -->
-        <div v-if="stageSegments.length > 0" class="mt-1.5 flex items-center gap-2.5">
-          <div class="flex min-w-0 flex-1 max-w-[520px] gap-1" :class="compact ? 'h-1' : 'h-1.5'">
-            <span
-              v-for="seg in stageSegments"
-              :key="seg.id"
-              class="h-full flex-1 rounded-full transition-colors"
-              :class="[
-                seg.state === 'done' ? 'bg-surface-400 dark:bg-surface-500' : '',
-                seg.state === 'upcoming' ? 'bg-surface-200 dark:bg-surface-700' : '',
-                seg.state === 'rejected' ? 'bg-surface-200 dark:bg-surface-700 opacity-60' : '',
-                seg.state === 'current' ? 'shadow-[0_0_0_2px_var(--color-white)] dark:shadow-[0_0_0_2px_var(--color-surface-900)]' : '',
-              ]"
-              :style="segmentStyle(seg)"
-              :title="seg.name"
-            />
-          </div>
-          <span v-if="stageLabel" class="whitespace-nowrap text-[11px] text-surface-500 dark:text-surface-400">
-            {{ t('comments.stage_label') }} <b class="font-semibold text-surface-700 dark:text-surface-200">{{ stageLabel }}</b>
-            <template v-if="daysOnStage"> · <span class="tabular-nums">{{ daysOnStage }}</span></template>
-          </span>
+        <!-- Этап и срок на нём (полоски-сегменты убраны по замечанию приёмки 08.10) -->
+        <div v-if="stageLabel" class="mt-1 text-[11px] text-surface-500 dark:text-surface-400">
+          {{ t('comments.stage_label') }} <b class="font-semibold text-surface-700 dark:text-surface-200">{{ stageLabel }}</b>
+          <template v-if="daysOnStage"> · <span class="tabular-nums">{{ daysOnStage }}</span></template>
         </div>
       </div>
 
@@ -752,13 +685,6 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
                 </span>
               </span>
             </button>
-            <template v-if="hhLinked && !readOnly">
-              <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
-              <button type="button" :class="menuItemClass" :disabled="hhSyncing" @click="onHhSync">
-                <RefreshCw class="size-3.5 text-surface-400" :class="hhSyncing ? 'animate-spin' : ''" />
-                {{ t('comments.sync_hh') }}
-              </button>
-            </template>
           </div>
         </div>
       </div>
@@ -1019,7 +945,7 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
     <!-- Композер -->
     <div
       v-if="!readOnly"
-      class="border-t border-surface-100 dark:border-surface-800 bg-white/95 dark:bg-surface-900/95 backdrop-blur"
+      class="relative z-20 border-t border-surface-100 dark:border-surface-800 bg-white/95 dark:bg-surface-900/95 backdrop-blur"
       :class="compact ? 'px-3 py-2' : 'px-4 py-3'"
     >
       <ApplicationCommentComposer

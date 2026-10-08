@@ -1,11 +1,11 @@
 import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
 import { jobSearchMapSegment, sourcingChannel } from '../../../../../database/schema/app'
-import { segmentInputSchema } from '../../../../../utils/schemas/searchMap'
+import { segmentBaseSchema } from '../../../../../utils/schemas/searchMap'
 import { buildSegmentName, buildQueryUrl } from '../../../../../utils/searchMap/buildQueryUrl'
 
 const paramsSchema = z.object({ id: z.string().min(1), segmentId: z.string().min(1) })
-const patchSegmentSchema = segmentInputSchema.partial().strict()
+const patchSegmentSchema = segmentBaseSchema.partial().strict()
 
 /**
  * PATCH /api/jobs/[id]/search-map/segments/[segmentId] — правка сегмента.

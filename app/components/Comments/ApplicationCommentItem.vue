@@ -6,6 +6,8 @@ import type { ThreadComment, StageCommentPayload } from '~/composables/useApplic
 import { useApplicationComments } from '~/composables/useApplicationComments'
 import { authorHue } from '~/composables/useDiscussionColors'
 import CommentSnapshotWidget from './CommentSnapshotWidget.vue'
+import CommentReactions from './CommentReactions.vue'
+import AttachmentPreview from './AttachmentPreview.vue'
 
 const props = withDefaults(defineProps<{
   applicationId: string
@@ -57,7 +59,6 @@ const editBody = ref(props.comment.body)
 const saving = ref(false)
 const menuOpen = ref(false)
 const pinning = ref(false)
-const hhRetrying = ref(false)
 
 const hhBadge = computed(() => {
   const s = props.comment.hhSyncStatus
@@ -71,23 +72,6 @@ const hhBadge = computed(() => {
   if (s === 'failed') return { tone: 'danger', text: 'ошибка hh' }
   return null
 })
-
-async function retryHhSend() {
-  if (hhRetrying.value) return
-  hhRetrying.value = true
-  try {
-    await $fetch('/api/hh/comments/send', {
-      method: 'POST',
-      body: { commentId: props.comment.id },
-    })
-    toast.success('Сообщение отправлено на hh.ru')
-    await fetchComments()
-  } catch (e: any) {
-    toast.error('Не удалось отправить', { message: e?.data?.statusMessage ?? e?.message })
-  } finally {
-    hhRetrying.value = false
-  }
-}
 
 /** Закрепить: 'all' — для всех участников, 'me' — только для себя (личная полоса). */
 async function togglePin(scope: 'all' | 'me') {
@@ -352,15 +336,6 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         >
           {{ hhBadge.text }}
         </span>
-        <button
-          v-if="hhBadge?.tone === 'danger' && !readOnly && !isHhIncoming"
-          type="button"
-          :disabled="hhRetrying"
-          class="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 disabled:opacity-50 cursor-pointer"
-          @click="retryHhSend"
-        >
-          {{ hhRetrying ? '…' : 'Повторить' }}
-        </button>
       </div>
 
       <!-- Действия по наведению: реакция · «⋯» (для каждого сообщения, не только первого в группе) -->

@@ -5,6 +5,7 @@
  */
 import { Copy, ExternalLink, Sparkles, Wand2 } from 'lucide-vue-next'
 import { buildQueryString as buildQueryByCode, detectQueryLanguage } from '~~/shared/searchMap/queryBuilder'
+import CreateHhSearchModal from './CreateHhSearchModal.vue'
 
 const props = defineProps<{
   modelValue: boolean

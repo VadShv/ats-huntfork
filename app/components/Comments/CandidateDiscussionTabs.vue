@@ -69,11 +69,6 @@ const loading = ref(true)
 const activeId = ref(props.currentApplicationId)
 
 const isReadOnly = computed(() => activeId.value !== props.currentApplicationId)
-const activeHhLinked = computed(() => {
-  const tab = tabs.value.find(t => t.id === activeId.value)
-  return tab?.source === 'hh' && !!tab?.externalId
-})
-
 function fallbackTab(): DiscussionTab {
   return {
     id: props.currentApplicationId,
@@ -154,7 +149,6 @@ function openRisk() {
       :read-only="isReadOnly"
       :compact="compact"
       :fill="fill"
-      :hh-linked="activeHhLinked"
       @switch-application="(id) => { activeId = id; emit('switch-application', id) }"
       @stage-changed="onStageChanged"
       @open-screening="openScreening"
