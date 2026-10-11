@@ -10,10 +10,12 @@
  * Редкие действия — в «⋯» (участники, фильтры) и в «+» композера.
  */
 import { onMounted, onBeforeUnmount, ref, computed, nextTick, watch } from 'vue'
-import { MessagesSquare, Users, Eye, ArrowDown, ArrowUp, Search, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft, PenLine, Sparkles, ExternalLink, AppWindow } from 'lucide-vue-next'
+import { MessagesSquare, Users, Eye, ArrowDown, ArrowUp, Search, MoreHorizontal, X, ChevronDown, Check, Lock, Bot, ArrowRight, ArrowLeft, PenLine, Sparkles, ExternalLink, AppWindow, Handshake } from 'lucide-vue-next'
 import ApplicationCommentItem from './ApplicationCommentItem.vue'
 import ApplicationCommentComposer from './ApplicationCommentComposer.vue'
 import ThreadStageEvent from './ThreadStageEvent.vue'
+import ThreadReferralEvent from './ThreadReferralEvent.vue'
+import ReferralDialog from '~/components/ReferralDialog.vue'
 import AiSummaryCard from './AiSummaryCard.vue'
 import WatcherPanel from './WatcherPanel.vue'
 import ReadReceipts from './ReadReceipts.vue'
@@ -432,6 +434,30 @@ function onOpenCard() {
   discussionWindow.openApplicationInMain(props.applicationId)
 }
 
+// ── «Передать коллеге» из обсуждения (docs/tz-discussion-referral.md §2.2) ──
+// Кандидат и вакансия берутся из пропсов, а если их нет (окно/шторка) — из карточки отклика.
+const referralOpen = ref(false)
+const referralCtx = ref<{ candidateId: string, candidateName: string | null, jobId: string | null } | null>(null)
+const canRefer = computed(() => canSeeInternal.value && !props.readOnly)
+async function onReferral() {
+  moreOpen.value = false
+  if (!referralCtx.value) {
+    try {
+      const app = await $fetch<{ candidateId: string, jobId: string | null, candidate?: { firstName?: string | null, lastName?: string | null } | null }>(`/api/applications/${props.applicationId}`)
+      const name = props.candidateName ?? [app.candidate?.firstName, app.candidate?.lastName].filter(Boolean).join(' ')
+      referralCtx.value = { candidateId: props.candidateId ?? app.candidateId, candidateName: name || null, jobId: app.jobId ?? null }
+    } catch {
+      toast.error(t('referral.load_failed'))
+      return
+    }
+  }
+  referralOpen.value = true
+}
+function onReferralCreated() {
+  // Карточка о передаче уже в ленте: сервер шлёт thread-changed, но подтянем сразу.
+  void fetchComments()
+}
+
 // ── Меню «⋯» и «Другие отклики» ──
 const moreOpen = ref(false)
 const moreRoot = ref<HTMLElement | null>(null)
@@ -662,6 +688,10 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
               </button>
               <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
             </template>
+            <button v-if="canRefer" type="button" :class="menuItemClass" @click="onReferral">
+              <Handshake class="size-3.5 text-brand-600 dark:text-brand-300" />
+              {{ t('referral.title') }}
+            </button>
             <button type="button" :class="menuItemClass" @click="watchersOpen = !watchersOpen; moreOpen = false">
               <Users class="size-3.5 text-surface-400" />
               {{ t('comments.participants') }}
@@ -884,6 +914,11 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
             v-else-if="unit.item.type === 'stage_event'"
             :event="unit.item.event"
           />
+          <ThreadReferralEvent
+            v-else-if="unit.item.comment.kind === 'system_event'"
+            :comment="unit.item.comment"
+            :application-id="applicationId"
+          />
           <AiSummaryCard
             v-else-if="unit.item.comment.kind === 'ai_summary'"
             :comment="unit.item.comment"
@@ -958,10 +993,22 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
         :can-mark-internal="canSeeInternal"
         :reply-to="replyTarget"
         :compact="compact"
+        :can-refer="canRefer"
         @submitted="onSubmitted"
         @edit-last="onEditLast"
         @cancel="onCancelReply"
         @stage-moved="onStageMoved"
+        @referral="onReferral"
+      />
+      <ReferralDialog
+        v-if="referralCtx"
+        :open="referralOpen"
+        :candidate-id="referralCtx.candidateId"
+        :candidate-name="referralCtx.candidateName"
+        :from-application-id="applicationId"
+        :current-job-id="referralCtx.jobId"
+        @close="referralOpen = false"
+        @created="onReferralCreated"
       />
       <div class="mt-1 flex h-4 items-center gap-1.5 pl-10 text-[11px] text-surface-400">
         <template v-if="typingUsers.length > 0">

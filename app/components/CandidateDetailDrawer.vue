@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { X, ExternalLink, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Download, Eye, AlertTriangle, MapPin, Linkedin, Github, Send, MessageSquare, MoreHorizontal, Handshake, GitMerge, ShieldCheck } from 'lucide-vue-next'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
+import ReferralDialog from '~/components/ReferralDialog.vue'
 import CommsChatPanel from '~/components/Comms/CommsChatPanel.vue'
 
 const props = defineProps<{
@@ -730,17 +731,14 @@ onUnmounted(() => { document.body.style.overflow = '' })
     />
   </Teleport>
 
-  <Teleport to="body">
-    <div v-if="drawerReferralOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" @click.self="drawerReferralOpen = false">
-      <div class="w-full max-w-md rounded-xl bg-white dark:bg-surface-900 p-5 shadow-xl">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-100">{{ t('candidate.detail.referralModal') }}</h3>
-          <UiButton icon-only variant="ghost" size="sm" aria-label="Закрыть" @click="drawerReferralOpen = false"><X class="size-4" /></UiButton>
-        </div>
-        <ReferralButton :candidate-id="candidateId" />
-      </div>
-    </div>
-  </Teleport>
+  <!-- «Передать коллеге» (docs/tz-discussion-referral.md §2.1) -->
+  <ReferralDialog
+    :open="drawerReferralOpen"
+    :candidate-id="candidateId"
+    :candidate-name="candidate ? `${candidate.firstName ?? ''} ${candidate.lastName ?? ''}`.trim() : null"
+    @close="drawerReferralOpen = false"
+    @created="(p) => { if (p.applicationId) refresh() }"
+  />
 
   <!-- Фрод-флаг (из меню «Другое» drawer) -->
   <Teleport to="body">

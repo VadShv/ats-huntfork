@@ -3,7 +3,7 @@
  * Notifications page — paginated full list with filter (all / unread).
  */
 import { ref, computed, onMounted, watch } from 'vue'
-import { Bell, CheckCheck, MessageSquare, AtSign, Smile, Reply, Coins } from 'lucide-vue-next'
+import { Bell, CheckCheck, MessageSquare, AtSign, Smile, Reply, Coins, Handshake } from 'lucide-vue-next'
 import { useNotifications, type NotificationItem } from '~/composables/useNotifications'
 
 definePageMeta({
@@ -68,6 +68,7 @@ function notifTypeIcon(type: NotificationItem['type']) {
     case 'reaction': return Smile
     case 'new_comment_on_watched': return MessageSquare
     case 'ai_budget': return Coins
+    case 'referral': return Handshake
     default: return Bell
   }
 }
@@ -78,6 +79,7 @@ function notifTypeLabel(type: NotificationItem['type']) {
     case 'reply': return t('notifications.types.reply')
     case 'reaction': return t('notifications.types.reaction')
     case 'new_comment_on_watched': return t('notifications.types.new_comment')
+    case 'referral': return t('notifications.types.referral')
     default: return ''
   }
 }
@@ -89,6 +91,11 @@ function notifLink(n: NotificationItem): string {
     if (n.entityType === 'ai_limit') return localePath('/dashboard/settings/account#ai')
     if (n.entityType === 'ai_limit_request') return localePath('/dashboard/settings/ai?tab=budget')
     return localePath('/dashboard/ai-usage?period=month')
+  }
+  // Передача кандидата: в целевой отклик, если он уже создан, иначе в профиль кандидата (там баннер принять/отклонить).
+  if (n.type === 'referral') {
+    if (n.referralApplicationId) return localePath(`/dashboard/applications/${n.referralApplicationId}`)
+    if (n.referralCandidateId) return localePath(`/dashboard/candidates/${n.referralCandidateId}`)
   }
   if (n.applicationId) return localePath(`/dashboard/applications/${n.applicationId}`)
   return localePath('/dashboard/notifications')

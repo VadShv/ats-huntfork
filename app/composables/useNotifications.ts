@@ -6,7 +6,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 export interface NotificationItem {
   id: string
-  type: 'mention' | 'reply' | 'reaction' | 'new_comment_on_watched' | 'ai_budget'
+  type: 'mention' | 'reply' | 'reaction' | 'new_comment_on_watched' | 'ai_budget' | 'referral'
   entityType: string
   entityId: string
   commentId: string | null
@@ -19,6 +19,10 @@ export interface NotificationItem {
   applicationId: string | null
   /** type = 'ai_budget': текст сработавшего порога бюджета ИИ */
   alertMessage?: string | null
+  /** type = 'referral' (docs/tz-discussion-referral.md §2.4) */
+  referralCandidateId?: string | null
+  referralStatus?: string | null
+  referralApplicationId?: string | null
   alertThreshold?: number | null
 }
 

@@ -18,7 +18,7 @@ export function useThreadFilter(units: Ref<RenderUnit[]>) {
     return units.value.filter(unit => {
       if (active.value === 'events') {
         if (unit.type !== 'standalone') return false
-        return unit.item.type === 'stage_event' || unit.item.comment.kind === 'stage_comment'
+        return unit.item.type === 'stage_event' || unit.item.comment.kind === 'stage_comment' || unit.item.comment.kind === 'system_event'
       }
       if (active.value === 'ai') {
         return unit.type === 'standalone' && unit.item.type === 'comment' && unit.item.comment.kind != null && AI_KINDS.has(unit.item.comment.kind)
@@ -52,7 +52,7 @@ export function useThreadFilter(units: Ref<RenderUnit[]>) {
       }
       if (unit.type === 'standalone' && unit.item.type === 'comment') {
         const c = unit.item.comment
-        if (c.kind === 'stage_comment') events++
+        if (c.kind === 'stage_comment' || c.kind === 'system_event') events++
         else if (c.kind != null && AI_KINDS.has(c.kind)) ai++
         else if (c.isInternal) internal++
         else comments++

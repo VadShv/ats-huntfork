@@ -1,14 +1,18 @@
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { referral, application, applicationStageHistory, job } from '../../../database/schema'
-import { getEntryStageForPipeline } from '../../../utils/pipeline-helpers'
+import { referral } from '../../../database/schema/app'
+import {
+  createReferralCard, jobTitleOf, placeCandidateOnJob, updateReferralCardStatus, userDisplayName,
+} from '../../../utils/referrals/discussion'
+import type { ReferralEventPayload } from '../../../../shared/referrals/event'
 
 const paramsSchema = z.object({ id: z.string().min(1) })
 const bodySchema = z.object({ accept: z.boolean(), jobId: z.string().min(1).optional() })
 
 /**
- * POST /api/referrals/:id/respond — the target recruiter accepts (placing the
- * candidate on one of their vacancies) or declines.
+ * POST /api/referrals/:id/respond — адресат принимает (кандидат ложится на вакансию,
+ * карточка в целевом треде, статус в карточке-источнике) или отклоняет (статус в карточке-источнике).
+ * docs/tz-discussion-referral.md §2.4.
  */
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -18,54 +22,53 @@ export default defineEventHandler(async (event) => {
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
   const body = await readValidatedBody(event, bodySchema.parse)
 
-  const ref = await db.query.referral.findFirst({
-    where: and(eq(referral.id, id), eq(referral.organizationId, orgId)),
-  })
+  const ref = await db.query.referral.findFirst({ where: and(eq(referral.id, id), eq(referral.organizationId, orgId)) })
   if (!ref) throw createError({ statusCode: 404, statusMessage: 'Реферал не найден' })
   if (ref.toUserId !== userId) throw createError({ statusCode: 403, statusMessage: 'Только получатель может ответить' })
   if (ref.status !== 'pending') throw createError({ statusCode: 409, statusMessage: 'Реферал уже обработан' })
 
+  const now = new Date()
   if (!body.accept) {
-    await db.update(referral).set({ status: 'declined', resolvedAt: new Date() }).where(eq(referral.id, id))
+    await db.update(referral).set({ status: 'declined', resolvedAt: now }).where(eq(referral.id, id))
+    await updateReferralCardStatus(db, ref.sourceCommentId, { status: 'declined', resolvedAt: now })
     return { status: 'declined' }
   }
 
   const jobId = body.jobId ?? ref.suggestedJobId
   if (!jobId) throw createError({ statusCode: 400, statusMessage: 'Укажите вакансию' })
+  const jobTitle = await jobTitleOf(db, orgId, jobId)
+  if (!jobTitle) throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
 
-  const targetJob = await db.query.job.findFirst({
-    where: and(eq(job.id, jobId), eq(job.organizationId, orgId)),
-    columns: { id: true, pipelineId: true },
-  })
-  if (!targetJob) throw createError({ statusCode: 404, statusMessage: 'Вакансия не найдена' })
+  const placed = await placeCandidateOnJob(db, { orgId, candidateId: ref.candidateId, jobId, userId })
 
-  // Reuse existing application if the candidate is already on this job, else create.
-  let appId: string
-  const existing = await db.query.application.findFirst({
-    where: and(eq(application.organizationId, orgId), eq(application.candidateId, ref.candidateId), eq(application.jobId, jobId)),
-    columns: { id: true },
-  })
-  if (existing) {
-    appId = existing.id
-  } else {
-    let entryStageId: string | null = null
-    if (targetJob.pipelineId) {
-      const entry = await getEntryStageForPipeline(db, targetJob.pipelineId)
-      entryStageId = entry?.id ?? null
+  const [fromUserName, toUserName] = await Promise.all([userDisplayName(db, ref.fromUserId), userDisplayName(db, ref.toUserId)])
+  let targetCommentId: string | null = ref.targetCommentId
+  if (placed.applicationId !== ref.fromApplicationId) {
+    const payload: ReferralEventPayload = {
+      event: 'referral',
+      role: 'target',
+      referralId: ref.id,
+      status: 'accepted',
+      fromUserId: ref.fromUserId,
+      fromUserName,
+      toUserId: ref.toUserId,
+      toUserName,
+      jobId,
+      jobTitle,
+      note: ref.note,
+      sourceApplicationId: ref.fromApplicationId,
+      targetApplicationId: placed.applicationId,
+      resolvedAt: now.toISOString(),
     }
-    const now = new Date()
-    const [created] = await db.insert(application).values({
-      organizationId: orgId, candidateId: ref.candidateId, jobId, status: 'new',
-      source: 'referral', currentStageId: entryStageId, stageChangedAt: entryStageId ? now : null,
-    }).returning({ id: application.id })
-    appId = created.id
-    if (entryStageId) {
-      await db.insert(applicationStageHistory).values({
-        organizationId: orgId, applicationId: appId, fromStageId: null, toStageId: entryStageId, movedByUserId: userId, movedAt: now,
-      })
-    }
+    targetCommentId = await createReferralCard(db, {
+      orgId, applicationId: placed.applicationId, candidateId: ref.candidateId, authorUserId: userId, payload,
+    })
   }
 
-  await db.update(referral).set({ status: 'accepted', resultApplicationId: appId }).where(eq(referral.id, id))
-  return { status: 'accepted', applicationId: appId }
+  await db.update(referral)
+    .set({ status: 'accepted', resultApplicationId: placed.applicationId, suggestedJobId: jobId, resolvedAt: now, targetCommentId })
+    .where(eq(referral.id, id))
+  await updateReferralCardStatus(db, ref.sourceCommentId, { status: 'accepted', targetApplicationId: placed.applicationId, resolvedAt: now })
+
+  return { status: 'accepted', applicationId: placed.applicationId }
 })

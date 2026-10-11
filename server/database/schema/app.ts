@@ -2577,6 +2577,8 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'new_comment_on_watched',
   // docs/tz-ai-usage.md §7.2: порог бюджета ИИ (entityType 'ai_budget', entityId = ai_usage_alert.id)
   'ai_budget',
+  // docs/tz-discussion-referral.md: кандидата передали коллеге (entityType 'referral', entityId = referral.id)
+  'referral',
 ])
 
 export const applicationComment = pgTable(
@@ -3452,6 +3454,12 @@ export const referral = pgTable('referral', {
   /** pending | accepted | declined | hired | expired */
   status: text('status').notNull().default('pending'),
   resultApplicationId: text('result_application_id'),
+  /** Отклик, из обсуждения которого передали кандидата (docs/tz-discussion-referral.md §3). */
+  fromApplicationId: text('from_application_id').references(() => application.id, { onDelete: 'set null' }),
+  /** Системная карточка в треде-источнике — обновляем в ней статус. */
+  sourceCommentId: text('source_comment_id'),
+  /** Системная карточка в треде целевого отклика. */
+  targetCommentId: text('target_comment_id'),
   assistPaid: boolean('assist_paid').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   resolvedAt: timestamp('resolved_at'),
@@ -3460,6 +3468,7 @@ export const referral = pgTable('referral', {
   index('referral_from_idx').on(t.fromUserId),
   index('referral_to_idx').on(t.toUserId),
   index('referral_status_idx').on(t.organizationId, t.status),
+  index('referral_candidate_idx').on(t.organizationId, t.candidateId),
   index('referral_result_app_idx').on(t.resultApplicationId),
 ]))
 

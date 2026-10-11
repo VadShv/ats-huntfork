@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ArrowLeft, MessageSquare, Pencil, Trash2, Mail, Phone, Calendar, Clock, Briefcase, FileText, Plus, Upload, Download, Eye, X, AlertTriangle, Venus, Mars, GitMerge, PhoneCall, MoreHorizontal, ShieldCheck, Handshake } from 'lucide-vue-next'
 import { useDiscussionWindow } from '~/composables/useDiscussionWindow'
+import ReferralDialog from '~/components/ReferralDialog.vue'
+import ReferralIncomingBanner from '~/components/ReferralIncomingBanner.vue'
 import { z } from 'zod'
 import { usePreviewReadOnly } from '~/composables/usePreviewReadOnly'
 import { getApplicationSourceMeta } from '~/composables/useApplicationSource'
@@ -516,6 +518,14 @@ async function toggleManualReviewOnly() {
 // ── Dropdown «Другое» в шапке кандидата ────────────────────────────────────
 const isMoreMenuOpen = ref(false)
 const referralOpen = ref(false)
+const referralBannerRef = ref<{ reload: () => Promise<void> } | null>(null)
+/** Вакансия выбрана — отклик уже создан: обновляем карточку, чтобы он появился в списке. */
+async function onReferralCreated(payload: { applicationId: string | null }) {
+  if (payload.applicationId) await refresh()
+}
+async function onReferralAccepted() {
+  await refresh()
+}
 const moreMenuRef = useTemplateRef<HTMLElement>('moreMenuRoot')
 
 function onMoreMenuClickOutside(e: MouseEvent) {
@@ -793,6 +803,9 @@ async function openHhContacts() {
             </div>
           </div>
         </header>
+
+        <!-- ╗╗╗ Баннер: вам передали кандидата (docs/tz-discussion-referral.md §2.4) ╗╗╗ -->
+        <ReferralIncomingBanner ref="referralBannerRef" :candidate-id="candidateId" @accepted="onReferralAccepted" />
 
         <!-- ╗╗╗ Баннеры: фрод и fuzzy-дубли ╗╗╗ -->
         <div
@@ -1605,17 +1618,14 @@ async function openHhContacts() {
         </div>
       </Teleport>
 
-      <Teleport to="body">
-        <div v-if="referralOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="referralOpen = false">
-          <div class="w-full max-w-md rounded-xl bg-white dark:bg-surface-900 p-5 shadow-xl">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-100">{{ t('candidate.detail.referralModal') }}</h3>
-              <UiButton icon-only variant="ghost" size="sm" aria-label="Закрыть" @click="referralOpen = false"><X class="size-4" /></UiButton>
-            </div>
-            <ReferralButton :candidate-id="candidateId" />
-          </div>
-        </div>
-      </Teleport>
+      <!-- «Передать коллеге»: коллега → вакансия → комментарий (docs/tz-discussion-referral.md §2.1) -->
+      <ReferralDialog
+        :open="referralOpen"
+        :candidate-id="candidateId"
+        :candidate-name="formatCandidateName(candidate)"
+        @close="referralOpen = false"
+        @created="onReferralCreated"
+      />
     </template>
   </div>
 </template>

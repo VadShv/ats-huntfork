@@ -20,6 +20,7 @@ const STANDALONE_KINDS = new Set([
   'ai_response',
   'ai_summary',
   'stage_comment',
+  'system_event',
 ])
 
 export interface CommentGroupUnit {

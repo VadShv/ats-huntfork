@@ -12,13 +12,13 @@
  * чтобы во всех местах UI стиль был согласован.
  */
 import { type Component, computed, type ComputedRef } from 'vue'
-import { Inbox, Plug, Snowflake, UserPlus } from 'lucide-vue-next'
+import { Inbox, Plug, Snowflake, UserPlus, Handshake } from 'lucide-vue-next'
 
 export type ApplicationSource = 'hh' | 'hh_sourcing' | 'manual' | 'api' | string | null | undefined
 
 export interface ApplicationSourceMeta {
-  /** Канонический тип: hh | hh_sourcing | manual | api | other */
-  key: 'hh' | 'hh_sourcing' | 'manual' | 'api' | 'other'
+  /** Канонический тип: hh | hh_sourcing | manual | api | referral | other */
+  key: 'hh' | 'hh_sourcing' | 'manual' | 'api' | 'referral' | 'other'
   /** Короткая подпись для бейджа. */
   label: string
   /** Расширенный tooltip для hover. */
@@ -70,6 +70,15 @@ const META: Record<ApplicationSourceMeta['key'], ApplicationSourceMeta> = {
     iconClass: 'text-violet-600',
     isCold: false,
   },
+  referral: {
+    key: 'referral',
+    label: 'Передан коллегой',
+    tooltip: 'Кандидата передал коллега («Передать коллеге», docs/tz-discussion-referral.md)',
+    icon: Handshake,
+    badgeClass: 'bg-brand-50 text-brand-700',
+    iconClass: 'text-brand-600',
+    isCold: false,
+  },
   other: {
     key: 'other',
     label: 'Источник неизвестен',
@@ -86,6 +95,7 @@ function resolveMeta(source: ApplicationSource): ApplicationSourceMeta {
   if (source === 'hh_sourcing') return META.hh_sourcing
   if (source === 'manual') return META.manual
   if (source === 'api') return META.api
+  if (source === 'referral') return META.referral
   return META.other
 }
 

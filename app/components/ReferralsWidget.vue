@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue'
 import { Handshake, Check, X } from 'lucide-vue-next'
 
 interface Ref {
   id: string; status: string; candidateId: string; candidateName: string
   fromUserId: string; fromName: string; toUserId: string; toName: string; note: string | null
+  suggestedJobId: string | null; suggestedJobTitle: string | null
 }
 interface ReferralsResponse { incoming: Ref[]; sent: Ref[] }
 interface Job { id: string; title: string; status: string }
@@ -13,7 +15,7 @@ const { data: jobsData } = useFetch<{ jobs?: Job[] } | Job[]>('/api/jobs', { hea
 const toast = useToast()
 
 const incoming = computed(() => data.value?.incoming ?? [])
-const sentActive = computed(() => (data.value?.sent ?? []).filter(r => r.status === 'pending' || r.status === 'accepted').slice(0, 3))
+const sentActive = computed(() => (data.value?.sent ?? []).filter((r: Ref) => r.status === 'pending' || r.status === 'accepted').slice(0, 3))
 const openJobs = computed<Job[]>(() => {
   const j: any = jobsData.value
   const list: Job[] = Array.isArray(j) ? j : (j?.jobs ?? [])
@@ -21,6 +23,11 @@ const openJobs = computed<Job[]>(() => {
 })
 
 const pickJob = ref<Record<string, string>>({})
+// Предложенная вакансия — выбрана по умолчанию (docs/tz-discussion-referral.md §2.4).
+watch(incoming, (list) => {
+  for (const r of list) if (r.suggestedJobId && !pickJob.value[r.id]) pickJob.value[r.id] = r.suggestedJobId
+}, { immediate: true })
+const localePath = useLocalePath()
 const busy = ref<string | null>(null)
 
 async function accept(r: Ref) {
@@ -56,7 +63,11 @@ const statusLabel: Record<string, string> = { pending: 'ожидает', accepte
 
     <!-- Incoming -->
     <div v-for="r in incoming" :key="r.id" class="mb-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
-      <p class="text-xs text-surface-700 dark:text-surface-300 mb-1"><b>{{ r.fromName }}</b> передаёт: {{ r.candidateName }}</p>
+      <p class="text-xs text-surface-700 dark:text-surface-300 mb-1">
+        <b>{{ r.fromName }}</b> передаёт:
+        <NuxtLink :to="localePath(`/dashboard/candidates/${r.candidateId}`)" class="font-medium hover:underline">{{ r.candidateName }}</NuxtLink>
+        <span v-if="r.suggestedJobTitle" class="text-surface-500"> · «{{ r.suggestedJobTitle }}»</span>
+      </p>
       <p v-if="r.note" class="text-[11px] text-surface-500 dark:text-surface-400 italic mb-1.5">«{{ r.note }}»</p>
       <div class="flex items-center gap-1.5">
         <select v-model="pickJob[r.id]" class="flex-1 rounded-lg border border-surface-300 dark:border-surface-700 px-2 py-1 text-xs bg-white dark:bg-surface-900">

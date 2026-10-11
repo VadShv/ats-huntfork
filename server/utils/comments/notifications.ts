@@ -13,13 +13,13 @@
 import { and, eq } from 'drizzle-orm'
 import { notification } from '../../database/schema/app'
 
-export type NotificationType = 'mention' | 'reply' | 'reaction' | 'new_comment_on_watched'
+export type NotificationType = 'mention' | 'reply' | 'reaction' | 'new_comment_on_watched' | 'referral'
 
 export interface CreateNotificationParams {
   organizationId: string
   userId: string
   type: NotificationType
-  entityType: 'application' | 'comment'
+  entityType: 'application' | 'comment' | 'referral'
   entityId: string
   commentId?: string
   actorUserId: string

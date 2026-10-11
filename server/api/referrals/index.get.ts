@@ -1,24 +1,39 @@
 import { and, eq, or, sql } from 'drizzle-orm'
+import { z } from 'zod'
 import { referral } from '../../database/schema'
 
-/** GET /api/referrals — my referrals (incoming pending, sent, recent). */
+const querySchema = z.object({ candidateId: z.string().min(1).optional() })
+
+/**
+ * GET /api/referrals[?candidateId=] — мои рефералы: входящие (ожидают), отправленные.
+ * С `candidateId` — только по этому кандидату (баннер в профиле кандидата,
+ * docs/tz-discussion-referral.md §2.4); без фильтра — виджет в Лиге.
+ */
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
   const orgId = session.session.activeOrganizationId
   if (!orgId) throw createError({ statusCode: 403, statusMessage: 'Нет активной организации' })
   const userId = session.user.id
+  const query = await getValidatedQuery(event, querySchema.parse)
+
+  const where = [
+    eq(referral.organizationId, orgId),
+    or(eq(referral.fromUserId, userId), eq(referral.toUserId, userId))!,
+  ]
+  if (query.candidateId) where.push(eq(referral.candidateId, query.candidateId))
 
   const rows = await db.query.referral.findMany({
-    where: and(eq(referral.organizationId, orgId), or(eq(referral.fromUserId, userId), eq(referral.toUserId, userId))),
+    where: and(...where),
     orderBy: (t, { desc }) => [desc(t.createdAt)],
     limit: 40,
   })
 
-  // Names & candidate labels
   const userIds = [...new Set(rows.flatMap(r => [r.fromUserId, r.toUserId]))]
   const candIds = [...new Set(rows.map(r => r.candidateId))]
+  const jobIds = [...new Set(rows.map(r => r.suggestedJobId).filter((v): v is string => !!v))]
   const names = new Map<string, string>()
   const cands = new Map<string, string>()
+  const jobs = new Map<string, string>()
   if (userIds.length) {
     const nr = await db.execute<{ id: string, name: string }>(sql`
       SELECT id, COALESCE(name, email) AS name FROM "user" WHERE id IN (${sql.join(userIds.map(i => sql`${i}`), sql`, `)})
@@ -32,6 +47,12 @@ export default defineEventHandler(async (event) => {
     `)
     for (const c of cr as any[]) cands.set(c.id, c.name || 'Кандидат')
   }
+  if (jobIds.length) {
+    const jr = await db.execute<{ id: string, title: string }>(sql`
+      SELECT id, title FROM job WHERE id IN (${sql.join(jobIds.map(i => sql`${i}`), sql`, `)})
+    `)
+    for (const j of jr as any[]) jobs.set(j.id, j.title)
+  }
 
   const map = (r: typeof rows[number]) => ({
     id: r.id,
@@ -42,8 +63,13 @@ export default defineEventHandler(async (event) => {
     fromName: names.get(r.fromUserId) ?? '—',
     toUserId: r.toUserId,
     toName: names.get(r.toUserId) ?? '—',
+    suggestedJobId: r.suggestedJobId,
+    suggestedJobTitle: r.suggestedJobId ? (jobs.get(r.suggestedJobId) ?? null) : null,
+    resultApplicationId: r.resultApplicationId,
+    fromApplicationId: r.fromApplicationId,
     note: r.note,
     createdAt: r.createdAt,
+    resolvedAt: r.resolvedAt,
   })
 
   return {

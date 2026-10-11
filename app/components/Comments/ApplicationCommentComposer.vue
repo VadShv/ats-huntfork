@@ -13,7 +13,7 @@
 import { ref, computed, nextTick, watch, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import {
   Send, Lock, Plus, X, File as FileIcon, Paperclip, FileText, Bot, ShieldAlert, Smile,
-  Sparkles, ArrowRight, ChevronRight, ChevronDown, AlertTriangle,
+  Sparkles, ArrowRight, ChevronRight, ChevronDown, AlertTriangle, Handshake,
 } from 'lucide-vue-next'
 import ApplicationMentionAutocomplete from './ApplicationMentionAutocomplete.vue'
 import { useApplicationComments, type OrgMember, type StageCommentPayload } from '~/composables/useApplicationComments'
@@ -29,11 +29,15 @@ const props = defineProps<{
   replyTo?: { id: string, author: string, preview: string } | null
   placeholder?: string
   compact?: boolean
+  /** Показывать «Передать коллеге» в меню «+» (docs/tz-discussion-referral.md §2.2). */
+  canRefer?: boolean
 }>()
 
 const emit = defineEmits<{
   submitted: []
   cancel: []
+  /** «Передать коллеге» из меню «+» — диалог открывает родитель (у него есть кандидат и вакансия). */
+  referral: []
   /**
    * Этап изменён (с сообщением или без). Родитель обязан пробросить это
    * как `stage-changed` на страницу/шторку — иначе карточка отклика
@@ -646,6 +650,14 @@ const squareBtnClass = 'inline-flex size-8 flex-shrink-0 items-center justify-ce
             <Sparkles class="size-3.5 text-accent-500" />
             {{ busyAction === 'summarize' ? t('comments.summarizing') : t('comments.summarize_thread') }}
           </button>
+          <template v-if="canRefer">
+            <div class="my-1 h-px bg-surface-100 dark:bg-surface-800" />
+            <div class="px-2.5 pb-0.5 pt-1 text-[10px] uppercase tracking-wide text-surface-400">{{ t('comments.candidate_section') }}</div>
+            <button type="button" :class="menuItemClass" @click="plusOpen = false; emit('referral')">
+              <Handshake class="size-3.5 text-brand-600 dark:text-brand-300" />
+              {{ t('referral.title') }}
+            </button>
+          </template>
         </div>
         <input
           ref="fileInputRef"
