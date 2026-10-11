@@ -25,6 +25,8 @@ const props = defineProps<{
   pinnedComments: ThreadComment[]
   /** Закреплённые только для меня (comment_pin_personal). */
   personalPinnedComments?: ThreadComment[]
+  /** Всего сообщений в ленте (для сводки «из N»). */
+  totalMessages?: number
   compact?: boolean
 }>()
 
@@ -95,6 +97,18 @@ const items = computed<BarItem[]>(() => {
 })
 const idx = ref(0)
 watch(items, (list) => { if (idx.value >= list.length) idx.value = 0 })
+
+// ── Сводка по закреплённым: «для всех N · для меня M» + подсказка «из K сообщений» ──
+const pinsAllCount = computed(() => props.pinnedComments.length)
+const pinsMeCount = computed(() => items.value.filter(i => i.kind === 'pin' && i.personal).length)
+const pinsTotal = computed(() => pinsAllCount.value + pinsMeCount.value)
+const pinsSummaryTitle = computed(() => {
+  const total = props.totalMessages ?? 0
+  const base = total > 0
+    ? t('comments.pins_summary_total', { total, pinned: pinsTotal.value })
+    : t('comments.pins_summary_short', { pinned: pinsTotal.value })
+  return `${base}: ${t('comments.pins_for_all', { n: pinsAllCount.value })}, ${t('comments.pins_for_me', { n: pinsMeCount.value })}`
+})
 const current = computed<BarItem | null>(() => items.value[idx.value] ?? null)
 
 function pinPreview(c: ThreadComment): string {
@@ -170,10 +184,23 @@ onMounted(() => {
             </span>
           </span>
         </span>
-        <span class="hidden sm:inline-flex items-center gap-1 text-[10px] text-surface-400 flex-shrink-0">
-          <Pin v-if="current?.kind === 'pin'" class="size-2.5" />
-          {{ current?.kind === 'pin' ? (current.personal ? t('comments.pinned_for_me_badge') : t('comments.pinned_for_all')) : t('comments.context_label') }}
-          <span v-if="items.length > 1" class="tabular-nums">· {{ idx + 1 }}/{{ items.length }}</span>
+        <!-- Сводка: для всех N · для меня M · позиция в карусели -->
+        <span
+          class="inline-flex items-center gap-1 text-[10px] text-surface-400 flex-shrink-0 tabular-nums"
+          :title="pinsSummaryTitle"
+        >
+          <template v-if="current?.kind === 'pin'">
+            <Pin class="size-2.5" />
+            <span class="hidden sm:inline" :class="!current.personal ? 'font-semibold text-surface-600 dark:text-surface-300' : ''">
+              {{ t('comments.pins_for_all', { n: pinsAllCount }) }}
+            </span>
+            <span v-if="pinsMeCount > 0" class="hidden sm:inline">·</span>
+            <span v-if="pinsMeCount > 0" class="hidden sm:inline" :class="current.personal ? 'font-semibold text-surface-600 dark:text-surface-300' : ''">
+              {{ t('comments.pins_for_me', { n: pinsMeCount }) }}
+            </span>
+          </template>
+          <template v-else>{{ t('comments.context_label') }}</template>
+          <span v-if="items.length > 1">· {{ idx + 1 }}/{{ items.length }}</span>
         </span>
       </button>
 

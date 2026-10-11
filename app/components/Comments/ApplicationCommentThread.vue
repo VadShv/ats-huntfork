@@ -326,6 +326,9 @@ function searchStep(dir: 1 | -1) {
   gotoComment(searchMatches.value[searchMatchIdx.value]!)
 }
 
+/** Сообщений людей и hh в ленте (без снапшотов ИИ и служебных записей) — для сводки по закреплённым. */
+const messageCount = computed(() => comments.value.filter(c => !c.kind || c.kind === 'text' || c.kind === 'stage_comment').length)
+
 // ── Закреплённые ──
 const pinnedComments = computed(() =>
   comments.value.filter(c => c.isPinned).sort((a, b) => new Date(b.pinnedAt ?? b.createdAt).getTime() - new Date(a.pinnedAt ?? a.createdAt).getTime()),
@@ -775,6 +778,7 @@ const emptyChipClass = 'inline-flex items-center gap-1.5 rounded-lg border borde
         :candidate-id="candidateId"
         :pinned-comments="pinnedComments"
         :personal-pinned-comments="personalPinnedComments"
+        :total-messages="messageCount"
         :compact="compact"
         @goto="gotoComment"
         @open-screening="emit('openScreening')"

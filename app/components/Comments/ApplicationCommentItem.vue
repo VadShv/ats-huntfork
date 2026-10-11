@@ -131,6 +131,13 @@ const parentPreview = computed(() => {
 const isSelf = computed(() => props.comment.author.id === props.currentUserId)
 const isAuthor = computed(() => props.comment.author.id === props.currentUserId)
 const isHhIncoming = computed(() => props.comment.hhDirection === 'incoming')
+/** Ссылка в профиль автора-коллеги (/dashboard/people/:userId); для ИИ, hh и системных записей — нет. */
+const localePath = useLocalePath()
+const authorProfilePath = computed(() => {
+  if (isAiResponse.value || isHhIncoming.value || isSnapshot.value) return null
+  const id = props.comment.author?.id
+  return id ? localePath(`/dashboard/people/${id}`) : null
+})
 // Снимки и AI-ответы нельзя редактировать (зафиксированные данные), но можно удалить.
 const canEdit = computed(() => !props.readOnly && !isSnapshot.value && !isAiResponse.value && !isHhIncoming.value && isAuthor.value)
 
@@ -220,17 +227,60 @@ async function onDelete() {
   await deleteComment(props.comment.id)
 }
 
-// Manual click-outside for the dropdown menu
+// ── Всплывающие меню («⋯» и палитра реакций) ──
+// Рендерятся через Teleport в body с position: fixed: так их не режет overflow ленты
+// и не перекрывают соседние сообщения/композер. Раскрываются вниз, у нижнего края — вверх.
 const menuRoot = ref<HTMLElement | null>(null)
+const popoverRef = ref<HTMLElement | null>(null)
+const popoverStyle = ref<Record<string, string>>({})
+
+function placePopover() {
+  const anchor = menuRoot.value
+  const pop = popoverRef.value
+  if (!anchor || !pop) return
+  const a = anchor.getBoundingClientRect()
+  const w = pop.offsetWidth
+  const h = pop.offsetHeight
+  const gap = 4
+  const fitsBelow = a.bottom + gap + h <= window.innerHeight - 8
+  const top = fitsBelow ? a.bottom + gap : Math.max(8, a.top - gap - h)
+  const left = Math.max(8, Math.min(a.right - w, window.innerWidth - w - 8))
+  popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px` }
+}
+function closePopovers() {
+  menuOpen.value = false
+  reactionPickerOpen.value = false
+}
+watch([menuOpen, reactionPickerOpen], ([m, r]) => {
+  if (m || r) nextTick(placePopover)
+})
 function handleDocClick(e: MouseEvent) {
   if (!menuOpen.value && !reactionPickerOpen.value) return
-  if (menuRoot.value && !menuRoot.value.contains(e.target as Node)) {
-    menuOpen.value = false
-    reactionPickerOpen.value = false
-  }
+  const t = e.target as Node
+  if (menuRoot.value?.contains(t) || popoverRef.value?.contains(t)) return
+  closePopovers()
 }
-onMounted(() => document.addEventListener('click', handleDocClick))
-onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
+function handleScrollOrResize(e?: Event) {
+  if (!menuOpen.value && !reactionPickerOpen.value) return
+  // Скролл внутри самого меню не закрывает его
+  if (e && popoverRef.value && e.target instanceof Node && popoverRef.value.contains(e.target)) return
+  closePopovers()
+}
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && (menuOpen.value || reactionPickerOpen.value)) closePopovers()
+}
+onMounted(() => {
+  document.addEventListener('click', handleDocClick)
+  document.addEventListener('keydown', handleKeydown)
+  window.addEventListener('scroll', handleScrollOrResize, true)
+  window.addEventListener('resize', handleScrollOrResize)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocClick)
+  document.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('scroll', handleScrollOrResize, true)
+  window.removeEventListener('resize', handleScrollOrResize)
+})
 </script>
 
 <template>
@@ -292,7 +342,17 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
       </div>
       <!-- Meta (только первый в группе) -->
       <div v-if="isFirstInGroup" class="flex items-center gap-1.5 mb-0.5 pr-6">
+        <!-- Имя коллеги — ссылка в профиль участника; ИИ и hh-авторы без ссылки -->
+        <NuxtLink
+          v-if="authorProfilePath"
+          :to="authorProfilePath"
+          class="disc-author text-xs font-semibold no-underline hover:underline underline-offset-2"
+          :title="t('comments.open_author_profile')"
+        >
+          {{ displayName }}
+        </NuxtLink>
         <span
+          v-else
           class="text-xs font-semibold"
           :class="isAiResponse
             ? 'text-accent-700 dark:text-accent-300'
@@ -367,10 +427,13 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
             <SmilePlus class="size-3.5 text-surface-400" />
           </button>
         </template>
-        <div
-          v-if="reactionPickerOpen"
-          class="absolute right-0 top-6 z-30 flex items-center gap-0.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-1.5 py-1 shadow-lg"
-        >
+        <Teleport to="body">
+          <div
+            v-if="reactionPickerOpen"
+            ref="popoverRef"
+            class="fixed z-[90] flex items-center gap-0.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 px-1.5 py-1 shadow-lg"
+            :style="popoverStyle"
+          >
           <button
             v-for="emoji in REACTION_EMOJI_SET.filter(e => !(QUICK_REACTION_EMOJI as readonly string[]).includes(e))"
             :key="emoji"
@@ -381,7 +444,8 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
           >
             {{ emoji }}
           </button>
-        </div>
+          </div>
+        </Teleport>
         <button
           v-if="canEdit || canDelete || canReply"
           type="button"
@@ -391,9 +455,12 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
         >
           <MoreVertical class="size-3.5 text-surface-400" />
         </button>
+        <Teleport to="body">
         <div
           v-if="menuOpen"
-          class="absolute right-0 top-6 z-30 w-40 rounded-md border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 shadow-lg py-1"
+          ref="popoverRef"
+          class="fixed z-[90] w-52 whitespace-nowrap rounded-md border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 shadow-lg py-1"
+          :style="popoverStyle"
         >
           <button
             v-if="canReply"
@@ -442,6 +509,24 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
             <Trash2 class="size-3.5" /> {{ t('comments.delete') }}
           </button>
         </div>
+        </Teleport>
+      </div>
+
+      <!-- Метка закрепления для сообщений внутри группы (строка автора у них скрыта) -->
+      <div v-if="!isFirstInGroup && !isEditing && (comment.isPinned || comment.isPinnedByMe)" class="mb-0.5 flex items-center gap-1">
+        <span
+          v-if="comment.isPinned"
+          class="inline-flex items-center gap-0.5 rounded bg-brand-100 dark:bg-brand-900/40 px-1 py-0.5 text-[9px] font-medium text-brand-700 dark:text-brand-300"
+        >
+          <Pin class="size-2.5" /> {{ t('comments.pinned_badge') }}
+        </span>
+        <span
+          v-else
+          class="inline-flex items-center gap-0.5 rounded bg-surface-100 dark:bg-surface-800 px-1 py-0.5 text-[9px] font-medium text-surface-600 dark:text-surface-300"
+          :title="t('comments.pinned_for_me_hint')"
+        >
+          <Pin class="size-2.5" /> {{ t('comments.pinned_for_me_badge') }}
+        </span>
       </div>
 
       <!-- Editor -->
