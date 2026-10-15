@@ -120,7 +120,34 @@ export function buildGeneratePrompt(opts: GeneratePromptOptions): { system: stri
     parts.push(`Уточнение рекрутёра (приоритетнее общих правил): ${opts.hint.trim()}`)
   }
 
+  // Форма ответа — всегда текстом, даже если провайдер передаёт json_schema:
+  // часть провайдеров/клиентов схему до модели не доносит (json_object), и тогда
+  // модель угадывает корневой ключ и структуру пунктов. См. aiOutputSchemas.ts.
+  parts.push(`Формат ответа (строго, один JSON-объект): ${responseShape(opts.part)}`)
+
   return { system, prompt: parts.join('\n\n') }
+}
+
+/**
+ * Каноническая форма JSON для каждой части — зеркало схем в aiOutputSchemas.ts.
+ * Экспортируется для тестов: промпт и схема не должны разъезжаться.
+ */
+export function responseShape(part: GenerationPart): string {
+  switch (part) {
+    case 'sections':
+      return '{"summary": "строка или null", "sections": [{"sectionType": "title_synonyms|keywords|geo|exclusions|notes", "items": [{"value": "пункт", "note": "комментарий или null"}]}]}. '
+        + 'Каждый пункт — объект с полем value (не строка). Секции — массив под ключом sections.'
+    case 'summary':
+      return '{"summary": "текст вердикта"}'
+    case 'donors':
+      return '{"donors": [{"name": "Компания", "layer": "core|adjacent|school|alumni", "priority": "high|medium|low", "rationale": "почему", "industry": "отрасль или null", "techStack": ["стек"] }]}. '
+        + 'Компании — массив под ключом donors.'
+    case 'segments':
+      return '{"segments": [{"name": "Короткое имя гипотезы", "donorLayer": "core|adjacent|school|alumni|custom", "titles": ["тайтл"], "keywords": ["навык"], "geo": ["город"], "channelCode": "код канала из списка", "priority": "high|medium|low", "rationale": "почему и из какого источника"}]}. '
+        + 'Гипотезы — массив под ключом segments.'
+    case 'query_string':
+      return '{"queryString": "строка запроса", "explanation": "что изменил и почему"}'
+  }
 }
 
 function taskInstruction(opts: GeneratePromptOptions): string {

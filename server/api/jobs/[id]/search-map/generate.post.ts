@@ -15,6 +15,10 @@ import {
   normalizeSectionType, resolveChannel,
 } from '../../../../utils/searchMap/normalizeAiVocab'
 import { buildQueryString, usableExclusions } from '../../../../../shared/searchMap/queryBuilder'
+import {
+  sectionsOutputSchema, summaryOutputSchema, donorsOutputSchema, segmentsOutputSchema, queryOutputSchema,
+  WRAP_BARE_ARRAY, type SectionsOut, type DonorsOut, type SegmentsOut,
+} from '../../../../utils/searchMap/aiOutputSchemas'
 import { loadAiConfig } from '../../../../utils/ai/loadConfig'
 import { generateStructuredOutput, type SupportedProvider } from '../../../../utils/ai/provider'
 import { withAiOperation } from '../../../../utils/ai/usage/context'
@@ -40,57 +44,28 @@ import { randomUUID } from 'node:crypto'
  * доноры, гипотезы и запрос — `analysis` (нужны знания рынка).
  */
 
-const itemSchema = z.object({ value: z.string(), note: z.string().nullish() })
+/**
+ * Схемы ответа модели — server/utils/searchMap/aiOutputSchemas.ts.
+ * Модели в json_schema уходит каноническая форма, а валидация терпима к типовым
+ * отклонениям (пункты строками, секции объектом, переименованный корневой ключ).
+ */
 
-const sectionsOutputSchema = z.object({
-  summary: z.string().nullish(),
-  sections: z.array(z.object({
-    sectionType: z.string(),
-    title: z.string().nullish(),
-    items: z.array(itemSchema).max(25),
-  })).max(8).default([]),
-})
-
-const summaryOutputSchema = z.object({ summary: z.string() })
-
-const donorsOutputSchema = z.object({
-  donors: z.array(z.object({
-    name: z.string(),
-    layer: z.string().nullish(),
-    priority: z.string().nullish(),
-    rationale: z.string().nullish(),
-    industry: z.string().nullish(),
-    techStack: z.array(z.string()).nullish(),
-  })).max(20).default([]),
-})
-
-const segmentsOutputSchema = z.object({
-  segments: z.array(z.object({
-    name: z.string(),
-    donorLayer: z.string().nullish(),
-    titles: z.array(z.string()).nullish(),
-    keywords: z.array(z.string()).nullish(),
-    geo: z.array(z.string()).nullish(),
-    channelCode: z.string().nullish(),
-    priority: z.string().nullish(),
-    rationale: z.string().nullish(),
-  })).max(10).default([]),
-})
-
-const queryOutputSchema = z.object({
-  queryString: z.string(),
-  explanation: z.string().nullish(),
-})
-
-type SectionsOut = z.infer<typeof sectionsOutputSchema>
-type DonorsOut = z.infer<typeof donorsOutputSchema>
-type SegmentsOut = z.infer<typeof segmentsOutputSchema>
+/** Первое расхождение со схемой из цепочки NoObjectGeneratedError → TypeValidationError → ZodError. */
+function schemaIssueHint(err: unknown): string | null {
+  const issue = (err as any)?.cause?.cause?.issues?.[0]
+  if (!issue) return null
+  const path = Array.isArray(issue.path) && issue.path.length ? issue.path.join('.') : 'корень'
+  return `${path}: ${String(issue.message ?? issue.code ?? '').slice(0, 80)}`
+}
 
 function errorText(err: unknown): string {
   const e = err as any
   const msg: string = e?.message ?? String(err)
   if (/abort|timed out/i.test(msg)) return 'модель не ответила за 300 секунд'
-  if (/No object generated|schema|JSON/i.test(msg)) return 'модель вернула ответ не по схеме'
+  if (/No object generated|schema|JSON/i.test(msg)) {
+    const hint = schemaIssueHint(err)
+    return hint ? `модель вернула ответ не по схеме (${hint})` : 'модель вернула ответ не по схеме'
+  }
   if (/401|403|api key|unauthorized/i.test(msg)) return 'провайдер ИИ отклонил ключ (401/403)'
   if (/429|rate limit/i.test(msg)) return 'провайдер ИИ ограничил частоту запросов (429)'
   return msg.slice(0, 200)
@@ -204,6 +179,7 @@ export default defineEventHandler(async (event) => {
         schema,
         schemaName,
         schemaDescription: `Search map: ${part}`,
+        wrapBareArray: part === 'sections' || part === 'donors' || part === 'segments' ? WRAP_BARE_ARRAY[part] : undefined,
         temperature: part === 'query_string' ? 0.1 : 0.3,
         disableThinking: true,
       }))
