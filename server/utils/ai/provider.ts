@@ -490,6 +490,9 @@ export async function generateStructuredOutput<T>(
       }
       if (NoObjectGeneratedError.isInstance(err)) {
         // Модель ответила (токены потрачены), но результат непригоден — это потеря.
+        // В лог — начало сырого ответа: без него причину «не по схеме» не разобрать.
+        const sample = typeof err.text === 'string' ? err.text.trim().slice(0, 400) : ''
+        console.warn(`[ai] structured output (${options.schemaName}) модели ${config.model} не прошёл схему${sample ? `; начало ответа: ${JSON.stringify(sample)}` : ' (пустой ответ)'}`)
         patchAiUsageEvents(usageEventIds, { status: 'error', errorCode: 'schema', errorMessage: String(err.message ?? '').slice(0, 300) })
       }
       throw err
@@ -507,8 +510,8 @@ export async function generateStructuredOutput<T>(
  * в отличие от @ai-sdk/openai, он парсит `reasoning_content` из Chat Completions
  * в reasoning-дельты («мысли» модели становятся видимы в fullStream),
  * а при reasoning=false обёртка fetch отключает thinking-фазу целиком.
- * Используется ТОЛЬКО в streamTextOutput — скрининг (generateStructuredOutput)
- * продолжает ходить через прежний клиент.
+ * Используется в streamTextOutput и в generateStructuredOutput при disableThinking:true
+ * (карта поиска); основной скрининг продолжает ходить через прежний клиент.
  */
 function createCloudRuStreamModel(config: ProviderConfig, reasoningOn: boolean) {
   const secret = env.BETTER_AUTH_SECRET
@@ -524,6 +527,12 @@ function createCloudRuStreamModel(config: ProviderConfig, reasoningOn: boolean) 
     apiKey,
     baseURL: config.baseUrl || 'https://foundation-models.api.cloud.ru/v1',
     includeUsage: true,
+    // Без этого флага @ai-sdk/openai-compatible шлёт только response_format: json_object,
+    // а JSON-схема generateObject до модели не доходит (AI SDK 6 не подмешивает её в промпт).
+    // Именно так ломалась карта поиска: единственный structured-вызов с disableThinking:true
+    // шёл этим клиентом, и модель угадывала форму ответа по тексту промпта.
+    // Основной путь (createOpenAI().chat) и так отправляет json_schema — поведение выравниваем.
+    supportsStructuredOutputs: true,
     fetch: createCloudRuFetch(reasoningOn ? null : thinkingFamilyFor(config.model)),
   })
   return withUsageTracking(provider.chatModel(config.model), config)

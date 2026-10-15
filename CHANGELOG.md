@@ -16,6 +16,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com). Categories: **Add
 * **blog:** add Cluster 8 career page articles — pillar (career-page-that-converts) and two supporting articles (career-page-seo, google-for-jobs-structured-data)
 * **blog:** add incoming links to career page content from how-applicant-tracking-systems-work, open-source-applicant-tracking-system, and self-hosted-vs-cloud-ats
 
+### Fixed
+
+* **search-map:** ИИ-генерация в карте вакансии падала с «Секции: модель вернула ответ не по схеме». Причина: при `disableThinking` для Cloud.ru (GLM/Qwen) клиент `@ai-sdk/openai-compatible` отправлял только `response_format: json_object`, и JSON-схема до модели не доходила. Теперь схема передаётся (`supportsStructuredOutputs`), форма ответа дублируется текстом в промпте, схемы ответа терпимы к типовым отклонениям (пункты строками, секции объектом, переименованный корневой ключ, голый массив), а в 502 и логах виден путь расхождения со схемой и начало сырого ответа.
+
 ---
 
 ## [1.4.0](https://github.com/reqcore-inc/reqcore/compare/v1.3.0...v1.4.0) (2026-04-30)
