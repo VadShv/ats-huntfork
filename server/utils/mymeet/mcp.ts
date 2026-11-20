@@ -20,6 +20,7 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { describeFetchError } from './rest'
 
 const MYMEET_MCP_URL = process.env.MYMEET_MCP_URL || 'https://mcp.mymeet.ai/mcp'
 
@@ -29,16 +30,36 @@ export interface McpTool {
   inputSchema?: unknown
 }
 
+const MCP_TIMEOUT_MS = Number(process.env.MYMEET_MCP_TIMEOUT_MS || 30_000)
+
+export function mymeetMcpHost(): string {
+  try { return new URL(MYMEET_MCP_URL).host }
+  catch { return MYMEET_MCP_URL }
+}
+
+/**
+ * Один MCP-сеанс на вызов. Ошибки сети оборачиваются в понятное сообщение:
+ * undici отдаёт голое «fetch failed», причина (ECONNRESET/ENOTFOUND/ETIMEDOUT) лежит
+ * в `cause` — вытаскиваем её вместе с хостом, иначе в UI непонятно, что случилось.
+ */
 async function withClient<T>(apiKey: string, fn: (client: Client) => Promise<T>): Promise<T> {
   const transport = new StreamableHTTPClientTransport(new URL(MYMEET_MCP_URL), {
     requestInit: { headers: { Authorization: `Bearer ${apiKey}` } },
   })
   const client = new Client({ name: 'reqcore-mymeet', version: '1.0.0' })
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`таймаут ${Math.round(MCP_TIMEOUT_MS / 1000)}с`)), MCP_TIMEOUT_MS)
+  })
   try {
-    await client.connect(transport)
-    return await fn(client)
+    await Promise.race([client.connect(transport), timeout])
+    return await Promise.race([fn(client), timeout])
+  }
+  catch (err) {
+    throw new Error(`MCP: ${describeFetchError(err, mymeetMcpHost())}`)
   }
   finally {
+    if (timer) clearTimeout(timer)
     await client.close().catch(() => {})
   }
 }

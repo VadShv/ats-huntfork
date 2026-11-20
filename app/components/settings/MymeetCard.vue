@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Video, Check, Unplug, RefreshCw } from 'lucide-vue-next'
+import { Video, Check, X, Unplug, RefreshCw } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -8,6 +8,16 @@ const { allowed: canManage } = usePermission({ organization: ['update'] })
 
 const apiKey = ref('')
 const busy = ref(false)
+
+/** Строки состояния транспортов для карточки (REST — основной, MCP — запасной). */
+const transportRows = computed(() => {
+  const tr = status.value.transports
+  if (!tr) return []
+  return [
+    { key: 'rest', label: t('settings.mymeet.transportRest'), host: 'backend.mymeet.ai', ok: tr.rest?.ok ?? false, error: tr.rest?.error ?? null },
+    { key: 'mcp', label: t('settings.mymeet.transportMcp'), host: 'mcp.mymeet.ai', ok: tr.mcp?.ok ?? false, error: tr.mcp?.error ?? null },
+  ]
+})
 
 async function onConnect() {
   if (!apiKey.value.trim()) return
@@ -76,6 +86,28 @@ async function onDisconnect() {
     </template>
 
     <template v-else>
+      <!-- Состояние каналов: REST (backend.mymeet.ai, РФ) и MCP (mcp.mymeet.ai, Google Cloud) -->
+      <div v-if="status.transports" class="mb-3 space-y-1">
+        <p class="text-xs font-medium text-surface-500">{{ t('settings.mymeet.transports') }}:</p>
+        <div
+          v-for="tr in transportRows"
+          :key="tr.key"
+          class="flex items-start gap-2 text-xs"
+        >
+          <span
+            class="mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded-full"
+            :class="tr.ok ? 'bg-success-50 text-success-600 dark:bg-success-950/50 dark:text-success-400' : 'bg-danger-50 text-danger-600 dark:bg-danger-950/50 dark:text-danger-400'"
+          >
+            <Check v-if="tr.ok" class="size-3" />
+            <X v-else class="size-3" />
+          </span>
+          <span class="text-surface-700 dark:text-surface-200">
+            <span class="font-medium">{{ tr.label }}</span>
+            <span class="text-surface-400"> · {{ tr.host }}</span>
+            <span v-if="!tr.ok && tr.error" class="block text-danger-600 dark:text-danger-400">{{ tr.error }}</span>
+          </span>
+        </div>
+      </div>
       <div v-if="status.tools.length" class="mb-3">
         <p class="mb-1 text-xs font-medium text-surface-500">{{ t('settings.mymeet.discovered') }}:</p>
         <div class="flex flex-wrap gap-1">
