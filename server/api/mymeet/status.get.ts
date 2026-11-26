@@ -14,11 +14,15 @@ export default defineEventHandler(async (event) => {
     columns: { id: true, lastToolsJson: true, lastCheckedAt: true },
   })
 
-  const tools = (row?.lastToolsJson as { tools?: Array<{ name: string, description?: string }> } | null)?.tools ?? []
+  const cached = row?.lastToolsJson as {
+    tools?: Array<{ name: string, description?: string }>
+    transports?: { rest?: { ok: boolean, error?: string | null }, mcp?: { ok: boolean, error?: string | null } }
+  } | null
   return {
     connected: Boolean(row),
     hasApiKey: Boolean(row),
     lastCheckedAt: row?.lastCheckedAt ?? null,
-    tools,
+    tools: cached?.tools ?? [],
+    transports: cached?.transports ?? null,
   }
 })

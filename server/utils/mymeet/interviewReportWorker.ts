@@ -12,7 +12,7 @@ import {
 } from '../../database/schema'
 import { getBoss } from '../queue/boss'
 import { getMymeetApiKey } from './account'
-import { callMymeetByKey } from './mcp'
+import { fetchMeetingTranscript, MymeetNotReadyError } from './client'
 import { loadAiConfig } from '../ai/loadConfig'
 import type { SupportedProvider } from '../ai/provider'
 import {
@@ -63,17 +63,24 @@ async function runInterviewReportJob(payload: InterviewReportPayload): Promise<v
   const apiKey = await getMymeetApiKey(orgId)
   if (!apiKey) return fail(orgId, meetingReportId, 'MyMeet не подключён')
 
-  // 1) Транскрипт из MyMeet.
+  // 1) Транскрипт из MyMeet (REST → MCP, см. client.ts).
   let transcript = ''
   try {
-    const res = await callMymeetByKey(apiKey, 'getTranscript', { meeting_id: externalMeetingId, meetingId: externalMeetingId })
-    transcript = res?.text?.trim() || ''
-    if (!transcript && res?.json) transcript = JSON.stringify(res.json)
+    const res = await fetchMeetingTranscript(apiKey, externalMeetingId)
+    transcript = res.text
+    logInfo('mymeet.transcript_fetched', { meeting_report_id: meetingReportId, via: res.via, chars: transcript.length, module: 'mymeet' })
   }
   catch (e) {
-    return fail(orgId, meetingReportId, `Не удалось получить транскрипт: ${e instanceof Error ? e.message : String(e)}`)
+    if (e instanceof MymeetNotReadyError) {
+      // Запись ещё обрабатывается — не «ошибка», а «подождать»: pg-boss повторит джобу.
+      await db.update(meetingReport)
+        .set({ errorMessage: `${e.message}. Повторим автоматически.` })
+        .where(and(eq(meetingReport.id, meetingReportId), eq(meetingReport.organizationId, orgId)))
+      throw e
+    }
+    return fail(orgId, meetingReportId, e instanceof Error ? e.message : String(e))
   }
-  if (!transcript) return fail(orgId, meetingReportId, 'Транскрипт пуст или tool не найден (discovery)')
+  if (!transcript) return fail(orgId, meetingReportId, 'Транскрипт пуст')
 
   // 2) Опросник (основные вопросы активного набора/snapshot).
   const set = await db.query.applicationQuestionSet.findFirst({

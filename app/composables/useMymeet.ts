@@ -1,11 +1,14 @@
 import type { MaybeRefOrGetter } from 'vue'
 
 export interface MymeetTool { name: string, description?: string }
+export interface MymeetTransportState { ok: boolean, error?: string | null, endpoint?: string }
 export interface MymeetStatus {
   connected: boolean
   hasApiKey: boolean
   lastCheckedAt: string | null
   tools: MymeetTool[]
+  /** Результат последней проверки каналов: REST (основной) и MCP (запасной). */
+  transports?: { rest?: MymeetTransportState, mcp?: MymeetTransportState } | null
 }
 export interface MymeetMeeting { id: string, title: string | null, date: string | null, durationSec: number | null }
 
@@ -16,7 +19,7 @@ export function useMymeet() {
   const { data: status, refresh } = useFetch<MymeetStatus>('/api/mymeet/status', {
     key: 'mymeet-status',
     headers: useRequestHeaders(['cookie']),
-    default: () => ({ connected: false, hasApiKey: false, lastCheckedAt: null, tools: [] }),
+    default: () => ({ connected: false, hasApiKey: false, lastCheckedAt: null, tools: [], transports: null }),
   })
 
   async function guard<T>(fn: () => Promise<T>): Promise<T> {
